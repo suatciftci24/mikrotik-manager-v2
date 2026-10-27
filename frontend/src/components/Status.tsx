@@ -3,7 +3,7 @@ import { CircleHelp, Check, Clock3, RadioTower, Router as RouterIcon, Users } fr
 import type { ReactNode } from 'react';
 
 export function StatusBadge({ status }: { status: string }) {
-  const labels: Record<string, string> = { ONLINE: 'Çevrimiçi', DEGRADED: 'Dikkat', OFFLINE: 'Çevrimdışı', ACTIVE: 'Aktif', PAUSED: 'Duraklatıldı', PENDING: 'Bekliyor' };
+  const labels: Record<string, string> = { ONLINE: 'Çevrimiçi', DEGRADED: 'Dikkat', OFFLINE: 'Çevrimdışı', ACTIVE: 'Aktif', PAUSED: 'Duraklatıldı', PENDING: 'Bekliyor', UNKNOWN: 'Bilinmiyor' };
   return <span className={`status-badge ${status.toLowerCase()}`}><i />{labels[status] ?? status}</span>;
 }
 

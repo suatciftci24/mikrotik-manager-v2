@@ -7,11 +7,14 @@ export function useDetailNavigation(kind: 'routers' | 'subscribers') {
   };
   const origin = useRef<{element: HTMLElement | null; scroll: number} | null>(null);
   const [selected, setSelected] = useState<string | null>(read);
+  const previousSelection = useRef(selected);
   useEffect(() => {
     const changed = () => {
       const id = read();
+      const wasDetail = previousSelection.current;
+      previousSelection.current = id;
       setSelected(id);
-      if (!id && origin.current) {
+      if (wasDetail && !id && origin.current) {
         const previous = origin.current;
         requestAnimationFrame(() => { previous.element?.focus({preventScroll: true}); window.scrollTo(0, previous.scroll); });
       }
@@ -21,6 +24,8 @@ export function useDetailNavigation(kind: 'routers' | 'subscribers') {
   }, [kind]);
   return {selected, open: (id: string) => {
     origin.current = {element: document.activeElement as HTMLElement | null, scroll: window.scrollY};
-    window.location.hash = new URLSearchParams({module: kind, id}).toString();
-  }, back: () => { if (origin.current) window.history.back(); else {window.history.replaceState(null, '', window.location.pathname + window.location.search);setSelected(null);}  }};
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    params.set('module', kind);params.set('id', id);
+    window.location.hash = params.toString();
+  }, back: () => { if (origin.current) window.history.back(); else {const params=new URLSearchParams(window.location.hash.slice(1));params.set('module',kind);params.delete('id');window.history.replaceState(null, '', window.location.pathname + window.location.search+'#'+params.toString());previousSelection.current=null;setSelected(null);window.dispatchEvent(new HashChangeEvent('hashchange'));}  }};
 }

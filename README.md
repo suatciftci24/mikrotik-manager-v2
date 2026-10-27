@@ -10,7 +10,7 @@ cd /home/suatpc/Codex-Projects/mikrotik-manager-v2
 ./dev.sh
 ```
 
-Open `http://127.0.0.1:5173`. Sign in with the synthetic demo account `demo` / `demo-only` (profile email `demo@local.test`). Dashboard, Router Center, and Subscriber Center show synthetic data; the other four modules have planned-scope empty states. The browser API is served by FastAPI at loopback; `/api/health` confirms no DB or device adapter connection.
+Open `http://127.0.0.1:5173`. Sign in with the synthetic demo account `demo` / `demo-only` (profile email `demo@local.test`). Dashboard, Router Center, and Subscriber Center show synthetic data; the other four modules have planned-scope empty states. The browser API is served by FastAPI at loopback; `/api/health` reports local demo storage connectivity and device-adapter isolation.
 
 The first run prepares V2-specific Python/frontend dependencies. First-time dependency installation needs normal package-registry access. Demo persistence uses the existing SQLAlchemy/psycopg stack and locally installed PostgreSQL 16; no additional Python/npm package is introduced. The explicit `--prepare-demo` maintenance command starts only a repo-owned development PostgreSQL cluster and applies/seeds only the isolated demo schema. Normal `./dev.sh` startup neither connects to the DB nor runs migrations; API reads/writes connect on demand. The original `001_initial_v2.sql` domain design is not applied by demo setup.
 
@@ -155,3 +155,35 @@ reset by tests. Without the explicit flag the PostgreSQL integration class is sk
 A running API from an older commit is not hot-swapped or restarted by this change.
 The current UI detects its `process-memory` response and disables temporary writes;
 persistent editing is enabled when the updated API is next opened normally.
+
+
+## Daily management summary
+
+The existing Dashboard is the daily summary screen. Its totals come from the
+existing authenticated router inventory and subscriber detail contracts, not the
+legacy `/dashboard/summary` aggregate fixture or the router's separate subscriber
+counter. The shared frontend loader reads each small demo subscriber's consistent
+item/history pair; no new backend endpoint, schema, data write or live connection
+is introduced. Failed or incomplete reads show an error/retry state rather than
+fabricated zero counts. Empty inventories and empty saved history have explicit
+empty states.
+
+Router online/offline/degraded counts describe saved synthetic inventory status,
+with original observation timestamps shown. Subscriber totals, lifecycle/source
+breakdowns, expired/7-day/30-day/unknown expiry and recent saved renewal/date-edit
+operations use current demo records. The 30-day horizon includes the first 7 days
+and today. Today is calculated in Europe/Istanbul; saved operation timestamps are
+converted from UTC. Recent events can include earlier days, separately from today's
+operation count. No live session, measured traffic or payment source exists, so
+those fields show “Veri yok”. Example growth/revenue/traffic/activity values are no
+longer shown as daily management facts.
+
+Summary cards and breakdown buttons open existing filtered Router/Subscriber
+lists. Validated URL filter state survives detail return and reload; offline router
+and pending subscriber filters are available. Operation links open the subscriber's
+detail. The summary refreshes on explicit retry, shared subscription/router change
+notifications and Turkey calendar-day rollover. The header labels the environment
+as synthetic rather than claiming every system is healthy.
+
+Targeted daily-summary tests: `node --test frontend/tests/dailySummary.test.mjs`
+(Node 22.18+). Frontend build remains `npm --prefix frontend run build`.

@@ -143,6 +143,20 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - UI/API güncel kalıcı sürümle çalışır bırakıldı. V1, VDS, üretim, router, RADIUS ve gerçek abone verilerine dokunulmadı. Ürün kodu veya yapılandırma değiştirilmedi; yalnız bu belge güncellendi.
 - Sıradaki somut adım: kullanıcının panelde etkin kalıcı demo akışını incelemesi; açık başka geliştirme veya servis işlemi kapsamı yok.
 
+## Günlük yönetim özeti — 2026-10-27
+
+- Görev başında kurallar, ilerleme, dashboard ve veri kaynakları incelendi; branch `main`, HEAD `10fc0b7`, çalışma ağacı temizdi. Yeni ekran oluşturulmadı; mevcut Dashboard'un panel/kart düzeni korundu.
+- Dashboard'un sabit 649 abonelik/örnek gelir-artış-grafik/örnek aktivite değerleri günlük özet kaynağı olmaktan çıkarıldı. Ortak frontend okuma projeksiyonu mevcut sürümlü router, abone listesi ve detay/geçmiş API'lerini kullanıyor. Mevcut küçük demo envanteri için abone başına detay okuması yapılıyor; backend sözleşmesi/şema/migration değiştirilmedi.
+- Router çevrimiçi/çevrimdışı/dikkat/bilinmeyen sayıları sentetik envanter kaydı olarak, özgün kaynak zamanıyla gösteriliyor. Abonelik toplamı, hesap durumu, LOCAL/RADIUS/bilinmeyen kaynak, süresi dolmuş/7 gün/30 gün/bilinmeyen bitiş ve son 5 kaydedilmiş demo işlemi desteklenen kayıtlardan hesaplanıyor. Bugünkü işlem sayısı Türkiye gününe göre ayrıdır; son işlem listesi geçmiş günleri de içerebilir.
+- Canlı router sağlığı, abone çevrimiçi oturumu, ölçülmüş trafik ve günlük tahsilat kaynağı yok; “Veri yok” gösteriliyor. Aktif hesap çevrimiçi oturum olarak sunulmuyor. Üst çubuktaki doğrulanmamış “Tüm sistemler normal” ifadesi “Sentetik demo ortamı” oldu.
+- Kart/dağılım bağlantıları mevcut filtreli listeleri ve detayları açıyor. Filtreler doğrulanmış URL state'iyle reload ve detaydan dönüşte korunuyor; Router Çevrimdışı ve Abone Bekliyor seçenekleri tamamlandı. Yeni seçimler yapılırken önceki detay odağının filtreleri kesintiye uğratması önlendi.
+- Ortak kaynak hook'u hesaplanan okuma yükleyicisini ve bağlı kaynakların invalidation bildirimlerini destekliyor. Özeti yenile/tekrar dene, Türkiye gece yarısında gün yenileme, yükleniyor, hatada sahte sıfır üretmeme ve boş envanter/geçmiş durumları tamamlandı. Tema renkleri ve okunaklı yazı ölçeği korundu.
+- Kontroller geçti: son TypeScript/Vite derlemesi ve `node --test frontend/tests/dailySummary.test.mjs` ile gerçek kayıt sayımı (router'ın 649 aggregate sayacından bağımsız), tarih eşikleri, Türkiye gece yarısında işlem sayımı/sıralama, boş veriler, sentetik/tekil/geçerli zaman kontrolleri ve mevcut API yükleme/hata aktarımı. Backend ve değişmeyen kaynak/tarih test paketleri gereksiz yere tekrarlanmadı.
+- Gerçek yerel panelde yalnız okumayla 7 kayıt/2 geçmiş olayı doğrulandı. 13 filtre bağlantısı, detay/geçmiş bağlantısı, geri dönüş ve URL reload/sıfırlama, üç tema/320 px, yükleniyor-hata-tekrar dene-boş durumdan toparlanma geçti. Beyaz/Gece mobil görüntüleri incelendi.
+- Kalan ayrı kapsamda mobil offline/pending filtre yerleşimleri, abonelik bildirimiyle özetin yeniden yüklenmesi ve mock saatle Türkiye gece yarısında gün/süresi dolan/bugünkü işlem sayılarının otomatik değişimi geçti. Gerçek tarih/abonelik verisi değiştirilmedi.
+- Servis restartı, yeni test aboneliği/işlemi, DB yazma, üretim/V1/VDS/router/RADIUS bağlantısı yapılmadı. Mevcut yerel UI/API çalışma yöntemi kullanıldı; yeni backend açılışı gerekmedi. Yalnız frontend, hedefli test ve belgeler değişti.
+- Sıradaki somut adım: kullanıcının mevcut panelde günlük özeti ve filtre bağlantılarını incelemesi; yeni canlı veri veya başka geliştirme kapsamı belirlenmedi.
+
 ## Sıradaki işler — henüz başlanmadı
 
 - Kullanıcının sonraki açık geliştirme talimatını bekle; bu belge görevi ürün geliştirmesi başlatma yetkisi vermez.
