@@ -20,10 +20,10 @@ export function ExpiryEditor({subscriber, today, onClose, onSaved, persistence}:
   const source = subscriberSource(subscriber.source);
   useEffect(() => {
     const origin = document.activeElement as HTMLElement | null;
-    dialog.current?.showModal();
-    return () => { dialog.current?.close(); origin?.focus({preventScroll: true}); };
+    const node=dialog.current;node?.showModal();
+    return () => { node?.close(); if(origin?.isConnected)origin.focus({preventScroll: true}); };
   }, []);
-  useEffect(() => { if (review) dialog.current?.querySelector<HTMLElement>('h2')?.focus(); }, [review]);
+  useEffect(() => { dialog.current?.querySelector<HTMLElement>(review?'h2':'form input, form select')?.focus(); }, [review]);
   const prepare = (event: FormEvent) => {
     event.preventDefault(); setError('');
     const info = expiryInfo(value, today);
@@ -46,7 +46,7 @@ export function ExpiryEditor({subscriber, today, onClose, onSaved, persistence}:
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Demo değişikliği tamamlanamadı.'); }
     finally { sending.current = false; setPending(false); }
   };
-  return <dialog ref={dialog} className="expiry-dialog" aria-labelledby="expiry-editor-title" aria-describedby="expiry-editor-demo" onCancel={event => {event.preventDefault(); if (!sending.current) onClose();}}>
+  return <dialog ref={dialog} className="expiry-dialog" aria-busy={pending} aria-labelledby="expiry-editor-title" aria-describedby="expiry-editor-demo" onCancel={event => {event.preventDefault(); if (!sending.current) onClose();}}>
     <h2 id="expiry-editor-title" tabIndex={-1}>{review ? 'Demo değişikliğini onaylayın' : 'Demo bitiş tarihini düzenle / yenile'}</h2>
     <p id="expiry-editor-demo">Bu işlem yalnız V2 yerel geliştirme veritabanındaki sentetik demo kaydını günceller. Tarih ve geçmiş sayfa yenilemesi ve uygulama yeniden açılması sonrasında korunur; gerçek abonelik değişmez.</p>
     <p><strong>{subscriber.customer_name}</strong> · <SourceBadge source={subscriber.source}/></p>

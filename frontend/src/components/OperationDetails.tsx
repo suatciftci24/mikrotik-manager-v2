@@ -9,8 +9,8 @@ export function OperationDetails({event,onClose,onSubscriber}:{event:DailyOperat
   const dialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{
     const origin=document.activeElement as HTMLElement|null;
-    dialog.current?.showModal();
-    return()=>{dialog.current?.close();origin?.focus({preventScroll:true});};
+    const node=dialog.current;node?.showModal();
+    return()=>{node?.close();if(origin?.isConnected)origin.focus({preventScroll:true});};
   },[]);
   const [previous,next]=historyValues(event);
   return <dialog ref={dialog} className="expiry-dialog operation-dialog" aria-labelledby="operation-detail-title" onCancel={e=>{e.preventDefault();onClose();}}>

@@ -1,3 +1,4 @@
+import { durationText } from '../lib/routerEvents';
 import { useState } from 'react';
 import type { Subscriber } from '../lib/api';
 import { expiryDate, turkeyToday } from '../lib/expiry';
@@ -36,18 +37,18 @@ function SubscriberReportContent({subscriber, today}: {subscriber: Subscriber; t
       <h3>Bağlantı özeti</h3>
       <Facts items={[
         ['Oturum bağlantı durumu',latest?latest.state==='ACTIVE'?'Aktif (sentetik kayıt)':latest.state==='CLOSED'?'Kapalı (sentetik kayıt)':'Bilinmiyor':'Veri yok'], ['Oturum başlangıcı',latest?.started_at?dateTime(latest.started_at):'Veri yok'],
-        ['Oturum bitişi',latest?.ended_at?dateTime(latest.ended_at):'Veri yok'], ['Bağlantı süresi',latest?.duration!==null&&latest?.duration!==undefined?`${latest.duration} sn`:'Veri yok'],
+        ['Oturum bitişi',latest?.ended_at?dateTime(latest.ended_at):'Veri yok'], ['Bağlantı süresi',latest?.duration!==null&&latest?.duration!==undefined?durationText(latest.duration):'Veri yok'],
         ['Demo IP kaydı',observation.ip],
         ['Son görülme (sentetik envanter)',observation.last_seen?dateTime(observation.last_seen):'Veri yok'],
       ]}/>
       <p>Son görülme ve IP dönemden bağımsız envanter bilgileridir; oturum başlangıcı, canlı erişim veya çevrimiçi oturum kanıtı değildir. Hesap etkinliği bağlantı durumu değildir.</p>
       <h3>Seçili dönemde bağlantı geçmişi</h3>
-      {history.length>0&&<ul className="subscriber-history">{history.map(session=><li key={session.id}><strong>{session.state==='ACTIVE'?'Aktif demo oturum kaydı':session.state==='CLOSED'?'Kapalı demo oturum kaydı':'Bilinmiyor'}</strong><span>{dateTime(session.started_at)} → {session.ended_at?dateTime(session.ended_at):'Veri yok'} · {session.duration===null?'Veri yok':session.duration+' sn'}</span></li>)}</ul>}
+      {history.length>0&&<ul className="subscriber-history">{history.map(session=><li key={session.id}><strong>{session.state==='ACTIVE'?'Aktif demo oturum kaydı':session.state==='CLOSED'?'Kapalı demo oturum kaydı':'Bilinmiyor'}</strong><span>{dateTime(session.started_at)} → {session.ended_at?dateTime(session.ended_at):'Veri yok'} · {session.duration===null?'Veri yok':durationText(session.duration)}</span></li>)}</ul>}
       {!history.length&&<p className="missing-data">Veri yok. Aboneye ait oturum başlangıç/bitiş kayıtları mevcut demo API’sinde bulunmuyor; bağlantı sayısı ve süresi hesaplanamaz. Yönetim işlem geçmişi bağlantı geçmişi sayılmaz.</p>}
     </DetailSection>
     <DetailSection title="Abone trafik kullanımı">
       <p>Türkiye takvimine göre dönem özeti. Tüm indirme/yükleme/toplam alanları aynı veri birimiyle gösterilir; yalnız kaydedilmiş sentetik bayt ölçümleri toplanır. Rakamlar dönem içindeki mevcut örneklerin toplamıdır; tam dönem kapsaması veya canlı kullanım iddiası değildir.</p>
-      <div className="table-scroll"><table className="data-table subscriber-traffic-table">
+      <div className="table-scroll" tabIndex={0} role="region" aria-label="Abone trafik tablosu"><table className="data-table subscriber-traffic-table">
         <caption>Sentetik abone · kayıtlı trafik örnekleri · MiB (1 MiB = 1.048.576 bayt)</caption>
         <thead><tr><th scope="col">DÖNEM</th><th scope="col">İNDİRME</th><th scope="col">YÜKLEME</th><th scope="col">TOPLAM</th></tr></thead>
         <tbody>{periods.map(item=><tr key={item.id} aria-current={item.id===period?'true':undefined}><th scope="row">{item.label}<small className="subscriber-report-range">{expiryDate(item.start)} – {expiryDate(item.end)}{item.id===period?' · Seçili dönem':''}</small></th><td>{bytesText(item.download)}</td><td>{bytesText(item.upload)}</td><td>{bytesText(item.total)}</td></tr>)}</tbody>

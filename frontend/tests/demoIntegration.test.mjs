@@ -56,6 +56,6 @@ test('actual seed report renders numeric MiB values and session records in the e
  const code=buildSync({entryPoints:[entry],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
  const module={exports:{}};new Function('require','module','exports',code)(createRequire(import.meta.url),module,module.exports);
  const html=renderToStaticMarkup(createElement(module.exports.SubscriberReports,{subscriber:data.samples[0].item,today}));
- assert.match(html,/22,5 MiB/);assert.match(html,/Aktif \(sentetik kayıt\)/);assert.match(html,/3600 sn/);
+ assert.match(html,/22,5 MiB/);assert.match(html,/Aktif \(sentetik kayıt\)/);assert.match(html,/3\.600 sn/);
  assert.match(html,/SENTETİK/);assert.match(html,/tam dönem kapsaması veya canlı kullanım iddiası değildir/);
 });

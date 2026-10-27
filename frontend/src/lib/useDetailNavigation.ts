@@ -29,3 +29,9 @@ export function useDetailNavigation(kind: 'routers' | 'subscribers') {
     window.location.hash = params.toString();
   }, back: () => { if (origin.current) window.history.back(); else {const params=new URLSearchParams(window.location.hash.slice(1));params.set('module',kind);params.delete('id');window.history.replaceState(null, '', window.location.pathname + window.location.search+'#'+params.toString());previousSelection.current=null;setSelected(null);window.dispatchEvent(new HashChangeEvent('hashchange'));}  }};
 }
+
+/** Empty hash is a real Dashboard destination when returning with browser history. */
+export function screenFromHash(hash: string): 'routers'|'subscribers'|'operations'|'dashboard' {
+  const key=new URLSearchParams(hash.replace(/^#/, '')).get('module');
+  return key==='routers'||key==='subscribers'||key==='operations'?key:'dashboard';
+}

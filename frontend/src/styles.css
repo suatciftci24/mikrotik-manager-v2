@@ -96,3 +96,19 @@ input::placeholder{color:var(--muted);opacity:1}
 .router-management-events{grid-column:1/-1;min-width:0}.central-events{padding:18px}.central-events p{font-size:var(--font-body);line-height:1.7;color:var(--text-secondary)}.central-events .button-secondary{display:inline-flex;max-width:100%;white-space:normal;text-decoration:none}.router-management-events .panel{min-width:0}
 
 .alarm-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.alarm-count-card{padding:18px!important;text-decoration:none;white-space:normal!important}.alarm-events{min-width:0}.detail-grid>.alarm-events{grid-column:1/-1}.alarm-filters{flex-wrap:wrap;gap:12px}.alarm-filters .form-label{min-width:150px;flex:1}.alarm-events .table-scroll{max-width:100%}.alarm-events table{min-width:740px}@media(max-width:650px){.alarm-card-grid{grid-template-columns:minmax(0,1fr)}.alarm-filters .form-label{min-width:0;flex-basis:100%}}
+
+/* Common interaction sizing and containment across the existing screens. */
+.screen-stack,.page-heading-row>div,.heading-actions,.panel-heading>div,.metric-card-top>span:first-child{min-width:0}
+.page-heading-row,.panel-heading{gap:14px;flex-wrap:wrap}.page-heading-row p,.panel-heading p,.metric-card-top,.metric-foot,.detail-section h2,.detail-facts dt,.subscriber-history li{overflow-wrap:anywhere}
+.heading-actions{flex-wrap:wrap;max-width:100%}.heading-actions button,.expiry-editor-actions a{white-space:normal;max-width:100%}
+.button-primary,.button-secondary,.icon-button,.theme-option,.filter-tabs button,.filter-strip button,.filter-strip select,.subscriber-panel .subscriber-filters select{min-height:44px}
+.icon-button,.theme-option{min-width:44px}.button-primary,.button-secondary{line-height:1.5}
+.expiry-editor-actions a{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.data-table .record-link,.assigned-list .record-link,.daily-router-name .record-link,.daily-operations .record-link{display:inline-flex;align-items:center;min-height:44px;overflow-wrap:anywhere}
+.table-scroll:focus-visible{outline-offset:-3px}.table-scroll{max-width:100%}.resource-error,.loading-state,.missing-data{overflow-wrap:anywhere;line-height:1.65}
+.expiry-dialog .detail-facts>div{flex-wrap:wrap}.expiry-dialog .detail-facts dd{text-align:left;max-width:100%}.expiry-dialog button{min-height:44px}.expiry-dialog .expiry-editor-cancel{width:100%}
+.command-modal{padding:0;margin:auto;max-height:calc(100dvh - 32px);overflow-y:auto;color:var(--text);width:min(530px,calc(100vw - 24px))}.command-modal::backdrop{background:color-mix(in srgb,var(--shadow) 60%,transparent)}
+.command-modal .command-results{max-height:min(420px,55dvh);overflow-y:auto}.command-modal .command-results>button{width:100%;text-align:left}.command-modal .command-input{min-height:60px}.command-modal .command-input input{min-height:44px}.command-modal .command-input kbd{flex-shrink:0}
+@media(max-width:1000px){.detail-facts>div{flex-wrap:wrap}.detail-facts dd{text-align:left}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.metric-grid{grid-template-columns:minmax(0,1fr)}.heading-actions{width:100%}.heading-actions>button{flex:1 1 100%}.expiry-editor-actions a{width:100%}.central-events{padding:14px}.command-modal .command-input{gap:6px;padding:0 10px}.command-modal .command-input kbd{display:none}}
+.text-link{display:inline-flex;align-items:center;min-height:44px}.toast>button{min-width:44px;min-height:44px}.command-modal .command-result-icon{flex-shrink:0}.command-modal .command-results button>span:nth-child(2){min-width:0;overflow-wrap:anywhere}

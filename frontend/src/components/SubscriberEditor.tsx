@@ -21,8 +21,8 @@ export function SubscriberEditor({mode, subscriber, onClose, onSaved}: {
   const [router,setRouter]=useState('');const [source,setSource]=useState<'LOCAL'|'RADIUS'>('LOCAL');
   const [plan,setPlan]=useState('');const [status,setStatus]=useState('PAUSED');const [expires,setExpires]=useState('');
   const [review,setReview]=useState<Review|null>(null);const [pending,setPending]=useState(false);const [error,setError]=useState('');
-  useEffect(()=>{const origin=document.activeElement as HTMLElement|null;dialog.current?.showModal();return()=>{dialog.current?.close();origin?.focus({preventScroll:true});};},[]);
-  useEffect(()=>{if(review)dialog.current?.querySelector<HTMLElement>('h2')?.focus();},[review]);
+  useEffect(()=>{const origin=document.activeElement as HTMLElement|null;const node=dialog.current;node?.showModal();return()=>{node?.close();if(origin?.isConnected)origin.focus({preventScroll:true});};},[]);
+  useEffect(()=>{dialog.current?.querySelector<HTMLElement>(review?'h2':'form input, form select')?.focus();},[review,options.loading]);
   const title=mode==='CREATE'?'Sentetik PPPoE abonesi oluştur':mode==='PLAN_CHANGE'?'Demo paket/profil değiştir':'Demo aboneyi etkinleştir / devre dışı bırak';
   const prepare=(event:FormEvent)=>{
     event.preventDefault();setError('');
@@ -59,10 +59,11 @@ export function SubscriberEditor({mode, subscriber, onClose, onSaved}: {
     finally{sending.current=false;setPending(false);}
   };
   const data=options.data;
-  return <dialog ref={dialog} className="expiry-dialog" aria-labelledby="subscriber-editor-title" onCancel={e=>{e.preventDefault();if(!sending.current)onClose();}}>
+  const optionError=options.error || (data&&(data.persistence!=='local-postgresql-demo'||data.is_demo!==true)?'Kalıcı sentetik demo seçenekleri doğrulanamadı; işlem kapalı.':undefined);
+  return <dialog ref={dialog} className="expiry-dialog" aria-busy={pending} aria-labelledby="subscriber-editor-title" onCancel={e=>{e.preventDefault();if(!sending.current)onClose();}}>
     <h2 id="subscriber-editor-title" tabIndex={-1}>{review?'Demo işlemini onaylayın':title}</h2>
     <p><strong>SENTETİK DEMO.</strong> Yalnız izole yerel V2 PostgreSQL kaydı ve işlem geçmişi değişir. Router/RADIUS üzerinde kullanıcı, parola, profil veya oturum işlemi yapılmaz.</p>
-    <ResourceState {...options}/>
+    <ResourceState {...options} error={optionError}/>
     {data&&!options.loading&&!options.error&&data.persistence==='local-postgresql-demo'&&data.is_demo===true&&(review?<>
       <Facts items={review.facts}/><p>Onaydan sonra kayıt ve geçmiş birlikte kaydedilir.</p>
       {error&&<p className="form-error" role="alert">{error} Yanıt alınamadıysa aynı onayı tekrar gönderebilirsiniz; aynı işlem ikinci kez uygulanmaz.</p>}
