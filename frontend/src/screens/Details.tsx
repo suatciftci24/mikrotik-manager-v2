@@ -15,12 +15,12 @@ import { SourceBadge, StatusBadge } from '../components/Status';
 
 type RouterDetail = {item: Router; assigned_subscribers: Subscriber[]; is_demo: true};
 type SubscriberDetail = SubscriberDetailData;
-export function DetailCenter({kind, id, onBack}: {kind: 'routers' | 'subscribers'; id: string; onBack: () => void}) {
+export function DetailCenter({kind, id, onBack, backLabel='Listeye dön'}: {kind: 'routers' | 'subscribers'; id: string; onBack: () => void; backLabel?: string}) {
   const resource = useResource<RouterDetail | SubscriberDetail>(`/${kind}/${encodeURIComponent(id)}`);
   const [notice, setNotice] = useState('');
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); window.scrollTo(0, 0); }, [id, kind]);
-  return <div className="screen-stack"><button className="button-secondary detail-back" onClick={onBack}><ArrowLeft size={16}/>Listeye dön</button>
+  return <div className="screen-stack"><button className="button-secondary detail-back" onClick={onBack}><ArrowLeft size={16}/>{backLabel}</button>
     <PageHeading title={kind === 'routers' ? 'Router Detay Merkezi' : 'Abone Detay Merkezi'} description="Demo kayıtları gösteriliyor. Canlı bağlantı veya ölçüm yapılmadı." eyebrow="SENTETİK DEMO · CANLI İŞLEM YOK" headingRef={heading}/>
     {notice && <p className="demo-save-notice" role="status">{notice}</p>}
     <ResourceState {...resource}/>
@@ -32,8 +32,9 @@ function RouterDetails({detail}: {detail: RouterDetail}) {
   return <div className="detail-grid">
     <DetailSection title={r.name}><Facts items={[["Kayıt", r.id], ["Konum", r.site], ["Yönetim adresi", r.management_address], ["Model", r.model], ["RouterOS", r.routeros_version]]}/></DetailSection>
     <DetailSection title="Bağlantı durumu"><Facts items={[["Demo durum kaydı", <StatusBadge status={r.status}/>], ["Son görülme", dateTime(r.last_seen)], ["Demo çalışma süresi", r.uptime], ["Demo CPU / bellek", `${r.cpu_percent}% / ${r.memory_percent}%`]]}/><MissingData>Canlı RouterOS bağlantı durumu için adaptör bağlı değil.</MissingData></DetailSection>
+    <DetailSection title="Bağlantı geçmişi"><p className="missing-data">Veri yok. Envanter yalnız son sentetik durum kaydını sağlıyor; bağlantı/kopma olayları ve kesinti süresi kaynağı bağlı değil.</p></DetailSection>
     <DetailSection title="Arayüzler"><MissingData>Arayüz envanteri kaynağı bağlı değil.</MissingData></DetailSection>
-    <DetailSection title="Trafik"><MissingData>Bu router için trafik ölçümü veya zaman serisi yok.</MissingData></DetailSection>
+    <DetailSection title="Trafik"><p className="missing-data">Veri yok. Bu router için indirme/yükleme, arayüz sayacı veya trafik zaman serisi kaynağı bağlı değil.</p></DetailSection>
     <DetailSection title="Bağlı aboneler"><p>Demo envanter sayacı: {r.subscriber_count}. Listede router adına atanmış {detail.assigned_subscribers.length} sentetik kayıt var; bunlar çevrimiçi oturum değildir.</p>{detail.assigned_subscribers.length ? <ul className="assigned-list">{detail.assigned_subscribers.map(s => <li key={s.id}><span><strong>{s.customer_name}</strong><small>{s.username} · {s.plan}</small></span><SourceBadge source={s.source}/><StatusBadge status={s.status}/></li>)}</ul> : <MissingData>Bu router için atanmış abone kaydı yok.</MissingData>}<MissingData>Aktif oturum kaynağı bağlı değil.</MissingData></DetailSection>
   </div>;
 }

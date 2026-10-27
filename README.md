@@ -187,3 +187,35 @@ as synthetic rather than claiming every system is healthy.
 
 Targeted daily-summary tests: `node --test frontend/tests/dailySummary.test.mjs`
 (Node 22.18+). Frontend build remains `npm --prefix frontend run build`.
+
+
+## Router usage and connection report
+
+The report is a view inside the existing Router Center (`#module=routers&view=REPORT`),
+not a new module or separate inventory. Open it from the Router Center heading or
+the daily summary's router panel. It reuses the existing authenticated `/routers`
+response and its loading/retry lifecycle; switching views does not create a new
+backend source or fetch history from a device.
+
+Saved synthetic status, observation timestamp, device uptime, CPU and memory are
+reported. CPU/memory means include only valid numeric 0–100 samples, with the
+sample denominator displayed; missing/invalid values remain “Veri yok”. Zero is a
+valid sample. Observation timestamps are preserved and displayed in Europe/Istanbul;
+the report display time is separately labeled. Device uptime is not network or
+subscriber session duration. Refresh re-reads the snapshot and does not manufacture
+a connection event or replace the observation timestamp with now.
+
+No router connection-event, downtime, availability, interface-counter or traffic
+source exists. Connection history and network usage explicitly show “Veri yok”.
+The unrelated general demo traffic array has no router/time/counter association and
+is not used to invent per-router usage, graphs or bandwidth totals. Subscriber
+renewal history is likewise not treated as router connection history.
+
+Status/search filters, validated report URL state and router-detail links share the
+existing navigation. “Rapora dön” restores the report, including after detail reload.
+Router details also state the missing connection-history/traffic source. Loading,
+error/retry, empty inventory and empty filtered results are handled separately.
+No dependency, backend endpoint, migration, state write or service restart is needed.
+
+Targeted report tests: `node --test frontend/tests/routerReport.test.mjs`
+(Node 22.18+); frontend validation: `npm --prefix frontend run build`.

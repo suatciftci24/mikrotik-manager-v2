@@ -157,6 +157,19 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Servis restartı, yeni test aboneliği/işlemi, DB yazma, üretim/V1/VDS/router/RADIUS bağlantısı yapılmadı. Mevcut yerel UI/API çalışma yöntemi kullanıldı; yeni backend açılışı gerekmedi. Yalnız frontend, hedefli test ve belgeler değişti.
 - Sıradaki somut adım: kullanıcının mevcut panelde günlük özeti ve filtre bağlantılarını incelemesi; yeni canlı veri veya başka geliştirme kapsamı belirlenmedi.
 
+## Kullanım ve bağlantı raporu — 2026-10-27
+
+- Görev başında kurallar/ilerleme kaydı, router modeli/API'si ve mevcut ekranlar incelendi; branch `main`, HEAD `0517068`, çalışma ağacı temizdi. Mevcut Router API'si yalnız sentetik envanter snapshot'ı sağlıyor; bağlantı olayı veya trafik kaynağı bulunmadı.
+- Yeni modül/ekran çoğaltılmadı: mevcut Router Merkezi'ne LIST/REPORT görünümü eklendi. Başlık düğmesinden ve günlük özetin router panelinden açılıyor; mevcut `/routers` kaynağı/okuma hook'u kullanılıyor, görünüm değişimi ayrı veri kaynağı oluşturmuyor.
+- Son sentetik bağlantı durumu, kaynak zamanı, cihaz uptime kaydı ve CPU/bellek örnekleri gösteriliyor. Geçerli 0–100 sayısal örneklerin ortalaması örnek/toplam sayısıyla veriliyor; eksik/geçersiz ölçüm sıfır sayılmıyor. Router listesi CPU ortalaması da bu kuralla tutarlı. Durumu tanımsız kayıt çevrimdışı varsayılmıyor.
+- Kaynak zamanları Türkiye saatinde gösterilir, rapor görüntülenme zamanı ayrı tutulur. Uptime bağlantı/abone oturum süresi olarak sunulmaz. Yenileme snapshot'tan geçmiş olayı üretmez veya eski kaynağı yeni ölçüm gibi göstermez.
+- Bağlantı geçmişi, bağlanma/kopma/kesinti/erişilebilirlik ve ağ indirme/yükleme/sayaç/dönemlik kullanım kaynağı yok; “Veri yok” gösteriliyor. İlişkisiz genel demo trafik dizisi ya da abonelik yenileme geçmişinden router trafiği/bağlantı geçmişi türetilmedi. Router Detay Merkezi'nde aynı kaynak eksikliği açıklandı.
+- Rapor arama/durum filtresi, router detayına açılma ve “Rapora dön” ile filtre/görünüm korunması, detay reload'u ve liste/rapor geçişi tamamlandı. Mevcut temalar, okunaklı yazılar ve mobil yatay tablo kaydırması korundu.
+- Kontroller geçti: son TypeScript/Vite derlemesi ve `node --test frontend/tests/routerReport.test.mjs` ile kayıt sayımı/ortalamalar, eksik-geçersiz-sıfır ölçümler, bilinmeyen durum/zaman, tekrar okumanın geçmiş/trafik uydurmaması, boş ve güvenli sentetik kimlik doğrulamaları. Backend veya değişmeyen bağımsız testler tekrarlanmadı.
+- Yerel Chromium kontrolü geçti: mevcut 4 router için CPU %37,8/bellek %60,3, kaynak saatinin 12:42 İstanbul gösterimi ve refresh sonrası korunması, rapor/dashboard girişleri, arama/filtre, detay/geri/reload, üç tema/320 px, kısmi veri/bilinmeyen durum/geçerli sıfır, yükleniyor/hata/tekrar dene/boş veriden toparlanma. Gece mobil rapor görüntüsü incelendi.
+- Gerçek abonelik/veri değişikliği, yeni test kaydı, yeni veri kaynağı/bağımlılık/backend/şema, servis restartı, üretim/V1/VDS/router/RADIUS bağlantısı veya müdahalesi yapılmadı. Mevcut yerel panel okumalarıyla çalışır sonuç sağlandı.
+- Sıradaki somut adım: kullanıcının Router Merkezi içindeki raporu incelemesi; gerçek bağlantı geçmişi/trafik entegrasyonu için yeni kapsam ve açık canlı erişim onayı gerekir.
+
 ## Sıradaki işler — henüz başlanmadı
 
 - Kullanıcının sonraki açık geliştirme talimatını bekle; bu belge görevi ürün geliştirmesi başlatma yetkisi vermez.
