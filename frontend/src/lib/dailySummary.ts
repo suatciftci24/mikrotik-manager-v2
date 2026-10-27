@@ -2,13 +2,14 @@ import { api, type Router, type SubscriberDetailData, type SubscriberHistoryEven
 import { expiryInfo, turkeyToday } from './expiry.ts';
 import { subscriberSource } from './source.ts';
 
-export type DailyOperation = SubscriberHistoryEvent & {subscriber_id: string; customer_name: string};
+export type DailyOperation = SubscriberHistoryEvent & {subscriber_id: string; customer_name: string; router_name:string; username:string; access_type:'PPPOE'|null};
 export type DailySummary = {
   generated_at: string; as_of_date: string; is_demo: true;
   routers: Router[];
   router_counts: {total: number; online: number; offline: number; degraded: number; unknown: number};
   subscribers: {total: number; active: number; paused: number; pending: number; unknown_status: number; local: number; radius: number; unknown_source: number};
   expiry: {expired: number; within_7: number; within_30: number; active: number; unknown: number};
+  operation_history: DailyOperation[];
   operations: {today: number; total: number; recent: DailyOperation[]};
 };
 
@@ -30,7 +31,7 @@ export function buildDailySummary(routers: Router[], details: SubscriberDetailDa
     if (!Array.isArray(detail.history)) throw new Error('Abonelik işlem geçmişi alınamadı.');
     for (const event of detail.history) {
       if (event.is_demo !== true || !/(?:Z|[+-]\d{2}:\d{2})$/.test(event.occurred_at) || !Number.isFinite(Date.parse(event.occurred_at))) throw new Error('İşlem geçmişinin kaynak veya zaman bilgisi doğrulanamadı.');
-      operations.push({...event, subscriber_id: detail.item.id, customer_name: detail.item.customer_name});
+      operations.push({...event, subscriber_id: detail.item.id, customer_name: detail.item.customer_name, router_name:detail.item.router_name||'Veri yok', username:detail.item.username||'Veri yok', access_type:detail.item.access_type??null});
     }
   }
   if (new Set(operations.map(event=>event.id)).size !== operations.length) throw new Error('İşlem geçmişi tekil değil; özet oluşturulamadı.');
@@ -39,7 +40,7 @@ export function buildDailySummary(routers: Router[], details: SubscriberDetailDa
     generated_at: now.toISOString(), as_of_date: today, is_demo: true, routers,
     router_counts: {total: routers.length, online: routers.filter(r=>r.status==='ONLINE').length, offline: routers.filter(r=>r.status==='OFFLINE').length, degraded: routers.filter(r=>r.status==='DEGRADED').length, unknown: routers.filter(r=>!['ONLINE','OFFLINE','DEGRADED'].includes(r.status)).length},
     subscribers: {total: items.length, active: items.filter(s=>s.status==='ACTIVE').length, paused: items.filter(s=>s.status==='PAUSED').length, pending: items.filter(s=>s.status==='PENDING').length, unknown_status: items.filter(s=>!['ACTIVE','PAUSED','PENDING'].includes(s.status)).length, local: items.filter(s=>subscriberSource(s.source)==='LOCAL').length, radius: items.filter(s=>subscriberSource(s.source)==='RADIUS').length, unknown_source: items.filter(s=>subscriberSource(s.source)==='UNKNOWN').length},
-    expiry, operations: {today: operations.filter(event=>turkeyToday(new Date(event.occurred_at))===today).length, total: operations.length, recent: operations.slice(0,5)},
+    expiry, operation_history:operations, operations: {today: operations.filter(event=>turkeyToday(new Date(event.occurred_at))===today).length, total: operations.length, recent: operations.slice(0,5)},
   };
 }
 

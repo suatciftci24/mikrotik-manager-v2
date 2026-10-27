@@ -283,3 +283,27 @@ installed Starlette TestClient implementation can fall back from `httpx2` to
 dependency is needed. Install only the declared test requirements in an allowed
 V2 environment before running API tests. Socket permission is separately required
 for local PostgreSQL integration.
+
+## Subscriber search/filtering and rolling operation summary
+
+Subscriber Center combines Turkish-friendly name/username search with exact
+router, package/profile, authority, account-state and expiry filters. Router and
+package options come from saved records; changing the last record in a selected
+package leaves zero results until the filter is changed or cleared. The clear
+button resets every selection and search; the result/total count updates together.
+Existing authority/state/expiry URL links and detail-return behavior remain.
+
+The dashboard now lists all saved demo subscriber operations in the rolling last
+24 hours (inclusive start, excluding future timestamps), with creation, package,
+status and renewal counts. Date edits are counted separately. Affected subscribers
+are unique, and each operation opens a read-only detail dialog with subscriber,
+router, actor, Europe/Istanbul time and before/after values. Legacy records with no
+access type are explicitly included as untyped demo subscriber history, without
+inventing PPPoE session data. No-record windows show “Veri yok”. The window ages
+locally every 30 seconds and on focus; the source-read time remains visible.
+Existing resource invalidation and authenticated detail reads supply the same
+saved records after mutations; no new backend endpoint or data source is used.
+
+Targeted checks:
+`node --test --test-isolation=none frontend/tests/subscriberFilters.test.mjs frontend/tests/operationWindow.test.mjs frontend/tests/dailySummary.test.mjs frontend/tests/subscriberManagement.test.mjs`
+and `npm --prefix frontend run build`.

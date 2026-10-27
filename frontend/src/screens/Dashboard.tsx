@@ -1,3 +1,4 @@
+import { RecentOperations } from '../components/RecentOperations';
 import { useEffect, useRef } from 'react';
 import { ArrowRight, Clock3, RefreshCw, Router as RouterIcon, Users, CalendarClock, AlertTriangle } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -8,7 +9,6 @@ import { ResourceState, dateTime } from '../components/Resource';
 import { useResource } from '../lib/useResource';
 import { useTurkeyToday } from '../lib/useTurkeyToday';
 import { loadDailySummary, type DailySummary } from '../lib/dailySummary';
-import { historyValues, operationLabel } from '../lib/subscriberHistory';
 
 const DEPENDENCIES = ['/routers', '/subscribers'] as const;
 type Navigate = (screen: ScreenKey, params?: Record<string,string>) => void;
@@ -60,9 +60,7 @@ export function Dashboard({onNavigate}: {onNavigate: Navigate}) {
         <section className="panel router-panel"><button className="button-secondary report-entry" onClick={()=>goRouters({view:'REPORT'})}>Kullanım ve bağlantı raporu <ArrowRight size={14}/></button><div className="panel-heading"><div><div className="panel-title"><h2>Router envanteri</h2><span className="soft-count">{data.routers.length}</span></div><p>Sentetik kayıt · kaynak zamanı aşağıda gösterilir</p></div><button className="text-link" onClick={()=>goRouters()}>Tümünü gör <ArrowRight size={14}/></button></div>
           {data.routers.length ? <div className="router-list">{data.routers.map(router=><div className="router-list-row" key={router.id}><span className={`router-row-icon ${router.status?.toLowerCase()}`}><RouterIcon size={16}/></span><span className="router-row-name daily-router-name"><strong><button className="record-link" onClick={()=>goRouters({id:router.id})}>{router.name}</button></strong><small>Kaynak zamanı: {dateTime(router.last_seen)}</small></span><StatusBadge status={['ONLINE','OFFLINE','DEGRADED'].includes(router.status)?router.status:'UNKNOWN'}/></div>)}</div> : <p className="table-empty">Router envanteri için veri yok.</p>}
         </section>
-        <section className="panel activity-panel"><div className="panel-title"><h2>Son abonelik işlemleri</h2><span className="soft-count">{data.operations.total}</span></div><p className="daily-description">Bugün (Türkiye): <strong>{data.operations.today}</strong> işlem. En son 5 kayıt gösterilir; önceki günlerin işlemleri de bulunabilir.</p>
-          {data.operations.recent.length ? <ol className="daily-operations">{data.operations.recent.map(event=><li key={event.id}><button className="record-link" onClick={()=>goSubscribers({id:event.subscriber_id})}>{event.customer_name} <ArrowRight size={13}/></button><strong>{operationLabel(event.operation)}</strong><span>İşlemi yapan: {event.actor_id}</span><time dateTime={event.occurred_at}>{dateTime(event.occurred_at)}</time><span>{historyValues(event)[0]} → {historyValues(event)[1]}</span></li>)}</ol> : <p className="table-empty">Henüz kaydedilmiş abonelik işlemi yok.</p>}
-        </section>
+        <RecentOperations data={data} onSubscriber={id=>goSubscribers({id})}/>
       </div>
       <p className="screen-footnote daily-updated"><span><Clock3 size={14}/>Özet güncellendi: {dateTime(data.generated_at)} · Gün hesabı: Europe/Istanbul</span></p>
     </>}
