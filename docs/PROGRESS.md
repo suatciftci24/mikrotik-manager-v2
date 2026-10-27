@@ -268,3 +268,23 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - **ATLANDI:** bilinen sandbox PostgreSQL EPERM ve eksik HTTP test bağımlılığı nedeniyle gerçek PostgreSQL/API atomiklik/yenileme ve tarayıcı tema/mobil/etkileşim kontrolleri. Aynı engeller tekrar araştırılmadı, bağımlılık yüklenmedi veya kısıtlar gevşetilmedi. Başarısız/çalışmayan kontrol PASS değildir.
 - Yeni backend/veri kaynağı, şema, migration veya gerçek demo DB yazması yok. V1, VDS, gerçek MikroTik/RADIUS/gerçek abone erişimi, production deploy veya servis restartı yapılmadı. Mevcut oluşturma/paket/durum, arama/filtre, son 24 saat özeti ve detay merkezleri korunuyor. Uyarılar dış bildirim göndermez veya hesabı otomatik devre dışı bırakmaz.
 - İlgili kod/test/README ve bu kayıt commit edilecek; `origin/main` için normal push bir kez denenecek. DNS hatasında tekrar/force push yok; kesin commit/push sonucu son mesajda bildirilecek. Kalan kapsam izinli yerel ortamda gerçek PostgreSQL ve görsel kontrollerdir.
+
+
+## Abonelik uyarıları son doğrulama ve gönderim — 2026-10-27
+
+- Başlangıç HEAD `8be2d9c`, branch `main`, çalışma ağacı temiz; origin/main takibine göre 1 commit bekliyordu. Mevcut özellikler ve testler korundu; ürün kodunda gerçek hata bulunmadı, değişiklik veya yeni commit yapılmadı.
+- PASS: mevcut tarih, uyarı kartları, birleşik filtreler ve kaydedilmiş yenilemenin liste/detay/uyarı/günlük özet projeksiyonlarını kapsayan 21 hedefli frontend testi.
+- Tek ortam kontrolünde loopback soketi `PermissionError(1, Operation not permitted)` ile engellendi; `httpx` ve `httpx2` kurulu değil. Gerçek PostgreSQL/API kontrolleri ATLANDI; bağımlılık kurulumu veya tekrarlı teşhis yapılmadı.
+- Normal `git push origin main` başarılı: `2f4dcd8..8be2d9c main -> main`. Bekleyen commit: 0. Force push, servis restartı, DB yazması veya canlı V1/VDS/router/RADIUS/gerçek abone işlemi yapılmadı.
+- Kullanıcının yeni commit oluşturmama talimatı gereği bu doğrulama kaydı commit edilmeden bırakıldı. Kalan engel, izinli yerel V2 ortamında PostgreSQL/API doğrulamasıdır.
+
+## PPPoE Kullanım ve Bağlantı Raporları — 2026-10-27
+
+- Görev başında AGENTS.md ve ilerleme kaydı okundu. Branch `main`, HEAD `8be2d9c`, origin/main takibi eşitti. Önceki görevin commit edilmemiş yalnız bu belgedeki doğrulama kaydı korundu ve bu belge güncellemesine dahil edildi.
+- Mevcut Abone Merkezi'nin detay bağlantısıyla ulaşılan tek Abone Detay Merkezi geliştirildi; eski bağlantı/trafik bölümleri aynı yerde ortak rapor bileşenine taşındı, ikinci ekran oluşturulmadı. Abone/kullanıcı/router ve LOCAL/RADIUS/Bilinmiyor kaynak bilgileri açıkça gösteriliyor.
+- Bugün, Pazartesi–bugün ve bugün dahil son 30 takvim günü için dönem seçimi, kapsanan başlangıç/bitiş tarihleri ve seçili trafik özeti satırı eklendi. Ortak Türkiye günü yenilemesi kullanılıyor; tarih hesabı tarayıcı saat diliminden bağımsız. Dönem seçimi envanter son görülme kaydını filtrelemez; bu ayrım ekranda açıklanıyor.
+- Mevcut API/model/yerel sentetik veri incelendi: abone oturum başlangıç/bitiş ve trafik ölçüm kaynağı yok. Bu nedenle bağlantı durumu/başlangıcı/bitişi/süresi, bağlantı geçmişi ve üç dönemin indirme/yükleme/toplamı ile ölçüm geçmişi açıkça “Veri yok”. Hesap etkinliği, son görülme, IP, yönetim işlemleri, genel grafikler veya paket hızından trafik/oturum türetilmiyor. Uydurma ölçüm veya yeni altyapı eklenmedi; gerçek ölçüm hesabı kaynak yokluğu nedeniyle mümkün değil.
+- Mevcut tema değişkenleri, okunabilir yazı ölçeği, panel içi tablo kaydırması ve mobilde tam genişlikte sarılan dönem düğmeleri kullanıldı. Yönetim/yenileme/işlem geçmişi, liste filtreleri ve abonelik uyarıları korunuyor. Son görülme Türkiye saatinde; demo niteliği açıkça belirtiliyor.
+- PASS: 19 hedefli test (4 dönem sınırı/geçersiz gün; gerçek TSX bileşeninin bellekte derlenip React ile render edildiği 2 boş rapor/kimlik/kaynak kontrolü; mevcut 3 gözlem, 4 filtre ve 6 abonelik uyarısı/yenileme projeksiyonu testi). Türkiye gece yarısı, Pazartesi/Pazar, artık yıl ve yıl geçişi doğrulandı. TypeScript/Vite derlemesi ve git diff --check geçti.
+- ATLANDI: bilinen sandbox PostgreSQL EPERM ve eksik httpx nedeniyle gerçek PostgreSQL/API kontrolleri; tarayıcıda tema/mobil/etkileşim kontrolü yapılmadı. Bu engeller tekrar araştırılmadı; bağımlılık kurulmadı. Sunucu başlatma/restart, DB yazması, migration, deploy, V1/VDS/gerçek cihaz/RADIUS/gerçek abone erişimi veya değişikliği yok.
+- İlgili kaynak, hedefli testler, README ve bu belge commit edilip origin/main'e normal push bir kez denenecek; kesin hash/push sonucu son raporda verilecek. Kaynak yokluğu nedeniyle gerçek kullanım ve bağlantı toplamları doğrulanmış sayılmaz; mevcut demo sözleşmesi ölçüm sağlamamaktadır.

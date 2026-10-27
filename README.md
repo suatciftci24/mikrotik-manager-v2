@@ -331,3 +331,28 @@ automatically. No new backend, schema or device/RADIUS source is added.
 
 Targeted checks:
 `node --test --test-isolation=none frontend/tests/expiry.test.mjs frontend/tests/subscriptionAlerts.test.mjs frontend/tests/subscriberFilters.test.mjs frontend/tests/dailySummary.test.mjs`.
+
+### Subscriber usage and connection reports
+
+The existing Subscriber Detail Center includes one integrated report area, reached
+from the Subscriber Center's existing detail links. Today, Monday through today,
+and the last 30 calendar days (including today) use Europe/Istanbul boundaries.
+The selected period shows its inclusive dates and highlights the usage summary row.
+Inventory IP and last-seen observations remain independent of the selected period.
+
+The current V2 subscriber API has no session history or subscriber byte measurements.
+Session start/end, duration, connectivity, download/upload/total usage and measurement
+history therefore explicitly show **Veri yok**. Account status and management events
+are not session evidence; package speed, router counters and dashboard graphics are
+not subscriber usage. No telemetry fixtures, inferred zeros, database schema or live
+adapter calls are introduced. LOCAL/RADIUS/unknown authority remains visible.
+
+Targeted report checks (no sockets or database required):
+
+```sh
+node --test --test-isolation=none frontend/tests/subscriberReports.test.mjs frontend/tests/subscriberReportsView.test.mjs frontend/tests/subscriberObservation.test.mjs
+```
+
+The view check compiles the actual component in memory using the existing Vite
+installation's esbuild dependency and renders it with React's server renderer;
+it does not replace browser/mobile interaction checks.

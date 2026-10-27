@@ -1,4 +1,5 @@
-import { detailText, monthlyPriceText, subscriberObservation } from '../lib/subscriberObservation';
+import { SubscriberReports } from '../components/SubscriberReports';
+import { detailText, monthlyPriceText } from '../lib/subscriberObservation';
 import { expiryInfo } from '../lib/expiry';
 import { SubscriberEditor } from '../components/SubscriberEditor';
 import { historyValues, operationLabel } from '../lib/subscriberHistory';
@@ -48,7 +49,6 @@ function SubscriberDetails({detail, onSaved}: {detail: SubscriberDetail; onSaved
   const [management,setManagement]=useState<'PLAN_CHANGE'|'STATUS_CHANGE'|null>(null);
   const s = detail.item;
   const today = useTurkeyToday();
-  const observation = subscriberObservation(s);
   const unknownSource = subscriberSource(s.source)==='UNKNOWN';
   const persistent = detail.persistence==='local-postgresql-demo';
   const canChange = !unknownSource && persistent;
@@ -84,23 +84,7 @@ function SubscriberDetails({detail, onSaved}: {detail: SubscriberDetail; onSaved
       {unknownSource&&<p>Kaynak bilinmiyor; tarih değişikliği kapalı.</p>}
       {!persistent&&<p role="status">Kalıcı demo saklama etkin değil; geçici bellek değişikliği yapılmaz.</p>}
     </DetailSection>
-    <DetailSection title="Bağlantı ve oturum">
-      <Facts items={[
-        ['Oturum bağlantı durumu','Veri yok'], ['Son bağlantı zamanı','Veri yok'],
-        ['Oturum süresi','Veri yok'], ['Demo IP kaydı',observation.ip],
-        ['Son görülme (sentetik envanter)',observation.last_seen?dateTime(observation.last_seen):'Veri yok'],
-      ]}/>
-      <p className="missing-data">Veri yok. Oturum kaynağı bağlı değil. Son görülme ve IP yalnız kaydedilmiş sentetik envanter bilgileridir; son bağlantı, canlı erişim veya çevrimiçi oturum kanıtı değildir.</p>
-    </DetailSection>
-    <DetailSection title="Abone trafik kullanımı">
-      <p>Türkiye takvimine göre dönemler. Bu aboneye ait zamanlı indirme/yükleme ölçümü veya sayaç kaynağı bulunmuyor.</p>
-      <div className="table-scroll"><table className="data-table subscriber-traffic-table">
-        <caption>Sentetik abone trafik kapsamı · ölçüm kaynağı yok</caption>
-        <thead><tr><th>DÖNEM</th><th>İNDİRME</th><th>YÜKLEME</th><th>TOPLAM</th></tr></thead>
-        <tbody>{['Bugün','Bu hafta (Pazartesi–bugün)','Son 30 gün (bugün dahil)'].map(period=><tr key={period}><th scope="row">{period}</th><td>Veri yok</td><td>Veri yok</td><td>Veri yok</td></tr>)}</tbody>
-      </table></div>
-      <p className="missing-data">Veri yok. Paket hızı, aylık tutar veya genel demo grafiklerinden abone trafiği üretilmez. Eksik ölçümler sıfır kullanım sayılmaz.</p>
-    </DetailSection>
+    <SubscriberReports key={s.id} subscriber={s} today={today}/>
     <DetailSection title="İşlem geçmişi">
       <p>{persistent?'V2 yerel geliştirme veritabanındaki sentetik demo işlemleri.':'Bu eski API sürecinin geçmişi geçici bellektedir; kalıcı saklama etkin değil.'} Zamanlar Türkiye saatinde (Europe/Istanbul) gösterilir.</p>
       {detail.history.length ? <ol className="subscriber-history">{detail.history.map(event=>{
