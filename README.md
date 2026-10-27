@@ -260,3 +260,26 @@ Optional PostgreSQL integration (requires the explicitly prepared isolated V2
 local development DB and socket permission):
 `V2_RUN_PG_TESTS=1 PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests -p test_postgres_management.py -v`.
 These tests use disposable `v2_demo_test_*` schemas, not the saved demo inventory.
+
+## Subscriber Detail Center V2
+
+The existing detail center shows the saved subscriber identity, router, authority,
+demo package/account state, expiry and remaining days, with the existing package,
+status and renewal dialogs. Its history includes actor, operation, before/after
+values and Europe/Istanbul time. A saved IP or `last_seen` is explicitly an
+inventory observation; it never implies an online session or a connection start.
+Today's, this week's and the last 30 days' download/upload/total values show
+“Veri yok” because no per-subscriber traffic source exists. Missing samples do not
+become zero traffic. The existing theme and mobile table-scroll layout is reused.
+
+Observation checks: `node --test --test-isolation=none frontend/tests/subscriberObservation.test.mjs`.
+The opt-in `test_postgres_management.py` suite also includes the complete PPPoE
+API flow against its disposable isolated PostgreSQL schema; a skipped suite is
+not proof that API/persistence passed.
+
+The project already declares `httpx` in `backend/requirements-dev.txt`. The
+installed Starlette TestClient implementation can fall back from `httpx2` to
+`httpx`; its missing-`httpx2` error alone does not establish that a new project
+dependency is needed. Install only the declared test requirements in an allowed
+V2 environment before running API tests. Socket permission is separately required
+for local PostgreSQL integration.

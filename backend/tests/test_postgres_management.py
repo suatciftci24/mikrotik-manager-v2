@@ -109,3 +109,52 @@ class PostgresManagement(TestCase):
             self.assertEqual(len(restored.create_subscriber(command,'demo-user')['history']),1)
         finally:
             with engine.begin() as connection:connection.execute(text(f'DROP SCHEMA IF EXISTS {other} CASCADE'))
+
+
+    def test_pppoe_api_permissions_commands_history_and_list_detail_consistency(self):
+        # Use only this test's real, disposable PostgreSQL schema; no memory adapter.
+        from unittest.mock import patch
+        from fastapi.testclient import TestClient
+        from app.main import app
+        with patch('app.services.demo_subscriptions.store', self.store), TestClient(app) as client:
+            create=self.create().model_dump(mode='json')
+            headers={'X-V2-Demo-Action':'subscriber-management'}
+            self.assertEqual(client.post('/api/v1/subscribers/demo-create',json=create,headers=headers).status_code,401)
+            client.post('/api/v1/auth/login',json={'username':'demo','password':'demo-only'})
+            self.assertEqual(client.post('/api/v1/subscribers/demo-create',json=create).status_code,403)
+            self.assertEqual(client.post('/api/v1/subscribers/demo-create',json={**create,'confirmed':False},headers=headers).status_code,422)
+            response=client.post('/api/v1/subscribers/demo-create',json=create,headers=headers)
+            self.assertEqual(response.status_code,200,response.text)
+            saved=response.json();item_id=saved['item']['id']
+            self.assertEqual(saved['persistence'],'local-postgresql-demo')
+            self.assertEqual(client.post('/api/v1/subscribers/demo-create',json=create,headers=headers).json(),saved)
+            command=self.change(saved['item']).model_dump(mode='json')
+            response=client.post(f'/api/v1/subscribers/{item_id}/demo-management',json=command,headers=headers)
+            self.assertEqual(response.status_code,200,response.text);saved=response.json()
+            self.assertEqual(client.post(f'/api/v1/subscribers/{item_id}/demo-management',json=command,headers=headers).json(),saved)
+            for value in ('ACTIVE','PAUSED'):
+                command=self.change(saved['item'],'STATUS_CHANGE',value).model_dump(mode='json')
+                response=client.post(f'/api/v1/subscribers/{item_id}/demo-management',json=command,headers=headers)
+                self.assertEqual(response.status_code,200,response.text);saved=response.json()
+                self.assertEqual(saved['item']['status'],value)
+            item=saved['item']
+            expiry=dict(expires_on=(datetime.now(ZoneInfo('Europe/Istanbul')).date()+timedelta(days=90)).isoformat(),expected_expires_on=None,
+                        expected_revision=item['revision'],expected_source='LOCAL',operation='DATE_EDIT',request_id=str(uuid4()),confirmed=True)
+            response=client.post(f'/api/v1/subscribers/{item_id}/demo-expiry',json=expiry,headers={'X-V2-Demo-Action':'expiry'})
+            self.assertEqual(response.status_code,200,response.text);saved=response.json()
+            detail=client.get(f'/api/v1/subscribers/{item_id}').json()
+            self.assertEqual(saved,detail)
+            listed=client.get('/api/v1/subscribers').json()['items']
+            self.assertEqual(next(row for row in listed if row['id']==item_id),detail['item'])
+            self.assertEqual(detail['item']['plan'],'Fiber 500');self.assertEqual(detail['item']['status'],'PAUSED')
+            self.assertEqual(len(detail['history']),5)
+            self.assertEqual([e['operation'] for e in detail['history']],['DATE_EDIT','STATUS_CHANGE','STATUS_CHANGE','PLAN_CHANGE','CREATE'])
+            self.assertTrue(all(e['actor_id']=='demo-user' and e['is_demo'] and datetime.fromisoformat(e['occurred_at'].replace('Z','+00:00')).utcoffset().total_seconds()==0 for e in detail['history']))
+            duplicate=self.create(request_id=str(uuid4())).model_dump(mode='json')
+            self.assertEqual(client.post('/api/v1/subscribers/demo-create',json=duplicate,headers=headers).status_code,409)
+            unknown=client.get('/api/v1/subscribers/demo-sub-1006').json()['item']
+            denied={'operation':'PLAN_CHANGE','value':'Fiber 500','expected_value':unknown['plan'],'expected_revision':unknown['revision'],
+                    'expected_source':'LOCAL','request_id':str(uuid4()),'confirmed':True}
+            self.assertEqual(client.post('/api/v1/subscribers/demo-sub-1006/demo-management',json=denied,headers=headers).status_code,409)
+            self.assertEqual(client.get('/api/v1/subscribers/demo-sub-1006').json()['history'],[])
+            client.post('/api/v1/auth/logout')
