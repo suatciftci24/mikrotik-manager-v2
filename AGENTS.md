@@ -44,3 +44,20 @@
 - V2 PostgreSQL URL'si ayrı `V2_DATABASE_URL` ile verilir ve yalnız localhost/loopback'e izin verir. Geliştirme başlangıcında DB'ye bağlanılmaz.
 - `migrations/` yalnız V2 şemasına aittir. Üretim veya V1 migration'ı/seed'i çalıştırılmaz.
 - Gerçek bağlantı isteyen işler önce sentetik adaptörlerle geliştirilir; canlı erişim ve yazma ayrı, açık onay gerektirir.
+
+## Kalıcı çalışma sözleşmesi
+
+Her göreve başlarken AGENTS.md ve varsa docs/PROGRESS.md dosyasını oku. Çalışma kurallarını kullanıcıya tekrar sordurma. Görev sonunda ilerleme belgesini güncelle.
+
+1. Sonuç odaklı çalış. Görevi gereksiz parçalara bölme; kodlama, gerekli kontrol, düzeltme ve commit işlemlerini uçtan uca tamamla.
+2. Kullanıcıya sürekli terminal komutu, test ve teşhis işi verme. Yapabildiğin işleri kendin yap.
+3. Güvenli yerel inceleme, kodlama, hedefli test, hata düzeltme ve commit için tekrar tekrar onay isteme.
+4. Yalnızca değişikliğe uygun gerekli kontrolleri çalıştır. Yeni bir hata veya değişiklik yoksa aynı kontrolleri tekrarlama. Zorunlu proje kontrollerini atlama.
+5. Önce mevcut kodu ve proje durumunu incele; yapılmış işi yeniden yapma. Kullanıcının yerel değişikliklerini koru. Yıkıcı Git komutları kullanma.
+6. Mevcut tasarımı ve çalışan özellikleri koru. Kapsam dışı yeniden yazım, bağımlılık veya karmaşıklık ekleme.
+7. MikroTik Manager V1 ve canlı sistemlere değişiklik yetkisi yoktur. Deploy, canlı migration, servis restartı, router/RADIUS veya gerçek abone verisini değiştiren işlemler için açık ve kapsamı belirli kullanıcı onayı gerekir. Aynı onaylı kapsam için yeniden onay isteme.
+8. İptal edilmiş veya ertelenmiş işleri yeni açık talimat olmadan yeniden başlatma.
+9. Gerçek veri, örnek veri ve henüz uygulanmamış özellikleri açıkça ayır. Yapılmayan işlemi yapılmış, çalıştırılmayan testi geçmiş gibi bildirme.
+10. Kullanıcıya komut vermek gerekirse önce hangi bilgisayar ve terminalde çalışacağını belirt. V2 ofis yolu: `/home/suatpc/Codex-Projects/mikrotik-manager-v2`.
+11. Gerçek bir engelde nedenini ve gereken tek eylemi kısa bildir. Gereksiz deneme döngüsüne girme.
+12. Her görev sonunda tamamlananları, kontrol sonucunu, commit kimliğini ve sıradaki işi kısa bildir. Kaldığımız noktayı mevcut proje ilerleme belgesine kaydet; böyle bir belge yoksa `docs/PROGRESS.md` oluştur.
