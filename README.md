@@ -458,3 +458,27 @@ V2_RUN_PG_TESTS=1 PYTHONPATH=backend .venv/bin/python -m unittest discover -s ba
 When sockets or the declared HTTP test requirements are unavailable, actual seed
 application, HTTP mutation flows, restart persistence and browser verification
 remain **BLOCKED**. No fallback writes or automatic service restarts are used.
+
+### Central daily management report
+
+Open **Günlük Yönetim Raporu** from the existing Dashboard. The reloadable view
+`#module=dashboard&view=DAILY_REPORT` combines the same authenticated router,
+subscriber/detail and router-event reads used by the centers. Today, Yesterday
+and Last 7 Days use inclusive Europe/Istanbul calendar dates (last 7 includes
+today and six preceding days); future records are excluded. Router and operation/
+event filters intersect and remain in the URL.
+
+Inventory/account/expiry cards explicitly show the latest saved state, regardless
+of the activity period. They are not reconstructed historical snapshots. Equal
+copies of a record count once; conflicting payloads with the same identity fail
+visibly. Recorded recovery IDs are counted at their own time, while the associated
+outage lifecycle counts as one outage. A recovery row opens that shared lifecycle
+detail. Unavailable event coverage is unknown, not zero; outage duration/reason
+are never guessed. Existing operation/event dialogs and subscriber/router detail
+links are reused. The local 30-second display clock does not poll the API.
+
+Targeted checks:
+
+```sh
+node --test --test-isolation=none frontend/tests/managementReport.test.mjs frontend/tests/managementReportView.test.mjs
+```

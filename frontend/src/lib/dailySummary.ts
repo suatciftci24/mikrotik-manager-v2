@@ -49,8 +49,12 @@ export function buildDailySummary(routers: Router[], details: SubscriberDetailDa
 }
 
 /** Existing demo inventory is small; each authenticated detail provides a consistent item/history pair. */
-export async function loadDailySummary(_path: string, init: RequestInit = {}): Promise<DailySummary> {
+export async function loadDailyInventory(init: RequestInit = {}) {
   const [routers, subscribers] = await Promise.all([api<{items: Router[]}>('/routers', init), api<{items: {id: string}[]}>('/subscribers', init)]);
   const details = await Promise.all(subscribers.items.map(s=>api<SubscriberDetailData>(`/subscribers/${encodeURIComponent(s.id)}`, init)));
-  return buildDailySummary(routers.items, details);
+  return {routers:routers.items,details};
+}
+export async function loadDailySummary(_path: string, init: RequestInit = {}): Promise<DailySummary> {
+  const {routers,details}=await loadDailyInventory(init);
+  return buildDailySummary(routers,details);
 }

@@ -112,3 +112,5 @@ input::placeholder{color:var(--muted);opacity:1}
 @media(max-width:1000px){.detail-facts>div{flex-wrap:wrap}.detail-facts dd{text-align:left}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.metric-grid{grid-template-columns:minmax(0,1fr)}.heading-actions{width:100%}.heading-actions>button{flex:1 1 100%}.expiry-editor-actions a{width:100%}.central-events{padding:14px}.command-modal .command-input{gap:6px;padding:0 10px}.command-modal .command-input kbd{display:none}}
 .text-link{display:inline-flex;align-items:center;min-height:44px}.toast>button{min-width:44px;min-height:44px}.command-modal .command-result-icon{flex-shrink:0}.command-modal .command-results button>span:nth-child(2){min-width:0;overflow-wrap:anywhere}
+
+.management-report{min-width:0}.management-report .table-scroll{max-width:100%}.management-report .metric-foot{white-space:normal}.management-report .metric-value-row>strong{overflow-wrap:anywhere}.management-report>h2{font-size:1rem;color:var(--text)}.management-report .screen-footnote{white-space:normal;line-height:1.65}
