@@ -11,3 +11,6 @@ __pycache__/
 coverage/
 
 *.tsbuildinfo
+
+# Isolated local V2 development database and synthetic import artifacts
+.local/

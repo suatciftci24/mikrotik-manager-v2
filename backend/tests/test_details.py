@@ -2,10 +2,16 @@
 import unittest
 from fastapi.testclient import TestClient
 from app.main import app
+from unittest.mock import patch
+from app.services.demo_data import SUBSCRIBERS
+from app.services.demo_subscriptions import DemoSubscriptionStore
 
 
 class DetailContracts(unittest.TestCase):
     def setUp(self):
+        storage = patch('app.services.demo_subscriptions.store', DemoSubscriptionStore(SUBSCRIBERS))
+        storage.start()
+        self.addCleanup(storage.stop)
         self.client = TestClient(app)
 
     def tearDown(self):

@@ -54,7 +54,7 @@ class RouterDetail(BaseModel):
 class SubscriberDetail(BaseModel):
     item: SubscriberRecord
     history: list[SubscriberHistoryEvent] = Field(default_factory=list)
-    persistence: Literal['process-memory'] = 'process-memory'
+    persistence: Literal['process-memory', 'local-postgresql-demo'] = 'process-memory'
     is_demo: Literal[True]
 
 

@@ -26,7 +26,7 @@ export function Header({ active, user, onOpenSearch, onOpenNotifications }: {
 
 export function DemoBanner() {
   return <div className="demo-banner"><span className="demo-banner-icon"><Sparkles size={14} /></span>
-    <span><strong>Demo ortamı</strong> · Ekrandaki tüm veriler sentetiktir. Router, RADIUS veya veritabanı bağlantısı yapılmaz.</span>
+    <span><strong>Demo ortamı</strong> · Veriler sentetiktir. Kalıcı demo işlemleri yalnız V2 yerel geliştirme veritabanında tutulur; canlı sistemlere bağlanılmaz.</span>
     <span className="demo-banner-tag">LOCAL PREVIEW</span>
   </div>;
 }

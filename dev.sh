@@ -15,6 +15,12 @@ if [[ ! -x frontend/node_modules/.bin/vite ]]; then
 fi
 
 export V2_DATABASE_URL="${V2_DATABASE_URL:-postgresql+psycopg://v2_local:v2_local@127.0.0.1:55432/mikrotik_manager_v2}"
+# Explicit maintenance mode; normal UI/API startup never applies migrations.
+if [[ "${1:-}" == '--prepare-demo' ]]; then
+  ./dev-db.sh
+  PYTHONPATH=backend .venv/bin/python -m app.demo_storage init
+  exit 0
+fi
 RUNTIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/mikrotik-manager-v2.XXXXXX")"
 API_PID=""
 WEB_PID=""
@@ -33,5 +39,5 @@ trap 'exit 143' TERM
 API_PID=$!
 npm --prefix frontend run dev -- --host 127.0.0.1 >"$RUNTIME_DIR/web.log" 2>&1 &
 WEB_PID=$!
-printf '\nMikroTik Manager V2 local demo\n  UI:      http://127.0.0.1:5173\n  API:     http://127.0.0.1:8000/api/docs\n  Login:   demo@local.test / demo-only\n  Stop:    Ctrl+C\n\nOnly local synthetic data is enabled; no PostgreSQL, router, RADIUS, or V1 connection is started.\n\n'
+printf '\nMikroTik Manager V2 local demo\n  UI:      http://127.0.0.1:5173\n  API:     http://127.0.0.1:8000/api/docs\n  Login:   demo@local.test / demo-only\n  Stop:    Ctrl+C\n\nOnly local synthetic data is enabled; demo persistence uses isolated local V2 PostgreSQL. No router, RADIUS, or V1 connection is started.\n\n'
 wait -n "$API_PID" "$WEB_PID"

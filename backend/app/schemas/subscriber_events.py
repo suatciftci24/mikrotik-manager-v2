@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Literal
 from uuid import UUID
 import re
@@ -34,3 +34,10 @@ class SubscriberHistoryEvent(BaseModel):
     source: Literal['LOCAL', 'RADIUS']
     actor_id: str
     is_demo: Literal[True]
+
+    @field_validator('occurred_at')
+    @classmethod
+    def event_time_utc(cls, value):
+        if value.utcoffset() is None:
+            raise ValueError('Demo işlem zamanı saat dilimi içermelidir')
+        return value.astimezone(timezone.utc)

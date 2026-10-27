@@ -5,12 +5,14 @@ A clean, independent local V2 workspace. The first phase uses synthetic records 
 ## Start the local demo
 
 ```bash
-cd ~/Codex-Projects/MikroTik-Manager-V2 && ./dev.sh
+cd /home/suatpc/Codex-Projects/mikrotik-manager-v2
+./dev.sh --prepare-demo  # Explicit first-time local DB/schema preparation; preserves existing demo data
+./dev.sh
 ```
 
 Open `http://127.0.0.1:5173`. Sign in with the synthetic demo account `demo` / `demo-only` (profile email `demo@local.test`). Dashboard, Router Center, and Subscriber Center show synthetic data; the other four modules have planned-scope empty states. The browser API is served by FastAPI at loopback; `/api/health` confirms no DB or device adapter connection.
 
-The first run creates a V2-specific Python virtual environment and installs the pinned backend/frontend dependency ranges. An internet connection to the normal package registries is needed for that initial install. PostgreSQL is not needed for the demo screens. The SQLAlchemy engine and V2-only schema are scaffolding; startup does not connect to the database or create schema. The SQL file under `migrations/versions/` is a design artifact and is not run by `dev.sh`.
+The first run prepares V2-specific Python/frontend dependencies. First-time dependency installation needs normal package-registry access. Demo persistence uses the existing SQLAlchemy/psycopg stack and locally installed PostgreSQL 16; no additional Python/npm package is introduced. The explicit `--prepare-demo` maintenance command starts only a repo-owned development PostgreSQL cluster and applies/seeds only the isolated demo schema. Normal `./dev.sh` startup neither connects to the DB nor runs migrations; API reads/writes connect on demand. The original `001_initial_v2.sql` domain design is not applied by demo setup.
 
 The optional V2 database URL is restricted to loopback and a non-default local port; it defaults to the separate database name `mikrotik_manager_v2` on port `55432`. Do not point it at V1 or production. See [AGENTS.md](AGENTS.md) for isolation and architecture rules.
 
@@ -34,7 +36,7 @@ router name; the partial list is explicitly distinct from its aggregate counter
 and from active sessions. Interface inventory, traffic, session duration
 and subscriber audit history have no connected source and show “Veri bulunamadı”.
 No online state, renewal date or unlimited duration is inferred from a plan or
-an active subscription. No adapter, database, migration or external service is used.
+an active subscription. No RouterOS/RADIUS or production adapter is used; synthetic subscription data is stored only in the isolated V2 development PostgreSQL schema.
 
 Targeted API checks (synthetic in-process client): install
 `backend/requirements-dev.txt` into the V2 virtual environment, then run
@@ -47,8 +49,8 @@ Frontend validation: `npm --prefix frontend run build`.
 Subscriber list and detail contracts expose nullable `expires_on` as an ISO
 calendar date (`YYYY-MM-DD`), not a timestamp or a date inferred from joining.
 Demo records explicitly cover expired, today, within 7 days, within 30 days,
-active and unknown expiry. Dates are generated relative to the Turkey date when
-the local demo API starts; restarting the demo regenerates these synthetic examples.
+active and unknown expiry. Dates are generated relative to the Turkey date at first explicit demo initialization.
+Subsequent setup, browser reload and application restarts preserve stored dates.
 No database migration or live integration is included. Demo-only expiry renewal/editing is described below.
 
 The UI uses the current Europe/Istanbul calendar day. An expiry date remains valid
@@ -100,14 +102,56 @@ revision and a UUID request ID. Stale changes return 409; repeating the same
 confirmed request returns its saved result without creating a second history event.
 The UI reuses its request ID after a failed response and offers current-record reload.
 
-The service publishes updated record, UTC history event (actor, operation, old/new
-date and source) and idempotency result together under one lock. Reads return copies.
-This is an in-memory atomic update, not a database transaction or a durable audit log.
-All demo sessions in the same API process see this shared state. Browser reload keeps
-it; restarting the API resets dates, history, revisions and request IDs. No database,
-file, router or RADIUS write occurs. Subscriber list, details and router assignment
-reads use the same memory store; the UI invalidates affected reads after success.
+The service validates the operation before the PostgreSQL adapter commits updated
+record, UTC history event (actor, operation, old/new date and source) and idempotency
+result in one transaction. Subscriber detail reads use a consistent snapshot; writes
+lock the subscriber row and retain expected-revision checks. All demo sessions see the
+same synthetic state, including after application restart. DB failure returns 503;
+there is no silent memory fallback or success before commit. The in-memory store is
+retained only as a synthetic unit-test adapter. Source and lifecycle status stay intact.
 
 The existing backend test command covers mutation authorization, confirmation,
 validation, source preservation, history/read consistency, idempotency, stale and
 concurrent changes, pre-publication failure and Turkey-day boundaries.
+
+
+## Isolated persistent demo storage
+
+Only `v2_local` on loopback port `55432`, database `mikrotik_manager_v2`, is accepted
+by the demo adapter. Other destinations are rejected before connecting. The three
+storage tables and version marker live in schema `v2_demo`, separate from domain
+subscriber/customer tables. Rows require the synthetic marker and demo IDs. State,
+history and request UUID results survive browser reloads and new API processes.
+The default `/api/health` now reports development DB connectivity truthfully while
+`device_adapters_connected` remains false.
+
+`dev-db.sh` uses PostgreSQL 16 already installed at `/usr/lib/postgresql/16/bin`.
+Its cluster, socket and log live only under git-ignored `.local/`; it never manages
+system services or restarts an existing server. It uses dedicated synthetic-only
+credentials from the sample V2 setup. An occupied port belonging to another server
+is left untouched. The initial maintenance connection only creates the V2 database
+inside this newly created, repo-owned development cluster.
+
+Migration `002_demo_storage.sql` and its `.down.sql` rollback are explicit development
+artifacts. Setup runs in a transaction and refuses to overwrite/reseed an existing
+marked schema. Normal application startup performs no SQL or migration. Rollback
+removes only `v2_demo` and requires exporting demo state first; it is never automatic.
+No V1/production schema, migration, router or RADIUS endpoint is used.
+
+An existing synthetic memory snapshot can be imported once into an empty schema:
+`PYTHONPATH=backend .venv/bin/python -m app.demo_storage init --snapshot .local/demo-import.json`.
+The importer validates demo IDs, revisions, history chains and source consistency;
+it preserves dates/history and reconstructs stored retry results. It never overwrites
+an existing demo schema. The captured 7 records and 2 events in this workspace were
+imported and compared with the old API without losing changes.
+
+Persistence integration checks (same V2 development DB, disposable `v2_demo_test_*`
+schemas only):
+`V2_RUN_PG_TESTS=1 PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests -v`.
+They include two fresh application processes, transaction rollback, concurrency,
+idempotency, one-time import/setup and destination isolation. No user/demo schema is
+reset by tests. Without the explicit flag the PostgreSQL integration class is skipped.
+
+A running API from an older commit is not hot-swapped or restarted by this change.
+The current UI detects its `process-memory` response and disables temporary writes;
+persistent editing is enabled when the updated API is next opened normally.

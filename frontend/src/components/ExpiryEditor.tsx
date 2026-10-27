@@ -7,8 +7,8 @@ import { Facts } from './Resource';
 import { SourceBadge } from './Status';
 
 type Review = {expires_on: string; operation: 'RENEWAL' | 'DATE_EDIT'; request_id: string};
-export function ExpiryEditor({subscriber, today, onClose, onSaved}: {
-  subscriber: Subscriber; today: string; onClose: () => void; onSaved: () => void;
+export function ExpiryEditor({subscriber, today, onClose, onSaved, persistence}: {
+  subscriber: Subscriber; persistence: SubscriberDetailData['persistence']; today: string; onClose: () => void; onSaved: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [value, setValue] = useState('');
@@ -34,22 +34,23 @@ export function ExpiryEditor({subscriber, today, onClose, onSaved}: {
     setReview({expires_on: value, operation, request_id: crypto.randomUUID()});
   };
   const save = async () => {
-    if (!review || sending.current || source === 'UNKNOWN') return;
+    if (!review || sending.current || source === 'UNKNOWN' || persistence !== 'local-postgresql-demo') return;
     sending.current = true; setPending(true); setError('');
     try {
-      await api<SubscriberDetailData>(`/subscribers/${encodeURIComponent(subscriber.id)}/demo-expiry`, {
+      const result = await api<SubscriberDetailData>(`/subscribers/${encodeURIComponent(subscriber.id)}/demo-expiry`, {
         method: 'POST', headers: {'X-V2-Demo-Action': 'expiry'},
         body: JSON.stringify({...review, expected_expires_on: subscriber.expires_on, expected_revision: subscriber.revision, expected_source: source, confirmed: true}),
       });
+      if (result.persistence !== 'local-postgresql-demo') throw new Error('Kalıcı demo kaydı doğrulanamadı; güncel kaydı yeniden yükleyin.');
       onSaved();
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Demo değişikliği tamamlanamadı.'); }
     finally { sending.current = false; setPending(false); }
   };
   return <dialog ref={dialog} className="expiry-dialog" aria-labelledby="expiry-editor-title" aria-describedby="expiry-editor-demo" onCancel={event => {event.preventDefault(); if (!sending.current) onClose();}}>
     <h2 id="expiry-editor-title" tabIndex={-1}>{review ? 'Demo değişikliğini onaylayın' : 'Demo bitiş tarihini düzenle / yenile'}</h2>
-    <p id="expiry-editor-demo">Bu işlem yalnız demo API çalıştığı sürece bellekte tutulur. Yeniden başlatmada tarih değişiklikleri ve işlem geçmişi sıfırlanır; gerçek abonelik değişmez.</p>
+    <p id="expiry-editor-demo">Bu işlem yalnız V2 yerel geliştirme veritabanındaki sentetik demo kaydını günceller. Tarih ve geçmiş sayfa yenilemesi ve uygulama yeniden açılması sonrasında korunur; gerçek abonelik değişmez.</p>
     <p><strong>{subscriber.customer_name}</strong> · <SourceBadge source={subscriber.source}/></p>
-    {source === 'UNKNOWN' ? <p className="form-error" role="alert">Kaynak bilinmiyor; kaynak doğrulanmadan değişiklik yapılamaz.</p> : review ? <>
+    {persistence !== 'local-postgresql-demo' ? <p className="form-error" role="alert">Kalıcı demo saklama etkin değil; güncel yerel API ile yeniden açılmalı.</p> : source === 'UNKNOWN' ? <p className="form-error" role="alert">Kaynak bilinmiyor; kaynak doğrulanmadan değişiklik yapılamaz.</p> : review ? <>
       <Facts items={[["İşlem türü", review.operation === 'RENEWAL' ? 'Yenileme (demo)' : 'Bitiş tarihi düzenleme (demo)'], ["Mevcut bitiş tarihi", expiryDate(subscriber.expires_on)], ["Yeni bitiş tarihi", expiryDate(review.expires_on)]]}/>
       <p>Tarih, Türkiye takviminde belirtilen günün sonuna kadar geçerlidir. Kaynak ve aktif/duraklatılmış hesap durumu bu tarih işlemiyle değiştirilmez.</p>
       {error && <p className="form-error" role="alert">{error} Sonuç alınamadıysa aynı onayı yeniden gönderebilirsiniz; aynı işlem iki kez uygulanmaz.</p>}

@@ -40,4 +40,4 @@ export type SubscriberHistoryEvent = {
   id: string; occurred_at: string; previous_expires_on: string | null; expires_on: string;
   operation: 'RENEWAL' | 'DATE_EDIT'; source: 'LOCAL' | 'RADIUS'; is_demo: true;
 };
-export type SubscriberDetailData = {item: Subscriber; history: SubscriberHistoryEvent[]; is_demo: true; persistence: 'process-memory'};
+export type SubscriberDetailData = {item: Subscriber; history: SubscriberHistoryEvent[]; is_demo: true; persistence: 'process-memory' | 'local-postgresql-demo'};
