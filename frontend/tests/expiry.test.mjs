@@ -4,7 +4,7 @@ import {expiryInfo, matchesExpiry, turkeyToday, remainingDays, expiryDate} from 
 
 test('expiry thresholds include the full final Turkey calendar day', () => {
   const cases = [
-    ['2026-10-26', -1, 'EXPIRED'], ['2026-10-27', 0, 'WITHIN_7'],
+    ['2026-10-26', -1, 'EXPIRED'], ['2026-10-27', 0, 'TODAY'], ['2026-10-28', 1, 'WITHIN_3'], ['2026-10-30', 3, 'WITHIN_3'], ['2026-10-31', 4, 'WITHIN_7'],
     ['2026-11-03', 7, 'WITHIN_7'], ['2026-11-04', 8, 'WITHIN_30'],
     ['2026-11-26', 30, 'WITHIN_30'], ['2026-11-27', 31, 'ACTIVE'],
   ];

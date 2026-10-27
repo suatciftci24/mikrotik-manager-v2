@@ -307,3 +307,27 @@ saved records after mutations; no new backend endpoint or data source is used.
 Targeted checks:
 `node --test --test-isolation=none frontend/tests/subscriberFilters.test.mjs frontend/tests/operationWindow.test.mjs frontend/tests/dailySummary.test.mjs frontend/tests/subscriberManagement.test.mjs`
 and `npm --prefix frontend run build`.
+
+## Subscription tracking and warning center
+
+The warning center is inside the existing Subscriber Center. Its cards filter
+expired, due-today, within-3-day and within-7-day subscriptions while retaining
+search/router/authority/package/account-state choices. Upcoming windows include
+today: 0–3, 0–7 and 0–30 calendar days in Europe/Istanbul. These cards overlap;
+the unique warning total is expired plus within-7-day records, counting each
+subscriber ID once. Unknown/invalid expiry dates are a separate group. The valid
+filter includes today and all future dates; the existing >30-day filter remains.
+
+List/detail badges use mutually exclusive date bands: expired, today, 1–3, 4–7,
+8–30 and >30 days, with unknown separate. The same calendar helper and existing
+midnight/focus update hook drive them. The warning summary deliberately ignores
+only the current expiry selection so changing cards does not hide other warning
+counts. Missing or failed source reads never become a successful zero summary.
+
+Renewal still opens the existing detail/dialog flow and reviews old/new dates.
+Existing persistent transaction/idempotency/history and resource invalidation
+are retained. Warnings send no messages and never disable real or demo accounts
+automatically. No new backend, schema or device/RADIUS source is added.
+
+Targeted checks:
+`node --test --test-isolation=none frontend/tests/expiry.test.mjs frontend/tests/subscriptionAlerts.test.mjs frontend/tests/subscriberFilters.test.mjs frontend/tests/dailySummary.test.mjs`.
