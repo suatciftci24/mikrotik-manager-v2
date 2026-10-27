@@ -1,11 +1,13 @@
 """Versioned, read-only detail contracts; unavailable telemetry is never fabricated."""
+from app.schemas.demo_reports import DemoReport, DemoWan
 from datetime import date
 from typing import Literal
 from app.schemas.subscriber_events import SubscriberHistoryEvent
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class RouterRecord(BaseModel):
+    wan_snapshot: DemoWan | None = None
     id: str
     name: str
     management_address: str
@@ -39,6 +41,14 @@ class SubscriberRecord(BaseModel):
     revision: int = 0
     last_seen: str | None
     is_demo: Literal[True]
+
+    demo_report: DemoReport | None = None
+
+    @model_validator(mode='after')
+    def report_identity(self):
+        if self.demo_report and (self.demo_report.subscriber_id != self.id or self.demo_report.router_id != self.router_id):
+            raise ValueError('Demo report subscriber/router mismatch')
+        return self
 
     @field_validator('source', mode='before')
     @classmethod

@@ -75,6 +75,24 @@ def snapshot_steps(detail):
     return list(reversed(reverse_steps))
 
 
+def insert_snapshot(connection, adapter, detail, schema):
+    detail.setdefault('history', [])
+    item, events = detail['item'], detail['history']
+    for key, value in (('revision', 0), ('source', None), ('expires_on', None)):
+        item.setdefault(key, value)
+    connection.execute(text(f'INSERT INTO {schema}.subscribers(id,payload,revision) VALUES (:id,CAST(:payload AS jsonb),:revision)'),
+                       {'id': item['id'], 'payload': json.dumps(item), 'revision': item['revision']})
+    chronological = list(reversed(events))
+    for revision, event in enumerate(chronological, 1):
+        connection.execute(text(f'INSERT INTO {schema}.events(id,subscriber_id,revision,payload) VALUES (:id,:subscriber,:revision,CAST(:payload AS jsonb))'),
+                           {'id': event['id'], 'subscriber': item['id'], 'revision': revision, 'payload': json.dumps(event)})
+    for _before, after, event, change, target in snapshot_steps(detail):
+        revision = after['revision']
+        prior_response = adapter._response(after, list(reversed(chronological[:revision])))
+        connection.execute(text(f'INSERT INTO {schema}.requests(id,subscriber_id,fingerprint,response) VALUES (:id,:subscriber,:fingerprint,CAST(:response AS jsonb))'),
+                           {'id': event['id'], 'subscriber': item['id'], 'fingerprint': request_fingerprint(target, event['actor_id'], change), 'response': json.dumps(prior_response)})
+
+
 def initialize_demo(engine, snapshots=None, schema='v2_demo'):
     adapter = PostgresDemoStore(engine, schema)  # Validate destination before any connection.
     if snapshots is None:
@@ -92,33 +110,48 @@ def initialize_demo(engine, snapshots=None, schema='v2_demo'):
             if statement.strip():
                 connection.execute(text(statement))
         for detail in snapshots:
-            detail.setdefault('history', [])
-        item, events = detail['item'], detail['history']
-        for key, value in (('revision', 0), ('source', None), ('expires_on', None)):
-            item.setdefault(key, value)
-            connection.execute(text(f'INSERT INTO {schema}.subscribers(id,payload,revision) VALUES (:id,CAST(:payload AS jsonb),:revision)'),
-                               {'id': item['id'], 'payload': json.dumps(item), 'revision': item['revision']})
-            chronological = list(reversed(events))
-            for revision, event in enumerate(chronological, 1):
-                connection.execute(text(f'INSERT INTO {schema}.events(id,subscriber_id,revision,payload) VALUES (:id,:subscriber,:revision,CAST(:payload AS jsonb))'),
-                                   {'id': event['id'], 'subscriber': item['id'], 'revision': revision, 'payload': json.dumps(event)})
-            for _before, after, event, change, target in snapshot_steps(detail):
-                revision = after['revision']
-                prior_response = adapter._response(after, list(reversed(chronological[:revision])))
-                connection.execute(text(f'INSERT INTO {schema}.requests(id,subscriber_id,fingerprint,response) VALUES (:id,:subscriber,:fingerprint,CAST(:response AS jsonb))'),
-                                   {'id': event['id'], 'subscriber': item['id'], 'fingerprint': request_fingerprint(target, event['actor_id'], change), 'response': json.dumps(prior_response)})
+            insert_snapshot(connection, adapter, detail, schema)
     return True
+
+
+def seed_examples(engine, schema='v2_demo'):
+    from app.services.demo_examples import demo_examples
+    from app.services.demo_management import calculate_create
+    from app.services.demo_subscriptions import DemoChangeError
+    adapter = PostgresDemoStore(engine, schema)
+    snapshots = validated_snapshots(demo_examples())
+    added = 0
+    with engine.begin() as connection:
+        adapter._verify(connection)
+        connection.execute(text(f'LOCK TABLE {schema}.subscribers IN SHARE ROW EXCLUSIVE MODE'))
+        for detail in snapshots:
+            if adapter._item(connection, detail['item']['id']) is not None:
+                continue  # Preserve all user edits, measurements and history on seeded IDs.
+            command = snapshot_steps(detail)[0][3]
+            items = list(connection.execute(text(f'SELECT payload FROM {schema}.subscribers')).scalars())
+            try:
+                calculate_create(command, 'demo-seed', items)
+            except DemoChangeError as error:
+                if error.status_code == 409:
+                    continue  # Existing usernames also belong to the user.
+                raise
+            insert_snapshot(connection, adapter, detail, schema)
+            added += 1
+    return added
 
 
 def main():
     parser = argparse.ArgumentParser(description='Explicit local V2 demo schema initialization (never resets existing data)')
     parser.add_argument('command', choices=['init'])
+    parser.add_argument('--examples', action='store_true', help='Add missing deterministic demo examples without overwriting existing records')
     parser.add_argument('--snapshot', type=Path, help='Optional synthetic memory snapshot to preserve existing edits/history')
     args = parser.parse_args()
     snapshots = json.loads(args.snapshot.read_text()) if args.snapshot else None
     from app.core.database import engine
     try:
         created = initialize_demo(engine, snapshots)
+        if args.examples:
+            print(f'Added {seed_examples(engine)} synthetic integration examples.')
     finally:
         engine.dispose()
     print('V2 synthetic PostgreSQL schema initialized.' if created else 'V2 synthetic schema already exists; no records overwritten.')

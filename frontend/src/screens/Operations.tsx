@@ -14,7 +14,7 @@ export function Operations({onRouter}: {onRouter: (id: string) => void}) {
   const {data, loading, error, retry} = useResource('/routers', loadAlarms);
   return <div className="screen-stack router-report">
     <PageHeading title="Operasyon Merkezi" eyebrow="İNTERNET VE WAN" description="İnternet kesintisi ve WAN değişikliği alarm kapsamı" actions={<button className="button-secondary" onClick={retry} disabled={loading}>Yenile</button>}/>
-    <section className="panel"><div className="panel-title"><h2>Kaynak kapsamı</h2><span className="demo-chip">SENTETİK</span></div><p className="daily-description">V2 yalnız son sentetik router envanter kaydını sağlıyor. Çevrimiçi/çevrimdışı envanter durumu internet erişimini doğrulamaz. Yönetim adresi WAN adresi değildir. Yenileme yeni ölçüm veya alarm geçmişi oluşturmaz.</p></section>
+    <section className="panel"><div className="panel-title"><h2>Kaynak kapsamı</h2><span className="demo-chip">SENTETİK</span></div><p className="daily-description">V2 kaydedilmiş sentetik envanter ve hazırlanmışsa demo olay kayıtlarını gösterir. Çevrimiçi/çevrimdışı envanter durumu internet erişimini doğrulamaz. Yönetim adresi WAN adresi değildir. Yenileme yeni ölçüm veya alarm geçmişi oluşturmaz.</p></section>
     <ResourceState loading={loading} error={error} retry={retry}/>
     {data&&!loading&&!error&&<>
       <AlarmEvents routers={data.rows.map(row=>({id:row.id,name:row.name}) as Router)}/>

@@ -34,5 +34,6 @@ test('source and identity remain explicit; account state never supplies a sessio
   assert.match(html,/Oturum bağlantı durumu<\/dt><dd>Veri yok/);
   assert.match(html,/Son görülme \(sentetik envanter\)<\/dt><dd>Veri yok/);
  }
- assert.throws(()=>renderToStaticMarkup(createElement(SubscriberReports,{subscriber:{...item,is_demo:false},today:'2026-10-27'})),/sentetik/);
+ const invalid=renderToStaticMarkup(createElement(SubscriberReports,{subscriber:{...item,is_demo:false},today:'2026-10-27'}));
+ assert.match(invalid,/role="alert"/);assert.match(invalid,/Sentetik/);
 });

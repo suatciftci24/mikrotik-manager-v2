@@ -268,9 +268,9 @@ demo package/account state, expiry and remaining days, with the existing package
 status and renewal dialogs. Its history includes actor, operation, before/after
 values and Europe/Istanbul time. A saved IP or `last_seen` is explicitly an
 inventory observation; it never implies an online session or a connection start.
-Today's, this week's and the last 30 days' download/upload/total values show
-“Veri yok” because no per-subscriber traffic source exists. Missing samples do not
-become zero traffic. The existing theme and mobile table-scroll layout is reused.
+Today's, this week's and the last 30 days' download/upload/total values sum
+persisted synthetic byte samples when present. Legacy records without reports show
+“Veri yok”; missing samples never become zero traffic. The existing theme and mobile table-scroll layout is reused.
 
 Observation checks: `node --test --test-isolation=none frontend/tests/subscriberObservation.test.mjs`.
 The opt-in `test_postgres_management.py` suite also includes the complete PPPoE
@@ -340,12 +340,14 @@ and the last 30 calendar days (including today) use Europe/Istanbul boundaries.
 The selected period shows its inclusive dates and highlights the usage summary row.
 Inventory IP and last-seen observations remain independent of the selected period.
 
-The current V2 subscriber API has no session history or subscriber byte measurements.
-Session start/end, duration, connectivity, download/upload/total usage and measurement
-history therefore explicitly show **Veri yok**. Account status and management events
-are not session evidence; package speed, router counters and dashboard graphics are
-not subscriber usage. No telemetry fixtures, inferred zeros, database schema or live
-adapter calls are introduced. LOCAL/RADIUS/unknown authority remains visible.
+The optional `demo_report` in the existing persisted subscriber JSON supplies
+synthetic sessions, byte deltas, WAN snapshots and router events. Measurements are
+summed in MiB (1 MiB = 1,048,576 bytes) over Istanbul calendar windows; the values
+cover recorded samples, not a claim of complete period coverage. Missing directions
+make their total unknown; a measured zero stays zero. Closed-session duration needs
+both ordered timestamps. Active session records are labelled synthetic snapshots,
+not live connectivity. Legacy/newly created records without reports stay “Veri yok”.
+Account state, IP and last seen never supply session evidence.
 
 Targeted report checks (no sockets or database required):
 
@@ -366,22 +368,24 @@ operation detail dialogs remain available. Explicit PPPoE records and legacy
 records without an access type are counted separately. Internet outage/WAN event
 coverage is unknown when no event source exists, never an inferred zero.
 
-Router details expose management identity, synthetic resource samples, unavailable
-WAN/interface fields and assigned subscription links. Saved `router_id` takes
+Router details expose management identity, synthetic resource samples, persisted WAN snapshots when present, unavailable
+interface fields and assigned subscription links. Saved `router_id` takes
 precedence over display names; legacy name-only assignments remain readable.
 Stored subscription counts are distinct from the old aggregate inventory counter.
 The existing rolling operation component and Turkey-time detail dialog are reused
-for the assigned subscribers' saved management history. Router event history is
-unavailable; inventory refreshes never create events or prove live connectivity.
+for the assigned subscribers' saved management history. Router event history reads
+the same persisted report records as the alarm center; inventory refreshes never
+create events or prove live connectivity.
 No router/RADIUS adapters, pollers or writes are introduced.
 
 ### Internet outage and WAN alarm center
 
 Dashboard 24-hour cards, Operations filters and router-scoped event history share
-one read-only authenticated endpoint: `GET /api/v1/router-events`. The current demo
-has no recorded router event source: it returns `available: false, items: []`.
-This means **Veri yok**, not a measured zero. No synthetic events are seeded or
-inferred from inventory status, last-seen timestamps or management addresses.
+one read-only authenticated endpoint: `GET /api/v1/router-events`. It projects
+router events from the existing persisted subscriber demo reports. Without any
+prepared report it returns `available: false, items: []`: **Veri yok**, not measured
+zero. The explicit integration seed adds labelled synthetic lifecycle records. No
+events are inferred from inventory status, last-seen timestamps or management IPs.
 
 The event contract distinguishes INTERNET_DOWN, INTERNET_UP and WAN_CHANGE. A
 recovery joins an outage only with an explicit `down_event_id`, exactly one
@@ -406,4 +410,51 @@ PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests -p tes
 
 Backend checks inspect contracts, route registration and the authentication
 dependency without HTTP or PostgreSQL; React render checks do not certify browser
-interaction or mobile appearance. Actual lifecycle examples exist only in tests.
+interaction or mobile appearance. Integration examples are added only by explicit
+local demo preparation; normal application startup never seeds data.
+
+
+### Integrated synthetic demo preparation
+
+On a permitted **local V2** workstation, the existing `./dev.sh --prepare-demo`
+flow initializes the isolated demo schema if absent and runs the additive
+`app.demo_storage init --examples` seed. Then `./dev.sh` starts the existing app.
+Normal startup performs no setup or seed. No new database table, migration or
+package is needed: reports use the existing subscriber JSONB payload, and audit
+and retry responses use the existing event/request tables.
+
+Two deterministic `demo.integration.1` / `demo.integration.2` PPPoE records (LOCAL
+and RADIUS) reference the existing demo routers. Each has create/package/status/
+renewal history and dated byte deltas; the first has closed/active synthetic
+session records and a resolved outage, the second an explicitly open outage.
+Both include WAN transitions/snapshots. Their stable IDs and username checks make
+preparation repeatable: existing IDs and username collisions are skipped, never
+updated/deleted. User edits and old demo subscribers remain untouched. Dates are
+anchored at the first insertion and are not shifted by restarts/reseeding; old
+24-hour windows naturally become empty. Existing expired/unknown legacy records
+remain available alongside the new examples.
+
+A repaired seed-loop indentation ensures every original subscriber is inserted
+exactly once. Regression tests cover all original IDs, additive seeding, username
+collisions and edited rows. Recording SQL in a socketless test does not prove
+PostgreSQL commits, concurrent execution or disk persistence.
+
+Cross-language projection checks export **actual seed output**, not a second
+maintained fixture dataset (the generated path is temporary):
+
+```sh
+demo_fixture_path=$(mktemp /tmp/v2-demo-projection.XXXXXX.json)
+PYTHONPATH=backend .venv/bin/python backend/tests/export_demo_examples.py > "$demo_fixture_path"
+V2_DEMO_TEST_FIXTURE="$demo_fixture_path" node --test --test-isolation=none frontend/tests/demoIntegration.test.mjs
+PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests -p test_demo_integration_seed.py -v
+```
+
+Real DB opt-in (disposable `v2_demo_test_*` schema, same V2-only restrictions):
+
+```sh
+V2_RUN_PG_TESTS=1 PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests -p test_demo_examples_postgres.py -v
+```
+
+When sockets or the declared HTTP test requirements are unavailable, actual seed
+application, HTTP mutation flows, restart persistence and browser verification
+remain **BLOCKED**. No fallback writes or automatic service restarts are used.

@@ -18,7 +18,7 @@ export V2_DATABASE_URL="${V2_DATABASE_URL:-postgresql+psycopg://v2_local:v2_loca
 # Explicit maintenance mode; normal UI/API startup never applies migrations.
 if [[ "${1:-}" == '--prepare-demo' ]]; then
   ./dev-db.sh
-  PYTHONPATH=backend .venv/bin/python -m app.demo_storage init
+  PYTHONPATH=backend .venv/bin/python -m app.demo_storage init --examples
   exit 0
 fi
 RUNTIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/mikrotik-manager-v2.XXXXXX")"

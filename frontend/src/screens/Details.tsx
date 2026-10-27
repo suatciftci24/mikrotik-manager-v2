@@ -49,8 +49,8 @@ export function RouterDetails({detail}: {detail: RouterDetail}) {
     <DetailSection title="Bağlantı durumu"><Facts items={[["Son sentetik durum kaydı", <StatusBadge status={report.status}/>], ["Son görülme", report.source_time?dateTime(report.source_time):'Veri yok'], ["Canlı bağlantı", 'Bilinmiyor'], ["Demo çalışma süresi", report.device_uptime??'Veri yok'], ["Demo CPU / RAM", `${percentText(report.cpu)} / ${percentText(report.memory)}`]]}/><p>Son görülme aktif bağlantı kanıtı değildir. CPU/RAM son sentetik örneklerdir; uptime bağlantı süresi değildir.</p></DetailSection>
     <DetailSection title="Bağlantı geçmişi"><p className="missing-data">Veri yok. Envanter yalnız son sentetik durum kaydını sağlıyor; bağlantı/kopma olayları ve kesinti süresi kaynağı bağlı değil.</p></DetailSection>
     <DetailSection title="İnternet ve WAN"><Facts items={[
-      ['WAN arayüzü','Veri yok'], ['WAN IP','Veri yok'], ['Gateway','Veri yok'], ['Default route','Veri yok'], ['İnternet durumu','Bilinmiyor'],
-    ]}/><p className="missing-data">Veri yok. WAN değişiklik geçmişi ve internet kesintisi kaynağı bağlı değil. Yönetim IP’si WAN IP olarak kullanılamaz.</p><a className="record-link" href="#module=operations">Operasyon Merkezi’ni aç</a></DetailSection>
+      ['WAN arayüzü',detailText(r.wan_snapshot?.interface)], ['WAN IP',detailText(r.wan_snapshot?.ip)], ['Gateway',detailText(r.wan_snapshot?.gateway)], ['Default route',detailText(r.wan_snapshot?.default_route)], ['İnternet durumu','Bilinmiyor'],
+    ]}/><p className="missing-data">WAN alanları yalnız kaydedilmiş sentetik örnek varsa gösterilir. Olay geçmişi aşağıdaki ortak alarm kaynağındadır. Yönetim IP’si WAN IP olarak kullanılamaz.</p><a className="record-link" href="#module=operations">Operasyon Merkezi’ni aç</a></DetailSection>
     <DetailSection title="Arayüzler"><MissingData>Arayüz envanteri kaynağı bağlı değil.</MissingData></DetailSection>
     <DetailSection title="Trafik"><p className="missing-data">Veri yok. Bu router için indirme/yükleme, arayüz sayacı veya trafik zaman serisi kaynağı bağlı değil.</p></DetailSection>
     <DetailSection title="İlişkili aboneler">
