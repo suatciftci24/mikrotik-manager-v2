@@ -53,3 +53,21 @@ class DetailContracts(unittest.TestCase):
         schema = app.openapi()
         for path, model in [('/api/v1/routers/{item_id}', 'RouterDetail'), ('/api/v1/subscribers/{item_id}', 'SubscriberDetail')]:
             self.assertEqual(schema['paths'][path]['get']['responses']['200']['content']['application/json']['schema']['$ref'], '#/components/schemas/' + model)
+
+    def test_expiry_dates_are_explicit_nullable_and_shared_by_list_and_detail(self):
+        from datetime import date
+        from app.services.demo_data import DEMO_DATE
+        self.login()
+        rows = self.client.get('/api/v1/subscribers').json()['items']
+        offsets = []
+        for row in rows:
+            value = row['expires_on']
+            offsets.append((date.fromisoformat(value) - DEMO_DATE).days if value else None)
+            detail = self.client.get('/api/v1/subscribers/' + row['id']).json()
+            self.assertEqual(detail['item']['expires_on'], value)
+        self.assertEqual(offsets, [-3, 5, 20, 60, 0, None, 30])
+        unknown = next(row for row in rows if row['expires_on'] is None)
+        self.assertTrue(unknown['joined_at'])
+        schema = app.openapi()['components']['schemas']['SubscriberRecord']['properties']['expires_on']
+        self.assertIn({'type': 'string', 'format': 'date'}, schema['anyOf'])
+        self.assertIn({'type': 'null'}, schema['anyOf'])

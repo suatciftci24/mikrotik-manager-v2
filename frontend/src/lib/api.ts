@@ -23,7 +23,7 @@ export type Router = {
 export type Subscriber = {
   id: string; username: string; customer_name: string; router_name: string; plan: string;
   source: 'LOCAL' | 'RADIUS'; status: 'ACTIVE' | 'PAUSED' | 'PENDING'; monthly_price: number;
-  ip_address: string; joined_at: string; last_seen: string | null; is_demo: true;
+  ip_address: string; joined_at: string; expires_on: string | null; last_seen: string | null; is_demo: true;
 };
 
 export type DashboardData = {

@@ -10,7 +10,7 @@ Son güncelleme: 2026-10-27. Proje yolu: `/home/suatpc/Codex-Projects/mikrotik-m
 - Router ve abone listelerinden salt okunur detay merkezlerine erişim mevcut. Liste filtreleri korunuyor; URL fragmenti detay kimliğini taşıyor. Kaynak kodunda geri dönüş, yükleniyor, hata, tekrar deneme ve boş veri durumları bulunuyor.
 - `/api/v1/routers/{item_id}` ve `/api/v1/subscribers/{item_id}` merkezi demo oturum kontrolünü ve Pydantic yanıt sözleşmelerini kullanıyor; bulunamayan kayıtlar 404 döndürüyor.
 - Veriler mevcut sentetik demo envanterinden geliyor. Router'a atanmış sentetik abone listesi, toplam sayaç ve aktif oturumlardan ayrı açıklanıyor. LOCAL/RADIUS yetkili kaynak bilgisi korunuyor.
-- Router arayüzleri, trafik, canlı oturum, abonelik bitişi/kalan süre ve abone işlem geçmişi için bağlı veri kaynağı bulunmuyor; detay ekranları bunu açıkça belirtiyor. Bu alanlar tamamlanmış entegrasyon değildir.
+- Router arayüzleri, trafik, canlı oturum ve abone işlem geçmişi için bağlı veri kaynağı bulunmuyor; detay ekranları bunu açıkça belirtiyor. Abonelik bitişi/kalan gün takibi aşağıdaki yeni paketle sentetik tarihler üzerinden sağlanıyor; canlı entegrasyon değildir.
 - README yerel demo çalışma biçimini ve test komutlarını belgeliyor. `backend/tests/test_details.py` hedefli API testlerini içeriyor. Test dosyasının varlığı, bu belge görevinde çalıştırıldığı anlamına gelmez.
 
 ## Önceki belge görevi — `c5b263c`
@@ -68,6 +68,19 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Tek hedefli yerel Chromium kontrol kapsamı: gerçek hesaplanan yazı boyutları, masaüstü ve 390/320 px Dashboard, Router/Abone listeleri ve detayları, giriş formu ve arama penceresi. Yerleşim oturduktan sonra yatay taşma olmadığı ve tema seçiminin çalıştığı doğrulandı; kontrol geçti. 320 px Dashboard ekran görüntüsü incelendi.
 - CSS değişikliği için derleme ve önceki API/tema test paketleri ayrıca çalıştırılmadı. Yeni paket, backend veya canlı sistem işlemi yok.
 - Sıradaki somut adım: kullanıcının yerel panelde büyütülen yazıları görsel incelemesi.
+
+## Abonelik bitiş tarihi ve kalan gün takibi — 2026-10-27
+
+- Görev başında kurallar ve ilerleme kaydı okundu; branch `main`, HEAD `11b5868`, çalışma ağacı temizdi. Mevcut tema ve okunabilirlik düzeltmeleri korundu.
+- Abone API liste ve detay sözleşmelerine nullable ISO takvim tarihi `expires_on` eklendi; liste yanıtı da belgelenmiş Pydantic sözleşmesi kullanıyor. Bu fazın verisi yalnız sentetik bellekte tutuluyor; veritabanı modeli veya migration değiştirilmedi.
+- Demo API başlangıcındaki Türkiye gününe göre açık örnekler: -3, +5, +20, +60, 0, bilinmiyor ve +30 gün. Eksik tarihler katılım tarihinden türetilmiyor; demo yeniden başlatılınca örnek tarihler yeniden üretiliyor.
+- Abone listesine bitiş tarihi, kalan gün ve ayrı bitiş durumu sütunları; detaya belirgin tarih/durum/kalan gün özeti eklendi. Bilinmeyen tarihler açıkça “Bitiş tarihi bilinmiyor” gösteriliyor.
+- Süresi dolmuş, 7 gün, 30 gün, aktif ve bilinmeyen bitiş filtreleri mevcut kaynak/durum/arama ile birleşiyor; sıfırlama ve detaydan dönüşte seçim korunuyor. 30 gün filtresi 0–7 gün grubunu da kapsıyor; dolmuş/bilinmeyen kayıtları kapsamıyor.
+- Hesaplama ortak frontend yardımcısında Europe/Istanbul takvim günü üzerinden yapılıyor; bitiş günü dahil (0 gün), geçmiş gün dolmuş, 0–7 / 8–30 / 30 üzeri ayrı gösteriliyor. Gün değişimi 30 saniyelik kontrol ve sekme odağı/görünürlük değişiminde güncelleniyor; saat farkı veya katılım tarihiyle tahmin yok.
+- Kontroller geçti: frontend TypeScript/Vite derlemesi, `npm --prefix frontend run test:expiry` tarih sınırları/eksik-geçersiz tarih/Türkiye gece yarısı/artık gün/yıl geçişi/filtre semantiği kontrolleri ve 5 sentetik API testi.
+- Yerel Chromium ile filtre sayıları/birleşimi/sıfırlama, bilinmeyen tarih, liste–detay uyumu, Beyaz/Gece/Sistem temaları ve 320 px taşmasız görünüm doğrulandı. Son gece yarısı kontrolünde yalnız gizli liste ve detay arasındaki test seçicisi daraltıldı; Türkiye gece yarısında detayın otomatik “bugün bitiyor”dan “1 gün önce doldu”ya geçtiği kontrolü geçti. Mobil bitiş özeti görüntüsü incelendi.
+- Yalnız yerel V2 demo süreçleri yeni API verisi için yeniden başlatıldı. V1, VDS, router, RADIUS ve gerçek abone verilerine dokunulmadı; uzatma/değiştirme, canlı bağlantı veya deploy eklenmedi.
+- Sıradaki somut adım: kullanıcının yerel panelde bitiş filtreleri ve detay özetini incelemesi; canlı entegrasyon veya abonelik düzenleme için yeni kapsam gerekir.
 
 ## Sıradaki işler — henüz başlanmadı
 

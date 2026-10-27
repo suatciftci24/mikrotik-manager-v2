@@ -1,4 +1,5 @@
 """Versioned, read-only detail contracts; unavailable telemetry is never fabricated."""
+from datetime import date
 from typing import Literal
 from pydantic import BaseModel
 
@@ -30,6 +31,7 @@ class SubscriberRecord(BaseModel):
     monthly_price: float
     ip_address: str
     joined_at: str
+    expires_on: date | None = None
     last_seen: str | None
     is_demo: Literal[True]
 
@@ -42,4 +44,10 @@ class RouterDetail(BaseModel):
 
 class SubscriberDetail(BaseModel):
     item: SubscriberRecord
+    is_demo: Literal[True]
+
+
+class SubscriberList(BaseModel):
+    items: list[SubscriberRecord]
+    total: int
     is_demo: Literal[True]

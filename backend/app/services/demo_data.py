@@ -1,5 +1,13 @@
 """Clearly marked, in-memory Phase 1 data. Never writes to PostgreSQL or devices."""
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
+
+# Explicit synthetic expiry dates relative to local demo startup; never inferred from joined_at.
+DEMO_DATE = datetime.now(ZoneInfo("Europe/Istanbul")).date()
+
+def demo_expiry(days: int | None) -> str | None:
+    return (DEMO_DATE + timedelta(days=days)).isoformat() if days is not None else None
+
 
 STAMP = datetime(2026, 10, 26, 9, 42, tzinfo=timezone.utc).isoformat()
 ROUTERS = [
@@ -24,25 +32,25 @@ ROUTERS = [
 SUBSCRIBERS = [
     {'id': 'demo-sub-1001', 'username': 'ayse.demir', 'customer_name': 'Ayşe Demir', 'router_name': 'Kadıköy · Merkez',
      'plan': 'Fiber 100', 'source': 'LOCAL', 'status': 'ACTIVE', 'monthly_price': 549.90,
-     'ip_address': '100.64.12.41', 'joined_at': '2025-04-12', 'last_seen': STAMP, 'is_demo': True},
+     'ip_address': '100.64.12.41', 'joined_at': '2025-04-12', 'expires_on': demo_expiry(-3), 'last_seen': STAMP, 'is_demo': True},
     {'id': 'demo-sub-1002', 'username': 'mert.kaya', 'customer_name': 'Mert Kaya', 'router_name': 'Ataşehir · Doğu',
      'plan': 'Fiber 500', 'source': 'RADIUS', 'status': 'ACTIVE', 'monthly_price': 849.90,
-     'ip_address': '100.64.18.26', 'joined_at': '2024-11-03', 'last_seen': STAMP, 'is_demo': True},
+     'ip_address': '100.64.18.26', 'joined_at': '2024-11-03', 'expires_on': demo_expiry(5), 'last_seen': STAMP, 'is_demo': True},
     {'id': 'demo-sub-1003', 'username': 'selin.yilmaz', 'customer_name': 'Selin Yılmaz', 'router_name': 'Üsküdar · Sahil',
      'plan': 'Fiber 100', 'source': 'LOCAL', 'status': 'PAUSED', 'monthly_price': 549.90,
-     'ip_address': '—', 'joined_at': '2025-01-19', 'last_seen': None, 'is_demo': True},
+     'ip_address': '—', 'joined_at': '2025-01-19', 'expires_on': demo_expiry(20), 'last_seen': None, 'is_demo': True},
     {'id': 'demo-sub-1004', 'username': 'burak.arslan', 'customer_name': 'Burak Arslan', 'router_name': 'Kartal · Güney',
      'plan': 'Fiber 50', 'source': 'RADIUS', 'status': 'ACTIVE', 'monthly_price': 429.90,
-     'ip_address': '100.64.31.18', 'joined_at': '2026-02-22', 'last_seen': STAMP, 'is_demo': True},
+     'ip_address': '100.64.31.18', 'joined_at': '2026-02-22', 'expires_on': demo_expiry(60), 'last_seen': STAMP, 'is_demo': True},
     {'id': 'demo-sub-1005', 'username': 'deniz.celik', 'customer_name': 'Deniz Çelik', 'router_name': 'Kadıköy · Merkez',
      'plan': 'Fiber 1000', 'source': 'LOCAL', 'status': 'ACTIVE', 'monthly_price': 1249.90,
-     'ip_address': '100.64.12.87', 'joined_at': '2024-07-14', 'last_seen': STAMP, 'is_demo': True},
+     'ip_address': '100.64.12.87', 'joined_at': '2024-07-14', 'expires_on': demo_expiry(0), 'last_seen': STAMP, 'is_demo': True},
     {'id': 'demo-sub-1006', 'username': 'eda.oz', 'customer_name': 'Eda Öz', 'router_name': 'Ataşehir · Doğu',
      'plan': 'Fiber 100', 'source': 'LOCAL', 'status': 'PENDING', 'monthly_price': 549.90,
-     'ip_address': '—', 'joined_at': '2026-10-25', 'last_seen': None, 'is_demo': True},
+     'ip_address': '—', 'joined_at': '2026-10-25', 'expires_on': demo_expiry(None), 'last_seen': None, 'is_demo': True},
     {'id': 'demo-sub-1007', 'username': 'onur.akin', 'customer_name': 'Onur Akın', 'router_name': 'Üsküdar · Sahil',
      'plan': 'Fiber 50', 'source': 'RADIUS', 'status': 'ACTIVE', 'monthly_price': 429.90,
-     'ip_address': '100.64.25.63', 'joined_at': '2025-08-29', 'last_seen': STAMP, 'is_demo': True},
+     'ip_address': '100.64.25.63', 'joined_at': '2025-08-29', 'expires_on': demo_expiry(30), 'last_seen': STAMP, 'is_demo': True},
 ]
 
 DASHBOARD = {

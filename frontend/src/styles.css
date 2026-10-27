@@ -51,3 +51,15 @@ input::placeholder{color:var(--muted);opacity:1}
 .login-security{align-items:flex-start}
 .login-demo-note{flex-wrap:wrap}
 @media(max-width:650px){.router-list-row{flex-wrap:wrap}.router-row-name{flex-basis:calc(100% - 50px)}.router-load{margin-left:38px}.chart-legend{gap:10px}.chart-x{flex-wrap:wrap;gap:5px}.traffic-summary{flex-wrap:wrap}.filter-strip>div{flex-wrap:wrap}.table-footer{gap:8px}.command-foot{flex-wrap:wrap}.login-left-footer,.login-right-footer{position:static;margin-top:24px}.login-right{display:flex;flex-direction:column;justify-content:center}.login-form-wrap{margin:auto}.screen-footnote>span{flex-wrap:wrap}}
+.expiry-context{margin:0;padding:10px 14px;font-size:var(--font-caption);color:var(--text-secondary);line-height:1.6}
+.expiry-badge{display:inline-flex;align-items:center;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font-size:var(--font-caption);font-weight:600;line-height:1.5;background:var(--surface-2);color:var(--text-secondary)}
+.expiry-expired{--expiry-fg:var(--red);--expiry-bg:var(--red-soft);--expiry-border:var(--red-line)}
+.expiry-within_7{--expiry-fg:var(--amber);--expiry-bg:var(--amber-soft);--expiry-border:var(--amber-line)}
+.expiry-within_30{--expiry-fg:var(--accent);--expiry-bg:var(--surface-selected);--expiry-border:var(--accent-line)}
+.expiry-active{--expiry-fg:var(--green);--expiry-bg:var(--green-soft);--expiry-border:var(--green-line)}
+.expiry-unknown{--expiry-fg:var(--text-secondary);--expiry-bg:var(--surface-2);--expiry-border:var(--line)}
+.expiry-badge,.expiry-summary{color:var(--expiry-fg);background:var(--expiry-bg);border-color:var(--expiry-border)}
+.expiry-summary{display:flex;align-items:flex-start;flex-direction:column;gap:10px;padding:16px;margin-bottom:12px;border:1px solid var(--expiry-border);border-radius:8px;overflow-wrap:anywhere}
+.expiry-summary>strong{font-size:1.125rem}.expiry-summary>span{font-size:var(--font-body)}.expiry-summary small{color:var(--text-secondary);font-size:var(--font-caption)}
+.expiry-date{font-size:var(--font-small)}.subscriber-table{min-width:1550px}.subscriber-panel .filter-strip{flex-wrap:wrap;padding-top:8px;padding-bottom:8px}.subscriber-panel .filter-strip label{flex-wrap:wrap}.subscriber-panel .filter-strip select{max-width:240px}
+@media(max-width:650px){.subscriber-panel .filter-strip label{flex-basis:100%;justify-content:space-between}.subscriber-panel .filter-strip select{max-width:220px}}

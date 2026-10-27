@@ -31,7 +31,7 @@ Authenticated `GET /api/v1/routers/{id}` and `/subscribers/{id}` expose document
 Pydantic response models and return 404 for unknown IDs. They use only existing
 synthetic inventory. Router subscriber assignments use the legacy fixture's
 router name; the partial list is explicitly distinct from its aggregate counter
-and from active sessions. Interface inventory, traffic, session duration, expiry
+and from active sessions. Interface inventory, traffic, session duration
 and subscriber audit history have no connected source and show “Veri bulunamadı”.
 No online state, renewal date or unlimited duration is inferred from a plan or
 an active subscription. No adapter, database, migration or external service is used.
@@ -40,3 +40,25 @@ Targeted API checks (synthetic in-process client): install
 `backend/requirements-dev.txt` into the V2 virtual environment, then run
 `PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests -v`.
 Frontend validation: `npm --prefix frontend run build`.
+
+
+## Subscription expiry (synthetic, read-only)
+
+Subscriber list and detail contracts expose nullable `expires_on` as an ISO
+calendar date (`YYYY-MM-DD`), not a timestamp or a date inferred from joining.
+Demo records explicitly cover expired, today, within 7 days, within 30 days,
+active and unknown expiry. Dates are generated relative to the Turkey date when
+the local demo API starts; restarting the demo regenerates these synthetic examples.
+No database migration, renewal/change operation or live integration is included.
+
+The UI uses the current Europe/Istanbul calendar day. An expiry date remains valid
+through its final Turkey day: zero days means “Bugün bitiyor”, negative days are
+shown as days overdue. Status thresholds are negative / 0–7 / 8–30 / over 30 / unknown.
+The 30-day filter includes the first 7 days and excludes expired/unknown dates.
+The displayed date uses Turkish formatting. Open screens refresh the calendar day
+every 30 seconds and on focus/visibility changes. Subscription lifecycle status and
+expiry status remain separate.
+
+Date boundary tests: `npm --prefix frontend run test:expiry` (Node 22.18+ for native
+TypeScript stripping; verified locally on Node 24). The existing backend detail
+suite additionally checks nullable expiry values and list/detail consistency.
