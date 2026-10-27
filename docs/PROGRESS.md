@@ -37,6 +37,16 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - `fa1c03b` içeriği Git geçmişinden incelendi; önceki geliştirmede alınan gerçek kontrol sonuçları yukarıya eklendi. Bu görevde yalnız belge kontrolleri yapıldı; ürün geliştirmesi veya canlı sistem işlemi yapılmadı.
 - Bu güncellemenin commit kapsamı yalnız `docs/PROGRESS.md` dosyasıdır. Ardından `main` branch'i `origin` üzerindeki `suatciftci24/mikrotik-manager-v2` deposuna normal push ile gönderilecek; force push kullanılmayacak. Gönderim sonucu henüz gerçekleşmeden başarılı sayılmaz; kesin sonuç Git push çıktısından doğrulanır.
 
+## Yerel görsel inceleme hazırlığı — 2026-10-27
+
+- Başlangıçta `AGENTS.md` ve bu belge okundu; branch `main`, HEAD `9fe15f8`, çalışma ağacı temizdi. Önceki normal push çıktısı `9fe15f8` commit'inin `origin/main` üzerine gönderildiğini doğruladı.
+- Belgede başlanması açıkça belirlenmiş bir geliştirme bulunmadığından yeni özellik veya ürün kodu değişikliği yapılmadı.
+- Mevcut `./dev.sh` ile yalnız `127.0.0.1` üzerinde V2 UI ve API başlatıldı. Sandbox'ın port açma kısıtı nedeniyle aynı komut sandbox dışında çalıştırıldı; uygulama izolasyonu değiştirilmedi.
+- Panel: `http://127.0.0.1:5173/`. Yerel sentetik giriş: `demo` / `demo-only`. Router ve Abone Merkezi listelerindeki adlardan detaylara erişilebilir.
+- Hedefli erişim kontrolü geçti: UI HTML yanıtı, UI proxy üzerinden API sağlık yanıtı, sentetik giriş/çıkış, router ve abone listeleri ile birer detay yanıtı doğrulandı. Sağlık yanıtında veritabanı ve cihaz adaptörleri bağlı değildi. Önceden geçen derleme ve kapsamlı testler tekrarlanmadı; bu görevde yeni görsel tarayıcı testi yapılmadı.
+- Yerel servisler bu görevin sonunda inceleme için çalışır bırakıldı; bu ifade gelecekteki oturumlarda hâlâ çalıştıkları garantisi değildir. Gerçek engel bulunmadı. V1, VDS, router, RADIUS ve gerçek abone verilerine müdahale edilmedi.
+- Sıradaki somut adım: kullanıcının panelde Router ve Abone Detay Merkezlerini görsel inceleyip sonraki geliştirme kapsamını belirtmesi.
+
 ## Sıradaki işler — henüz başlanmadı
 
 - Kullanıcının sonraki açık geliştirme talimatını bekle; bu belge görevi ürün geliştirmesi başlatma yetkisi vermez.
