@@ -34,11 +34,11 @@ export type Subscriber = {
 
 export type DashboardData = {
   summary: { router_count: number; routers_online: number; subscribers_total: number;
-    subscribers_online: number; radius_accounts: number; local_accounts: number;
+    subscribers_online: number | null; radius_accounts: number; local_accounts: number;
     monthly_revenue: number; attention_count: number };
-  traffic: number[];
-  activity: { title: string; detail: string; time: string; kind: string }[];
-  attention: { router_id: string; message: string; value: number };
+  traffic: number[] | null;
+  activity: { title: string; detail: string; time: string; kind: string }[] | null;
+  attention: { router_id: string; message: string; value: number } | null;
   is_demo: true;
 };
 
