@@ -60,6 +60,15 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Son frontend TypeScript/Vite derlemesi ve belge/kod fark kontrolü geçti; derleme çıktısında tema betiğinin modül betiğinden ve gövdeden önce bulunduğu, dosyanın çıktıya aynen kopyalandığı doğrulandı. Önceki API testleri, backend değişmediği için tekrarlanmadı.
 - Sıradaki somut adım: kullanıcının yerel panelde tema görünümünü incelemesi; yeni bir özellik kapsamı belirlenmedi.
 
+## Genel yazı okunabilirliği — 2026-10-27
+
+- Başlangıçta `AGENTS.md` ve bu belge okundu; çalışma ağacı temiz, HEAD `5194889` idi. Önceki tema commit'i değiştirilmedi.
+- Yalnız `frontend/src/styles.css` içinde küçük 7–12 px yazılar ortak rem ölçeğine taşındı: yardımcı metinler en az 12 px, küçük içerikler 13 px, menüler ve temel içerikler 14 px; form girişleri 16 px, panel başlıkları 16 px. Tema paleti ve tema seçim/kayıt kodu korunuyor.
+- Daha büyük yazılar için tablo satırları, düğmeler, araç çubukları, alt bilgiler ve açılır pencere satırları esnek yüksekliğe alındı. Mobilde router özetleri ve yardımcı satırlar sarılıyor; kenar çubuğu gerektiğinde kaydırılabiliyor.
+- Tek hedefli yerel Chromium kontrol kapsamı: gerçek hesaplanan yazı boyutları, masaüstü ve 390/320 px Dashboard, Router/Abone listeleri ve detayları, giriş formu ve arama penceresi. Yerleşim oturduktan sonra yatay taşma olmadığı ve tema seçiminin çalıştığı doğrulandı; kontrol geçti. 320 px Dashboard ekran görüntüsü incelendi.
+- CSS değişikliği için derleme ve önceki API/tema test paketleri ayrıca çalıştırılmadı. Yeni paket, backend veya canlı sistem işlemi yok.
+- Sıradaki somut adım: kullanıcının yerel panelde büyütülen yazıları görsel incelemesi.
+
 ## Sıradaki işler — henüz başlanmadı
 
 - Kullanıcının sonraki açık geliştirme talimatını bekle; bu belge görevi ürün geliştirmesi başlatma yetkisi vermez.
