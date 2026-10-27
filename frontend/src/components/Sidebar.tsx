@@ -38,6 +38,7 @@ export function Sidebar({ active, onNavigate, user, onLogout }: {
           {item.key === 'mikajani' && <i className="nav-spark">✦</i>}
           {item.key === 'routers' && <span className="nav-count">4</span>}
         </button>
+        {item.key==='dashboard'&&<a className="nav-item internet-report-entry" href="#module=dashboard&view=INTERNET_REPORT"><ArrowDownUp size={17}/><span>İnternet Kullanım ve Bağlantı Raporları</span></a>}
       </div>;
     })}</div>
     <div className="sidebar-bottom">

@@ -31,20 +31,23 @@ export function subscriberReportData(item:Subscriber,today:string,now=new Date()
     if(!Array.isArray(records)||new Set(records.map(r=>r.id)).size!==records.length||records.some(r=>r.is_demo!==true))throw new Error('Demo rapor kayıtları tekil veya sentetik değil.');
   }
   const sessions=report.sessions.map(session=>{
-    const start=observationTime(session.started_at),end=observationTime(session.ended_at);
-    const state = start && (session.state==='ACTIVE'&&!end || session.state==='CLOSED'&&end&&Date.parse(end)>=Date.parse(start)) ? session.state : 'UNKNOWN';
+    const rawStart=observationTime(session.started_at),rawEnd=observationTime(session.ended_at);
+    const start=rawStart&&Date.parse(rawStart)<=now.getTime()?rawStart:null,end=rawEnd&&Date.parse(rawEnd)<=now.getTime()?rawEnd:null;
+    const state:DemoSession['state'] = start && (session.state==='ACTIVE'&&!end || session.state==='CLOSED'&&end&&Date.parse(end)>=Date.parse(start)) ? session.state : 'UNKNOWN';
     return {...session,state,started_at:start,ended_at:end,duration:start&&end&&Date.parse(end)>=Date.parse(start)?(Date.parse(end)-Date.parse(start))/1000:null};
   });
   const traffic=report.traffic.filter(sample=>observationTime(sample.measured_at)&&Date.parse(sample.measured_at)<=now.getTime());
-  const sums=periods.map(period=>{
-    const samples=traffic.filter(sample=>{const day=dayOf(new Date(sample.measured_at));return day>=period.start&&day<=period.end;});
-    const sum=(field:'download_bytes'|'upload_bytes')=>{
-      if(!samples.length||samples.some(sample=>measuredBytes(sample[field])===null))return null;
-      const total=samples.reduce((n,sample)=>n+sample[field]!,0);return Number.isSafeInteger(total)?total:null;
-    };
-    const download=sum('download_bytes'),upload=sum('upload_bytes');
-    const total=download!==null&&upload!==null&&Number.isSafeInteger(download+upload)?download+upload:null;
-    return {...period,download,upload,total};
-  });
+  const sums=periods.map(period=>({...period,...trafficTotals(traffic,period.start,period.end,now)}));
   return {sessions,traffic,periods:sums,recorded_at:report.recorded_at};
+}
+
+/** Recorded byte deltas only; missing directions and empty buckets remain unknown. */
+export function trafficTotals(samples:DemoTraffic[],start:string,end:string,now=new Date()){
+  const selected=samples.filter(sample=>{if(!observationTime(sample.measured_at)||Date.parse(sample.measured_at)>now.getTime())return false;const day=dayOf(new Date(sample.measured_at));return day>=start&&day<=end;});
+  const sum=(field:'download_bytes'|'upload_bytes')=>{
+    if(!selected.length||selected.some(sample=>measuredBytes(sample[field])===null))return null;
+    const value=selected.reduce((n,sample)=>n+sample[field]!,0);return Number.isSafeInteger(value)?value:null;
+  };
+  const download=sum('download_bytes'),upload=sum('upload_bytes');
+  return {download,upload,total:download!==null&&upload!==null&&Number.isSafeInteger(download+upload)?download+upload:null};
 }

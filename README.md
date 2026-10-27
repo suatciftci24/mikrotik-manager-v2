@@ -482,3 +482,38 @@ Targeted checks:
 ```sh
 node --test --test-isolation=none frontend/tests/managementReport.test.mjs frontend/tests/managementReportView.test.mjs
 ```
+
+### Central internet usage and connection reports
+
+Open **İnternet Kullanım ve Bağlantı Raporları** from the main menu or Dashboard.
+The existing Dashboard view `#module=dashboard&view=INTERNET_REPORT` reads the same
+router/subscriber details and alarm source as the daily report. Today/Yesterday
+are Istanbul calendar days; Last 7/30 Days include today and 6/29 preceding days.
+Router and subscriber filters intersect and remain reloadable in the URL.
+
+Subscriber byte deltas use the same aggregation helper as subscriber details.
+Central volumes are decimal GB (1 GB = 1,000,000,000 bytes); existing MiB displays
+represent the same underlying bytes. Neither package Mbps nor CPU/resource values
+are converted to usage. Summary volumes contain only recorded samples; the UI
+shows how many selected subscribers have period samples. Missing subscribers,
+directions and time buckets remain unknown. Equal duplicate records collapse;
+conflicting or cross-subscriber measurement/session identities fail visibly.
+
+The lightweight SVG volume component reuses existing semantic chart styles and
+renders discrete download/upload columns, hourly for Today/Yesterday and daily
+for 7/30 days. Empty buckets have no columns or connecting lines; a data table is
+available alongside the chart. No chart package is added. Session history shows
+recorded overlap with the period and full closed-session duration only; an old
+ACTIVE snapshot does not prove activity in a later day. Router rows reuse saved
+inventory status and alarm lifecycles, with existing detail dialogs/links.
+
+**WAN traffic counters do not exist in the current demo model.** Their download/
+upload cells remain Veri yok; subscriber volumes are never labelled WAN usage.
+WAN configuration snapshots and internet outage records are not WAN byte counters.
+
+Targeted checks:
+
+```sh
+node --test --test-isolation=none frontend/tests/internetReport.test.mjs frontend/tests/internetReportView.test.mjs
+PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests -p test_usage_report_contracts.py -v
+```

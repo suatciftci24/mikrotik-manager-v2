@@ -1,3 +1,4 @@
+import { InternetReport } from './InternetReport';
 import { useListFilter } from '../lib/useListFilter';
 import { ManagementReport } from './ManagementReport';
 import { AlarmEvents } from '../components/AlarmEvents';
@@ -18,12 +19,12 @@ type Navigate = (screen: ScreenKey, params?: Record<string,string>) => void;
 function DailyTile({title, value, note, icon, tone, onClick, label}: {title:string; value:number; note:string; icon:ReactNode; tone:string; onClick:()=>void; label:string}) {
   return <button className="metric-card daily-tile" onClick={onClick} aria-label={label}><span className="metric-card-top"><span>{title}</span><span className={`metric-icon ${tone}`}>{icon}</span></span><strong className="daily-value">{value.toLocaleString('tr-TR')}</strong><span className="metric-foot">{note}<ArrowRight size={14}/></span></button>;
 }
-const dashboardViews=['OVERVIEW','DAILY_REPORT'] as const;
+const dashboardViews=['OVERVIEW','DAILY_REPORT','INTERNET_REPORT'] as const;
 export function Dashboard({onNavigate}: {onNavigate: Navigate}) {
   const [view,setView]=useListFilter('dashboard','view',dashboardViews,'OVERVIEW');
-  return view==='DAILY_REPORT'?<ManagementReport onBack={()=>setView('OVERVIEW')}/>:<DashboardOverview onNavigate={onNavigate} onReport={()=>setView('DAILY_REPORT')}/>;
+  return view==='INTERNET_REPORT'?<InternetReport/>:view==='DAILY_REPORT'?<ManagementReport onBack={()=>setView('OVERVIEW')}/>:<DashboardOverview onNavigate={onNavigate} onReport={()=>setView('DAILY_REPORT')} onInternet={()=>setView('INTERNET_REPORT')}/>;
 }
-function DashboardOverview({onNavigate,onReport}: {onNavigate:Navigate;onReport:()=>void}) {
+function DashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigate;onReport:()=>void;onInternet:()=>void}) {
   const resource = useResource<DailySummary>('/dashboard/summary', loadDailySummary, DEPENDENCIES);
   const today = useTurkeyToday();
   const previousDay = useRef(today);
@@ -35,7 +36,7 @@ function DashboardOverview({onNavigate,onReport}: {onNavigate:Navigate;onReport:
   const goRouters = (params: Record<string,string> = {}) => onNavigate('routers', params);
   const fullDate = data ? new Intl.DateTimeFormat('tr-TR', {dateStyle:'full', timeZone:'UTC'}).format(new Date(data.as_of_date+'T00:00:00Z')) : 'Türkiye takvim günü · Europe/Istanbul';
   return <div className="screen-stack">
-    <PageHeading title="Merkezi Dashboard" eyebrow={fullDate} description="Sentetik demo envanteri ve kaydedilmiş abonelik işlemleri. Canlı sistem durumu değildir. PPPoE yönetimi kapsamındaki eski abonelerde erişim türü belirtilmemiş olabilir." actions={<><button className="button-primary" onClick={onReport}>Günlük Yönetim Raporu</button><button className="button-secondary" disabled={resource.loading} onClick={resource.retry}><RefreshCw size={15}/>Özeti yenile</button></>}/>
+    <PageHeading title="Merkezi Dashboard" eyebrow={fullDate} description="Sentetik demo envanteri ve kaydedilmiş abonelik işlemleri. Canlı sistem durumu değildir. PPPoE yönetimi kapsamındaki eski abonelerde erişim türü belirtilmemiş olabilir." actions={<><button className="button-secondary" onClick={onInternet}>İnternet Kullanım ve Bağlantı Raporları</button><button className="button-primary" onClick={onReport}>Günlük Yönetim Raporu</button><button className="button-secondary" disabled={resource.loading} onClick={resource.retry}><RefreshCw size={15}/>Özeti yenile</button></>}/>
     <ResourceState {...resource}/>
     {data && !resource.loading && !resource.error && <>
       <div className="metric-grid">
