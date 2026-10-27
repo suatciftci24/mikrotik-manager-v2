@@ -5,7 +5,7 @@ Son güncelleme: 2026-10-27. Proje yolu: `/home/suatpc/Codex-Projects/mikrotik-m
 ## Kod ve Git geçmişinden doğrulanan durum
 
 - Branch: `main`. Bu belge görevinin başlangıcında çalışma ağacı temizdi.
-- Son ürün geliştirme commit'i: `fa1c03b` — ortak modül altyapısı ve envanter detay merkezleri. Öncesindeki `7512239`, GitHub deposunu V2 README korunarak birleştiriyor.
+- Detay merkezlerinin temel commit'i: `fa1c03b` — ortak modül altyapısı ve envanter detay merkezleri. Öncesindeki `7512239`, GitHub deposunu V2 README korunarak birleştiriyor.
 - Ortak frontend altyapısı: `useResource`, `useDetailNavigation`, `PageHeading`, `ResourceState`, `DetailSection`, `Facts` ve `MissingData` mevcut.
 - Router ve abone listelerinden salt okunur detay merkezlerine erişim mevcut. Liste filtreleri korunuyor; URL fragmenti detay kimliğini taşıyor. Kaynak kodunda geri dönüş, yükleniyor, hata, tekrar deneme ve boş veri durumları bulunuyor.
 - `/api/v1/routers/{item_id}` ve `/api/v1/subscribers/{item_id}` merkezi demo oturum kontrolünü ve Pydantic yanıt sözleşmelerini kullanıyor; bulunamayan kayıtlar 404 döndürüyor.
@@ -46,6 +46,19 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Hedefli erişim kontrolü geçti: UI HTML yanıtı, UI proxy üzerinden API sağlık yanıtı, sentetik giriş/çıkış, router ve abone listeleri ile birer detay yanıtı doğrulandı. Sağlık yanıtında veritabanı ve cihaz adaptörleri bağlı değildi. Önceden geçen derleme ve kapsamlı testler tekrarlanmadı; bu görevde yeni görsel tarayıcı testi yapılmadı.
 - Yerel servisler bu görevin sonunda inceleme için çalışır bırakıldı; bu ifade gelecekteki oturumlarda hâlâ çalıştıkları garantisi değildir. Gerçek engel bulunmadı. V1, VDS, router, RADIUS ve gerçek abone verilerine müdahale edilmedi.
 - Sıradaki somut adım: kullanıcının panelde Router ve Abone Detay Merkezlerini görsel inceleyip sonraki geliştirme kapsamını belirtmesi.
+
+## Beyaz / Gece / Sistem tema seçimi — 2026-10-27
+
+- Görev başında `AGENTS.md` ve bu belge okundu; başlangıç çalışma ağacı temizdi. Mevcut yerel V2 demo servisleri kullanıldı; canlı sistemlere müdahale edilmedi.
+- Üst çubuğa ve giriş ekranına ortak, klavyeyle kullanılabilen tema seçici eklendi. Düğmelerin erişilebilir adları ve `aria-pressed` seçili durumları var; mobilde simgelerle kullanılabiliyor.
+- Ortak semantik tema paleti `frontend/src/theme.css` içinde tanımlandı. Mevcut yerleşim korunarak sayfalar, detaylar, tablolar, formlar, pencereler, SVG grafikler ve yükleniyor/boş/hata yüzeylerinin renkleri ortak değişkenlere taşındı. Paket veya backend değişikliği yapılmadı.
+- `frontend/public/theme.js`, HTML head içinde senkron çalışarak React ve sayfa gövdesinden önce kayıtlı temayı uygular. Tercih `mikrotik-manager-v2.theme` anahtarında saklanır; ilk kullanımda Sistem seçilidir. Sistem modunda işletim sistemi değişimi izlenir; açık tercih sistem değişiminden etkilenmez. Sekmeler arası eşitleme ve depolama engellendiğinde bellek içi seçim desteklenir.
+- Hedefli yerel Chromium kontrollerinde varsayılan sistem tercihi, Beyaz/Gece/Sistem geçişleri, işletim sistemi değişimi, yeniden yükleme/yeniden açma kalıcılığı ve sekmeler arası eşitleme doğrulandı. Başlangıç betiğinin gövde/React oluşmadan önce kayıtlı Gece tercihini uyguladığı ayrı kontrolle doğrulandı.
+- Dashboard, Router/Abone listeleri ve detayları, diğer dört modül ve arama penceresi iki temada kontrol edildi. Yükleniyor/hata/tekrar deneme/boş veri yüzeyleri, klavye seçimi ve localStorage erişimi engelli senaryo geçti. Tema test araçları ve ekran görüntüleri yalnız geçici `/tmp/v2-ui-check` dizinindedir.
+- 320 px Dashboard kontrolde bulunan mevcut kart taşması giderildi; son kontrolde her iki temada sayfa genişliği 320 px, taşan öğe sayısı sıfırdı. İki temanın Dashboard ve detay ekran görüntüleri ile mobil ekran incelendi.
+- Ortak ana metin, ikincil metin, durum ve eylem renk çiftlerinin hesaplanan kontrastı her iki palette en az 4.5:1; tüm stil değişkenlerinin tanımlı olduğu kontrol edildi. Bu, tüm arayüz için kapsamlı erişilebilirlik sertifikasyonu değildir.
+- Son frontend TypeScript/Vite derlemesi ve belge/kod fark kontrolü geçti; derleme çıktısında tema betiğinin modül betiğinden ve gövdeden önce bulunduğu, dosyanın çıktıya aynen kopyalandığı doğrulandı. Önceki API testleri, backend değişmediği için tekrarlanmadı.
+- Sıradaki somut adım: kullanıcının yerel panelde tema görünümünü incelemesi; yeni bir özellik kapsamı belirlenmedi.
 
 ## Sıradaki işler — henüz başlanmadı
 

@@ -1,0 +1,74 @@
+/* Semantic colors shared by every screen, overlay, native form and SVG chart. */
+:root {
+  color-scheme: light;
+  --bg: #f4f7fb;
+  --surface: #ffffff;
+  --surface-2: #f0f4fa;
+  --surface-hover: #e7edf7;
+  --surface-selected: #dce6fb;
+  --text: #17243a;
+  --text-secondary: #3e5069;
+  --muted: #52647c;
+  --line: #c9d3e2;
+  --accent: #365bc7;
+  --accent-line: #a1b5e5;
+  --blue: var(--accent);
+  --blue-strong: #284dbb;
+  --violet: #7040ac;
+  --violet-soft: #f0eafa;
+  --violet-line: #c4abdf;
+  --green: #186b49;
+  --green-soft: #e8f5ee;
+  --green-line: #94c9ad;
+  --teal: #146c68;
+  --teal-soft: #e4f3f2;
+  --teal-line: #94c6c3;
+  --amber: #885208;
+  --amber-soft: #fff4df;
+  --amber-line: #d9b574;
+  --red: #ab3044;
+  --red-soft: #fcecf0;
+  --red-line: #dda4af;
+  --shadow: #17243a;
+  --mask: #000000;
+  --on-accent: #ffffff;
+  --quiet: var(--muted);
+  --chart-line: #365bc7;
+  --chart-point: #284dbb;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0a0e14;
+  --surface: #10151e;
+  --surface-2: #151c28;
+  --surface-hover: #1e283a;
+  --surface-selected: #293752;
+  --text: #e7ebf3;
+  --text-secondary: #b7c2d4;
+  --muted: #9aa8bc;
+  --line: #303d50;
+  --accent: #9bafff;
+  --accent-line: #435780;
+  --blue-strong: #6684f7;
+  --violet: #c3a8ff;
+  --violet-soft: #262238;
+  --violet-line: #51416b;
+  --green: #7ad9ad;
+  --green-soft: #162a23;
+  --green-line: #355345;
+  --teal: #7ed9ce;
+  --teal-soft: #172b2c;
+  --teal-line: #335354;
+  --amber: #edbb67;
+  --amber-soft: #2d261c;
+  --amber-line: #5b4930;
+  --red: #f59da9;
+  --red-soft: #301f27;
+  --red-line: #65404c;
+  --shadow: #000000;
+  --chart-line: #8096fc;
+  --chart-point: #a8b7ff;
+}
+/* Solid brand/action surfaces retain white lettering in either theme. */
+:root { --action: #365bc7; --action-hover: #284dbb; }
+:root[data-theme='dark'] { --action: #526fdb; --action-hover: #4662cd; }

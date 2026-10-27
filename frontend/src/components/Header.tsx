@@ -1,3 +1,4 @@
+import { ThemePicker } from './ThemePicker';
 import { Bell, ChevronDown, Command, Search, Sparkles } from 'lucide-react';
 import type { ScreenKey, User } from './Sidebar';
 
@@ -14,7 +15,7 @@ export function Header({ active, user, onOpenSearch, onOpenNotifications }: {
   const current = names[active];
   return <header className="topbar">
     <div className="breadcrumbs"><span>{current.crumb}</span><span className="crumb-slash">/</span><strong>{current.title}</strong></div>
-    <div className="topbar-actions">
+    <div className="topbar-actions"><ThemePicker/>
       <div className="live-pill"><span className="pulse-dot" />Tüm sistemler normal</div>
       <button className="search-trigger" onClick={onOpenSearch}><Search size={15} /><span>Hızlı ara...</span><kbd>⌘ K</kbd></button>
       <button className="icon-button notification-button" aria-label="Bildirimler" onClick={onOpenNotifications}><Bell size={17} /><i /></button>

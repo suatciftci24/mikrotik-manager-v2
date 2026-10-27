@@ -15,7 +15,7 @@ function TrafficChart({ values }: { values: number[] }) {
   const area = `20,116 ${points} 504,116`;
   return <div className="chart-wrap"><div className="chart-y"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div>
     <svg viewBox="0 0 524 128" className="traffic-chart" role="img" aria-label="Sentetik son 12 saat trafik eğilimi" preserveAspectRatio="none">
-      <defs><linearGradient id="trafficFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#5e85f7" stopOpacity=".24" /><stop offset="1" stopColor="#5e85f7" stopOpacity="0" /></linearGradient></defs>
+      <defs><linearGradient id="trafficFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="var(--accent)" stopOpacity=".24" /><stop offset="1" stopColor="var(--accent)" stopOpacity="0" /></linearGradient></defs>
       {[20, 43, 66, 89, 112].map(y => <line key={y} x1="20" x2="504" y1={y} y2={y} className="chart-grid" />)}
       <polygon points={area} fill="url(#trafficFill)" /><polyline points={points} className="chart-line" />
       {values.map((value, index) => <circle key={index} cx={20 + index * 44} cy={110 - value} r="2.5" className="chart-point" />)}
