@@ -1,3 +1,4 @@
+import { AlarmEvents } from '../components/AlarmEvents';
 import { api } from '../lib/api';
 import { useCallback } from 'react';
 import { buildRouterReport, percentText } from '../lib/routerReport';
@@ -60,7 +61,7 @@ export function RouterDetails({detail}: {detail: RouterDetail}) {
       <p>İlişkili kayıtlar V2 abone deposundan gelir; eski envanter sayacı ayrı bir demo değeridir. Abonelik sayıları çevrimiçi oturum sayısı değildir.</p>
       {assigned.length ? <ul className="assigned-list">{assigned.map(s => <li key={s.id}><span><strong><a className="record-link" href={'#'+new URLSearchParams({module:'subscribers',id:s.id}).toString()}>{s.customer_name}</a></strong><small>{s.username} · {s.plan}</small></span><SourceBadge source={s.source}/><StatusBadge status={s.status}/></li>)}</ul> : <p className="missing-data">Veri yok. İlişkili abone kaydı bulunmuyor.</p>}
     </DetailSection>
-    <DetailSection title="Son 24 saat router olayları"><p className="missing-data">Veri yok. Kaydedilmiş router olay geçmişi, internet kesintisi veya WAN değişiklik kaynağı yok. Envanter yenileme olay üretmez.</p></DetailSection>
+    <AlarmEvents routerId={r.id} routers={[r]}/>
     <RouterManagementOperations router={r} subscribers={assigned}/>
 
   </div>;

@@ -374,3 +374,36 @@ The existing rolling operation component and Turkey-time detail dialog are reuse
 for the assigned subscribers' saved management history. Router event history is
 unavailable; inventory refreshes never create events or prove live connectivity.
 No router/RADIUS adapters, pollers or writes are introduced.
+
+### Internet outage and WAN alarm center
+
+Dashboard 24-hour cards, Operations filters and router-scoped event history share
+one read-only authenticated endpoint: `GET /api/v1/router-events`. The current demo
+has no recorded router event source: it returns `available: false, items: []`.
+This means **Veri yok**, not a measured zero. No synthetic events are seeded or
+inferred from inventory status, last-seen timestamps or management addresses.
+
+The event contract distinguishes INTERNET_DOWN, INTERNET_UP and WAN_CHANGE. A
+recovery joins an outage only with an explicit `down_event_id`, exactly one
+recovery reference, the same router and valid ordered timezone-aware timestamps.
+Unmatched/ambiguous recovery records stay visible independently; missing times
+never supply a duration. An outage is ongoing only when explicitly marked OPEN;
+otherwise its state is unknown. Previous/new WAN values remain recorded values.
+
+Dashboard links preserve type and rolling-24-hour filters. Operations combines
+router/type/status, rolling period and inclusive Istanbul calendar date filters
+in reloadable URL state. Event rows open a read-only native dialog with Turkey
+time, lifecycle evidence, duration and WAN before/after values. Router details use
+the same event projection and dialog. No poller, notifications or router writes
+are started; the 30-second UI clock only advances the local time window.
+
+Targeted checks:
+
+```sh
+node --test --test-isolation=none frontend/tests/routerEvents.test.mjs frontend/tests/centralViews.test.mjs frontend/tests/connectionAlarms.test.mjs frontend/tests/operationWindow.test.mjs
+PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests -p test_router_events.py -v
+```
+
+Backend checks inspect contracts, route registration and the authentication
+dependency without HTTP or PostgreSQL; React render checks do not certify browser
+interaction or mobile appearance. Actual lifecycle examples exist only in tests.

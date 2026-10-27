@@ -1,4 +1,4 @@
-import { buildConnectionAlarms } from '../lib/connectionAlarms';
+import { AlarmEvents } from '../components/AlarmEvents';
 import { RecentOperations } from '../components/RecentOperations';
 import { useEffect, useRef } from 'react';
 import { ArrowRight, Clock3, RefreshCw, Router as RouterIcon, Users, CalendarClock, AlertTriangle } from 'lucide-react';
@@ -24,7 +24,6 @@ export function Dashboard({onNavigate}: {onNavigate: Navigate}) {
     if (previousDay.current !== today) {previousDay.current = today;resource.retry();}
   }, [today, resource.retry]);
   const data = resource.data;
-  const alarms = data ? buildConnectionAlarms(data.routers) : null;
   const goSubscribers = (params: Record<string,string> = {}) => onNavigate('subscribers', params);
   const goRouters = (params: Record<string,string> = {}) => onNavigate('routers', params);
   const fullDate = data ? new Intl.DateTimeFormat('tr-TR', {dateStyle:'full', timeZone:'UTC'}).format(new Date(data.as_of_date+'T00:00:00Z')) : 'Türkiye takvim günü · Europe/Istanbul';
@@ -61,11 +60,7 @@ export function Dashboard({onNavigate}: {onNavigate: Navigate}) {
           <button onClick={()=>goRouters({status:'DEGRADED'})}>Dikkat gerektiren <strong>{data.router_counts.degraded}</strong></button>
         <button onClick={()=>goRouters({status:'UNKNOWN'})}>Bilinmiyor <strong>{data.router_counts.unknown}</strong></button></div><p className="missing-data">Veri yok: canlı router bağlantısı, çevrimiçi abone oturumu, ölçülmüş trafik ve günlük tahsilat kaynağı bağlı değil.</p></section>
       </div>
-      <section className="panel central-events"><div className="panel-title"><h2>Son 24 saat internet ve WAN olayları</h2><span className="demo-chip">SENTETİK</span></div>
-        <p>İnternet kesintileri: {alarms?.internet_outages===null?'Veri yok':'Bilinmiyor'} · WAN değişiklikleri: {alarms?.wan_changes===null?'Veri yok':'Bilinmiyor'}</p>
-        <p className="missing-data">Veri yok. Kaydedilmiş router olayları, internet kontrolü ve WAN değişiklik geçmişi kaynağı bulunmuyor. Son görülmeden kesinti veya olay üretilmez; eksik olay sayısı sıfır sayılmaz.</p>
-        <a className="button-secondary" href="#module=operations">İnternet ve WAN kapsamını aç</a>
-      </section>
+      <AlarmEvents mode="cards" routers={data.routers}/>
       <div className="dashboard-grid bottom-grid">
         <section className="panel router-panel"><button className="button-secondary report-entry" onClick={()=>goRouters({view:'REPORT'})}>Kullanım ve bağlantı raporu <ArrowRight size={14}/></button><div className="panel-heading"><div><div className="panel-title"><h2>Router envanteri</h2><span className="soft-count">{data.routers.length}</span></div><p>Sentetik kayıt · kaynak zamanı aşağıda gösterilir</p></div><button className="text-link" onClick={()=>goRouters()}>Tümünü gör <ArrowRight size={14}/></button></div>
           {data.routers.length ? <div className="router-list">{data.routers.map(router=><div className="router-list-row" key={router.id}><span className={`router-row-icon ${router.status?.toLowerCase()}`}><RouterIcon size={16}/></span><span className="router-row-name daily-router-name"><strong><button className="record-link" onClick={()=>goRouters({id:router.id})}>{router.name}</button></strong><small>Kaynak zamanı: {dateTime(router.last_seen)}</small></span><StatusBadge status={['ONLINE','OFFLINE','DEGRADED'].includes(router.status)?router.status:'UNKNOWN'}/></div>)}</div> : <p className="table-empty">Router envanteri için veri yok.</p>}

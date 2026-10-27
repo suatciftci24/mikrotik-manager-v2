@@ -4,7 +4,7 @@ export function detailText(value: unknown): string {
   return typeof value==='string' && value.trim() && !['—','-','Veri yok'].includes(value.trim()) ? value.trim() : 'Veri yok';
 }
 
-function observationTime(value: unknown): string | null {
+export function observationTime(value: unknown): string | null {
   if (typeof value!=='string') return null;
   const iso=/^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value);
   if (!iso) return null;
