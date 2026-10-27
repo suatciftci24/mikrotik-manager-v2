@@ -4,6 +4,23 @@ Tarih: 2026-10-27. İncelenen temel: `main`, `2089efc`; bu raporla birlikte eski
 
 **Kabul kararı: BLOCKED. V2 üretime hazır değildir.** Soketsiz işlev ve güvenlik kanıtları vardır; gerçek PostgreSQL/HTTP, kalıcılık ve tarayıcı kabulü tamamlanmamıştır. Yerel demo kabulünün ileride geçmesi de tek başına üretim yayını yetkisi veya üretim güvenliği onayı sağlamaz.
 
+## Son engel değerlendirmesi — 2026-10-27, temel `11d2b2c`
+
+**Genel karar değişmedi: BLOCKED.** Bu devam görevinde yeni bir ürün testi veya gerçek entegrasyon PASS sonucu alınmadı. Aşağıdaki eski PASS kanıtları tarihsel kapsamlarıyla korunmuştur.
+
+İzinli araç kataloğu ve süreç metaverisi incelendi: WSL2 çekirdeği üzerinde NoNewPrivs=1/Seccomp=2 sürüyor; kullanılabilir komut aracı aynı sandbox sınırında. Sandbox dışı WSL çalıştırma/yerel tarayıcı aracı yok; `chromium`, `chromium-browser`, `google-chrome`, `firefox` komutları bulunmadı. Bu, WSL hostundaki servislerin bozuk veya kapalı olduğunu kanıtlamaz. Önceden gözlenen soket EPERM/httpx eksikliği/ASGI timeout yeniden denenmedi; alternatif yetkisiz erişim veya bağımlılık kurulumu yapılmadı.
+
+| Tek seferlik plan adımı | Son durum | Bu görevdeki işlem |
+| --- | --- | --- |
+| İzinli yürütme önkoşulu | BLOCKED | Araç/süreç incelemesinde yeni izinli dış yürütme yolu bulunmadı. Metadata incelemesi PASS; bağlantı testi değildir. |
+| Gereksinimler ve prepare-demo/dev.sh | BLOCKED | Bilinen soket engeli devam ederken kurulum/seed/servis başlatma yapılmadı. httpx kurulum denemesi tekrarlanmadı. |
+| Gerçek HTTP giriş/yetki/okuma | BLOCKED | HTTP/ASGI denemesi ve bellek tabanlı alternatif doğrulama başlatılmadı. |
+| Gerçek seed idempotency ve veri karşılaştırması | BLOCKED | PostgreSQL erişimi doğrulanamadığı için kullanıcı verileri okunup değiştirilmedi; seed çalıştırılmadı. |
+| PPPoE mutation/audit/rollback/reopen | BLOCKED | Opt-in DB/API testleri başlatılmadı; SKIP üretilip PASS sayılmadı. |
+| Dashboard/Router/PPPoE/Alarm görsel kabul | BLOCKED | Yerel tarayıcı/uygulama erişimi yok; render testi görsel kabul yerine tekrarlanmadı. |
+
+Yeni FAIL bulgusu veya hedefli kod düzeltmesi yok. Plan, izinli yerel V2 yürütmesi sağlanınca aşağıdaki sırayla bir kez uygulanabilir; bu oturumdan tamamlanamaz. Mevcut demo verisi, kod, bağımlılıklar, servisler ve güvenlik ayarları değişmedi. Bu devam görevinin tek değişikliği kabul/ilerleme durumunun kaydıdır.
+
 ## Durumların anlamı
 
 | Durum | Anlam |
