@@ -219,3 +219,9 @@ No dependency, backend endpoint, migration, state write or service restart is ne
 
 Targeted report tests: `node --test frontend/tests/routerReport.test.mjs`
 (Node 22.18+); frontend validation: `npm --prefix frontend run build`.
+
+## Internet and WAN alarm coverage
+
+Operations Center (`#module=operations`) reads only the existing synthetic router inventory. Internet probe results, WAN identity/transitions and alarm history are unavailable and display “Veri yok”; inventory status and management addresses never imply internet connectivity or WAN changes. Router links open existing details, with a link back to Operations. No notifications or device connections are generated. Source timestamps use Europe/Istanbul.
+
+Targeted check: `node --test --test-isolation=none frontend/tests/connectionAlarms.test.mjs`.
