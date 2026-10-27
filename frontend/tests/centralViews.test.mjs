@@ -23,7 +23,7 @@ test('central screen renders unknown/outage scope and existing rolling operation
  try{
   const html=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));
   assert.match(html,/Merkezi Dashboard/);assert.match(html,/Durumu bilinmeyen/);
-  assert.match(html,/İnternet kesintileri: Veri yok/);assert.match(html,/WAN değişiklikleri: Veri yok/);
+  assert.match(html,/Kayıtlı açık alarm: Veri yok/);assert.match(html,/İnternet kesintileri: Veri yok/);assert.match(html,/WAN değişiklikleri: Veri yok/);
   assert.match(html,/Son 24 saat PPPoE demo yönetim işlemleri/);
   assert.match(html,/PPPoE olarak kayıtlı: 0/);
   assert.match(html,/href="#module=operations&amp;kind=INTERNET_DOWN&amp;period=24H"/);
@@ -44,15 +44,16 @@ const {AlarmEvents,AlarmEventDetails}=await compile('../src/components/AlarmEven
 test('same source drives dashboard counts and router-scoped list; detail retains WAN and Turkey time',()=>{
  const occurred_at=new Date().toISOString();
  globalThis.__alarmData=projectRouterEvents({available:true,is_demo:true,items:[
-  {id:'wan-r',router_id:'r',kind:'WAN_CHANGE',occurred_at,previous_wan:'wan1 / 192.0.2.1',new_wan:'wan2 / 192.0.2.2',is_demo:true},
+  {id:'wan-r',router_id:'r',kind:'WAN_CHANGE',occurred_at,source:'synthetic-observation',source_observation_id:'demo-observation-wan',previous_wan:'wan1 / 192.0.2.1',new_wan:'wan2 / 192.0.2.2',is_demo:true},
   {id:'down-other',router_id:'other',kind:'INTERNET_DOWN',occurred_at,state:'OPEN',is_demo:true},
  ]});
  try{
   const cards=renderToStaticMarkup(createElement(AlarmEvents,{mode:'cards',routers:[router]}));
-  assert.match(cards,/İnternet kesintileri: 1/);assert.match(cards,/WAN değişiklikleri: 1/);
+  assert.match(cards,/Kayıtlı açık alarm: 1/);assert.match(cards,/İnternet kesintileri: 1/);assert.match(cards,/WAN değişiklikleri: 1/);
   const list=renderToStaticMarkup(createElement(AlarmEvents,{routerId:'r',routers:[router]}));
   assert.match(list,/wan-r/);assert.doesNotMatch(list,/down-other/);
   const detail=renderToStaticMarkup(createElement(AlarmEventDetails,{event:globalThis.__alarmData.find(event=>event.id==='wan-r'),routerName:router.name,onClose(){}}));
+  assert.match(detail,/Olay zaman çizelgesi/);assert.match(detail,/Sentetik internet ölçümü otomasyonu/);assert.match(detail,/demo-observation-wan/);
   assert.match(detail,/wan1 \/ 192.0.2.1/);assert.match(detail,/wan2 \/ 192.0.2.2/);assert.match(detail,/İstanbul/);assert.match(detail,/Süre<\/dt><dd>Veri yok/);
  }finally{delete globalThis.__alarmData;}
 });

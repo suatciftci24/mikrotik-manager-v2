@@ -33,17 +33,22 @@ def demo_examples(now=None):
         item, event = calculate_change(item, change, 'demo-seed')
         event['occurred_at'] = stamp(1)
         events.insert(0, event)
-        router_events = [
-            dict(id='demo-outage-'+str(index), router_id=item['router_id'], kind='INTERNET_DOWN', occurred_at=stamp(6), state='OPEN' if index else 'UNKNOWN', is_demo=True),
-            dict(id='demo-wan-'+str(index), router_id=item['router_id'], kind='WAN_CHANGE', occurred_at=stamp(5), previous_wan='wan1 / 192.0.2.100', new_wan='wan2 / 192.0.2.101', is_demo=True),
-        ]
-        if index == 0:
-            router_events.append(dict(id='demo-recovery-0', router_id=item['router_id'], kind='INTERNET_UP', occurred_at=stamp(5.5), down_event_id='demo-outage-0', is_demo=True))
+        observations=[]
+        for number,(hours,status,interface,route) in enumerate([
+            (8,'ONLINE','wan1','0.0.0.0/0 via 192.0.2.100'),
+            (6,'OFFLINE','wan1','0.0.0.0/0 via 192.0.2.100'),
+            *(([(5.5,'ONLINE','wan1','0.0.0.0/0 via 192.0.2.100')]) if index==0 else []),
+            (5,'ONLINE' if index==0 else 'OFFLINE','wan2','0.0.0.0/0 via 192.0.2.101'),
+            (4.5,'ONLINE' if index==0 else 'OFFLINE','wan2','0.0.0.0/0 via 192.0.2.101'),
+        ]):
+            observations.append(dict(id=f'demo-observation-seed-{index}-{number}',router_id=item['router_id'],observed_at=stamp(hours),scope='internet',source='synthetic-observation',internet_status=status,wan_interface=interface,default_route=route,is_demo=True))
         report = DemoReport.model_validate(dict(subscriber_id=item['id'], router_id=item['router_id'], recorded_at=now.isoformat(), is_demo=True,
             sessions=[dict(id=f'demo-session-{index}', started_at=stamp(8), ended_at=stamp(7), state='CLOSED', is_demo=True),
                       dict(id=f'demo-session-open-{index}', started_at=stamp(1), state='ACTIVE', is_demo=True)] if index == 0 else [],
             traffic=[dict(id=f'demo-traffic-{index}-{day}', measured_at=(now-timedelta(days=day, hours=8 if index else 0)).isoformat(), download_bytes=(day+1)*1048576, upload_bytes=(day+1)*524288, is_demo=True) for day in (0, 2, 10)],
-            wan_snapshot=dict(interface='wan2',ip='192.0.2.101',gateway='192.0.2.254',default_route='0.0.0.0/0 via 192.0.2.254',is_demo=True), router_events=router_events))
+            wan_snapshot=dict(interface='wan2',ip='192.0.2.101',gateway='192.0.2.254',default_route='0.0.0.0/0 via 192.0.2.254',is_demo=True), router_observations=observations))
+        from app.services.alarm_automation import process_report
+        report=process_report(report,now=now)
         item['demo_report'] = report.model_dump(mode='json')
         snapshots.append(dict(item=item, history=events, is_demo=True))
     return snapshots

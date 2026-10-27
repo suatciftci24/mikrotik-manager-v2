@@ -517,3 +517,83 @@ Targeted checks:
 node --test --test-isolation=none frontend/tests/internetReport.test.mjs frontend/tests/internetReportView.test.mjs
 PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests -p test_usage_report_contracts.py -v
 ```
+
+### Synthetic alarm automation
+
+The existing alarm source now reduces persisted `router_observations` in the same
+subscriber report JSON. Observations must explicitly declare `scope: internet`,
+`source: synthetic-observation`, demo identities and an aware timestamp. Router
+inventory/management reachability and last-seen are never used as internet probes.
+No poller, scheduler, live notifications or router/RADIUS calls are started.
+
+The first known value establishes a baseline. ONLINE → OFFLINE opens one outage;
+OFFLINE → ONLINE closes its explicit lifecycle (or records an unlinked recovery
+when the start is unknown). Repeated equal statuses do not create alarms. A missing
+internet measurement resets the comparison baseline and marks an already open
+outage unknown. If that lifecycle later closes, its endpoint times remain visible
+but its duration stays unknown across the measurement gap. Complete WAN interface
+and default-route observations generate one WAN event when either value changes;
+missing WAN data resets that comparison instead of inventing a transition.
+
+IDs are deterministic per router/type/observation. Same-ID equal retries are no-ops;
+conflicts, future measurements, late inserts that could rewrite history and
+ambiguous same-time observations are rejected. Previous legacy events remain in
+the report and are never silently rewritten as measurements or closed without
+their evidence. New explicit seeds generate their existing example events through
+the reducer; already seeded subscriber IDs are still skipped, preserving edits.
+No observation stream is backfilled into old user records automatically.
+
+Dashboard cards now separate all recorded OPEN lifecycle alarms from outages/WAN
+changes started in the last 24 hours. Latest event buttons and router histories
+use the same source and native event dialog, which shows measurement IDs, source,
+timeline and verified duration. OPEN is recorded evidence, not live connectivity.
+
+For **permitted local V2 execution only**, the existing maintenance CLI can append
+synthetic observations and persist the derived event history:
+
+```sh
+PYTHONPATH=backend .venv/bin/python -m app.demo_storage process-events --observations .local/demo-observation-batches.json
+```
+
+Input shape (replace the subscriber/router IDs with an existing owned demo report,
+and use a timestamp after its last observation, not in the future):
+
+```json
+[
+  {
+    "subscriber_id": "demo-sub-existing-example",
+    "observations": [
+      {
+        "id": "demo-observation-unique-id",
+        "router_id": "demo-router-001",
+        "observed_at": "2026-10-27T12:00:00Z",
+        "scope": "internet",
+        "source": "synthetic-observation",
+        "internet_status": "OFFLINE",
+        "wan_interface": "wan2",
+        "default_route": "0.0.0.0/0 via 192.0.2.101",
+        "is_demo": true
+      }
+    ]
+  }
+]
+```
+
+Without `--observations`, the command processes only already persisted streams.
+Each router has one observation owner. The configured V2 destination/marker guard
+and table lock protect a transaction that plans all changes before writing JSON
+payloads. Account revision, subscription audit/request rows, traffic/session data
+and the subscriber snapshot timestamp are preserved. Reads derive events without
+writing. The input JSON is an ingestion payload, not a second runtime data store.
+
+Targeted checks:
+
+```sh
+PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests -p test_alarm_automation.py -v
+node --test --test-isolation=none frontend/tests/alarmAutomation.test.mjs
+```
+
+`test_alarm_automation_postgres.py` is an explicit `V2_RUN_PG_TESTS=1` opt-in for
+real rollback/reopen/idempotency in a disposable V2 test schema. Skipping it does
+not certify actual persistence. No processing command was applied to the local
+DB during development in the restricted session.

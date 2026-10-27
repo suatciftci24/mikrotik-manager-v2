@@ -140,15 +140,68 @@ def seed_examples(engine, schema='v2_demo'):
     return added
 
 
+def process_demo_events(engine, batches=(), schema='v2_demo'):
+    """Explicit metadata transaction; no account revision/audit/request rows are reset."""
+    from app.schemas.demo_reports import DemoReport
+    from app.services.alarm_automation import process_report
+    adapter=PostgresDemoStore(engine,schema)
+    updates={}
+    for batch in batches:
+        if set(batch)!={'subscriber_id','observations'} or not batch['subscriber_id'].startswith('demo-sub-') or not isinstance(batch['observations'],list):
+            raise ValueError('Synthetic subscriber observation batch required')
+        updates.setdefault(batch['subscriber_id'],[]).extend(batch['observations'])
+    changed=0
+    with engine.begin() as connection:
+        adapter._verify(connection)
+        connection.execute(text(f'LOCK TABLE {schema}.subscribers IN SHARE ROW EXCLUSIVE MODE'))
+        items=list(connection.execute(text(f'SELECT payload FROM {schema}.subscribers')).scalars())
+        missing=set(updates)-{item['id'] for item in items}
+        if missing:
+            raise ValueError('Observation target subscriber not found')
+        # Plan all updates before the first write; transaction also protects failures during writes.
+        planned=[]
+        owners={}
+        for item in items:
+            if not item.get('demo_report'):
+                if item['id'] in updates:
+                    raise ValueError('Target requires a persisted demo report')
+                continue
+            report=DemoReport.model_validate(item['demo_report'])
+            if report.subscriber_id!=item['id'] or report.router_id!=item.get('router_id'):
+                raise ValueError('Persisted report identity mismatch')
+            if report.router_observations or updates.get(item['id']):
+                if report.router_id in owners:
+                    raise ValueError('A router must have one observation owner')
+                owners[report.router_id]=item['id']
+                processed=process_report(report,updates.get(item['id'],()))
+                if processed!=report:
+                    planned.append({**item,'demo_report':processed.model_dump(mode='json')})
+        for item in planned:
+            connection.execute(text(f'UPDATE {schema}.subscribers SET payload=CAST(:payload AS jsonb) WHERE id=:id'),{'id':item['id'],'payload':json.dumps(item)})
+            changed+=1
+    return changed
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Explicit local V2 demo schema initialization (never resets existing data)')
-    parser.add_argument('command', choices=['init'])
+    parser = argparse.ArgumentParser(description='Explicit local V2 demo setup and synthetic event processing (never resets records)')
+    parser.add_argument('command', choices=['init','process-events'])
+    parser.add_argument('--observations', type=Path, help='Optional JSON batches: subscriber_id and observations; synthetic append-only input')
     parser.add_argument('--examples', action='store_true', help='Add missing deterministic demo examples without overwriting existing records')
     parser.add_argument('--snapshot', type=Path, help='Optional synthetic memory snapshot to preserve existing edits/history')
     args = parser.parse_args()
+    if args.command=='process-events' and (args.examples or args.snapshot):
+        parser.error('process-events accepts only --observations')
+    if args.command=='init' and args.observations:
+        parser.error('--observations requires process-events')
     snapshots = json.loads(args.snapshot.read_text()) if args.snapshot else None
     from app.core.database import engine
     try:
+        if args.command=='process-events':
+            batches=json.loads(args.observations.read_text()) if args.observations else []
+            if not isinstance(batches,list):
+                raise ValueError('Observation batches must be a list')
+            print(f'Updated {process_demo_events(engine,batches)} synthetic alarm reports.')
+            return
         created = initialize_demo(engine, snapshots)
         if args.examples:
             print(f'Added {seed_examples(engine)} synthetic integration examples.')

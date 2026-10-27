@@ -3,7 +3,7 @@ import { observationTime } from './subscriberObservation.ts';
 
 export type EventKind = 'INTERNET_DOWN' | 'INTERNET_UP' | 'WAN_CHANGE';
 export type EventStatus = 'OPEN' | 'RESOLVED' | 'RECORDED' | 'UNKNOWN';
-export type RouterEvent = {id:string;router_id:string;kind:EventKind;occurred_at:string|null;down_event_id?:string|null;state?:'OPEN'|'UNKNOWN';previous_wan?:string|null;new_wan?:string|null;is_demo:true};
+export type RouterEvent = {id:string;router_id:string;kind:EventKind;occurred_at:string|null;down_event_id?:string|null;state?:'OPEN'|'RESOLVED'|'UNKNOWN';source?:'legacy-demo'|'synthetic-observation';source_observation_id?:string|null;previous_observation_id?:string|null;last_observed_at?:string|null;duration_verified?:boolean;previous_wan?:string|null;new_wan?:string|null;is_demo:true};
 export type EventSource = {items:RouterEvent[];available:boolean;is_demo:true};
 export type AlarmEvent = RouterEvent & {started_at:string|null;ended_at:string|null;duration_seconds:number|null;status:EventStatus;recovery_id:string|null};
 export const eventLabels: Record<EventKind,string> = {INTERNET_DOWN:'İnternet kesintisi',INTERNET_UP:'Bağlantı geri gelmesi',WAN_CHANGE:'WAN değişikliği'};
@@ -28,7 +28,7 @@ export function projectRouterEvents(source: EventSource): AlarmEvent[] | null {
     const linked=!!(up && up.router_id===event.router_id && start && end && Date.parse(end)>=Date.parse(start));
     if(linked)used.add(up!.id);
     const status:EventStatus=event.kind==='INTERNET_DOWN' ? linked?'RESOLVED':start && event.state==='OPEN' && references.length===0?'OPEN':'UNKNOWN' : start?'RECORDED':'UNKNOWN';
-    return {...event,started_at:start,ended_at:linked?end:null,duration_seconds:linked?(Date.parse(end!)-Date.parse(start!))/1000:null,status,recovery_id:linked?up!.id:null};
+    return {...event,started_at:start,ended_at:linked?end:null,duration_seconds:linked&&event.duration_verified!==false?(Date.parse(end!)-Date.parse(start!))/1000:null,status,recovery_id:linked?up!.id:null};
   });
   return rows.filter(row=>!used.has(row.id)).sort((a,b)=>(Date.parse(b.started_at??'')||0)-(Date.parse(a.started_at??'')||0)||a.id.localeCompare(b.id));
 }
@@ -57,3 +57,6 @@ export function alarmCounts(rows:AlarmEvent[]|null,now=new Date()){
 }
 export async function loadRouterEvents(path:string,init?:RequestInit){return projectRouterEvents(await api<EventSource>(path,init));}
 export function durationText(seconds:number|null){return seconds===null?'Veri yok':`${new Intl.NumberFormat('tr-TR',{maximumFractionDigits:3}).format(seconds)} sn`;}
+
+/** Current recorded lifecycle evidence, not a live reachability count or 24-hour total. */
+export function activeAlarmCount(rows:AlarmEvent[]|null,now=new Date()){return rows===null?null:rows.filter(event=>event.kind==='INTERNET_DOWN'&&event.status==='OPEN'&&event.started_at&&Date.parse(event.started_at)<=now.getTime()).length;}

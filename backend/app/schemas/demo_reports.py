@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
-from app.schemas.router_events import RouterEvent
+from app.schemas.router_events import RouterEvent, RouterObservation
 
 
 class DemoSession(BaseModel):
@@ -58,6 +58,7 @@ class DemoReport(BaseModel):
     sessions: list[DemoSession] = Field(default_factory=list)
     traffic: list[DemoTraffic] = Field(default_factory=list)
     wan_snapshot: DemoWan | None = None
+    router_observations: list[RouterObservation] = Field(default_factory=list)
     router_events: list[RouterEvent] = Field(default_factory=list)
     is_demo: Literal[True] = True
 
@@ -65,9 +66,9 @@ class DemoReport(BaseModel):
     def identities(self):
         if self.recorded_at.utcoffset() is None:
             raise ValueError('Demo report time requires timezone')
-        for records in (self.sessions, self.traffic, self.router_events):
+        for records in (self.sessions, self.traffic, self.router_events, self.router_observations):
             if len({record.id for record in records}) != len(records):
                 raise ValueError('Duplicate demo report identity')
-        if any(event.router_id != self.router_id for event in self.router_events):
+        if any(event.router_id != self.router_id for event in [*self.router_events, *self.router_observations]):
             raise ValueError('Demo event router mismatch')
         return self

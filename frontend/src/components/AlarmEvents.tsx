@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Router } from '../lib/api';
-import { alarmCounts, alarmStatusLabels, durationText, emptyAlarmFilter, eventLabels, filterAlarmEvents, loadRouterEvents } from '../lib/routerEvents';
+import { activeAlarmCount, alarmCounts, alarmStatusLabels, durationText, emptyAlarmFilter, eventLabels, filterAlarmEvents, loadRouterEvents } from '../lib/routerEvents';
 import type { AlarmEvent, AlarmFilter } from '../lib/routerEvents';
 import { detailText } from '../lib/subscriberObservation';
 import { useResource } from '../lib/useResource';
@@ -24,8 +24,15 @@ export function AlarmEventDetails({event,routerName,onClose}:{event:AlarmEvent;r
       ['Olay kimliği',event.id],['Router',routerName],['Router kimliği',event.router_id],['Tür',eventLabels[event.kind]],['Durum',alarmStatusLabels[event.status]],
       ['Başlangıç / kayıt (Türkiye)',event.started_at?dateTime(event.started_at):'Veri yok'],['Bitiş (Türkiye)',event.ended_at?dateTime(event.ended_at):'Veri yok'],
       ['Süre',durationText(event.duration_seconds)],['Geri gelme kaydı',event.recovery_id??'Veri yok'],['İlişkili kesinti kaydı',event.down_event_id??'Veri yok'],
+      ['Kaynak',event.source==='synthetic-observation'?'Sentetik internet ölçümü otomasyonu':'Eski sentetik olay kaydı'],['Olay ölçümü',event.source_observation_id??'Veri yok'],['Önceki ölçüm',event.previous_observation_id??'Veri yok'],
+      ['Süre kanıtı',event.duration_verified===false?'Bilinmiyor · arada eksik ölçüm var':'Yalnız doğrulanmış başlangıç/bitiş çifti'],
       ['Önceki WAN',detailText(event.previous_wan)],['Yeni WAN',detailText(event.new_wan)],
-    ]}/><p>Eksik veya güvenilir eşleşmeyen zamanlardan süre hesaplanmaz. Devam ediyor etiketi yalnız açık olay kaydını belirtir; canlı bağlantı durumu değildir.</p>
+    ]}/>
+    <h3>Olay zaman çizelgesi</h3><ol className="subscriber-history">
+      <li><strong>{eventLabels[event.kind]}</strong>{event.started_at?<time dateTime={event.started_at}>{dateTime(event.started_at)}</time>:<span>Veri yok</span>}</li>
+      {event.last_observed_at&&event.last_observed_at!==event.occurred_at&&event.last_observed_at!==event.ended_at&&<li><strong>Son sentetik durum gözlemi</strong><time dateTime={event.last_observed_at}>{dateTime(event.last_observed_at)}</time></li>}
+      {event.recovery_id&&event.ended_at&&<li><strong>Bağlantı geri geldi · {event.recovery_id}</strong><time dateTime={event.ended_at}>{dateTime(event.ended_at)}</time></li>}
+    </ol><p>Eksik veya güvenilir eşleşmeyen zamanlardan süre hesaplanmaz. Devam ediyor etiketi yalnız açık olay kaydını belirtir; canlı bağlantı durumu değildir.</p>
     <div className="expiry-editor-actions"><button className="button-secondary" onClick={onClose}>Kapat</button><a className="button-primary" href={'#'+new URLSearchParams({module:'routers',id:event.router_id}).toString()}>Router detayını aç</a></div>
   </dialog>;
 }
@@ -42,6 +49,8 @@ export function AlarmEvents({mode='list',routerId,routers=[]}:{mode?:'list'|'car
   let rows:AlarmEvent[]=[],error=resource.error;
   try{rows=filterAlarmEvents(resource.data??[],routerId?{...emptyAlarmFilter,router:routerId}:filter,now);}catch(failure){error=failure instanceof Error?failure.message:'Filtre geçersiz.';}
   const counts=alarmCounts(resource.data??null,now);
+  const active=activeAlarmCount(resource.data??null,now);
+  const recent=[...(resource.data??[])].sort((a,b)=>Math.max(Date.parse(b.started_at??'')||0,Date.parse(b.ended_at??'')||0)-Math.max(Date.parse(a.started_at??'')||0,Date.parse(a.ended_at??'')||0)).slice(0,5);
   const chosen=resource.data?.find(event=>event.id===selected);
   const names=new Map(routers.map(router=>[router.id,router.name]));
   const routerIds=[...new Set([...routers.map(r=>r.id),...(resource.data??[]).map(event=>event.router_id),...(filter.router?[filter.router]:[])])];
@@ -50,7 +59,7 @@ export function AlarmEvents({mode='list',routerId,routers=[]}:{mode?:'list'|'car
     <p><span className="demo-chip">SENTETİK</span> Zamanlar Europe/Istanbul. Son görülme internet erişimi kanıtı değildir.</p>
     <ResourceState loading={resource.loading} error={error} retry={resource.retry}/>
     {!resource.loading&&!resource.error&&<>
-      {mode==='cards'?<div className="alarm-card-grid">{([['INTERNET_DOWN','İnternet kesintileri',counts.outages],['WAN_CHANGE','WAN değişiklikleri',counts.wan]] as const).map(([kind,label,count])=><a key={kind} className="button-secondary alarm-count-card" href={'#'+new URLSearchParams({module:'operations',kind,period:'24H'}).toString()}>{label}: {count===null?'Veri yok':count}</a>)}</div>:<>
+      {mode==='cards'?<><div className="alarm-card-grid"><a className="button-secondary alarm-count-card" href="#module=operations&kind=INTERNET_DOWN&status=OPEN&period=ALL">Kayıtlı açık alarm: {active===null?'Veri yok':active}</a>{([['INTERNET_DOWN','İnternet kesintileri',counts.outages],['WAN_CHANGE','WAN değişiklikleri',counts.wan]] as const).map(([kind,label,count])=><a key={kind} className="button-secondary alarm-count-card" href={'#'+new URLSearchParams({module:'operations',kind,period:'24H'}).toString()}>{label}: {count===null?'Veri yok':count}</a>)}</div><p>Açık alarm sayısı tüm kayıtlı yaşam döngüleridir; canlı bağlantı kanıtı değildir. Diğer kartlar son 24 saatte başlayan kayıtları sayar.</p><h3>Son kayıtlı alarm olayları</h3>{recent.length?<ol className="daily-operations">{recent.map(event=><li key={event.id}><button className="record-link" onClick={()=>setSelected(event.id)}>{names.get(event.router_id)??event.router_id} · {eventLabels[event.kind]} · {alarmStatusLabels[event.status]}</button><time>{event.ended_at?dateTime(event.ended_at):event.started_at?dateTime(event.started_at):'Veri yok'}</time></li>)}</ol>:<p className="missing-data">Veri yok. Kayıtlı alarm olayı bulunmuyor.</p>}</>:<>
         {!routerId&&<div className="router-report-controls alarm-filters">
           <label className="form-label">Router<select value={filter.router} onChange={e=>change('router',e.target.value)}><option value="">Tüm routerlar</option>{routerIds.map(id=><option key={id} value={id}>{names.get(id)??id}</option>)}</select></label>
           <label className="form-label">Olay türü<select value={filter.kind} onChange={e=>change('kind',e.target.value)}><option value="ALL">Tüm olaylar</option>{Object.entries(eventLabels).map(([key,value])=><option key={key} value={key}>{value}</option>)}</select></label>
