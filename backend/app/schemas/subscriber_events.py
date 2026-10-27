@@ -1,0 +1,36 @@
+from datetime import date, datetime
+from typing import Literal
+from uuid import UUID
+import re
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class ExpiryChange(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    expires_on: date
+    expected_expires_on: date | None
+    expected_revision: int = Field(ge=0)
+    expected_source: Literal['LOCAL', 'RADIUS']
+    operation: Literal['RENEWAL', 'DATE_EDIT']
+    request_id: UUID
+    confirmed: Literal[True]
+
+    @field_validator('expires_on', 'expected_expires_on', mode='before')
+    @classmethod
+    def calendar_date_only(cls, value):
+        if value is None:
+            return value
+        if not isinstance(value, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
+            raise ValueError('Tarih YYYY-MM-DD biçiminde olmalıdır')
+        return value
+
+
+class SubscriberHistoryEvent(BaseModel):
+    id: str
+    occurred_at: datetime
+    previous_expires_on: date | None
+    expires_on: date
+    operation: Literal['RENEWAL', 'DATE_EDIT']
+    source: Literal['LOCAL', 'RADIUS']
+    actor_id: str
+    is_demo: Literal[True]

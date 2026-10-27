@@ -16,7 +16,7 @@ The optional V2 database URL is restricted to loopback and a non-default local p
 
 ## Detail centers and module extension
 
-Router and subscriber names open read-only detail pages. URL fragments retain the
+Router and subscriber names open detail pages; subscriber expiry can be edited in the process-memory demo. URL fragments retain the
 module and record ID for reload; browser Back and “Listeye dön” restore the list.
 List filters stay mounted while a detail is open. Displayed timestamps explicitly
 use Europe/Istanbul; date-only joining records remain dates.
@@ -42,14 +42,14 @@ Targeted API checks (synthetic in-process client): install
 Frontend validation: `npm --prefix frontend run build`.
 
 
-## Subscription expiry (synthetic, read-only)
+## Subscription expiry (synthetic demo)
 
 Subscriber list and detail contracts expose nullable `expires_on` as an ISO
 calendar date (`YYYY-MM-DD`), not a timestamp or a date inferred from joining.
 Demo records explicitly cover expired, today, within 7 days, within 30 days,
 active and unknown expiry. Dates are generated relative to the Turkey date when
 the local demo API starts; restarting the demo regenerates these synthetic examples.
-No database migration, renewal/change operation or live integration is included.
+No database migration or live integration is included. Demo-only expiry renewal/editing is described below.
 
 The UI uses the current Europe/Istanbul calendar day. An expiry date remains valid
 through its final Turkey day: zero days means “Bugün bitiyor”, negative days are
@@ -69,7 +69,7 @@ suite additionally checks nullable expiry values and list/detail consistency.
 The existing LOCAL/RADIUS source badges and source filter are retained. Subscriber
 details now explain LOCAL as the assigned MikroTik's local user record, and RADIUS
 as the FreeRADIUS user record. Assignment to a router does not imply LOCAL authority.
-All displayed records and explanations remain synthetic and read-only.
+All displayed records and source explanations remain synthetic; authority itself is read-only.
 
 The read contract accepts `source: "LOCAL" | "RADIUS" | null`. Missing, unrecognized
 or ambiguous source values are projected as null, displayed as “Bilinmiyor”, and can
@@ -79,7 +79,35 @@ there are three LOCAL, three RADIUS and one unknown records.
 
 This is a read projection of incomplete inventory, not a third persisted authority.
 The domain enum and database constraint still require exactly one LOCAL or RADIUS
-source for an account. No creation, change, source-transfer or live adapter is added.
+source for an account. No account creation, source change, source-transfer or live adapter is added.
 Targeted source checks: `node --test frontend/tests/source.test.mjs` (Node 22.18+);
 the backend detail suite covers null/invalid/missing source and list/detail/router
 assignment consistency.
+
+
+## Demo-only expiry renewal and editing
+
+Subscriber details provide a two-step date editor: choose renewal or date editing,
+review current/new dates, then explicitly confirm. A date before today's Turkey
+calendar day, an invalid or unchanged date is rejected. Renewal must move an
+existing expiry forward; date editing may shorten it through today. Unknown
+source blocks changes; LOCAL/RADIUS authority and account lifecycle status remain
+unchanged while calculated expiry status and remaining days refresh.
+
+`POST /api/v1/subscribers/{id}/demo-expiry` requires the central demo administrator
+session, `X-V2-Demo-Action: expiry`, explicit confirmation, expected source/date/
+revision and a UUID request ID. Stale changes return 409; repeating the same
+confirmed request returns its saved result without creating a second history event.
+The UI reuses its request ID after a failed response and offers current-record reload.
+
+The service publishes updated record, UTC history event (actor, operation, old/new
+date and source) and idempotency result together under one lock. Reads return copies.
+This is an in-memory atomic update, not a database transaction or a durable audit log.
+All demo sessions in the same API process see this shared state. Browser reload keeps
+it; restarting the API resets dates, history, revisions and request IDs. No database,
+file, router or RADIUS write occurs. Subscriber list, details and router assignment
+reads use the same memory store; the UI invalidates affected reads after success.
+
+The existing backend test command covers mutation authorization, confirmation,
+validation, source preservation, history/read consistency, idempotency, stale and
+concurrent changes, pre-publication failure and Turkey-day boundaries.

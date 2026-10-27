@@ -67,3 +67,10 @@ input::placeholder{color:var(--muted);opacity:1}
 .source-explanation{display:flex;align-items:flex-start;flex-direction:column;gap:12px;min-width:0;overflow-wrap:anywhere}
 .source-explanation p{margin:0;font-size:var(--font-body);line-height:1.7}.source-explanation .source-demo-note{padding:12px;border:1px dashed var(--line);border-radius:6px;background:var(--surface-2);font-size:var(--font-caption)}
 .source-unknown-count{margin:0;padding:10px 14px 0;font-size:var(--font-small);line-height:1.6;color:var(--text-secondary)}
+.expiry-dialog{width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 32px);overflow:auto;padding:22px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);box-shadow:0 20px 70px color-mix(in srgb,var(--shadow) 35%,transparent)}
+.expiry-dialog::backdrop{background:color-mix(in srgb,var(--shadow) 60%,transparent);backdrop-filter:blur(3px)}
+.expiry-dialog h2{margin:0 0 12px;font-size:1.125rem}.expiry-dialog p{font-size:var(--font-body);line-height:1.7;overflow-wrap:anywhere}.expiry-dialog form{display:grid;gap:12px}
+.expiry-dialog input,.expiry-dialog select{width:100%;min-width:0;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text);font-size:1rem}
+.expiry-editor-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.expiry-editor-actions button{white-space:normal;height:auto}.expiry-editor-cancel{margin-top:16px}.demo-save-notice{padding:12px;border:1px solid var(--green-line);border-radius:7px;background:var(--green-soft);color:var(--green);font-size:var(--font-body)}
+.subscriber-history{list-style:none;padding:0;margin:0}.subscriber-history li{padding:14px 0;border-top:1px solid var(--line)}.subscriber-history strong{display:block;font-size:var(--font-body);color:var(--text)}.subscriber-history time{display:block;margin:6px 0;color:var(--text-secondary);font-size:var(--font-caption)}
+@media(max-width:650px){.expiry-dialog{padding:16px}.expiry-editor-actions{flex-direction:column}.expiry-editor-actions button{width:100%}}

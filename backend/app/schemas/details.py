@@ -1,7 +1,8 @@
 """Versioned, read-only detail contracts; unavailable telemetry is never fabricated."""
 from datetime import date
 from typing import Literal
-from pydantic import BaseModel, field_validator
+from app.schemas.subscriber_events import SubscriberHistoryEvent
+from pydantic import BaseModel, Field, field_validator
 
 
 class RouterRecord(BaseModel):
@@ -33,6 +34,7 @@ class SubscriberRecord(BaseModel):
     ip_address: str
     joined_at: str
     expires_on: date | None = None
+    revision: int = 0
     last_seen: str | None
     is_demo: Literal[True]
 
@@ -51,6 +53,8 @@ class RouterDetail(BaseModel):
 
 class SubscriberDetail(BaseModel):
     item: SubscriberRecord
+    history: list[SubscriberHistoryEvent] = Field(default_factory=list)
+    persistence: Literal['process-memory'] = 'process-memory'
     is_demo: Literal[True]
 
 

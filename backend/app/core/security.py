@@ -1,6 +1,6 @@
 """Local demo session. Phase 1 has no production identity provider or password store."""
 import secrets
-from fastapi import Cookie, HTTPException, status
+from fastapi import Depends, Header, Cookie, HTTPException, status
 
 _sessions: set[str] = set()
 _DEMO_USER = {'id': 'demo-user', 'name': 'Demo Operatör', 'email': 'demo@local.test',
@@ -24,3 +24,10 @@ def current_demo_user(v2_session: str | None = Cookie(default=None)) -> dict:
     if not v2_session or v2_session not in _sessions:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Oturum gerekli')
     return _DEMO_USER.copy()
+
+
+def current_demo_mutator(user: dict = Depends(current_demo_user),
+                         x_v2_demo_action: str | None = Header(default=None)) -> dict:
+    if x_v2_demo_action != 'expiry' or not user.get('is_demo') or user.get('role') != 'Sistem Yöneticisi':
+        raise HTTPException(status_code=403, detail='Demo değişiklik yetkisi gerekli')
+    return user

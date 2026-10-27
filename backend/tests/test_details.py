@@ -41,7 +41,7 @@ class DetailContracts(unittest.TestCase):
         for row in rows:
             response = self.client.get('/api/v1/subscribers/' + row['id'])
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json(), {'item': row, 'is_demo': True})
+            self.assertEqual(response.json(), {'item': row, 'is_demo': True, 'history': [], 'persistence': 'process-memory'})
             self.assertIn(response.json()['item']['source'], ('LOCAL', 'RADIUS', None))
         self.assertTrue(any(row['last_seen'] is None for row in rows))
         for module in ('routers', 'subscribers'):

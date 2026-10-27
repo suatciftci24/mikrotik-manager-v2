@@ -15,6 +15,14 @@ export function useResource<T>(path: string) {
     });
     return () => controller.abort();
   }, [path, attempt]);
+  useEffect(() => {
+    const changed = (event: Event) => {
+      const prefixes: string[] = (event as CustomEvent<string[]>).detail;
+      if (prefixes.some(prefix => path === prefix || path.startsWith(`${prefix}/`))) setAttempt(value => value + 1);
+    };
+    window.addEventListener('v2-resource-change', changed);
+    return () => window.removeEventListener('v2-resource-change', changed);
+  }, [path]);
   const retry = useCallback(() => setAttempt(value => value + 1), []);
   return {...(state.path === path ? state : {loading: true, data: undefined, error: undefined}), retry};
 }

@@ -23,7 +23,7 @@ export type Router = {
 export type Subscriber = {
   id: string; username: string; customer_name: string; router_name: string; plan: string;
   source: 'LOCAL' | 'RADIUS' | null; status: 'ACTIVE' | 'PAUSED' | 'PENDING'; monthly_price: number;
-  ip_address: string; joined_at: string; expires_on: string | null; last_seen: string | null; is_demo: true;
+  ip_address: string; joined_at: string; expires_on: string | null; revision: number; last_seen: string | null; is_demo: true;
 };
 
 export type DashboardData = {
@@ -35,3 +35,9 @@ export type DashboardData = {
   attention: { router_id: string; message: string; value: number };
   is_demo: true;
 };
+
+export type SubscriberHistoryEvent = {
+  id: string; occurred_at: string; previous_expires_on: string | null; expires_on: string;
+  operation: 'RENEWAL' | 'DATE_EDIT'; source: 'LOCAL' | 'RADIUS'; is_demo: true;
+};
+export type SubscriberDetailData = {item: Subscriber; history: SubscriberHistoryEvent[]; is_demo: true; persistence: 'process-memory'};

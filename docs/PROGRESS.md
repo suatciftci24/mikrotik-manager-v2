@@ -7,10 +7,10 @@ Son güncelleme: 2026-10-27. Proje yolu: `/home/suatpc/Codex-Projects/mikrotik-m
 - Branch: `main`. Bu belge görevinin başlangıcında çalışma ağacı temizdi.
 - Detay merkezlerinin temel commit'i: `fa1c03b` — ortak modül altyapısı ve envanter detay merkezleri. Öncesindeki `7512239`, GitHub deposunu V2 README korunarak birleştiriyor.
 - Ortak frontend altyapısı: `useResource`, `useDetailNavigation`, `PageHeading`, `ResourceState`, `DetailSection`, `Facts` ve `MissingData` mevcut.
-- Router ve abone listelerinden salt okunur detay merkezlerine erişim mevcut. Liste filtreleri korunuyor; URL fragmenti detay kimliğini taşıyor. Kaynak kodunda geri dönüş, yükleniyor, hata, tekrar deneme ve boş veri durumları bulunuyor.
+- Router ve abone listelerinden detay merkezlerine erişim mevcut; abone bitiş tarihi için yalnız demo belleğinde düzenleme/yenileme akışı eklendi. Liste filtreleri korunuyor; URL fragmenti detay kimliğini taşıyor. Kaynak kodunda geri dönüş, yükleniyor, hata, tekrar deneme ve boş veri durumları bulunuyor.
 - `/api/v1/routers/{item_id}` ve `/api/v1/subscribers/{item_id}` merkezi demo oturum kontrolünü ve Pydantic yanıt sözleşmelerini kullanıyor; bulunamayan kayıtlar 404 döndürüyor.
 - Veriler mevcut sentetik demo envanterinden geliyor. Router'a atanmış sentetik abone listesi, toplam sayaç ve aktif oturumlardan ayrı açıklanıyor. LOCAL/RADIUS yetkili kaynak bilgisi korunuyor.
-- Router arayüzleri, trafik, canlı oturum ve abone işlem geçmişi için bağlı veri kaynağı bulunmuyor; detay ekranları bunu açıkça belirtiyor. Abonelik bitişi/kalan gün takibi aşağıdaki yeni paketle sentetik tarihler üzerinden sağlanıyor; canlı entegrasyon değildir.
+- Router arayüzleri, trafik ve canlı oturum için bağlı veri kaynağı bulunmuyor; abone işlem geçmişi yalnız bu demo sürecinde yapılan tarih değişikliklerini içeriyor; detay ekranları bunu açıkça belirtiyor. Abonelik bitişi/kalan gün takibi aşağıdaki yeni paketle sentetik tarihler üzerinden sağlanıyor; canlı entegrasyon değildir.
 - README yerel demo çalışma biçimini ve test komutlarını belgeliyor. `backend/tests/test_details.py` hedefli API testlerini içeriyor. Test dosyasının varlığı, bu belge görevinde çalıştırıldığı anlamına gelmez.
 
 ## Önceki belge görevi — `c5b263c`
@@ -93,6 +93,20 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Yerel Chromium kontrolü geçti: rozet ve sayaçlar, LOCAL/RADIUS/Bilinmiyor filtreleri ve detay anlamları, filtre birleşimleri/sıfırlama, arama, detaydan dönüşte seçim korunması, Beyaz/Gece/Sistem ve 320 px taşmasız görünüm. Gece temalı bilinmeyen kaynak detay görüntüsü incelendi.
 - Yalnız yerel V2 demo süreçleri yeni sentetik örnek için güncellendi; canlı V1, VDS, router, RADIUS veya gerçek abone verisine dokunulmadı.
 - Sıradaki somut adım: kullanıcının panelde kaynak filtrelerini ve detay açıklamalarını incelemesi; yeni yazma veya canlı entegrasyon kapsamı belirlenmedi.
+
+## Demo abonelik yenileme ve bitiş tarihi düzenleme — 2026-10-27
+
+- Görev başında kurallar, ilerleme kaydı, veri/audit modelleri ve API incelendi; branch `main`, HEAD `1335034`, çalışma ağacı temizdi. Veritabanı kalıcılığı kullanılmadığından işlem yalnız mevcut sentetik demo altyapısında geliştirildi.
+- Abone detayına tarih girişi, işlem türü (yenileme/tarih düzenleme), mevcut/yeni tarih özeti ve ayrı açık onay adımı eklendi. İptal kaydetmez; boş/geçersiz/geçmiş/aynı tarihler ve ileri gitmeyen yenileme reddedilir. Türkiye'de bugün geçerli bir bitiş günüdür.
+- Merkezi demo yönetici oturumu ve özel demo eylem başlığıyla korunan `POST /api/v1/subscribers/{id}/demo-expiry` eklendi. Kaynak bilinmiyorsa değişiklik kapalı; istek mevcut kaynak, tarih ve revizyonla eşleşmelidir. Gövde yalnız açıkça izin verilen alanları kabul eder.
+- Kayıt, UTC zamanlı işlem geçmişi (işlemi yapan, tür, önceki/yeni tarih ve kaynak) ve tekrar-istek sonucu kilit altında tek bellek durumu olarak yayımlanır. İşlem öncesi hatada değişiklik kalmaz; eşzamanlı eski sürümler reddedilir; aynı UUID ile yeniden gönderim ikinci değişiklik/geçmiş üretmez.
+- LOCAL/RADIUS kaynağı ve hesap yaşam döngüsü durumu korunur. Başarı sonrası ortak veri erişimi bildirimi listeyi, detayı ve router atama okumalarını günceller; hesaplanan bitiş durumu/kalan gün yeni tarihe yansır.
+- Tarih ve geçmiş yalnız tek demo API sürecinin ortak belleğindedir: tarayıcı yenilemesinde kalır, API yeniden başlatılınca sıfırlanır. Bu sınır giriş/onay, başarı ve geçmiş alanlarında açıkça belirtilir; kalıcı işlem veya gerçek abonelik işlemi olarak sunulmaz.
+- Kontroller geçti: son TypeScript/Vite derlemesi ve 15 sentetik backend testi (onay/yetki, tarih doğrulama, kaynak/okuma tutarlılığı, tekrar gönderim, eski sürüm/eşzamanlılık, yayın öncesi hata atomikliği, Türkiye gün sınırı dahil). Önceki bağımsız tarih/kaynak frontend testleri değişmediği için tekrarlanmadı.
+- Yerel Chromium'da istemci doğrulaması, mevcut/yeni tarih onayı, POST göndermeyen iptal, LOCAL yenilemesi ve liste/bitiş durumu/geçmiş güncellemesi doğrulandı. Sunucunun uyguladığı fakat yanıtı kaybolan isteğin tekrarında tek geçmiş kaydı oluştu.
+- RADIUS tarih düzenleme, bugün bitişi, sayfa yenilemede geçmiş, bilinmeyen kaynak engeli geçti. İşlem türü alanının erişilebilir adı netleştirilip kalan kapsam doğrulandı. Beyaz/Gece/Sistem onay penceresi 320 px'de kontrol edildi; Gece mobil görüntüsü incelendi.
+- Yeni bağımlılık, kalıcı şema/migration, deploy, üretim erişimi veya RouterOS/FreeRADIUS yazması yok. Yalnız yerel V2 demo süreçleri güncel kodla başlatıldı; V1/VDS/gerçek abone verilerine dokunulmadı.
+- Sıradaki somut adım: kullanıcının yerel panelde demo yenileme/onay/geçmiş akışını incelemesi; kalıcı veya canlı işlem kapsamı ayrıca belirlenmelidir.
 
 ## Sıradaki işler — henüz başlanmadı
 

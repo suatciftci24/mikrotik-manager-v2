@@ -10,7 +10,7 @@ app.add_middleware(
     allow_origins=['http://127.0.0.1:5173'],
     allow_credentials=True,
     allow_methods=['GET', 'POST'],
-    allow_headers=['Content-Type'],
+    allow_headers=['Content-Type', 'X-V2-Demo-Action'],
 )
 app.include_router(api_router, prefix='/api/v1')
 
