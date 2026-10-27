@@ -8,7 +8,7 @@ def router_detail(router_id: str):
     if item is None:
         return None
     # The legacy fixture only carries router_name; do not infer live sessions.
-    assigned = [row for row in demo_subscriptions.store.list_items() if row['router_name'] == item['name']]
+    assigned = [row for row in demo_subscriptions.store.list_items() if (row.get('router_id') == item['id'] if row.get('router_id') else row['router_name'] == item['name'])]
     return {'item': item, 'assigned_subscribers': assigned, 'is_demo': True}
 
 

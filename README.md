@@ -356,3 +356,21 @@ node --test --test-isolation=none frontend/tests/subscriberReports.test.mjs fron
 The view check compiles the actual component in memory using the existing Vite
 installation's esbuild dependency and renders it with React's server renderer;
 it does not replace browser/mobile interaction checks.
+
+### Central dashboard and router detail
+
+The central dashboard uses the same normalized inventory status projection as the
+router report. Total, online/offline snapshot and unknown-status cards open the
+corresponding lists; account status/expiry links and saved 24-hour management
+operation detail dialogs remain available. Explicit PPPoE records and legacy
+records without an access type are counted separately. Internet outage/WAN event
+coverage is unknown when no event source exists, never an inferred zero.
+
+Router details expose management identity, synthetic resource samples, unavailable
+WAN/interface fields and assigned subscription links. Saved `router_id` takes
+precedence over display names; legacy name-only assignments remain readable.
+Stored subscription counts are distinct from the old aggregate inventory counter.
+The existing rolling operation component and Turkey-time detail dialog are reused
+for the assigned subscribers' saved management history. Router event history is
+unavailable; inventory refreshes never create events or prove live connectivity.
+No router/RADIUS adapters, pollers or writes are introduced.

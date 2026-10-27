@@ -1,3 +1,9 @@
+import { api } from '../lib/api';
+import { useCallback } from 'react';
+import { buildRouterReport, percentText } from '../lib/routerReport';
+import { buildDailySummary } from '../lib/dailySummary';
+import { assignedToRouter } from '../lib/routerSubscribers';
+import { RecentOperations } from '../components/RecentOperations';
 import { SubscriberReports } from '../components/SubscriberReports';
 import { detailText, monthlyPriceText } from '../lib/subscriberObservation';
 import { expiryInfo } from '../lib/expiry';
@@ -26,23 +32,48 @@ export function DetailCenter({kind, id, onBack, backLabel='Listeye dön'}: {kind
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { setNotice('');heading.current?.focus(); window.scrollTo(0, 0); }, [id, kind]);
   return <div className="screen-stack"><button className="button-secondary detail-back" onClick={onBack}><ArrowLeft size={16}/>{backLabel}</button>
-    <PageHeading title={kind === 'routers' ? 'Router Detay Merkezi' : 'Abone Detay Merkezi'} description="Demo kayıtları gösteriliyor. Canlı bağlantı veya ölçüm yapılmadı." eyebrow="SENTETİK DEMO · CANLI İŞLEM YOK" headingRef={heading} actions={kind==='subscribers'?<button className="button-secondary" disabled={resource.loading} onClick={()=>{setNotice('');resource.retry();}}>Detayı yenile</button>:undefined}/>
+    <PageHeading title={kind === 'routers' ? 'Router Detay Merkezi' : 'Abone Detay Merkezi'} description="Demo kayıtları gösteriliyor. Canlı bağlantı veya ölçüm yapılmadı." eyebrow="SENTETİK DEMO · CANLI İŞLEM YOK" headingRef={heading} actions={<button className="button-secondary" disabled={resource.loading} onClick={()=>{setNotice('');resource.retry();}}>Detayı yenile</button>}/>
     {notice && <p className="demo-save-notice" role="status">{notice}</p>}
     <ResourceState {...resource} error={error}/>
     {resource.data && !resource.loading && !error && (kind === 'routers' ? <RouterDetails detail={resource.data as RouterDetail}/> : <SubscriberDetails detail={resource.data as SubscriberDetail} onSaved={()=>{setNotice('Demo abone değişikliği ve işlem geçmişi V2 yerel geliştirme veritabanına kaydedildi. Sentetik demo işlemidir.');invalidateResources(['/subscribers','/routers']);}}/>)}
   </div>;
 }
-function RouterDetails({detail}: {detail: RouterDetail}) {
+export function RouterDetails({detail}: {detail: RouterDetail}) {
   const r = detail.item;
+  const report = buildRouterReport([r]).rows[0];
+  const assigned = detail.assigned_subscribers.filter(item=>assignedToRouter(item,r));
+  const pppoe = assigned.filter(item=>item.access_type==='PPPOE').length;
   return <div className="detail-grid">
-    <DetailSection title={r.name}><Facts items={[["Kayıt", r.id], ["Konum", r.site], ["Yönetim adresi", r.management_address], ["Model", r.model], ["RouterOS", r.routeros_version]]}/></DetailSection>
-    <DetailSection title="Bağlantı durumu"><Facts items={[["Demo durum kaydı", <StatusBadge status={r.status}/>], ["Son görülme", dateTime(r.last_seen)], ["Demo çalışma süresi", r.uptime], ["Demo CPU / bellek", `${r.cpu_percent}% / ${r.memory_percent}%`]]}/><MissingData>Canlı RouterOS bağlantı durumu için adaptör bağlı değil.</MissingData></DetailSection>
+    <DetailSection title={r.name}><Facts items={[["Kayıt", r.id], ["Konum", r.site], ["Yönetim adresi", r.management_address], ["Model", r.model], ["RouterOS", detailText(r.routeros_version)], ["Veri kaynağı", "Sentetik V2 envanteri"], ["Yönetim kaynağı", "Bilinmiyor (router için LOCAL/RADIUS alanı yok)"]]}/></DetailSection>
+    <DetailSection title="Bağlantı durumu"><Facts items={[["Son sentetik durum kaydı", <StatusBadge status={report.status}/>], ["Son görülme", report.source_time?dateTime(report.source_time):'Veri yok'], ["Canlı bağlantı", 'Bilinmiyor'], ["Demo çalışma süresi", report.device_uptime??'Veri yok'], ["Demo CPU / RAM", `${percentText(report.cpu)} / ${percentText(report.memory)}`]]}/><p>Son görülme aktif bağlantı kanıtı değildir. CPU/RAM son sentetik örneklerdir; uptime bağlantı süresi değildir.</p></DetailSection>
     <DetailSection title="Bağlantı geçmişi"><p className="missing-data">Veri yok. Envanter yalnız son sentetik durum kaydını sağlıyor; bağlantı/kopma olayları ve kesinti süresi kaynağı bağlı değil.</p></DetailSection>
-    <DetailSection title="İnternet ve WAN alarmları"><p className="missing-data">Veri yok. İnternet erişim kontrolü, WAN kimliği ve değişiklik geçmişi kaynağı bağlı değil. Envanter durumu internet erişimini doğrulamaz; yönetim adresi WAN adresi değildir.</p><a className="record-link" href="#module=operations">Operasyon Merkezi’ne dön</a></DetailSection>
+    <DetailSection title="İnternet ve WAN"><Facts items={[
+      ['WAN arayüzü','Veri yok'], ['WAN IP','Veri yok'], ['Gateway','Veri yok'], ['Default route','Veri yok'], ['İnternet durumu','Bilinmiyor'],
+    ]}/><p className="missing-data">Veri yok. WAN değişiklik geçmişi ve internet kesintisi kaynağı bağlı değil. Yönetim IP’si WAN IP olarak kullanılamaz.</p><a className="record-link" href="#module=operations">Operasyon Merkezi’ni aç</a></DetailSection>
     <DetailSection title="Arayüzler"><MissingData>Arayüz envanteri kaynağı bağlı değil.</MissingData></DetailSection>
     <DetailSection title="Trafik"><p className="missing-data">Veri yok. Bu router için indirme/yükleme, arayüz sayacı veya trafik zaman serisi kaynağı bağlı değil.</p></DetailSection>
-    <DetailSection title="Bağlı aboneler"><p>Demo envanter sayacı: {r.subscriber_count}. Listede router adına atanmış {detail.assigned_subscribers.length} sentetik kayıt var; bunlar çevrimiçi oturum değildir.</p>{detail.assigned_subscribers.length ? <ul className="assigned-list">{detail.assigned_subscribers.map(s => <li key={s.id}><span><strong>{s.customer_name}</strong><small>{s.username} · {s.plan}</small></span><SourceBadge source={s.source}/><StatusBadge status={s.status}/></li>)}</ul> : <MissingData>Bu router için atanmış abone kaydı yok.</MissingData>}<MissingData>Aktif oturum kaynağı bağlı değil.</MissingData></DetailSection>
+    <DetailSection title="İlişkili aboneler">
+      <Facts items={[
+        ['Kayıtlı ilişkili abonelik',assigned.length], ['Erişim türü PPPoE olarak kayıtlı',pppoe],
+        ['Erişim türü belirtilmemiş eski kayıt',assigned.length-pppoe], ['Eski sentetik envanter sayacı',r.subscriber_count],
+      ]}/>
+      <p>İlişkili kayıtlar V2 abone deposundan gelir; eski envanter sayacı ayrı bir demo değeridir. Abonelik sayıları çevrimiçi oturum sayısı değildir.</p>
+      {assigned.length ? <ul className="assigned-list">{assigned.map(s => <li key={s.id}><span><strong><a className="record-link" href={'#'+new URLSearchParams({module:'subscribers',id:s.id}).toString()}>{s.customer_name}</a></strong><small>{s.username} · {s.plan}</small></span><SourceBadge source={s.source}/><StatusBadge status={s.status}/></li>)}</ul> : <p className="missing-data">Veri yok. İlişkili abone kaydı bulunmuyor.</p>}
+    </DetailSection>
+    <DetailSection title="Son 24 saat router olayları"><p className="missing-data">Veri yok. Kaydedilmiş router olay geçmişi, internet kesintisi veya WAN değişiklik kaynağı yok. Envanter yenileme olay üretmez.</p></DetailSection>
+    <RouterManagementOperations router={r} subscribers={assigned}/>
+
   </div>;
+}
+function RouterManagementOperations({router,subscribers}: {router: Router; subscribers: Subscriber[]}) {
+  const ids = JSON.stringify(subscribers.map(item=>item.id));
+  const load = useCallback(async (_path: string, init?: RequestInit) => {
+    const details = await Promise.all((JSON.parse(ids) as string[]).map(id=>api<SubscriberDetailData>(`/subscribers/${encodeURIComponent(id)}`,init)));
+    if (details.some(detail=>!assignedToRouter(detail.item,router))) throw new Error('Abone router ataması değişti; router detayını yenileyin.');
+    return buildDailySummary([router],details);
+  },[ids,router]);
+  const resource=useResource(`/routers/${encodeURIComponent(router.id)}/management-summary`,load);
+  return <div className="router-management-events"><ResourceState {...resource}/>{resource.data&&!resource.loading&&!resource.error&&<RecentOperations data={resource.data} onSubscriber={id=>{window.location.hash=new URLSearchParams({module:'subscribers',id}).toString();}}/>}</div>;
 }
 function SubscriberDetails({detail, onSaved}: {detail: SubscriberDetail; onSaved: () => void}) {
   const [editing, setEditing] = useState(false);

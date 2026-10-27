@@ -1,3 +1,4 @@
+import { buildRouterReport } from './routerReport.ts';
 import { api, type Router, type SubscriberDetailData, type SubscriberHistoryEvent } from './api.ts';
 import { expiryInfo, turkeyToday } from './expiry.ts';
 import { subscriberSource } from './source.ts';
@@ -9,6 +10,7 @@ export type DailySummary = {
   router_counts: {total: number; online: number; offline: number; degraded: number; unknown: number};
   subscribers: {total: number; active: number; paused: number; pending: number; unknown_status: number; local: number; radius: number; unknown_source: number};
   expiry: {expired: number; within_7: number; within_30: number; active: number; unknown: number};
+  pppoe: {confirmed: number; untyped: number};
   operation_history: DailyOperation[];
   operations: {today: number; total: number; recent: DailyOperation[]};
 };
@@ -16,6 +18,7 @@ export type DailySummary = {
 /** Read projection of existing versioned API records; never uses aggregate demo counters. */
 export function buildDailySummary(routers: Router[], details: SubscriberDetailData[], now = new Date()): DailySummary {
   if (routers.some(r=>r.is_demo!==true) || details.some(d=>d.is_demo!==true || d.item.is_demo!==true)) throw new Error('Günlük özet yalnız sentetik demo kayıtlarını destekler.');
+  const routerReport = buildRouterReport(routers, now);
   const today = turkeyToday(now);
   const items = details.map(d=>d.item);
   if (new Set(items.map(s=>s.id)).size !== items.length) throw new Error('Abone kayıtları tekil değil; özet oluşturulamadı.');
@@ -38,8 +41,9 @@ export function buildDailySummary(routers: Router[], details: SubscriberDetailDa
   operations.sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at) || a.id.localeCompare(b.id));
   return {
     generated_at: now.toISOString(), as_of_date: today, is_demo: true, routers,
-    router_counts: {total: routers.length, online: routers.filter(r=>r.status==='ONLINE').length, offline: routers.filter(r=>r.status==='OFFLINE').length, degraded: routers.filter(r=>r.status==='DEGRADED').length, unknown: routers.filter(r=>!['ONLINE','OFFLINE','DEGRADED'].includes(r.status)).length},
+    router_counts: routerReport.counts,
     subscribers: {total: items.length, active: items.filter(s=>s.status==='ACTIVE').length, paused: items.filter(s=>s.status==='PAUSED').length, pending: items.filter(s=>s.status==='PENDING').length, unknown_status: items.filter(s=>!['ACTIVE','PAUSED','PENDING'].includes(s.status)).length, local: items.filter(s=>subscriberSource(s.source)==='LOCAL').length, radius: items.filter(s=>subscriberSource(s.source)==='RADIUS').length, unknown_source: items.filter(s=>subscriberSource(s.source)==='UNKNOWN').length},
+    pppoe: {confirmed:items.filter(item=>item.access_type==='PPPOE').length, untyped:items.filter(item=>!item.access_type).length},
     expiry, operation_history:operations, operations: {today: operations.filter(event=>turkeyToday(new Date(event.occurred_at))===today).length, total: operations.length, recent: operations.slice(0,5)},
   };
 }

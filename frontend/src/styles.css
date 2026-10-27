@@ -92,3 +92,5 @@ input::placeholder{color:var(--muted);opacity:1}
 @media(max-width:1000px){.subscription-alert-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){.subscription-alert-grid{grid-template-columns:minmax(0,1fr)}.subscription-alert-links button{width:100%}}
 
 .subscriber-report-periods{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.subscriber-report-periods button{white-space:normal;min-height:44px}.subscriber-report-range{display:block;margin-top:6px;color:var(--text-secondary);font-size:var(--font-small);font-weight:400}.subscriber-traffic-table tr[aria-current="true"]{background:var(--surface-2)}.subscriber-detail h3{font-size:var(--font-body);color:var(--text);margin:18px 0 10px}@media(max-width:650px){.subscriber-report-periods button{width:100%}}
+
+.router-management-events{grid-column:1/-1;min-width:0}.central-events{padding:18px}.central-events p{font-size:var(--font-body);line-height:1.7;color:var(--text-secondary)}.central-events .button-secondary{display:inline-flex;max-width:100%;white-space:normal;text-decoration:none}.router-management-events .panel{min-width:0}
