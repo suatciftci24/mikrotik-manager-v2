@@ -11,8 +11,9 @@ test('inventory time and IP are retained without implying session state or conne
  assert.deepEqual(subscriberObservation(subscriber),subscriberObservation(subscriber));
 });
 test('missing, naive or invalid observation timestamps are unknown',()=>{
- for(const last_seen of [null,undefined,'','bad','2026-10-26T09:42:00'])assert.equal(subscriberObservation({...subscriber,last_seen}).last_seen,null);
+ for(const last_seen of [null,undefined,'','bad','2026-10-26T09:42:00','2026-02-30T09:42:00Z','2026-02-29T12:00:00+03:00','2026-10-26T24:00:00Z','2026-10-26T09:60:00Z','26 Oct 2026 09:42:00 +00:00'])assert.equal(subscriberObservation({...subscriber,last_seen}).last_seen,null);
  assert.equal(subscriberObservation({...subscriber,last_seen:'2026-10-26T12:42:00+03:00'}).last_seen,'2026-10-26T12:42:00+03:00');
+ assert.equal(subscriberObservation({...subscriber,last_seen:'2024-02-29T12:42:00.123456+03:00'}).last_seen,'2024-02-29T12:42:00.123456+03:00');
  assert.throws(()=>subscriberObservation({...subscriber,is_demo:false}),/sentetik/);
 });
 test('placeholder text and invalid prices are unavailable, but measured zero is not missing',()=>{
