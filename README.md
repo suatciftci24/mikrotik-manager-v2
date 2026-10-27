@@ -62,3 +62,24 @@ expiry status remain separate.
 Date boundary tests: `npm --prefix frontend run test:expiry` (Node 22.18+ for native
 TypeScript stripping; verified locally on Node 24). The existing backend detail
 suite additionally checks nullable expiry values and list/detail consistency.
+
+
+## Subscriber management authority
+
+The existing LOCAL/RADIUS source badges and source filter are retained. Subscriber
+details now explain LOCAL as the assigned MikroTik's local user record, and RADIUS
+as the FreeRADIUS user record. Assignment to a router does not imply LOCAL authority.
+All displayed records and explanations remain synthetic and read-only.
+
+The read contract accepts `source: "LOCAL" | "RADIUS" | null`. Missing, unrecognized
+or ambiguous source values are projected as null, displayed as “Bilinmiyor”, and can
+be filtered separately. Raw unexpected values are not exposed or guessed from names,
+plans or router assignments. The pending Eda demo record illustrates unknown source;
+there are three LOCAL, three RADIUS and one unknown records.
+
+This is a read projection of incomplete inventory, not a third persisted authority.
+The domain enum and database constraint still require exactly one LOCAL or RADIUS
+source for an account. No creation, change, source-transfer or live adapter is added.
+Targeted source checks: `node --test frontend/tests/source.test.mjs` (Node 22.18+);
+the backend detail suite covers null/invalid/missing source and list/detail/router
+assignment consistency.

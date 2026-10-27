@@ -1,3 +1,4 @@
+import { SourceExplanation } from '../components/SourceExplanation';
 import { ExpirySummary } from '../components/Expiry';
 import { useTurkeyToday } from '../lib/useTurkeyToday';
 import { useEffect, useRef } from 'react';
@@ -35,6 +36,7 @@ function SubscriberDetails({detail}: {detail: SubscriberDetail}) {
   const today = useTurkeyToday();
   return <div className="detail-grid">
     <DetailSection title={s.customer_name}><Facts items={[["Kayıt", s.id], ["Kullanıcı adı", s.username], ["Paket", s.plan], ["Yetkili kaynak", <SourceBadge source={s.source}/>], ["Abonelik durumu (demo)", <StatusBadge status={s.status}/>], ["Router", s.router_name], ["Aylık tutar", new Intl.NumberFormat('tr-TR', {style: 'currency', currency: 'TRY'}).format(s.monthly_price)]]}/></DetailSection>
+    <DetailSection title="Yetkili yönetim kaynağı"><SourceExplanation source={s.source}/></DetailSection>
     <DetailSection title="Bağlantı durumu"><Facts items={[["Demo IP kaydı", s.ip_address], ["Son görülme", dateTime(s.last_seen)]]}/><MissingData>Oturum kaynağı bağlı değil; aktif abonelik çevrimiçi bağlantı anlamına gelmez.</MissingData></DetailSection>
     <DetailSection title="Süre ve bitiş"><ExpirySummary expiresOn={s.expires_on} today={today}/><Facts items={[["Katılım tarihi", s.joined_at]]}/><MissingData>Canlı oturum süresi kaynağı bağlı değil. Bitiş takibi sentetiktir; uzatma veya değişiklik işlemi yok.</MissingData></DetailSection>
     <DetailSection title="Trafik"><MissingData>Bu abone için indirme, yükleme veya kota ölçümü yok.</MissingData></DetailSection>

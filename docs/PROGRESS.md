@@ -82,6 +82,18 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Yalnız yerel V2 demo süreçleri yeni API verisi için yeniden başlatıldı. V1, VDS, router, RADIUS ve gerçek abone verilerine dokunulmadı; uzatma/değiştirme, canlı bağlantı veya deploy eklenmedi.
 - Sıradaki somut adım: kullanıcının yerel panelde bitiş filtreleri ve detay özetini incelemesi; canlı entegrasyon veya abonelik düzenleme için yeni kapsam gerekir.
 
+## LOCAL / RADIUS abone ayrımı — 2026-10-27
+
+- Görev başında `AGENTS.md`, bu belge, domain modeli, API ve UI incelendi; branch `main`, HEAD `8b98e21`, çalışma ağacı temizdi. Mevcut kaynak rozetleri ve filtresi zaten bulunduğundan yeniden kurulmadı.
+- Detay merkezine yetkili yönetim kaynağının açıklaması eklendi: LOCAL atanmış MikroTik üzerindeki yerel kullanıcı kaydı, RADIUS FreeRADIUS kullanıcı kaydıdır. Router atamasından LOCAL sonucu çıkarılmaz. Açıklamalar ve kayıtlar açıkça sentetik olarak etiketlidir.
+- Salt okunur kaynak alanı nullable yapıldı: eksik/geçersiz/belirsiz değerler API projeksiyonunda null; UI'de “Bilinmiyor” gösteriliyor. Ortak kaynak yardımcısı rozet/filtre/açıklama için aynı davranışı sağlar; beklenmeyen değerler ham olarak gösterilmez veya tahmin edilmez.
+- Kaynak filtresine Bilinmiyor seçeneği, erişilebilir ad ve bilinmeyen kayıt sayacı eklendi. Mevcut kaynak/durum/bitiş/arama filtreleri ve sıfırlama korunuyor. Sentetik örnek dağılımı 3 LOCAL, 3 RADIUS, 1 bilinmeyen (Eda Öz).
+- Kalıcı domain `AuthoritativeSource` enum'u ve tek yetkili kaynak DB kısıtı değiştirilmedi; bilinmeyen kaynak yalnız eksik salt okunur envanter durumu, üçüncü bir yönetim kaynağı değildir. Abone oluşturma/değiştirme, kaynak devri veya canlı bağlantı eklenmedi.
+- Kontroller geçti: TypeScript/Vite derlemesi, `node --test frontend/tests/source.test.mjs` ile bilinen/eksik/geçersiz/belirsiz kaynak ayrımı ve filtre/açıklama kontrolleri; 6 sentetik API testi ile sözleşme ve doğrudan etkilenen liste/detay/router ataması doğrulandı. Önceki tarih ve kapsamlı tema testleri tekrarlanmadı.
+- Yerel Chromium kontrolü geçti: rozet ve sayaçlar, LOCAL/RADIUS/Bilinmiyor filtreleri ve detay anlamları, filtre birleşimleri/sıfırlama, arama, detaydan dönüşte seçim korunması, Beyaz/Gece/Sistem ve 320 px taşmasız görünüm. Gece temalı bilinmeyen kaynak detay görüntüsü incelendi.
+- Yalnız yerel V2 demo süreçleri yeni sentetik örnek için güncellendi; canlı V1, VDS, router, RADIUS veya gerçek abone verisine dokunulmadı.
+- Sıradaki somut adım: kullanıcının panelde kaynak filtrelerini ve detay açıklamalarını incelemesi; yeni yazma veya canlı entegrasyon kapsamı belirlenmedi.
+
 ## Sıradaki işler — henüz başlanmadı
 
 - Kullanıcının sonraki açık geliştirme talimatını bekle; bu belge görevi ürün geliştirmesi başlatma yetkisi vermez.

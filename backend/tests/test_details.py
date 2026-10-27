@@ -42,7 +42,7 @@ class DetailContracts(unittest.TestCase):
             response = self.client.get('/api/v1/subscribers/' + row['id'])
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json(), {'item': row, 'is_demo': True})
-            self.assertIn(response.json()['item']['source'], ('LOCAL', 'RADIUS'))
+            self.assertIn(response.json()['item']['source'], ('LOCAL', 'RADIUS', None))
         self.assertTrue(any(row['last_seen'] is None for row in rows))
         for module in ('routers', 'subscribers'):
             self.assertEqual(self.client.get(f'/api/v1/{module}/unknown').status_code, 404)
@@ -71,3 +71,27 @@ class DetailContracts(unittest.TestCase):
         schema = app.openapi()['components']['schemas']['SubscriberRecord']['properties']['expires_on']
         self.assertIn({'type': 'string', 'format': 'date'}, schema['anyOf'])
         self.assertIn({'type': 'null'}, schema['anyOf'])
+
+    def test_read_source_handles_unknown_without_changing_domain_authorities(self):
+        from app.schemas.details import SubscriberRecord
+        from app.models.subscriptions import AuthoritativeSource
+        from app.services.demo_data import SUBSCRIBERS
+        self.assertEqual({source.value for source in AuthoritativeSource}, {'LOCAL', 'RADIUS'})
+        record = SUBSCRIBERS[0].copy()
+        for value in [None, '', 'UNKNOWN', 'local', 'LOCAL/RADIUS', ['LOCAL', 'RADIUS'], {'router': 'LOCAL'}]:
+            record['source'] = value
+            self.assertIsNone(SubscriberRecord.model_validate(record).source)
+        record.pop('source')
+        self.assertIsNone(SubscriberRecord.model_validate(record).source)
+        for value in ['LOCAL', 'RADIUS']:
+            record['source'] = value
+            self.assertEqual(SubscriberRecord.model_validate(record).source, value)
+        self.login()
+        rows = self.client.get('/api/v1/subscribers').json()['items']
+        self.assertEqual([sum(row['source'] == value for row in rows) for value in ['LOCAL', 'RADIUS', None]], [3, 3, 1])
+        unknown = next(row for row in rows if row['source'] is None)
+        self.assertTrue(unknown['router_name'])
+        self.assertIsNone(self.client.get('/api/v1/subscribers/' + unknown['id']).json()['item']['source'])
+        router_id = next(router['id'] for router in self.client.get('/api/v1/routers').json()['items'] if router['name'] == unknown['router_name'])
+        assigned = self.client.get('/api/v1/routers/' + router_id).json()['assigned_subscribers']
+        self.assertIsNone(next(row for row in assigned if row['id'] == unknown['id'])['source'])

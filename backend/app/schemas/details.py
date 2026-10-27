@@ -1,7 +1,7 @@
 """Versioned, read-only detail contracts; unavailable telemetry is never fabricated."""
 from datetime import date
 from typing import Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class RouterRecord(BaseModel):
@@ -26,7 +26,8 @@ class SubscriberRecord(BaseModel):
     customer_name: str
     router_name: str
     plan: str
-    source: Literal['LOCAL', 'RADIUS']
+    # Read projection only; persisted accounts still require exactly one authority.
+    source: Literal['LOCAL', 'RADIUS'] | None = None
     status: Literal['ACTIVE', 'PAUSED', 'PENDING']
     monthly_price: float
     ip_address: str
@@ -34,6 +35,12 @@ class SubscriberRecord(BaseModel):
     expires_on: date | None = None
     last_seen: str | None
     is_demo: Literal[True]
+
+    @field_validator('source', mode='before')
+    @classmethod
+    def known_source_or_none(cls, value):
+        # Never guess, expose arbitrary input or reject an otherwise readable record.
+        return value if isinstance(value, str) and value in ('LOCAL', 'RADIUS') else None
 
 
 class RouterDetail(BaseModel):

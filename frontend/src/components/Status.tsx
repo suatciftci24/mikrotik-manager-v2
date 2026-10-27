@@ -1,4 +1,5 @@
-import { Check, Clock3, RadioTower, Router as RouterIcon, Users } from 'lucide-react';
+import { subscriberSource, sourceLabels } from '../lib/source';
+import { CircleHelp, Check, Clock3, RadioTower, Router as RouterIcon, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 export function StatusBadge({ status }: { status: string }) {
@@ -6,8 +7,10 @@ export function StatusBadge({ status }: { status: string }) {
   return <span className={`status-badge ${status.toLowerCase()}`}><i />{labels[status] ?? status}</span>;
 }
 
-export function SourceBadge({ source }: { source: 'LOCAL' | 'RADIUS' }) {
-  return <span className={`source-badge ${source.toLowerCase()}`}>{source === 'LOCAL' ? <RouterIcon size={12} /> : <RadioTower size={12} />}{source}</span>;
+export function SourceBadge({ source }: { source: unknown }) {
+  const known = subscriberSource(source);
+  const label = sourceLabels[known];
+  return <span className={`source-badge ${known.toLowerCase()}`} aria-label={`Yetkili kaynak: ${label}`} title={`Yetkili kaynak: ${label}`}>{known === 'LOCAL' ? <RouterIcon size={12}/> : known === 'RADIUS' ? <RadioTower size={12}/> : <CircleHelp size={12}/ >}{label}</span>;
 }
 
 export function MetricCard({ title, value, note, icon, tone = 'blue', change }: {

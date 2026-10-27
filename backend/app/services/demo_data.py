@@ -46,7 +46,7 @@ SUBSCRIBERS = [
      'plan': 'Fiber 1000', 'source': 'LOCAL', 'status': 'ACTIVE', 'monthly_price': 1249.90,
      'ip_address': '100.64.12.87', 'joined_at': '2024-07-14', 'expires_on': demo_expiry(0), 'last_seen': STAMP, 'is_demo': True},
     {'id': 'demo-sub-1006', 'username': 'eda.oz', 'customer_name': 'Eda Öz', 'router_name': 'Ataşehir · Doğu',
-     'plan': 'Fiber 100', 'source': 'LOCAL', 'status': 'PENDING', 'monthly_price': 549.90,
+     'plan': 'Fiber 100', 'source': None, 'status': 'PENDING', 'monthly_price': 549.90,
      'ip_address': '—', 'joined_at': '2026-10-25', 'expires_on': demo_expiry(None), 'last_seen': None, 'is_demo': True},
     {'id': 'demo-sub-1007', 'username': 'onur.akin', 'customer_name': 'Onur Akın', 'router_name': 'Üsküdar · Sahil',
      'plan': 'Fiber 50', 'source': 'RADIUS', 'status': 'ACTIVE', 'monthly_price': 429.90,
