@@ -122,6 +122,16 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Kullanıcının servis restartı yasağına uyuldu: çalışan eski V2 API dahi yeniden başlatılmadı. Yeni kalıcılık kodu güncel API sonraki kez açıldığında devrededir; mevcut eski API arayüzde açıkça tanınır ve kalıcı olmayan düzenleme engellenir. Canlı migration, deploy, V1/VDS/router/RADIUS veya gerçek abone verisi işlemi yapılmadı.
 - Sıradaki somut adım: güncel V2 API'nin sonraki izinli yerel açılışında kalıcı demo panelini incelemek; kalıcı depo hazır ve eski veriler aktarılmıştır. Servis aktivasyonu bu görevde yapılmadı.
 
+## Yerel kalıcılığı etkinleştirme girişimi — BLOCKED — 2026-10-27
+
+- Görev başlangıcında kurallar/ilerleme kaydı okundu; branch `main`, HEAD `db6901c`, çalışma ağacı temizdi. Kullanıcının açık yetkisi yalnız ofis bilgisayarındaki V2 API'sini yeniden başlatmayı kapsıyor; UI veya başka servis restartı kapsam dışı.
+- Salt okunur süreç/port incelemesiyle API kesin olarak belirlendi: bu repo cwd'sinde `.venv/bin/python3 .venv/bin/uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000`; inceleme anında API PID 89596, ortak `bash ./dev.sh` çalıştırıcısı PID 89586 idi. UI aynı çalıştırıcının npm/Vite alt sürecidir (inceleme anında Vite PID 89609).
+- Gerçek engel: mevcut `dev.sh` sonundaki `wait -n` herhangi bir çocuk bitince tamamlanır; `EXIT` cleanup'i hem API'yi hem UI'yi kapatır. Dolayısıyla bu mevcut çalıştırma yöntemiyle API'yi sonlandırmak UI'yi de durduracaktır. Çalışan parent sürece müdahale/orphan bırakma gibi güvenli olmayan yöntemler denenmedi.
+- Kullanıcının yalnız API sınırını aşmamak için hiçbir sürece sinyal gönderilmedi ve hiçbir servis yeniden başlatılmadı. Kalıcılık etkinleştirilmiş veya restart sonrası kontrol geçmiş gibi bildirilmez; mevcut API hâlâ önceki bellek sürümündedir.
+- Mevcut duruma ait salt okunur doğrulama geçti: eski yerel API'nin 7 sentetik kaydı ve 2 geçmiş olayı V2 yerel PostgreSQL'deki aktarılmış kayıtlarla birebir eşleşiyor. Abone ve olay kimlikleri ayrı ayrı tekil; yinelenen kayıt yok. Yeni abonelik/test işlemi yapılmadı; temizlenecek yeni sentetik kayıt oluşturulmadı.
+- Önceki derleme/test paketleri tekrarlanmadı. V1, VDS, router, RADIUS, gerçek abone verileri ve başka servisler değişmedi. Yalnız bu ilerleme belgesi güncellendi.
+- Gereken tek eylem: mevcut bağlı yerel V2 UI/API çalıştırıcısının birlikte yeniden başlatılmasına açık kullanıcı izni. Böylece projenin `./dev.sh` yöntemiyle yeni kalıcı API açılıp Abone Merkezi'nde restart sonrası koruma kontrolü tamamlanabilir. Bu izin henüz yoktur.
+
 ## Sıradaki işler — henüz başlanmadı
 
 - Kullanıcının sonraki açık geliştirme talimatını bekle; bu belge görevi ürün geliştirmesi başlatma yetkisi vermez.
