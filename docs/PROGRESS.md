@@ -132,6 +132,17 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Önceki derleme/test paketleri tekrarlanmadı. V1, VDS, router, RADIUS, gerçek abone verileri ve başka servisler değişmedi. Yalnız bu ilerleme belgesi güncellendi.
 - Gereken tek eylem: mevcut bağlı yerel V2 UI/API çalıştırıcısının birlikte yeniden başlatılmasına açık kullanıcı izni. Böylece projenin `./dev.sh` yöntemiyle yeni kalıcı API açılıp Abone Merkezi'nde restart sonrası koruma kontrolü tamamlanabilir. Bu izin henüz yoktur.
 
+## Yerel V2 UI/API kalıcılık etkinleştirmesi — PASS — 2026-10-27
+
+- Görev başında `AGENTS.md`, ilerleme kaydı ve Git durumu okundu; branch `main`, HEAD `5b197f2`, çalışma ağacı temizdi. Kullanıcı önceki API-only sınırını yalnız ofis PC'deki bağlı yerel V2 UI/API ikilisini bir kez yeniden başlatacak şekilde açıkça genişletti; önceki BLOCKED engeli bu izinle giderildi.
+- Salt okunur inceleme ile API'nin repo venv'inden 127.0.0.1:8000 üzerinde çalıştığı, Vite UI ile aynı `bash ./dev.sh` parent'ına bağlı olduğu yeniden doğrulandı. Başlangıçta 7 kayıt/2 olay PostgreSQL aktarımıyla eşleşiyordu.
+- Kimliği doğrulanan eski V2 `dev.sh` çalıştırıcısı kendi cleanup'iyle güvenli kapatıldı ve projenin normal `./dev.sh` komutuyla UI/API ikilisi tam bir kez açıldı. PostgreSQL, sistem/üretim servisi veya başka bir servis yeniden başlatılmadı; migration/seed/hazırlık modu çalıştırılmadı.
+- Gerçek panel http://127.0.0.1:5173/ üzerinden Chromium ile açılıp Abone Merkezi yenilendi. Yenilemenin Genel Bakış'a dönmesi nedeniyle kontrol Abone Merkezi yeniden seçilerek tamamlandı; ikinci servis restartı veya deneme döngüsü yapılmadı.
+- Doğrulama PASS: sağlık yanıtı `demo_persistence=local-postgresql-demo`, `database_connected=true`, `device_adapters_connected=false`. Liste 7 kayıt/7 tekil ID; tüm detaylarda toplam 2 geçmiş/2 tekil olay ID'si var. Her abone alanı, tarih, revizyon, LOCAL/RADIUS/bilinmeyen kaynak ve geçmiş içeriği yeniden başlatma öncesi snapshot ile birebir eşleşiyor; yinelenen kayıt veya olay oluşmadı.
+- Ayşe ve Mert detaylarında birer geçmiş olayı ekranda görüldü; kalıcı demo düzenleme düğmeleri etkin. Yeni abonelik/yenileme test işlemi yapılmadı, temizlenecek sentetik veri oluşturulmadı. Oturum kontrolü yalnız sentetik demo hesabıyla yapıldı.
+- UI/API güncel kalıcı sürümle çalışır bırakıldı. V1, VDS, üretim, router, RADIUS ve gerçek abone verilerine dokunulmadı. Ürün kodu veya yapılandırma değiştirilmedi; yalnız bu belge güncellendi.
+- Sıradaki somut adım: kullanıcının panelde etkin kalıcı demo akışını incelemesi; açık başka geliştirme veya servis işlemi kapsamı yok.
+
 ## Sıradaki işler — henüz başlanmadı
 
 - Kullanıcının sonraki açık geliştirme talimatını bekle; bu belge görevi ürün geliştirmesi başlatma yetkisi vermez.
