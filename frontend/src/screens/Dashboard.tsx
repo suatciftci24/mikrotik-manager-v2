@@ -8,7 +8,7 @@ import { ResourceState, dateTime } from '../components/Resource';
 import { useResource } from '../lib/useResource';
 import { useTurkeyToday } from '../lib/useTurkeyToday';
 import { loadDailySummary, type DailySummary } from '../lib/dailySummary';
-import { expiryDate } from '../lib/expiry';
+import { historyValues, operationLabel } from '../lib/subscriberHistory';
 
 const DEPENDENCIES = ['/routers', '/subscribers'] as const;
 type Navigate = (screen: ScreenKey, params?: Record<string,string>) => void;
@@ -61,7 +61,7 @@ export function Dashboard({onNavigate}: {onNavigate: Navigate}) {
           {data.routers.length ? <div className="router-list">{data.routers.map(router=><div className="router-list-row" key={router.id}><span className={`router-row-icon ${router.status?.toLowerCase()}`}><RouterIcon size={16}/></span><span className="router-row-name daily-router-name"><strong><button className="record-link" onClick={()=>goRouters({id:router.id})}>{router.name}</button></strong><small>Kaynak zamanı: {dateTime(router.last_seen)}</small></span><StatusBadge status={['ONLINE','OFFLINE','DEGRADED'].includes(router.status)?router.status:'UNKNOWN'}/></div>)}</div> : <p className="table-empty">Router envanteri için veri yok.</p>}
         </section>
         <section className="panel activity-panel"><div className="panel-title"><h2>Son abonelik işlemleri</h2><span className="soft-count">{data.operations.total}</span></div><p className="daily-description">Bugün (Türkiye): <strong>{data.operations.today}</strong> işlem. En son 5 kayıt gösterilir; önceki günlerin işlemleri de bulunabilir.</p>
-          {data.operations.recent.length ? <ol className="daily-operations">{data.operations.recent.map(event=><li key={event.id}><button className="record-link" onClick={()=>goSubscribers({id:event.subscriber_id})}>{event.customer_name} <ArrowRight size={13}/></button><strong>{event.operation==='RENEWAL'?'Yenileme (demo)':'Bitiş tarihi düzenleme (demo)'}</strong><time dateTime={event.occurred_at}>{dateTime(event.occurred_at)}</time><span>{expiryDate(event.previous_expires_on)} → {expiryDate(event.expires_on)}</span></li>)}</ol> : <p className="table-empty">Henüz kaydedilmiş abonelik işlemi yok.</p>}
+          {data.operations.recent.length ? <ol className="daily-operations">{data.operations.recent.map(event=><li key={event.id}><button className="record-link" onClick={()=>goSubscribers({id:event.subscriber_id})}>{event.customer_name} <ArrowRight size={13}/></button><strong>{operationLabel(event.operation)}</strong><span>İşlemi yapan: {event.actor_id}</span><time dateTime={event.occurred_at}>{dateTime(event.occurred_at)}</time><span>{historyValues(event)[0]} → {historyValues(event)[1]}</span></li>)}</ol> : <p className="table-empty">Henüz kaydedilmiş abonelik işlemi yok.</p>}
         </section>
       </div>
       <p className="screen-footnote daily-updated"><span><Clock3 size={14}/>Özet güncellendi: {dateTime(data.generated_at)} · Gün hesabı: Europe/Istanbul</span></p>

@@ -87,19 +87,67 @@ class PostgresDemoStore:
                 if cached is not None:
                     return deepcopy(cached)
                 updated, event = calculate_change(item, change, actor_id)
-                connection.execute(text(f'UPDATE {self.schema}.subscribers SET payload=CAST(:payload AS jsonb), revision=:revision WHERE id=:id'),
-                                   {'id': item_id, 'payload': json.dumps(updated), 'revision': updated['revision']})
-                connection.execute(text(f'INSERT INTO {self.schema}.events(id, subscriber_id, revision, payload) VALUES (:id,:subscriber,:revision,CAST(:payload AS jsonb))'),
-                                   {'id': request_id, 'subscriber': item_id, 'revision': updated['revision'], 'payload': json.dumps(event)})
-                response = self._response(updated, self._history(connection, item_id))
-                connection.execute(text(f'INSERT INTO {self.schema}.requests(id,subscriber_id,fingerprint,response) VALUES (:id,:subscriber,:fingerprint,CAST(:response AS jsonb))'),
-                                   {'id': request_id, 'subscriber': item_id, 'fingerprint': fingerprint, 'response': json.dumps(response)})
+                response = self._persist(connection, updated, event, fingerprint)
                 # No success is returned until context-manager COMMIT completes.
             return response
         except IntegrityError:
             # Another subscriber may race on the globally unique request UUID.
             with self.engine.connect() as connection:
                 cached = self._request(connection, request_id, fingerprint)
+                if cached is not None:
+                    return deepcopy(cached)
+            raise DemoStorageUnavailable() from None
+
+
+    def _persist(self, connection, item, event, fingerprint, create=False):
+        item_id, request_id = item['id'], event['id']
+        if create:
+            connection.execute(text(f'INSERT INTO {self.schema}.subscribers(id,payload,revision) VALUES (:id,CAST(:payload AS jsonb),:revision)'),
+                               {'id': item_id, 'payload': json.dumps(item), 'revision': item['revision']})
+        else:
+            connection.execute(text(f'UPDATE {self.schema}.subscribers SET payload=CAST(:payload AS jsonb), revision=:revision WHERE id=:id'),
+                               {'id': item_id, 'payload': json.dumps(item), 'revision': item['revision']})
+        connection.execute(text(f'INSERT INTO {self.schema}.events(id,subscriber_id,revision,payload) VALUES (:id,:subscriber,:revision,CAST(:payload AS jsonb))'),
+                           {'id': request_id, 'subscriber': item_id, 'revision': item['revision'], 'payload': json.dumps(event)})
+        response = self._response(item, self._history(connection, item_id))
+        connection.execute(text(f'INSERT INTO {self.schema}.requests(id,subscriber_id,fingerprint,response) VALUES (:id,:subscriber,:fingerprint,CAST(:response AS jsonb))'),
+                           {'id': request_id, 'subscriber': item_id, 'fingerprint': fingerprint, 'response': json.dumps(response)})
+        return response
+
+    @storage_errors
+    def create_subscriber(self, command, actor_id):
+        from app.services.demo_management import calculate_create
+        fingerprint = request_fingerprint('create-subscriber', actor_id, command)
+        # Creation alone serializes the username check and insert across API workers.
+        # No username/source/router edits exist; expiry and status/plan keep identity intact.
+        with self.engine.begin() as connection:
+            self._verify(connection)
+            connection.execute(text(f'LOCK TABLE {self.schema}.subscribers IN SHARE ROW EXCLUSIVE MODE'))
+            cached = self._request(connection, str(command.request_id), fingerprint)
+            if cached is not None:
+                return deepcopy(cached)
+            items = list(connection.execute(text(f'SELECT payload FROM {self.schema}.subscribers')).scalars())
+            item, event = calculate_create(command, actor_id, items)
+            response = self._persist(connection, item, event, fingerprint, create=True)
+        return response
+
+    @storage_errors
+    def change_subscriber(self, item_id, command, actor_id):
+        from app.services.demo_management import calculate_management_change
+        fingerprint = request_fingerprint(item_id, actor_id, command)
+        try:
+            with self.engine.begin() as connection:
+                self._verify(connection)
+                item = self._item(connection, item_id, lock=True)
+                cached = self._request(connection, str(command.request_id), fingerprint)
+                if cached is not None:
+                    return deepcopy(cached)
+                updated, event = calculate_management_change(item, command, actor_id)
+                response = self._persist(connection, updated, event, fingerprint)
+            return response
+        except IntegrityError:
+            with self.engine.connect() as connection:
+                cached = self._request(connection, str(command.request_id), fingerprint)
                 if cached is not None:
                     return deepcopy(cached)
             raise DemoStorageUnavailable() from None

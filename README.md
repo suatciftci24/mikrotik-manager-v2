@@ -225,3 +225,38 @@ Targeted report tests: `node --test frontend/tests/routerReport.test.mjs`
 Operations Center (`#module=operations`) reads only the existing synthetic router inventory. Internet probe results, WAN identity/transitions and alarm history are unavailable and display “Veri yok”; inventory status and management addresses never imply internet connectivity or WAN changes. Router links open existing details, with a link back to Operations. No notifications or device connections are generated. Source timestamps use Europe/Istanbul.
 
 Targeted check: `node --test --test-isolation=none frontend/tests/connectionAlarms.test.mjs`.
+
+## Synthetic PPPoE subscriber management
+
+The existing Subscriber Center can create a synthetic PPPoE inventory account;
+subscriber details can change its demo package/profile or enable/disable it.
+Disable uses the existing `PAUSED` state. These commands only write the isolated
+local V2 PostgreSQL demo schema; they never provision credentials, change RouterOS
+or FreeRADIUS profiles, or affect sessions. Existing fixture records have no
+inferred PPPoE access type. Unknown authority is read-only.
+
+The authenticated `/api/v1/subscribers/demo-options` endpoint provides the existing
+synthetic router and package choices. Creation (`POST /subscribers/demo-create`)
+and updates (`POST /subscribers/{id}/demo-management`) require the administrator
+demo session, `X-V2-Demo-Action: subscriber-management`, confirmation and a UUID
+request key. Unknown fields, arbitrary profiles, unknown routers and invalid
+required fields are rejected. New accounts default to disabled; expiry is optional.
+No password is requested or stored by these demo inventory commands.
+
+Usernames are compared without case sensitivity: every source conflicts on the
+same router (preserving the domain router/username scope); RADIUS additionally
+conflicts with other RADIUS or unknown-source usernames across routers. LOCAL
+names on separate routers may repeat. Creation serializes the check and insert
+with a PostgreSQL table lock. Updates lock the row and check the reviewed source,
+value and revision. Record, UTC audit event (actor and before/after values) and
+idempotent response commit together in the existing transaction. UI audit times
+are displayed in Europe/Istanbul; successful commands refresh list/detail/summary.
+No automatic schema migration or memory fallback is added. Existing expiry and
+snapshot-import/retry semantics support mixed operation history.
+
+Targeted rules: `PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests -p test_demo_management.py -v`.
+Frontend history/summary: `node --test --test-isolation=none frontend/tests/subscriberManagement.test.mjs`.
+Optional PostgreSQL integration (requires the explicitly prepared isolated V2
+local development DB and socket permission):
+`V2_RUN_PG_TESTS=1 PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests -p test_postgres_management.py -v`.
+These tests use disposable `v2_demo_test_*` schemas, not the saved demo inventory.

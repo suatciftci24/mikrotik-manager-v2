@@ -28,9 +28,11 @@ class ExpiryChange(BaseModel):
 class SubscriberHistoryEvent(BaseModel):
     id: str
     occurred_at: datetime
-    previous_expires_on: date | None
-    expires_on: date
-    operation: Literal['RENEWAL', 'DATE_EDIT']
+    previous_expires_on: date | None = None
+    expires_on: date | None = None
+    previous_values: dict[str, str | float | None] = Field(default_factory=dict)
+    new_values: dict[str, str | float | None] = Field(default_factory=dict)
+    operation: Literal['RENEWAL', 'DATE_EDIT', 'CREATE', 'PLAN_CHANGE', 'STATUS_CHANGE']
     source: Literal['LOCAL', 'RADIUS']
     actor_id: str
     is_demo: Literal[True]

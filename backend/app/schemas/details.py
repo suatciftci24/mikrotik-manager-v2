@@ -23,6 +23,8 @@ class RouterRecord(BaseModel):
 
 class SubscriberRecord(BaseModel):
     id: str
+    access_type: Literal['PPPOE'] | None = None
+    router_id: str | None = None
     username: str
     customer_name: str
     router_name: str

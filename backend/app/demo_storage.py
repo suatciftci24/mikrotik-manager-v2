@@ -6,6 +6,7 @@ from sqlalchemy import text
 from app.adapters.demo_subscriptions import PostgresDemoStore
 from app.schemas.details import SubscriberDetail
 from app.schemas.subscriber_events import ExpiryChange
+from app.schemas.subscriber_management import SubscriberCreate, SubscriberChange
 from app.services.demo_data import SUBSCRIBERS
 from app.services.demo_subscriptions import request_fingerprint
 
@@ -13,25 +14,65 @@ from app.services.demo_subscriptions import request_fingerprint
 def validated_snapshots(snapshots):
     clean, ids, event_ids = [], set(), set()
     for raw in snapshots:
-        detail = SubscriberDetail.model_validate(raw).model_dump(mode='json')
+        detail = SubscriberDetail.model_validate(raw).model_dump(mode='json', exclude_unset=True)
+        detail.setdefault('history', [])
         item, events = detail['item'], detail['history']
+        for key, value in (('revision', 0), ('source', None), ('expires_on', None)):
+            item.setdefault(key, value)
         if not item['id'].startswith('demo-sub-') or item['id'] in ids or item['revision'] != len(events):
             raise ValueError('Invalid or duplicate synthetic subscriber snapshot')
         ids.add(item['id'])
-        previous = None
-        for revision, event in enumerate(reversed(events), 1):
-            if (event['id'] in event_ids or event['source'] != item['source'] or not event['actor_id'].startswith('demo-')
-                    or (revision > 1 and event['previous_expires_on'] != previous)):
-                raise ValueError('Invalid synthetic history chain')
+        for _before, _after, event, _command, _target in snapshot_steps(detail):
+            if event['id'] in event_ids:
+                raise ValueError('Duplicate synthetic history event')
             event_ids.add(event['id'])
-            ExpiryChange.model_validate({'expires_on': event['expires_on'], 'expected_expires_on': event['previous_expires_on'],
-                                        'expected_revision': revision-1, 'expected_source': event['source'],
-                                        'operation': event['operation'], 'request_id': event['id'], 'confirmed': True})
-            previous = event['expires_on']
-        if events and item['expires_on'] != previous:
-            raise ValueError('Snapshot date and history disagree')
         clean.append(detail)
     return clean
+
+
+def snapshot_steps(detail):
+    """Validate mixed history backwards and reconstruct exact idempotent responses."""
+    state = dict(detail['item'])
+    reverse_steps = []
+    for event in detail['history']:
+        revision = state['revision']
+        if revision < 1 or event['source'] != state['source'] or not event['actor_id'].startswith('demo-'):
+            raise ValueError('Invalid synthetic history chain')
+        operation = event['operation']
+        common = {'request_id': event['id'], 'confirmed': True}
+        target = state['id']
+        if operation in ('RENEWAL', 'DATE_EDIT'):
+            if state['expires_on'] != event['expires_on']:
+                raise ValueError('Snapshot date and history disagree')
+            command = ExpiryChange.model_validate({**common, 'operation': operation, 'expires_on': event['expires_on'],
+                       'expected_expires_on': event['previous_expires_on'], 'expected_revision': revision-1, 'expected_source': event['source']})
+            before = {**state, 'expires_on': event['previous_expires_on'], 'revision': revision-1}
+        else:
+            values, previous = event['new_values'], event['previous_values']
+            required = {'plan', 'monthly_price'} if operation == 'PLAN_CHANGE' else {'status'}
+            if operation == 'CREATE':
+                required = {'username', 'customer_name', 'router_name', 'source', 'plan', 'monthly_price', 'status', 'expires_on', 'access_type'}
+            if set(values) != required or any(state.get(key) != value for key, value in values.items()):
+                raise ValueError('Snapshot values and history disagree')
+            if operation == 'CREATE':
+                if revision != 1 or previous or state.get('access_type') != 'PPPOE':
+                    raise ValueError('Invalid creation history')
+                command = SubscriberCreate.model_validate({**common, **{key:values[key] for key in ('username','customer_name','source','plan','status','expires_on')}, 'router_id':state.get('router_id')})
+                if state['id'] != 'demo-sub-' + str(command.request_id):
+                    raise ValueError('Creation identity mismatch')
+                target, before = 'create-subscriber', None
+            else:
+                if set(previous) != required:
+                    raise ValueError('Incomplete previous values')
+                field = 'plan' if operation == 'PLAN_CHANGE' else 'status'
+                command = SubscriberChange.model_validate({**common, 'operation': operation, 'value': values[field],
+                           'expected_value': previous[field], 'expected_revision': revision-1, 'expected_source':event['source']})
+                before = {**state, **previous, 'revision': revision-1}
+        reverse_steps.append((before, dict(state), event, command, target))
+        state = before
+        if state is None and len(reverse_steps) != len(detail['history']):
+            raise ValueError('Creation must be first history event')
+    return list(reversed(reverse_steps))
 
 
 def initialize_demo(engine, snapshots=None, schema='v2_demo'):
@@ -51,19 +92,21 @@ def initialize_demo(engine, snapshots=None, schema='v2_demo'):
             if statement.strip():
                 connection.execute(text(statement))
         for detail in snapshots:
-            item, events = detail['item'], detail['history']
+            detail.setdefault('history', [])
+        item, events = detail['item'], detail['history']
+        for key, value in (('revision', 0), ('source', None), ('expires_on', None)):
+            item.setdefault(key, value)
             connection.execute(text(f'INSERT INTO {schema}.subscribers(id,payload,revision) VALUES (:id,CAST(:payload AS jsonb),:revision)'),
                                {'id': item['id'], 'payload': json.dumps(item), 'revision': item['revision']})
             chronological = list(reversed(events))
             for revision, event in enumerate(chronological, 1):
                 connection.execute(text(f'INSERT INTO {schema}.events(id,subscriber_id,revision,payload) VALUES (:id,:subscriber,:revision,CAST(:payload AS jsonb))'),
                                    {'id': event['id'], 'subscriber': item['id'], 'revision': revision, 'payload': json.dumps(event)})
-                change = ExpiryChange.model_validate({'expires_on': event['expires_on'], 'expected_expires_on': event['previous_expires_on'],
-                                                     'expected_revision': revision-1, 'expected_source': event['source'],
-                                                     'operation': event['operation'], 'request_id': event['id'], 'confirmed': True})
-                prior_response = adapter._response({**item, 'expires_on': event['expires_on'], 'revision': revision}, list(reversed(chronological[:revision])))
+            for _before, after, event, change, target in snapshot_steps(detail):
+                revision = after['revision']
+                prior_response = adapter._response(after, list(reversed(chronological[:revision])))
                 connection.execute(text(f'INSERT INTO {schema}.requests(id,subscriber_id,fingerprint,response) VALUES (:id,:subscriber,:fingerprint,CAST(:response AS jsonb))'),
-                                   {'id': event['id'], 'subscriber': item['id'], 'fingerprint': request_fingerprint(item['id'], event['actor_id'], change), 'response': json.dumps(prior_response)})
+                                   {'id': event['id'], 'subscriber': item['id'], 'fingerprint': request_fingerprint(target, event['actor_id'], change), 'response': json.dumps(prior_response)})
     return True
 
 

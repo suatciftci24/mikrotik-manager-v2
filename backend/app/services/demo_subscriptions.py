@@ -109,6 +109,12 @@ class ConfiguredDemoStore:
     def change_expiry(self, item_id, change, actor_id):
         return self._get().change_expiry(item_id, change, actor_id)
 
+    def create_subscriber(self, command, actor_id):
+        return self._get().create_subscriber(command, actor_id)
+
+    def change_subscriber(self, item_id, command, actor_id):
+        return self._get().change_subscriber(item_id, command, actor_id)
+
     def ping(self):
         return self._get().ping()
 

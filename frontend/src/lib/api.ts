@@ -21,6 +21,7 @@ export type Router = {
 };
 
 export type Subscriber = {
+  access_type?: 'PPPOE' | null; router_id?: string | null;
   id: string; username: string; customer_name: string; router_name: string; plan: string;
   source: 'LOCAL' | 'RADIUS' | null; status: 'ACTIVE' | 'PAUSED' | 'PENDING'; monthly_price: number;
   ip_address: string; joined_at: string; expires_on: string | null; revision: number; last_seen: string | null; is_demo: true;
@@ -37,7 +38,14 @@ export type DashboardData = {
 };
 
 export type SubscriberHistoryEvent = {
-  id: string; occurred_at: string; previous_expires_on: string | null; expires_on: string;
-  operation: 'RENEWAL' | 'DATE_EDIT'; source: 'LOCAL' | 'RADIUS'; is_demo: true;
+  id: string; occurred_at: string; previous_expires_on?: string | null; expires_on?: string | null;
+  previous_values?: Record<string, string | number | null>; new_values?: Record<string, string | number | null>;
+  actor_id: string;
+  operation: 'RENEWAL' | 'DATE_EDIT' | 'CREATE' | 'PLAN_CHANGE' | 'STATUS_CHANGE'; source: 'LOCAL' | 'RADIUS'; is_demo: true;
 };
 export type SubscriberDetailData = {item: Subscriber; history: SubscriberHistoryEvent[]; is_demo: true; persistence: 'process-memory' | 'local-postgresql-demo'};
+
+export type DemoOptions = {
+  plans: {name: string; monthly_price: number}[]; routers: {id: string; name: string}[];
+  is_demo: true; persistence: 'local-postgresql-demo';
+};
