@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Response
 from fastapi import Cookie
 
 from app.core.config import settings
-from app.core.security import current_demo_user, login_demo, logout_demo
+from app.core.security import current_demo_user, login_demo, logout_demo, SESSION_TIMEOUT_SECONDS
 from app.schemas.auth import DemoLogin, UserResponse
 
 router = APIRouter(prefix='/auth', tags=['system-users'])
@@ -12,7 +12,7 @@ router = APIRouter(prefix='/auth', tags=['system-users'])
 def demo_login(payload: DemoLogin, response: Response):
     token = login_demo(payload.username, payload.password)
     response.set_cookie('v2_session', token, httponly=True, secure=settings.session_secure,
-                        samesite='strict', max_age=8 * 60 * 60, path='/api')
+                        samesite='strict', max_age=SESSION_TIMEOUT_SECONDS, path='/api')
     return current_demo_user(token)
 
 

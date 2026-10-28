@@ -209,12 +209,12 @@ def prepare_alarm_acceptance():
 
 def main():
     parser = argparse.ArgumentParser(description='Explicit local V2 demo setup and synthetic event processing (never resets records)')
-    parser.add_argument('command', choices=['init','process-events','alarms-init','users-init'])
+    parser.add_argument('command', choices=['init','process-events','alarms-init','users-init','settings-init'])
     parser.add_argument('--observations', type=Path, help='Optional JSON batches: subscriber_id and observations; synthetic append-only input')
     parser.add_argument('--examples', action='store_true', help='Add missing deterministic demo examples without overwriting existing records')
     parser.add_argument('--snapshot', type=Path, help='Optional synthetic memory snapshot to preserve existing edits/history')
     args = parser.parse_args()
-    if args.command in ('alarms-init','users-init') and (args.examples or args.snapshot or args.observations):
+    if args.command in ('alarms-init','users-init','settings-init') and (args.examples or args.snapshot or args.observations):
         parser.error('alarms-init ek veri/seed argümanı kabul etmez')
     if args.command=='process-events' and (args.examples or args.snapshot):
         parser.error('process-events accepts only --observations')
@@ -223,6 +223,11 @@ def main():
     snapshots = json.loads(args.snapshot.read_text()) if args.snapshot else None
     from app.core.database import engine
     try:
+        if args.command=='settings-init':
+            from app.services.system_settings import initialize
+            initialize()
+            print('V2 presentation settings ready; existing data and runtime security unchanged.')
+            return
         if args.command=='users-init':
             from app.services.identity import initialize_users
             initialize_users()

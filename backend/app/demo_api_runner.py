@@ -104,7 +104,9 @@ def main(argv=None):
     mode.add_argument('--browser',action='store_true',help='Aynı ManagedAPI yaşam döngüsü içinde API ve UI hazır olunca gerçek tarayıcı kabulünü çalıştırır; mevcut servisler korunur.')
     parser.add_argument('--alarm-acceptance',action='store_true',help='Açık yerel alarm kabul bakımı: ek alarm şemasını hazırlar ve yalnız yeni UUID sentetik fixture ekler; ACK kabulünü çalıştırır.')
     parser.add_argument('--user-acceptance',action='store_true',help='Açık yerel kullanıcı şeması hazırlığı; kabul yalnız yeni sentetik kullanıcıları değiştirir.')
+    parser.add_argument('--settings-acceptance',action='store_true',help='Açık yerel sunum ayarı şeması + yeni izole test profili hazırlar; gerçek varsayılanlar değiştirilmez.')
     args=parser.parse_args(argv)
+    if args.settings_acceptance and (not args.browser or args.user_acceptance or args.alarm_acceptance):parser.error('--settings-acceptance yalnız --browser ile tek başına kullanılabilir')
     if args.user_acceptance and (not args.browser or args.alarm_acceptance):parser.error('--user-acceptance yalnız --browser ile ve tek başına kullanılabilir')
     if args.alarm_acceptance and not args.browser:parser.error('--alarm-acceptance yalnız --browser ile kullanılabilir')
     def interrupted(_signum,_frame):
@@ -143,6 +145,15 @@ def main(argv=None):
                     except (SQLAlchemyError,DemoStorageUnavailable,ValueError):
                         raise RepairBlocked('Kullanıcı şeması hazırlanamadı; mevcut hesaplar sıfırlanmadı.') from None
                     worker_env={**os.environ,'V2_BROWSER_USERS_ONLY':'1'}
+                if args.settings_acceptance:
+                    import os
+                    from app.services.system_settings import prepare_acceptance
+                    from sqlalchemy.exc import SQLAlchemyError
+                    from app.services.demo_subscriptions import DemoStorageUnavailable
+                    try:profile=prepare_acceptance()
+                    except (SQLAlchemyError,DemoStorageUnavailable,ValueError):raise RepairBlocked('Ayar kabul hazırlığı tamamlanamadı; mevcut tercihler sıfırlanmadı.') from None
+                    worker_env={**os.environ,'V2_BROWSER_SETTINGS_ONLY':'1','V2_SETTINGS_TEST_PROFILE':profile}
+                    print('İzole sentetik ayar profili korunacak: '+profile,flush=True)
                 with ManagedUI():
                     command=[str(ROOT/'browser-accept-demo.sh'),'--with-ready-services']
                     return subprocess.run(command,cwd=ROOT,**({'env':worker_env} if worker_env else {})).returncode

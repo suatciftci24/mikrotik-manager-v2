@@ -11,7 +11,7 @@ def users(page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=50),q
 
 @router.get('/audit')
 def audit(page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=50),user:dict=Depends(current_admin)):
-    return identity.audit_users(page,page_size)
+    return {**identity.audit_users(page,page_size),'page':page,'page_size':page_size}
 
 @router.post('')
 def create(payload:identity.UserCreate,user:dict=Depends(current_user_mutator)):

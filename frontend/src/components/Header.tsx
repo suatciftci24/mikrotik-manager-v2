@@ -1,3 +1,4 @@
+import {usePresentation} from '../lib/presentation';
 import { ThemePicker } from './ThemePicker';
 import { Bell, ChevronDown, Command, Search, Sparkles } from 'lucide-react';
 import type { ScreenKey, User } from './Sidebar';
@@ -13,8 +14,9 @@ export function Header({ active, user, onOpenSearch, onOpenNotifications }: {
   active: ScreenKey; user: User; onOpenSearch: () => void; onOpenNotifications: () => void;
 }) {
   const current = names[active];
+  const presentation=usePresentation();
   return <header className="topbar">
-    <div className="breadcrumbs"><span>{current.crumb}</span><span className="crumb-slash">/</span><strong>{current.title}</strong></div>
+    <div className="breadcrumbs"><span>{presentation.app_name} · {current.crumb}</span><span className="crumb-slash">/</span><strong>{current.title}</strong></div>
     <div className="topbar-actions"><ThemePicker/>
       <div className="live-pill"><span className="pulse-dot" />Sentetik demo ortamı</div>
       <button className="search-trigger" onClick={onOpenSearch}><Search size={15} /><span>Hızlı ara...</span><kbd>⌘ K</kbd></button>

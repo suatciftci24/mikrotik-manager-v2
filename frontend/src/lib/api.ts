@@ -1,7 +1,8 @@
+import {preferredPath} from './presentation.ts';
 const API = '/api/v1';
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API}${path}`, {
+  const response = await fetch(`${API}${preferredPath(path)}`, {
     ...init,
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...init.headers },

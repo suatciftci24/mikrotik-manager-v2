@@ -4,7 +4,7 @@ import { Monitor, Moon, Sun } from 'lucide-react';
 type Preference = 'light' | 'dark' | 'system';
 declare global {
   interface Window {
-    v2Theme: {getPreference: () => Preference; setPreference: (value: Preference) => void};
+    v2Theme: {getPreference: () => Preference; setDefaultPreference?: (value: Preference) => void; setPreference: (value: Preference) => void};
   }
 }
 const subscribe = (listener: () => void) => {

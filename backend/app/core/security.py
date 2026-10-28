@@ -4,6 +4,8 @@ import time
 from app.services.identity import find_user,verify_password,BOOTSTRAP_HASH,public_user
 from fastapi import Depends, Header, Cookie, HTTPException, status
 
+SESSION_TIMEOUT_SECONDS=8*60*60
+
 _sessions: set[str] = set()
 _session_users: dict[str,tuple[str,float]] = {}
 _DEMO_USER = {'id': 'demo-user', 'name': 'Demo Operatör', 'email': 'demo@local.test',
@@ -30,7 +32,7 @@ def current_demo_user(v2_session: str | None = Cookie(default=None)) -> dict:
     if not v2_session or v2_session not in _sessions:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Oturum gerekli')
     session=_session_users.get(v2_session)
-    if not session or time.monotonic()-session[1]>=8*60*60:
+    if not session or time.monotonic()-session[1]>=SESSION_TIMEOUT_SECONDS:
         logout_demo(v2_session);raise HTTPException(401,'Oturum gerekli')
     identity=find_user(session[0])  # Fresh authoritative permissions on EVERY request.
     if not identity or not identity['active']:

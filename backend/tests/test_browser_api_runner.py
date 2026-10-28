@@ -115,3 +115,18 @@ class BrowserAPIReuse(TestCase):
              patch('app.services.identity.initialize_users') as setup,redirect_stderr(StringIO()):
             self.assertEqual(runner.main(['--browser','--user-acceptance']),1)
             setup.assert_not_called();ui.assert_not_called()
+
+    def test_settings_acceptance_uses_existing_managers_and_isolated_profile(self):
+        with patch.object(runner,'ManagedAPI') as api,patch.object(runner,'ManagedUI') as ui,patch.object(runner,'require_browser_database'), \
+             patch('app.services.system_settings.prepare_acceptance',return_value='demo-settings-new') as setup, \
+             patch.object(runner.subprocess,'run',return_value=SimpleNamespace(returncode=0)) as worker:
+            self.assertEqual(runner.main(['--browser','--settings-acceptance']),0)
+            setup.assert_called_once();api.return_value.__exit__.assert_called_once();ui.return_value.__exit__.assert_called_once()
+            self.assertEqual(worker.call_args.kwargs['env']['V2_BROWSER_SETTINGS_ONLY'],'1')
+            self.assertEqual(worker.call_args.kwargs['env']['V2_SETTINGS_TEST_PROFILE'],'demo-settings-new')
+
+    def test_settings_setup_never_runs_when_database_gate_is_blocked(self):
+        with patch.object(runner,'ManagedAPI'),patch.object(runner,'ManagedUI') as ui,patch.object(runner,'require_browser_database',side_effect=RepairBlocked('blocked')), \
+             patch('app.services.system_settings.prepare_acceptance') as setup,redirect_stderr(StringIO()):
+            self.assertEqual(runner.main(['--browser','--settings-acceptance']),1)
+            setup.assert_not_called();ui.assert_not_called()

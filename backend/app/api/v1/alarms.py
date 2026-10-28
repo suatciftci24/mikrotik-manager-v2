@@ -42,7 +42,7 @@ def public_alarm(alarm, detail=False):
 
 
 @router.get('')
-def list_alarms(router_id:str='',subscriber_id:str='',severity:Literal['ALL','P1','P2','P3','P4']='ALL',
+def list_alarms(levels:str='',router_id:str='',subscriber_id:str='',severity:Literal['ALL','P1','P2','P3','P4']='ALL',
                 state:Literal['ALL','ACTIVE','OPEN','ACKNOWLEDGED','RECOVERING','RESOLVED']='ALL',
                 order:Literal['PRIORITY','LATEST']='PRIORITY',
                 kind:Literal['ALL','NETWORK_CORRELATED','WAN_DOWN','WAN_RECOVERED','WAN_CHANGED','ROUTER_OFFLINE','IPSEC_DOWN','PPPOE_EXPIRE']='ALL',
@@ -54,10 +54,12 @@ def list_alarms(router_id:str='',subscriber_id:str='',severity:Literal['ALL','P1
         until=datetime.combine(date.fromisoformat(end)+timedelta(days=1),time.min,zone) if end else None
         if first and until and first>=until:raise ValueError()
     except (ValueError,OverflowError):raise HTTPException(422,'Geçerli Türkiye tarih aralığı gerekli.') from None
+    level_set=set(levels.split(',')) if levels and levels!='NONE' else set()
+    if level_set-{'P1','P2','P3','P4'}:raise HTTPException(422,'Geçerli önem seviyesi gerekli')
     alarms,coverage,storage=source(user)
     def match(row):
         stamp=datetime.fromisoformat(row['last_seen'].replace('Z','+00:00')) if row['last_seen'] else None
-        return ((not router_id or row['router_id']==router_id) and (not subscriber_id or row.get('subscriber_id')==subscriber_id) and (severity=='ALL' or row['severity']==severity)
+        return ((not levels or row['severity'] in level_set) and (not router_id or row['router_id']==router_id) and (not subscriber_id or row.get('subscriber_id')==subscriber_id) and (severity=='ALL' or row['severity']==severity)
             and (kind=='ALL' or row['kind']==kind) and (state=='ALL' or row['state']==state or state=='ACTIVE' and row['state']!='RESOLVED' and row['source_available'])
             and (not first or stamp is not None and stamp>=first) and (not until or stamp is not None and stamp<until))
     rows=[row for row in alarms if match(row)]
