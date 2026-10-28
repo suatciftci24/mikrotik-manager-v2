@@ -763,3 +763,9 @@ config (loopback 5173, strictPort, API proxy 8000) is unchanged. API/UI logs rem
 in `.local/runtime/accept-api-*/api.log` and `accept-ui-*/ui.log`. Browser/Chromium
 absence or OS dependency failure remains BLOCKED and is never replaced with
 HTTP/projection PASS. No database service start, repair, seed or migration occurs.
+
+Normal `./dev.sh` ile kabul komutları aynı `app.demo_api_runner` API/UI sahiplik
+ve readiness yönetimini kullanır. Mevcut sağlıklı servisler korunur; yalnız yeni
+başlatılan repo süreçleri çıkışta temizlenir. Normal geliştirme modu DB kontrolü
+ve kabul veri işlemi başlatmaz. UI readiness Vite istemcisini ve `/api/ready`
+proxy kimliğini de doğrular; HTTP hazırlığı gerçek tarayıcı PASS sayılmaz.

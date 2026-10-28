@@ -546,3 +546,22 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - **API/UI/DB/BROWSER BLOCKED (bu Codex çalıştırması):** Tek gerçek `./browser-accept-demo.sh` denemesi ilk ortak API probe'unda sandbox loopback izin engelinde durdu. Sonraki UI/DB/browser adımlarına geçilmedi; tekrar, servis başlatma, indirme veya veri yazması yoktur. Son kullanıcı WSL çıktısındaki API READY ile geçmiş DB PASS bilgisi bu ortam sonucu ile karıştırılmaz. Gerçek browser screenshot/result kanıtı henüz yoktur.
 - Normal WSL'de ayrı servis komutları gerektirmeyen tek adım: `cd ~/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh`. Çalışan API/UI korunur; yalnız eksik yerel süreçler geçici açılır ve sadece bunlar sonunda kapanır. DB hazır değilse onarım yapılmaz, açık BLOCKED bildirilir. Loglar `.local/runtime/accept-api-*` ve `accept-ui-*`; gerçek browser sonuçları `.local/browser-acceptance/<run-id>/` altında kalır.
 - README/kabul kaydı güncellendi; ilgili düzeltmeler commit ve normal push kapsamındadır. V1/VDS/gerçek router/RADIUS/üretim verisi erişimi, üretim restart/deploy/migration ve force push yapılmadı. Bu görevde mevcut demo kayıtları ve audit değiştirilmedi.
+
+## Aşama 10 — tek komut servis hazırlığı — 2026-10-28
+
+- Bu checkout başlangıcı `5743ed2`; kullanıcı çıktısındaki browser-accept-demo.sh/ManagedAPI burada yoktu. Tek fetch GitHub DNS engeliyle başarısız; uzak sürüm alınamadı.
+- `tools/local_services.py` ortak ManagedAPI/UI yaşam döngüsü eklendi; dev.sh ve yeni browser-accept-demo.sh bunu kullanır. UI mevcut npm dev/Vite config üzerinden açılır. Sağlıklı mevcut servis yeniden kullanılır; yabancı/meşgul portta servis açılmaz, mevcut süreç öldürülmez. Yalnız sahip olunan özel süreç grubu (npm/Vite alt süreçleri dahil) kapanışta temizlenir. Readiness sınırlı sürelidir; sinyal/hata yollarında cleanup uygulanır.
+- Kabul API/UI/proxy HTTP hazırlığını ve salt okunur DB sağlığını ayırır; init/seed/migration veya mutation çalıştırmaz. Var olan demo aboneleri/audit değişmez; yeni test DB kaydı da oluşturulmaz.
+- PASS: 9 hedefli soketsiz lifecycle testi; bash syntax ve git diff --check. Testler mevcut servisi koruma, yabancı servis/port/izin reddi, sahip olunan grubu temizleme, başlatma hatası, V2 kimliği/proxy, DB BLOCKED ve browser PASS iddiasını engelleme kapsamındadır.
+- Gerçek tek komut denemesi API soket önkontrolünde sandbox engeline takıldı; tekrar edilmedi. API BLOCKED; UI/DB çalıştırma önkoşulu nedeniyle BLOCKED. Gerçek browser aracı/kurulu tarayıcı ve bu checkout'ta browser senaryosu yok; Router/Abone Detay Merkezi, QuickActions, onay, yetki, audit ve refresh tarayıcı kabulü BLOCKED. HTTP/mock testleri tarayıcı PASS sayılmaz.
+- Normal ofis WSL tek komutu: `cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh`. Mevcut DB hazır değilse açık BLOCKED; otomatik bakım yok. Tarayıcı otomasyonu olmayan bu sürüm DB hazır olsa bile browser BLOCKED döner.
+- V1/VDS/router/RADIUS/üretim verisi ve deploy/migration/restart erişimi yok. Normal commit/push sonucu son raporda.
+
+
+## Ev PC Git senkronizasyonu — 2026-10-28
+
+- AGENTS.md ve ilerleme kaydı okundu. Temiz main `402adb8`, mevcut origin/main `5be9bdd`; iki commit gerçek kaynak/test farklarıyla karşılaştırıldı. `backup/home-main-402adb8` yerel orijinal commit'i korur. Fetch tek denemede GitHub DNS engeline takıldı; uzak sunucunun güncel durumu teyit edilemedi.
+- Rebase sırasında yerel iyileştirmeler origin/main'deki mevcut app.demo_api_runner / demo_readiness üzerine taşındı; ikinci tools/local_services.py başlatıcısı ve onun yinelenen testleri kaldırıldı. Bu bir tam eşdeğerlik hizalaması değildir; benzersiz iyileştirmeler rebase edilen commit'te korunur.
+- Uzak taraftaki gerçek Playwright senaryosu/wrapper, DB marker/yetki/sentetik kaynak doğrulaması, /api/ready ile DB'den bağımsız readiness, kalıcı hata logları ve dev.sh --ui-only doğrudan Vite exec akışı korundu. Yerelden ortak normal dev/kabul sahiplik yaşam döngüsü, sinyalde cleanup ve UI Vite istemcisi/API proxy kimlik doğrulaması taşındı. SIGTERM handler çıkışta geri yüklenir. Eski yukarıdaki yerel kayıt tarihsel kanıttır; mevcut sürüm browser otomasyonunu uzak taraftan içerir.
+- PASS: 26 hedefli soketsiz test (8 browser/dev dispatch, 8 ManagedUI/proxy, 10 API/readiness), bash syntax ve diff kontrolü. Gerçek servis/DB/browser çalıştırılmadı; demo/audit/üretim verisi değişmedi. V1/VDS/router/RADIUS/deploy/migration/restart ve force push/reset --hard yok.
+- Normal push ve uzak eşitlik doğrulaması ağ erişimine bağlı; kesin sonuç son raporda.

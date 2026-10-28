@@ -1,4 +1,5 @@
 """Shared UI lifecycle and Vite identity, without launching services or sockets."""
+import json
 from contextlib import redirect_stdout, redirect_stderr
 from io import StringIO
 from pathlib import Path
@@ -23,7 +24,12 @@ class ManagedUITests(TestCase):
     def test_ui_identity_requires_actual_vite_entry_not_just_a_page(self):
         for body,state in [(b'<title>MikroTik Manager V2</title><script src="/src/main.tsx"></script>','READY'),
                            (b'<title>Other application</title>','WRONG'),(b'MikroTik Manager V2','WRONG')]:
-            client=SimpleNamespace(open=lambda *a,**k:HTML(body))
+            def response(request,**kwargs):
+                if request.full_url.endswith('/@vite/client'):return HTML(b'vite client')
+                if request.full_url.endswith('/api/ready'):
+                    return HTML(json.dumps(dict(service='mikrotik-manager-v2',environment='local-demo',api_version='v1',database_checked=False)).encode())
+                return HTML(body)
+            client=SimpleNamespace(open=response)
             self.assertEqual(readiness.probe_ui(client).state,state)
         client=SimpleNamespace(open=Mock(side_effect=URLError(ConnectionRefusedError(111,'refused'))))
         result=readiness.probe_ui(client)
@@ -71,3 +77,15 @@ class ManagedUITests(TestCase):
             http.return_value.request.return_value=dict(environment='local-demo',database_connected=False,device_adapters_connected=False)
             with self.assertRaises(RepairBlocked):runner.require_browser_database()
             database.assert_called_once();http.return_value.request.assert_called_once_with('/api/health')
+
+    def test_ui_rejects_wrong_vite_or_proxy_identity(self):
+        page=b'<title>MikroTik Manager V2</title>/src/main.tsx'
+        for vite,api in [(b'other',b'{}'),(b'vite',b'{}'),(b'vite',b'[]')]:
+            client=SimpleNamespace(open=Mock(side_effect=[HTML(page),HTML(vite),HTML(api)]))
+            self.assertEqual(readiness.probe_ui(client).state,'WRONG')
+
+    def test_proxy_permission_failure_is_not_retried(self):
+        page=b'<title>MikroTik Manager V2</title>/src/main.tsx'
+        client=SimpleNamespace(open=Mock(side_effect=[HTML(page),HTML(b'vite'),URLError(PermissionError(1,'denied'))]))
+        self.assertEqual(readiness.probe_ui(client).state,'BLOCKED')
+        self.assertEqual(client.open.call_count,3)

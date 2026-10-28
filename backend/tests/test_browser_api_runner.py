@@ -57,3 +57,28 @@ class BrowserAPIReuse(TestCase):
              patch.object(runner.subprocess,'run') as worker,redirect_stderr(StringIO()):
             self.assertEqual(runner.main(['--browser']),1)
             ui.assert_not_called();worker.assert_not_called();api.return_value.__exit__.assert_called_once()
+
+    def test_dev_reuses_managers_without_database_or_acceptance(self):
+        with patch.object(runner,'ManagedAPI') as api,patch.object(runner,'ManagedUI') as ui, \
+             patch.object(runner,'require_browser_database') as db, \
+             patch.object(runner.subprocess,'run') as worker, \
+             patch.object(runner.time,'sleep',side_effect=KeyboardInterrupt), \
+             patch('app.demo_acceptance.main') as accept,redirect_stdout(StringIO()):
+            api.return_value.__enter__.return_value.process=None
+            ui.return_value.__enter__.return_value.process=None
+            self.assertEqual(runner.main(['--dev']),130)
+            db.assert_not_called();worker.assert_not_called();accept.assert_not_called()
+            api.return_value.__exit__.assert_called_once();ui.return_value.__exit__.assert_called_once()
+
+    def test_sigterm_handler_is_restored_after_cleanup(self):
+        import signal
+        previous=signal.getsignal(signal.SIGTERM)
+        def terminate(_seconds):
+            signal.getsignal(signal.SIGTERM)(signal.SIGTERM,None)
+        with patch.object(runner,'ManagedAPI') as api,patch.object(runner,'ManagedUI') as ui, \
+             patch.object(runner.time,'sleep',side_effect=terminate),redirect_stdout(StringIO()):
+            api.return_value.__enter__.return_value.process=None
+            ui.return_value.__enter__.return_value.process=None
+            self.assertEqual(runner.main(['--dev']),130)
+            api.return_value.__exit__.assert_called_once();ui.return_value.__exit__.assert_called_once()
+        self.assertIs(signal.getsignal(signal.SIGTERM),previous)

@@ -37,42 +37,6 @@ if [[ "${1:-}" == '--prepare-demo' ]]; then
   PYTHONPATH=backend .venv/bin/python -m app.demo_storage init --examples
   exit 0
 fi
-if [[ -L "$PROJECT_ROOT/.local" || -L "$PROJECT_ROOT/.local/runtime" ]]; then
-  printf 'BLOCKED: V2 log yolu symlink olamaz.\n' >&2
-  exit 1
-fi
-mkdir -p "$PROJECT_ROOT/.local/runtime"
-RUNTIME_DIR="$(mktemp -d "$PROJECT_ROOT/.local/runtime/dev.XXXXXX")"
-API_PID=""
-WEB_PID=""
-cleanup() {
-  [[ -z "$WEB_PID" ]] || kill "$WEB_PID" 2>/dev/null || true
-  [[ -z "$API_PID" ]] || kill "$API_PID" 2>/dev/null || true
-  [[ -z "$WEB_PID" ]] || wait "$WEB_PID" 2>/dev/null || true
-  [[ -z "$API_PID" ]] || wait "$API_PID" 2>/dev/null || true
-  printf "V2 başlangıç logları korundu: %s\n" "$RUNTIME_DIR" >&2
-}
-trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
-
-.venv/bin/uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 >"$RUNTIME_DIR/api.log" 2>&1 &
-API_PID=$!
-"$PROJECT_ROOT/dev.sh" --ui-only >"$RUNTIME_DIR/web.log" 2>&1 &
-WEB_PID=$!
-if ! PYTHONPATH=backend .venv/bin/python -m app.demo_readiness --wait --pid "$API_PID"; then
-  printf 'V2 API hazır değil. Log: %s/api.log; UI logu: %s/web.log\n' "$RUNTIME_DIR" "$RUNTIME_DIR" >&2
-  exit 1
-fi
-if ! PYTHONPATH=backend .venv/bin/python -m app.demo_readiness --ui --wait --pid "$WEB_PID"; then
-  printf 'V2 UI başlatılamadı; API bu dev.sh oturumu ile durdurulacak. Log: %s/web.log\n' "$RUNTIME_DIR" >&2
-  exit 1
-fi
-printf '\nMikroTik Manager V2 local demo\n  UI:      http://127.0.0.1:5173\n  API:     http://127.0.0.1:8000/api/docs\n  Login:   demo / demo-only\n  Stop:    Ctrl+C\n\nOnly local synthetic data is enabled; demo persistence uses isolated local V2 PostgreSQL. No router, RADIUS, or V1 connection is started.\n\n'
-if wait -n "$API_PID" "$WEB_PID"; then
-  printf 'Bir V2 geliştirme süreci kapandı; bu oturumun diğer süreci durduruluyor. Log: %s\n' "$RUNTIME_DIR" >&2
-else
-  status=$?
-  printf 'V2 süreç başlangıç/çalışma hatası (kod %s). Loglar: %s\n' "$status" "$RUNTIME_DIR" >&2
-  exit "$status"
-fi
+# Normal dev and acceptance share the same ownership/readiness/log lifecycle.
+export PYTHONPATH="$PROJECT_ROOT/backend"
+exec .venv/bin/python -m app.demo_api_runner --dev

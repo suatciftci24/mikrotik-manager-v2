@@ -57,14 +57,22 @@ def probe_ui(opener=None):
     try:
         with client.open(Request('http://127.0.0.1:5173/'),timeout=1) as response:
             body=response.read()
-        if b'MikroTik Manager V2' in body and b'/src/main.tsx' in body:
-            return APIStatus('READY','Yerel V2 Vite UI hazır.')
-        return APIStatus('WRONG','Port 5173 V2 Vite UI kimliğini sağlamıyor; mevcut servise dokunulmadı.')
+        if b'<title>MikroTik Manager V2</title>' not in body or b'/src/main.tsx' not in body:
+            return APIStatus('WRONG','Port 5173 V2 Vite UI kimliğini sağlamıyor; mevcut servise dokunulmadı.')
+        with client.open(Request('http://127.0.0.1:5173/@vite/client'),timeout=1) as response:
+            vite=response.read()
+        with client.open(Request('http://127.0.0.1:5173/api/ready'),timeout=1) as response:
+            api=json.loads(response.read())
+        if (b'vite' in vite.lower() and api.get('service')=='mikrotik-manager-v2'
+                and api.get('environment')=='local-demo' and api.get('api_version')=='v1'
+                and api.get('database_checked') is False):
+            return APIStatus('READY','Yerel V2 Vite UI ve API proxy hazır.')
+        return APIStatus('WRONG','Vite istemcisi veya V2 API proxy kimliği doğrulanamadı.')
     except HTTPError as failure:
         return APIStatus('WRONG',f'UI portu HTTP {failure.code} verdi; mevcut servis değiştirilmedi.')
     except (URLError,OSError) as failure:
         return connection_reason(failure,'127.0.0.1:5173')
-    except (ValueError,TypeError):
+    except (ValueError,TypeError,AttributeError):
         return APIStatus('WRONG','UI yanıtı veya yönlendirmesi reddedildi.')
 
 

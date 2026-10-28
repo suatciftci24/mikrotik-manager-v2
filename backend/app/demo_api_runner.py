@@ -2,6 +2,8 @@
 import argparse
 from pathlib import Path
 import socket
+import signal
+import time
 import subprocess
 import sys
 import tempfile
@@ -97,20 +99,38 @@ def require_browser_database():
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description='Ortak yerel V2 API yöneticisi: mevcut API korunur; gerekirse sadece kendi geçici API sürecini açar ve seçilen kabulü çalıştırır.')
-    parser.add_argument('--browser',action='store_true',help='Aynı ManagedAPI yaşam döngüsü içinde API ve UI hazır olunca gerçek tarayıcı kabulünü çalıştırır; mevcut servisler korunur.')
+    mode=parser.add_mutually_exclusive_group()
+    mode.add_argument('--dev',action='store_true',help='API ve UI ortak yaşam döngüsüyle çalışır; DB veya kabul işlemi başlatmaz.')
+    mode.add_argument('--browser',action='store_true',help='Aynı ManagedAPI yaşam döngüsü içinde API ve UI hazır olunca gerçek tarayıcı kabulünü çalıştırır; mevcut servisler korunur.')
     args=parser.parse_args(argv)
+    def interrupted(_signum,_frame):
+        raise KeyboardInterrupt
+    previous=signal.signal(signal.SIGTERM,interrupted)
     try:
-        with ManagedAPI():
+        with ManagedAPI() as api:
+            if args.dev:
+                with ManagedUI() as ui:
+                    print('Yerel V2 API/UI hazır. Durdur: Ctrl+C',flush=True)
+                    while True:
+                        for manager in (api,ui):
+                            require(manager.process is None or manager.process.poll() is None,
+                                    'Bu komutun yerel V2 süreci kapandı; başlangıç logları korundu.')
+                        time.sleep(1)
+
             if args.browser:
                 require_browser_database()  # Read-only and before UI/tools or test records.
                 with ManagedUI():
                     return subprocess.run([str(ROOT/'browser-accept-demo.sh'),'--with-ready-services'],cwd=ROOT).returncode
             from app.demo_acceptance import main as accept
             return accept([])
+    except KeyboardInterrupt:
+        return 130
     except (RepairBlocked,OSError,subprocess.SubprocessError) as failure:
         message=str(failure) if isinstance(failure,RepairBlocked) else type(failure).__name__
         print('HTTP BLOCKED: '+message,file=sys.stderr)
         return 1
+    finally:
+        signal.signal(signal.SIGTERM,previous)
 
 
 if __name__=='__main__':raise SystemExit(main())
