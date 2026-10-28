@@ -2,6 +2,11 @@
 import assert from 'node:assert/strict';
 import {checkIntegration} from './integrationAcceptance.mjs';
 export async function checkResilience(page,ok,api,output){
+ if(process.env.V2_BROWSER_RESILIENCE_LAYOUT_ONLY==='1'){
+  const writes=[];const listener=request=>{if(!['GET','HEAD','OPTIONS'].includes(request.method()))writes.push(request.url());};page.on('request',listener);
+  try{await page.goto('/#module=system&system_view=HEALTH');await page.getByRole('region',{name:'Sağlık provider_observations',exact:true}).waitFor();await checkHealthLayout(page,ok,output);assert.deepEqual(writes,[]);ok('Hedefli sağlık layout kabulü salt okunur',true);}finally{page.off('request',listener);await page.setViewportSize({width:1440,height:1000});}
+  return;
+ }
  await checkIntegration(page,ok,api,output);
  const alarms=(await api('/v1/alarms?page_size=50')).items.map(({id,occurrence_id,state,notification_read,acknowledgement})=>({id,occurrence_id,state,notification_read,acknowledgement}));
  const baseline=await api('/v1/system/resilience');assert.equal(baseline.automatic_retry,false);assert.equal(baseline.last_success,null);ok('Kaynağa dayalı dayanıklılık özeti; ölçülmeyen last_success yok',true);
@@ -17,7 +22,18 @@ export async function checkResilience(page,ok,api,output){
   await page.unroute(pattern);await page.route(pattern,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({...baseline,status:'UNKNOWN',items:[],note:'Sentetik boş kaynak senaryosu'})}));await page.reload();await region.getByText('Veri yok · UNKNOWN',{exact:true}).waitFor();assert.equal(await region.getByText(/WAN_DOWN|RESOLVED/).count(),0);ok('Boş kaynak UNKNOWN kalır; kesinti veya çözülme üretilmez',true);
   await page.unroute(pattern);await page.reload();await region.getByRole('heading',{name:'Kaynak dayanıklılığı · '+baseline.status,exact:true}).waitFor();ok('Hata senaryosu kaldırıldığında gerçek salt okunur kaynak geri gelir',true);
   await page.getByRole('link',{name:'Sistem Sağlığı',exact:true}).click();await page.getByRole('region',{name:'Sağlık provider_observations',exact:true}).waitFor();ok('Sistem Sağlığı kaynak gözlemlerini ayrı gösterir',true);
-  for(const width of [390,320]){await page.setViewportSize({width,height:900});ok(width+'px dayanıklılık görünümü taşmıyor',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:output+`resilience-${width}.png`});}
+  await checkHealthLayout(page,ok,output);
   assert.deepEqual((await api('/v1/alarms?page_size=50')).items.map(({id,occurrence_id,state,notification_read,acknowledgement})=>({id,occurrence_id,state,notification_read,acknowledgement})),alarms);assert.deepEqual(writes,[]);ok('Salt okunur dayanıklılık kabulü ACK/READ/ayar veya audit yazmaz',true);
  }finally{await page.unroute(pattern);page.off('request',listener);await page.setViewportSize({width:1440,height:1000});}
+}
+
+async function checkHealthLayout(page,ok,output){
+ for(const width of [390,320,1440]){
+  await page.setViewportSize({width,height:900});await page.screenshot({path:output+`resilience-${width}.png`});
+  ok(width+'px dayanıklılık görünümü taşmıyor',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  const title=page.getByRole('region',{name:'Sağlık provider_observations',exact:true}).getByRole('heading');
+  const layout=await title.evaluate(e=>({text:e.textContent,width:e.clientWidth,scroll:e.scrollWidth,overflow:getComputedStyle(e).overflow,textOverflow:getComputedStyle(e).textOverflow}));
+  assert.ok(layout.text.includes('provider_observations'));assert.ok(layout.scroll<=layout.width,'Sağlık başlığı bütünüyle sarılmalı');assert.equal(layout.overflow,'visible');assert.notEqual(layout.textOverflow,'ellipsis');
+  ok(width+'px sağlayıcı başlığı kesilmeden görünür',true);
+ }
 }
