@@ -1,3 +1,4 @@
+import {checkCebeciPreparation} from './cebeciPreparationAcceptance.mjs';
 import {checkPilotDecisions} from './pilotDecisionAcceptance.mjs';
 import {checkIntegrationManagement} from './integrationManagementAcceptance.mjs';
 import {checkSimulator} from './simulatorAcceptance.mjs';
@@ -42,6 +43,8 @@ try{
  await api('/v1/auth/login',{username:'demo',password:'demo-only'});logged=true;
  const original=(await api('/v1/subscribers')).items;
  for(const s of original)baseline.set(s.id,await api('/v1/subscribers/'+s.id));
+ if(process.env.V2_BROWSER_CEBECI_ONLY==='1')await checkCebeciPreparation(page,ok,api,output);
+ if(process.env.V2_BROWSER_CEBECI_ONLY!=='1'){
  if(process.env.V2_BROWSER_PILOT_ONLY==='1')await checkPilotDecisions(page,ok,api,output);
  if(process.env.V2_BROWSER_PILOT_ONLY!=='1'){
  if(process.env.V2_BROWSER_MANAGEMENT_ONLY==='1')await checkIntegrationManagement(page,ok,api,output);
@@ -216,6 +219,7 @@ try{
  } // Simulator-only acceptance performs no existing business writes.
  } // Integration management is read-only and never starts a pilot.
  } // Pilot decision acceptance is read-only, with no approval or execution.
+ } // CEBECI preparation is planning only, with no candidate connection.
  for(const [id,originalDetail]of baseline)assert.deepEqual(await api('/v1/subscribers/'+id),originalDetail,'Eski abone/audit değişti: '+id);
  ok('Başlangıçtaki bütün abone/audit kayıtları korundu',true);
  const result={status:'PASS',run_id:run,checks,test_user_ids:createdUsers,test_ids:created.map(s=>s.id),preserved_existing:baseline.size};

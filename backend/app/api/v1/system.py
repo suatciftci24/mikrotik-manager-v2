@@ -89,3 +89,8 @@ def pilot_decisions(router_id:str='',page:int=Query(1,ge=1,le=1000000),page_size
 def pilot_decision(router_id:str,user:dict=Depends(current_admin)):
     from app.integrations.pilot_decision import assessment
     return assessment(user,router_id)
+
+@router.get('/system/cebeci-pilot')
+def cebeci_pilot(candidate_id:str='CEBECI_TOWERS',user:dict=Depends(current_admin)):
+    from app.integrations.cebeci_preparation import profile
+    return profile(user,candidate_id)
