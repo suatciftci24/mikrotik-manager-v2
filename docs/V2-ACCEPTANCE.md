@@ -1,5 +1,7 @@
 # V2 yerel demo kabul ve dağıtıma hazırlık raporu
 
+**Güncel kanıt — 2026-10-28:** Aşama 9 gerçek WSL HTTP/PostgreSQL kabulü **110 kontrol PASS**, mevcut **9 abone korundu** (yerel kabul JSON'u doğrulandı). Aşağıdaki eski BLOCKED kayıtları tarihsel ortam sonuçlarıdır. Aşama 10 tarayıcı tıklama/otomatik yenileme kabulü henüz **BLOCKED**; üretim yayını kapsam dışıdır.
+
 Tarih: 2026-10-27. İncelenen temel: `main`, `2089efc`; bu raporla birlikte eski Dashboard API tutarlılık düzeltmesi ve yedi hedefli güvenlik/tutarlılık testi eklenmiştir. Başlangıç çalışma ağacı temizdi. Kesin teslim commit'i Git geçmişindedir.
 
 **Kabul kararı: BLOCKED. V2 üretime hazır değildir.** Soketsiz işlev ve güvenlik kanıtları vardır; gerçek PostgreSQL/HTTP, kalıcılık ve tarayıcı kabulü tamamlanmamıştır. Yerel demo kabulünün ileride geçmesi de tek başına üretim yayını yetkisi veya üretim güvenliği onayı sağlamaz.
@@ -197,3 +199,25 @@ cd ~/Codex-Projects/mikrotik-manager-v2 && ./dev.sh --accept-demo
 ```
 
 Komut Vite/şema/seed/migration başlatmaz. Gerekiyorsa sadece geçici yerel V2 API açar; kabul sonunda bu kendi çocuğunu kapatır. Hazır bir mevcut V2 API'sine dokunmaz. Eski API `/api/ready` sağlamıyorsa ya da port başka servise aitse durur; otomatik restart/kill yapılmaz. Gerçek HTTP ve yeni abonelerle PPPoE kontrol çıktısı alınmadan bu bölüm API/PPPoE PASS'e çevrilmez. Tarayıcı onay/refresh kabulü ayrı kapsam olarak BLOCKED kalır.
+
+
+## Aşama 10 — detay merkezleri ve tarayıcı kabulü — 2026-10-28
+
+| Kapsam | Sonuç / kanıt |
+| --- | --- |
+| Aşama 9 gerçek API/PostgreSQL | PASS — `.local/acceptance/db1f72cc-c538-4a6d-b620-87371d4c89b8.json`: api_db PASS, 110 kontrol, 9 başlangıç abonesi korundu |
+| Router detay kimlik/model/RouterOS, ilişki özeti, WAN/IPsec/güncellik | Tamamlandı — mevcut kaynaklar ve MikAjanı; kaynak yoksa Bilinmiyor; eski aggregate ayrı |
+| Trafik/arayıüz/bağlantı kanıtı sınırı | PASS (hedefli render/yardımcı testler) — trafik/oturum uydurma yok; gözlem ve canlı durum ayrıdır |
+| Abone detay kimlik/kaynak/paket/ücret/durum/bitiş/uyarı/audit | Tamamlandı — mevcut rapor/geçmiş korunur, audit kimliği ve ilgili router bağlantıları açık |
+| Paket/durum/7–15–30 gün/özel tarih ve toplu yönlendirme | Aynı QuickActions/API kullanılır; ikinci mutasyon altyapısı yok; onay/yetki/idempotency/audit mevcut backend'de |
+| Modal ve URL bağlamının loading/error sırasında korunması | PASS (hedefli testler) — dialog aynı snapshot ile kalır; arama/router/paket bağlamı korunur; eksik kaynakta yazma kapalı |
+| Hedefli frontend / derleme | PASS — 5 test dosyası (8 yeni detailCenter testi dahil), TypeScript/Vite build, JS/shell syntax ve diff |
+| Gerçek tarayıcı tıklama/odak/otomatik yenileme/mobil görünüm | BLOCKED — tek readiness denemesi sandbox loopback engeline takıldı; veri veya servis değiştirilmedi |
+
+Çalışan V2 UI/API ile normal WSL terminalinde tek tarayıcı kabul komutu:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh
+```
+
+İlk kullanım yalnız `.local/browser-tools` içine test aracı/Chromium indirir; uygulama bağımlılığı/sistem paketi/servis/şema değiştirmez. Ağ/Chromium/işletim sistemi bağımlılık engeli BLOCKED kalır. Komut iki yeni benzersiz pasif sentetik test abonesi oluşturur; UI üzerinden yalnız kendi yeni kimliklerinde çalışır, başlangıçtaki bütün aboneleri/audit'i koruma karşılaştırmasına alır. Önizleme iptali, onay/replay, gerçek detay/liste/uyarı/Dashboard/rapor güncellemesi, filtreli geri dönüş ve 320/390 px kontrolleri hazırdır. Gerçek sonuç ve görüntüler `.local/browser-acceptance/<run-id>/` altındadır; betiğin varlığı veya statik render PASS'i tarayıcı PASS sayılmaz. Üretim, gerçek cihaz/RADIUS ve deploy/migration/restart kapsam dışı kalır.

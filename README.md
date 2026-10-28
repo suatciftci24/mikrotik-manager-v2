@@ -697,3 +697,44 @@ explains that this dev.sh session also stops its other child and identifies the
 retained logs. Temporary acceptance API logs remain in
 `.local/runtime/accept-api-*/api.log`. These logs survive startup failure; no
 production or system service is managed.
+
+## Router and subscriber detail centers (Stage 10)
+
+Router details retain inventory identity/RouterOS, WAN snapshots, saved alarm and
+management history. Their overview counts actual assigned subscriber records,
+PPPoE accounts, lifecycle states and expiry warnings; the old router aggregate is
+explicitly separate. IPsec/WAN freshness uses the existing saved MikAjani analysis.
+Missing IPsec, interface or router traffic measurements remain **Bilinmiyor**;
+subscriber traffic is not presented as measured router/interface traffic.
+
+Subscriber details show identity, authority, plan/fee, account state, expiry and
+warnings alongside existing usage reports and audit IDs/actors/before-after values.
+The same `QuickActions` dialog/API used by the list now handles plan/status and
+7/15/30-day/custom expiry changes from details. It keeps its original reviewed
+snapshot/request UUID open while details reload, so replay after a lost response
+uses the existing idempotency mechanism. Unknown authority or nonpersistent
+storage disables changes. Router links scope the existing bulk-selection list;
+query/router/plan filters remain in URL context across details and reload.
+
+Stage 9's local JSON artifact confirms **110 HTTP/PostgreSQL checks PASS and 9
+original subscribers preserved**. Stage 10 browser interactions are separate.
+With the V2 UI/API already running in normal WSL, execute one browser acceptance
+step:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh
+```
+
+The wrapper first checks local V2 API/UI availability. On first use it downloads
+only Playwright/Chromium test tools into ignored `.local/browser-tools`; it does
+not alter app dependencies, install system libraries, start/restart services,
+prepare schemas or seed data. Tool/browser/network restrictions stop with BLOCKED.
+The browser blocks external page requests and follows no API redirects. It creates
+**two new, uniquely named PAUSED synthetic test subscribers**, mutates only its own
+first new record, and compares all preexisting records/audit afterward. Tests cover
+list-to-detail/router links, preview/cancel, confirmation/replay with one audit,
+plan/status/expiry automatic refresh, preserved query/router scope, Dashboard/report
+visibility, focus/Escape and 320/390 px overflow. Screenshots and actual results stay
+in `.local/browser-acceptance/<run-id>/`. No existing demo subscriber is modified.
+A prepared script or component test is not browser PASS; actual result.json and
+screenshots are required for that acceptance.

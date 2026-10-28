@@ -1,3 +1,6 @@
+import { unknownDetail } from '../lib/detailCenter';
+import { QuickActions, type QuickAction } from '../components/QuickActions';
+import { RouterOverview, RouterSignals, SubscriberWarnings, SubscriberRouterLinks } from '../components/DetailOverview';
 import { AlarmEvents } from '../components/AlarmEvents';
 import { api } from '../lib/api';
 import { useCallback } from 'react';
@@ -8,10 +11,7 @@ import { RecentOperations } from '../components/RecentOperations';
 import { SubscriberReports } from '../components/SubscriberReports';
 import { detailText, monthlyPriceText } from '../lib/subscriberObservation';
 import { expiryInfo } from '../lib/expiry';
-import { SubscriberEditor } from '../components/SubscriberEditor';
 import { historyValues, operationLabel } from '../lib/subscriberHistory';
-import { ExpiryEditor } from '../components/ExpiryEditor';
-import { invalidateResources } from '../lib/resourceEvents';
 import { subscriberSource } from '../lib/source';
 import { SourceExplanation } from '../components/SourceExplanation';
 import { ExpirySummary } from '../components/Expiry';
@@ -24,35 +24,42 @@ import { useResource } from '../lib/useResource';
 import { DetailSection, Facts, MissingData, ResourceState, dateTime } from '../components/Resource';
 import { SourceBadge, StatusBadge } from '../components/Status';
 
+const DETAIL_DEPENDENCIES=['/routers','/subscribers','/router-events'] as const;
 type RouterDetail = {item: Router; assigned_subscribers: Subscriber[]; is_demo: true};
 type SubscriberDetail = SubscriberDetailData;
 export function DetailCenter({kind, id, onBack, backLabel='Listeye dön'}: {kind: 'routers' | 'subscribers'; id: string; onBack: () => void; backLabel?: string}) {
-  const resource = useResource<RouterDetail | SubscriberDetail>(`/${kind}/${encodeURIComponent(id)}`);
+  const resource = useResource<RouterDetail | SubscriberDetail>(`/${kind}/${encodeURIComponent(id)}`,undefined,DETAIL_DEPENDENCIES);
   const [notice, setNotice] = useState('');
+  const [quick,setQuick]=useState<{subscriber:Subscriber;action:QuickAction}|null>(null);
+  const today=useTurkeyToday();
   const error = resource.error || (resource.data && (resource.data.is_demo!==true || resource.data.item?.is_demo!==true) ? 'Sentetik demo kaynağı doğrulanamadı; detay gösterilmedi.' : undefined);
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { setNotice('');heading.current?.focus(); window.scrollTo(0, 0); }, [id, kind]);
+  useEffect(() => { setNotice('');setQuick(null);heading.current?.focus(); window.scrollTo(0, 0); }, [id, kind]);
   return <div className="screen-stack"><button className="button-secondary detail-back" onClick={onBack}><ArrowLeft size={16}/>{backLabel}</button>
     <PageHeading title={kind === 'routers' ? 'Router Detay Merkezi' : 'Abone Detay Merkezi'} description="Demo kayıtları gösteriliyor. Canlı bağlantı veya ölçüm yapılmadı." eyebrow="SENTETİK DEMO · CANLI İŞLEM YOK" headingRef={heading} actions={<button className="button-secondary" disabled={resource.loading} onClick={()=>{setNotice('');resource.retry();}}>Detayı yenile</button>}/>
     {notice && <p className="demo-save-notice" role="status">{notice}</p>}
     <ResourceState {...resource} error={error}/>
-    {resource.data && !resource.loading && !error && (kind === 'routers' ? <RouterDetails detail={resource.data as RouterDetail}/> : <SubscriberDetails detail={resource.data as SubscriberDetail} onSaved={()=>{setNotice('Demo abone değişikliği ve işlem geçmişi V2 yerel geliştirme veritabanına kaydedildi. Sentetik demo işlemidir.');invalidateResources(['/subscribers','/routers']);}}/>)}
+    {resource.data && !resource.loading && !error && (kind === 'routers' ? <RouterDetails detail={resource.data as RouterDetail}/> : <SubscriberDetails detail={resource.data as SubscriberDetail} onQuick={action=>setQuick({subscriber:(resource.data as SubscriberDetail).item,action})}/>)}
+    {quick&&<QuickActions rows={[quick.subscriber]} today={today} initialAction={quick.action} onClose={()=>setQuick(null)} onSaved={()=>setNotice('Sentetik değişiklik kaydedildi; detay, liste, Dashboard ve uyarılar yeniden yükleniyor.')}/>}
+
   </div>;
 }
 export function RouterDetails({detail}: {detail: RouterDetail}) {
   const r = detail.item;
+  const today=useTurkeyToday();
   const report = buildRouterReport([r]).rows[0];
   const assigned = detail.assigned_subscribers.filter(item=>assignedToRouter(item,r));
   const pppoe = assigned.filter(item=>item.access_type==='PPPOE').length;
-  return <div className="detail-grid">
-    <DetailSection title={r.name}><Facts items={[["Kayıt", r.id], ["Konum", r.site], ["Yönetim adresi", r.management_address], ["Model", r.model], ["RouterOS", detailText(r.routeros_version)], ["Veri kaynağı", "Sentetik V2 envanteri"], ["Yönetim kaynağı", "Bilinmiyor (router için LOCAL/RADIUS alanı yok)"]]}/></DetailSection>
-    <DetailSection title="Bağlantı durumu"><Facts items={[["Son sentetik durum kaydı", <StatusBadge status={report.status}/>], ["Son görülme", report.source_time?dateTime(report.source_time):'Veri yok'], ["Canlı bağlantı", 'Bilinmiyor'], ["Demo çalışma süresi", report.device_uptime??'Veri yok'], ["Demo CPU / RAM", `${percentText(report.cpu)} / ${percentText(report.memory)}`]]}/><p>Son görülme aktif bağlantı kanıtı değildir. CPU/RAM son sentetik örneklerdir; uptime bağlantı süresi değildir.</p></DetailSection>
-    <DetailSection title="Bağlantı geçmişi"><p className="missing-data">Veri yok. Envanter yalnız son sentetik durum kaydını sağlıyor; bağlantı/kopma olayları ve kesinti süresi kaynağı bağlı değil.</p></DetailSection>
+  return <div className="detail-grid"><RouterOverview router={r} subscribers={assigned} today={today}/>
+    <DetailSection title={r.name}><Facts items={[["Kayıt", r.id], ["Konum", unknownDetail(r.site)], ["Yönetim adresi", unknownDetail(r.management_address)], ["Model", unknownDetail(r.model)], ["RouterOS", unknownDetail(r.routeros_version)], ["Veri kaynağı", "Sentetik V2 envanteri"], ["Yönetim kaynağı", "Bilinmiyor (router için LOCAL/RADIUS alanı yok)"]]}/></DetailSection>
+    <DetailSection title="Bağlantı durumu"><Facts items={[["Son sentetik durum kaydı", <StatusBadge status={report.status}/>], ["Son görülme", report.source_time?dateTime(report.source_time):'Bilinmiyor'], ["Canlı bağlantı", 'Bilinmiyor'], ["Demo çalışma süresi", report.device_uptime??'Bilinmiyor'], ["Demo CPU / RAM", `${percentText(report.cpu)} / ${percentText(report.memory)}`]]}/><p>Son görülme aktif bağlantı kanıtı değildir. CPU/RAM son sentetik örneklerdir; uptime bağlantı süresi değildir.</p></DetailSection>
+    <DetailSection title="Bağlantı geçmişi"><p className="missing-data">Bilinmiyor. Envanter yalnız son sentetik durum kaydını sağlıyor; bağlantı/kopma olayları ve kesinti süresi kaynağı bağlı değil.</p></DetailSection>
     <DetailSection title="İnternet ve WAN"><Facts items={[
-      ['WAN arayüzü',detailText(r.wan_snapshot?.interface)], ['WAN IP',detailText(r.wan_snapshot?.ip)], ['Gateway',detailText(r.wan_snapshot?.gateway)], ['Default route',detailText(r.wan_snapshot?.default_route)], ['İnternet durumu','Bilinmiyor'],
+      ['WAN arayüzü',unknownDetail(r.wan_snapshot?.interface)], ['WAN IP',unknownDetail(r.wan_snapshot?.ip)], ['Gateway',unknownDetail(r.wan_snapshot?.gateway)], ['Default route',unknownDetail(r.wan_snapshot?.default_route)], ['İnternet durumu','Bilinmiyor'],
     ]}/><p className="missing-data">WAN alanları yalnız kaydedilmiş sentetik örnek varsa gösterilir. Olay geçmişi aşağıdaki ortak alarm kaynağındadır. Yönetim IP’si WAN IP olarak kullanılamaz.</p><a className="record-link" href="#module=operations">Operasyon Merkezi’ni aç</a></DetailSection>
-    <DetailSection title="Arayüzler"><MissingData>Arayüz envanteri kaynağı bağlı değil.</MissingData></DetailSection>
-    <DetailSection title="Trafik"><p className="missing-data">Veri yok. Bu router için indirme/yükleme, arayüz sayacı veya trafik zaman serisi kaynağı bağlı değil.</p></DetailSection>
+    <RouterSignals router={r}/>
+    <DetailSection title="Arayüzler"><p className="missing-data">Bilinmiyor. Arayüz envanteri kaynağı bağlı değil.</p></DetailSection>
+    <DetailSection title="Router trafik ölçümleri"><Facts items={[["İndirme","Bilinmiyor"],["Yükleme","Bilinmiyor"],["Toplam kullanım","Bilinmiyor"]]}/><p className="missing-data">Bilinmiyor. Bu router için indirme/yükleme, arayüz sayacı veya trafik zaman serisi kaynağı bağlı değil.</p></DetailSection>
     <DetailSection title="İlişkili aboneler">
       <Facts items={[
         ['Kayıtlı ilişkili abonelik',assigned.length], ['Erişim türü PPPoE olarak kayıtlı',pppoe],
@@ -73,18 +80,16 @@ function RouterManagementOperations({router,subscribers}: {router: Router; subsc
     if (details.some(detail=>!assignedToRouter(detail.item,router))) throw new Error('Abone router ataması değişti; router detayını yenileyin.');
     return buildDailySummary([router],details);
   },[ids,router]);
-  const resource=useResource(`/routers/${encodeURIComponent(router.id)}/management-summary`,load);
+  const resource=useResource(`/routers/${encodeURIComponent(router.id)}/management-summary`,load,DETAIL_DEPENDENCIES);
   return <div className="router-management-events"><ResourceState {...resource}/>{resource.data&&!resource.loading&&!resource.error&&<RecentOperations data={resource.data} onSubscriber={id=>{window.location.hash=new URLSearchParams({module:'subscribers',id}).toString();}}/>}</div>;
 }
-function SubscriberDetails({detail, onSaved}: {detail: SubscriberDetail; onSaved: () => void}) {
-  const [editing, setEditing] = useState(false);
-  const [management,setManagement]=useState<'PLAN_CHANGE'|'STATUS_CHANGE'|null>(null);
+export function SubscriberDetails({detail, onQuick}: {detail: SubscriberDetail; onQuick: (action:QuickAction) => void}) {
   const s = detail.item;
   const today = useTurkeyToday();
   const unknownSource = subscriberSource(s.source)==='UNKNOWN';
   const persistent = detail.persistence==='local-postgresql-demo';
   const canChange = !unknownSource && persistent;
-  return <div className="detail-grid subscriber-detail">
+  return <div className="detail-grid subscriber-detail"><SubscriberWarnings subscriber={s} today={today}/>
     <DetailSection title={detailText(s.customer_name)}>
       <p><span className="demo-chip">SENTETİK</span> V2 demo abone kaydı</p>
       <Facts items={[
@@ -101,18 +106,19 @@ function SubscriberDetails({detail, onSaved}: {detail: SubscriberDetail; onSaved
       ]}/>
       <p>Hesap etkinliği oturum bağlantı durumu değildir. Devre dışı, mevcut PAUSED (duraklatıldı) durumudur. Paket/profil değişikliği yalnız demo paketi ve aylık tutarı günceller.</p>
       <div className="expiry-editor-actions">
-        <button className="button-primary" disabled={!canChange} onClick={()=>setManagement('PLAN_CHANGE')}>Demo paket/profil değiştir</button>
-        <button className="button-secondary" disabled={!canChange} onClick={()=>setManagement('STATUS_CHANGE')}>Demo etkinleştir / devre dışı bırak</button>
+        <button className="button-primary" disabled={!canChange} onClick={()=>onQuick('PLAN')}>Demo paket/profil değiştir</button>
+        <button className="button-secondary" disabled={!canChange} onClick={()=>onQuick('STATUS')}>Demo etkinleştir / devre dışı bırak</button>
       </div>
       {unknownSource&&<p>Kaynak bilinmiyor; değişiklik kapalı.</p>}
       {!persistent&&<p>İzole V2 PostgreSQL demo deposu gerekli; geçici belleğe yazılmaz.</p>}
     </DetailSection>
+    <DetailSection title="İlişkili yönetim işlemleri"><SubscriberRouterLinks subscriber={s}/><p>Toplu uzatma için listede aynı router üzerindeki demo abonelerini seçin; önizlemeden sonra açık onay gerekir.</p></DetailSection>
     <DetailSection title="Yetkili yönetim kaynağı"><SourceExplanation source={s.source}/></DetailSection>
     <DetailSection title="Abonelik bitişi ve kalan gün">
       <ExpirySummary expiresOn={s.expires_on} today={today}/>
       {expiryInfo(s.expires_on,today).days===null&&<p className="missing-data">Veri yok. Geçerli bir abonelik bitiş tarihi kaydedilmemiş; kalan gün hesaplanamaz.</p>}
       <p>Türkiye takvim günü kullanılır; bitiş günü dahildir. Yenileme ve tarih değişikliği gerçek router/RADIUS hesabını veya oturumunu değiştirmez.</p>
-      <button className="button-primary" disabled={!canChange} onClick={()=>setEditing(true)}>Demo bitiş tarihini düzenle / yenile</button>
+      <button className="button-primary" disabled={!canChange} onClick={()=>onQuick('EXTEND')}>7 / 15 / 30 gün uzat veya özel tarih</button>
       {unknownSource&&<p>Kaynak bilinmiyor; tarih değişikliği kapalı.</p>}
       {!persistent&&<p role="status">Kalıcı demo saklama etkin değil; geçici bellek değişikliği yapılmaz.</p>}
     </DetailSection>
@@ -125,13 +131,11 @@ function SubscriberDetails({detail, onSaved}: {detail: SubscriberDetail; onSaved
           <strong>{operationLabel(event.operation)}</strong>
           <time dateTime={event.occurred_at}>{dateTime(event.occurred_at)}</time>
           <Facts items={[
-            ['İşlemi yapan',detailText(event.actor_id)], ['Önceki değerler',previous],
+            ['İşlem kimliği',event.id], ['İşlemi yapan',detailText(event.actor_id)], ['Önceki değerler',previous],
             ['Yeni değerler',next], ['Kaynak',<SourceBadge source={event.source}/>],
           ]}/>
         </li>;
       })}</ol> : <p className="missing-data">Veri yok. Henüz kaydedilmiş bir demo işlemi yok.</p>}
     </DetailSection>
-    {management&&<SubscriberEditor mode={management} subscriber={s} onClose={()=>setManagement(null)} onSaved={()=>{setManagement(null);onSaved();}}/>}
-    {editing&&<ExpiryEditor persistence={detail.persistence} subscriber={s} today={today} onClose={()=>setEditing(false)} onSaved={()=>{setEditing(false);onSaved();}}/>}
   </div>;
 }
