@@ -21,3 +21,8 @@ def get_router(item_id: str, _user: dict = Depends(current_demo_user)):
     if detail is None:
         raise HTTPException(status_code=404, detail='Kayıt bulunamadı')
     return {**detail,'item':{**detail['item'],'wan_snapshot':detail['item'].get('wan_snapshot') if item_id in allowed(_user,'can_view_reports') else None},'assigned_subscribers':[public_item(row,_user) for row in detail['assigned_subscribers']]}
+
+@router.get('/{item_id}/provider-snapshot')
+def provider_snapshot(item_id:str,page:int=1,page_size:int=25,_user:dict=Depends(current_demo_user)):
+    from app.integrations.gateway import read_router
+    return read_router(_user,item_id,page=page,page_size=page_size)

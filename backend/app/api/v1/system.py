@@ -54,3 +54,8 @@ def update_preferences(payload:service.PersonalCommand,user:dict=Depends(current
     except DemoChangeError as error:
         service.rejected(id,payload,user['id'],error)
         raise HTTPException(error.status_code,error.detail) from None
+
+@router.get('/system/integrations')
+def integration_readiness(user:dict=Depends(current_admin)):
+    from app.integrations.gateway import readiness
+    return readiness()
