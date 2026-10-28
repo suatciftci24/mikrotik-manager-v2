@@ -143,3 +143,6 @@ input::placeholder{color:var(--muted);opacity:1}
 .detail-links{display:flex;gap:10px;flex-wrap:wrap}.detail-links a,.detail-overview>a{white-space:normal;height:auto;min-height:44px;align-items:center;justify-content:center;display:inline-flex;padding:10px}
 .detail-warnings ul{padding-left:20px;margin:0}.detail-section .detail-facts dd{overflow-wrap:anywhere}
 @media(max-width:650px){.detail-overview{padding:14px}.detail-links{flex-direction:column}.detail-links a{width:100%}.detail-metrics>span{flex-basis:40%}}
+
+/* Central operations uses existing panel and table scrolling on narrow screens. */
+.operations-health{min-width:0}.operations-health .daily-links{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.operations-health .daily-links a{white-space:normal;text-align:left;min-height:44px;overflow-wrap:anywhere}.operations-health table{min-width:680px}.operations-health>p{overflow-wrap:anywhere}.operations-health .table-scroll{max-width:100%;overflow:auto}

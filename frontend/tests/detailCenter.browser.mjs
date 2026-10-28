@@ -33,6 +33,22 @@ try{
  await api('/v1/auth/login',{username:'demo',password:'demo-only'});logged=true;
  const original=(await api('/v1/subscribers')).items;
  for(const s of original)baseline.set(s.id,await api('/v1/subscribers/'+s.id));
+ await page.goto('/#module=dashboard');
+ await page.getByRole('heading',{name:'MikAjanı · ağ operasyonları',exact:true}).waitFor();
+ await page.getByRole('region',{name:'Operasyon WAN ve IPsec özeti',exact:true}).waitFor();
+ await page.getByRole('link',{name:/^P2 · /}).click();
+ await page.getByLabel('MikAjanı öncelik filtresi',{exact:true}).waitFor();
+ ok('Dashboard MikAjanı P2 bağlantısı filtreyi koruyor',await page.getByLabel('MikAjanı öncelik filtresi',{exact:true}).inputValue()==='P2');
+ ok('Dashboard MikAjanı aktif yaşam döngüsü',await page.getByLabel('MikAjanı yaşam döngüsü filtresi',{exact:true}).inputValue()==='ACTIVE');
+ await page.goto('/#module=dashboard');
+ await page.getByRole('button',{name:/^15 gün içinde bitecek/}).click();
+ ok('Dashboard 15 gün bağlantısı doğru abone filtresini açıyor',await page.getByLabel('Abonelik bitiş filtresi',{exact:true}).inputValue()==='WITHIN_15');
+ await page.goto('/#module=dashboard');
+ await page.getByRole('region',{name:'Operasyon WAN ve IPsec özeti',exact:true}).waitFor();
+ await page.setViewportSize({width:390,height:900});
+ ok('Mobil operasyon Dashboard body taşması yok',await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
+ await page.screenshot({path:output+'dashboard-390.png'});
+ await page.setViewportSize({width:1440,height:1000});
  const options=await api('/v1/subscribers/demo-options'),router=options.routers[0];
  assert.ok(options.plans.length>=2);
  for(let i=0;i<2;i++){

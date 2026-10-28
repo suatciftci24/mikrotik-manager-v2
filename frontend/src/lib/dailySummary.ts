@@ -9,7 +9,7 @@ export type DailySummary = {
   routers: Router[];
   router_counts: {total: number; online: number; offline: number; degraded: number; unknown: number};
   subscribers: {total: number; active: number; paused: number; pending: number; unknown_status: number; local: number; radius: number; unknown_source: number};
-  expiry: {expired: number; within_7: number; within_30: number; active: number; unknown: number};
+  expiry: {expired: number; within_7: number; within_15: number; within_30: number; active: number; unknown: number};
   pppoe: {confirmed: number; untyped: number};
   operation_history: DailyOperation[];
   operations: {today: number; total: number; recent: DailyOperation[]};
@@ -22,7 +22,7 @@ export function buildDailySummary(routers: Router[], details: SubscriberDetailDa
   const today = turkeyToday(now);
   const items = details.map(d=>d.item);
   if (new Set(items.map(s=>s.id)).size !== items.length) throw new Error('Abone kayıtları tekil değil; özet oluşturulamadı.');
-  const expiry = {expired: 0, within_7: 0, within_30: 0, active: 0, unknown: 0};
+  const expiry = {expired: 0, within_7: 0, within_15: 0, within_30: 0, active: 0, unknown: 0};
   const operations: DailyOperation[] = [];
   for (const detail of details) {
     const info = expiryInfo(detail.item.expires_on, today);
@@ -30,6 +30,7 @@ export function buildDailySummary(routers: Router[], details: SubscriberDetailDa
     else if (info.status === 'EXPIRED') expiry.expired++;
     else if (info.status === 'ACTIVE') expiry.active++;
     if (info.days !== null && info.days >= 0 && info.days <= 7) expiry.within_7++;
+    if (info.days !== null && info.days >= 0 && info.days <= 15) expiry.within_15++;
     if (info.days !== null && info.days >= 0 && info.days <= 30) expiry.within_30++;
     if (!Array.isArray(detail.history)) throw new Error('Abonelik işlem geçmişi alınamadı.');
     for (const event of detail.history) {

@@ -1,0 +1,42 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+import {buildSync} from 'esbuild';
+import * as React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {buildDailySummary} from '../src/lib/dailySummary.ts';
+import {matchesExpiry} from '../src/lib/expiry.ts';
+const require=createRequire(import.meta.url);
+const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/DashboardHealth.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+const module={exports:{}};new Function('require','module','exports',code)(require,module,module.exports);
+const {DashboardHealthView}=module.exports;
+const time='2026-10-28T10:00:00Z';
+const event=(id,priority,state,routers)=>({id,priority,state,affected_router_ids:routers,is_demo:true,updated_at:time,title:id});
+const analysis={source:'saved-demo',generated_at:time,evaluated_at:time,operational_summary:'Sentetik analiz',is_demo:true,read_only:true,limitations:[],summary:{},events:[event('a','P1','OPEN',['r&1']),event('b','P2','RECOVERING',['r&1']),event('c','P1','RESOLVED',['r2'])],health:[{router_id:'r&1',name:'Demo Router',health:'ATTENTION',signals:{WAN:'BAD',IPSEC:'UNKNOWN'},latest_observed_at:time,reliability:'CURRENT'}]};
+const render=data=>renderToStaticMarkup(React.createElement(DashboardHealthView,{data}));
+test('operation dashboard counts active priorities and unique affected routers without resolved inflation',()=>{
+ const html=render(analysis);
+ assert.match(html,/P1 · 1/);assert.match(html,/P2 · 1/);assert.match(html,/P3 · 0/);assert.match(html,/P4 · 0/);
+ assert.match(html,/Etkilenen router: 1/);assert.match(html,/Çözülen: 1/);
+ assert.match(html,/#module=mikajani&amp;priority=P2&amp;state=ACTIVE/);
+ assert.match(html,/module=routers&amp;id=r%261/);
+ assert.match(html,/module=mikajani&amp;priority=P1&amp;state=ACTIVE&amp;event=a/);
+ assert.doesNotMatch(html,/event=c/);
+});
+test('WAN and IPsec use recorded signals, show source times and preserve unknown data',()=>{
+ const html=render(analysis);
+ assert.match(html,/Sorun gözlemi/);assert.match(html,/Bilinmiyor/);assert.match(html,/Güncel/);
+ assert.match(html,/Analiz:/);assert.match(html,/Kaynak: saved-demo/);assert.doesNotMatch(html,/Mbps|0 GB/);
+ const empty=render({...analysis,health:[],events:[]});
+ assert.match(empty,/router gözlem kaynağı boş/);assert.match(empty,/Kayıtlı açık MikAjanı olayı yok/);
+});
+test('15-day cumulative count exactly matches target subscriber filter including today',()=>{
+ const today='2026-10-28',now=new Date(today+'T10:00:00Z');
+ const dates=['2026-10-27',today,'2026-11-04','2026-11-12','2026-11-13',null];
+ const details=dates.map((expires_on,i)=>({item:{id:String(i),expires_on,status:'PAUSED',source:'LOCAL',is_demo:true},history:[],is_demo:true}));
+ const data=buildDailySummary([],details,now);
+ assert.equal(data.expiry.within_15,3);
+ assert.equal(data.expiry.within_15,dates.filter(date=>matchesExpiry(date,'WITHIN_15',today)).length);
+ assert.equal(data.expiry.within_7,2);assert.equal(data.expiry.within_30,4);
+});

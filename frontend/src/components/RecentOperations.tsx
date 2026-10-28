@@ -19,7 +19,7 @@ export function RecentOperations({data,onSubscriber}:{data:DailySummary;onSubscr
   const event=selected?data.operation_history.find(item=>item.id===selected):undefined;
   return <section className="panel recent-operations" aria-labelledby="recent-operations-title">
     <div className="panel-title"><h2 id="recent-operations-title">Son 24 saat PPPoE demo yönetim işlemleri</h2><span className="demo-chip">SENTETİK</span></div>
-    <p className="daily-description">Mevcut demo abone işlem geçmişi esas alınır; erişim türü belirtilmemiş eski kayıtlar dahildir. Takvim günü sayımı ayrıdır: bugün (Türkiye) {data.operations.today} işlem.</p>
+    <p className="daily-description">Yalnız transaction ile kaydedilmiş başarılı işlemler listelenir; başarısız denemeler için audit kaynağı yok. Mevcut demo abone işlem geçmişi esas alınır; erişim türü belirtilmemiş eski kayıtlar dahildir. Takvim günü sayımı ayrıdır: bugün (Türkiye) {data.operations.today} işlem.</p>
     <p className="daily-description">Aralık: {dateTime(windowData.from)} → {dateTime(windowData.to)} (başlangıç dahil). Son kayıt okuması: {dateTime(data.generated_at)}.</p>
     <dl className="operation-counts">
       {([['Oluşturma',windowData.counts.create],['Paket/profil değiştirme',windowData.counts.plan],['Durum değiştirme',windowData.counts.status],['Abonelik yenileme',windowData.counts.renewal]] as const).map(([label,count])=><div key={label}><dt>{label}</dt><dd>{count}</dd></div>)}
@@ -29,7 +29,7 @@ export function RecentOperations({data,onSubscriber}:{data:DailySummary;onSubscr
       <div className="affected-subscribers" aria-label="Son 24 saatte etkilenen aboneler">{windowData.affected.map(item=><button key={item.id} className="button-secondary" onClick={()=>onSubscriber(item.id)}>{item.name} · {item.router_name}</button>)}</div>
       <ol className="daily-operations rolling-operations">{windowData.events.map(item=><li key={item.id}>
         <button className="record-link" onClick={()=>setSelected(item.id)} aria-label={`${item.customer_name} · ${operationLabel(item.operation)} işlem detayını aç`}>{item.customer_name} · {operationLabel(item.operation)}</button>
-        <span>{item.router_name} · İşlemi yapan: {item.actor_id||'Veri yok'}</span>
+        <span>Sonuç: Kaydedildi · {item.router_name} · İşlemi yapan: {item.actor_id||'Veri yok'}</span>
         <time dateTime={item.occurred_at}>{dateTime(item.occurred_at)}</time>
       </li>)}</ol>
     </>:<p className="missing-data">Veri yok. Son 24 saatte kaydedilmiş demo abone işlemi bulunmuyor.</p>}

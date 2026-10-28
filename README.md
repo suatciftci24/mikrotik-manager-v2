@@ -775,3 +775,11 @@ Tarayıcı kabulü Chromium indirmez: mevcut Playwright binary'sini, aynı revis
 Gerekirse `V2_BROWSER_EXECUTABLE` ile yerel Linux binary yolu seçilebilir.
 Uygun binary yoksa veri yazmadan Browser BLOCKED döner. Windows `.exe` dosyası
 Linux Playwright'a doğrudan verilmez; kişisel tarayıcı profili kullanılmaz.
+
+Aşama 11 operasyon Dashboard'u mevcut router/abonelik/audit/alarm özetlerine
+MikAjanı P1–P4, açık olay kanıt bağlantıları, WAN/IPsec gözlem güvenilirliği ve
+sorunlu router erişimini ekler. 7/15/30 günlük abonelik filtreleri bugün dahil
+kümülatiftir. Özetler görünür sekmede 60 saniyede ve odağa dönüşte yenilenir;
+manuel yenile aynı kaynakları okur. Zamanlar/kaynaklar gösterilir, eksik telemetri
+Bilinmiyor/Veri yok kalır. Audit listesi yalnız kaydedilmiş başarılı işlemlerdir;
+başarısız denemelerin sayısı türetilmez. Bütün kaynaklar izole SENTETİK V2 verisidir.

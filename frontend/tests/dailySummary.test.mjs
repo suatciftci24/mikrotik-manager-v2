@@ -16,7 +16,7 @@ test('summary counts actual inventory and expiry boundaries, not router aggregat
   assert.equal(summary.as_of_date,'2026-10-27');
   assert.equal(summary.subscribers.total,7);
   assert.deepEqual(summary.router_counts,{total:3,online:1,offline:1,degraded:1,unknown:0});
-  assert.deepEqual(summary.expiry,{expired:1,within_7:2,within_30:4,active:1,unknown:1});
+  assert.deepEqual(summary.expiry,{expired:1,within_7:2,within_15:3,within_30:4,active:1,unknown:1});
   assert.deepEqual(summary.subscribers,{total:7,active:5,paused:1,pending:1,unknown_status:0,local:3,radius:3,unknown_source:1});
 });
 test('today operations use Turkey midnight and real saved events sorted newest first',()=>{

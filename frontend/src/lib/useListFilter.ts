@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 /** Filter links and manual changes share the same reloadable, validated URL state. */
-export function useListFilter<T extends string>(kind: 'routers' | 'subscribers' | 'dashboard', key: string, choices: readonly T[], fallback: T) {
+export function useListFilter<T extends string>(kind: 'routers' | 'subscribers' | 'dashboard' | 'mikajani', key: string, choices: readonly T[], fallback: T) {
   const read = useCallback(() => {
     const params = new URLSearchParams(typeof window==='undefined'?'':window.location.hash.slice(1));
     const value = params.get('module') === kind ? params.get(key) : null;

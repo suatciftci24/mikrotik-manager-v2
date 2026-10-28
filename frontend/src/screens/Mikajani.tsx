@@ -1,3 +1,4 @@
+import { useListFilter } from '../lib/useListFilter';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { useResource } from '../lib/useResource';
@@ -5,15 +6,19 @@ import { ResourceState, dateTime, Facts } from '../components/Resource';
 import { PageHeading } from '../components/PageHeading';
 import { assertMikaAnalysis, filterMikaEvents, mikaStatus, type MikaAnalysis, type MikaEvent } from '../lib/mikajani';
 
+const priorities=['ALL','P1','P2','P3','P4'] as const;
+const states=['ACTIVE','ALL','OPEN','UPDATED','RECOVERING','RESOLVED'] as const;
+function readSelected(){const p=new URLSearchParams(typeof window==='undefined'?'':window.location.hash.slice(1));return p.get('module')==='mikajani'?p.get('event'):null;}
 const dependencies=['/subscribers','/routers'] as const;
 async function load(path:string,init?:RequestInit) {return assertMikaAnalysis(await api<MikaAnalysis>(path,init));}
 export function Mikajani() {
   const [scenario,setScenario]=useState('');
   const scenarios=useResource<{items:{key:string;name:string}[]}>('/mikajani/scenarios');
   const resource=useResource<MikaAnalysis>('/mikajani/analysis'+(scenario?'?scenario='+encodeURIComponent(scenario):''),load,dependencies);
-  const [query,setQuery]=useState('');const [priority,setPriority]=useState('ALL');const [state,setState]=useState('ACTIVE');
-  const [router,setRouter]=useState('');const [domain,setDomain]=useState('ALL');const [selected,setSelected]=useState<string|null>(null);
+  const [query,setQuery]=useState('');const [priority,setPriority]=useListFilter('mikajani','priority',priorities,'ALL');const [state,setState]=useListFilter('mikajani','state',states,'ACTIVE');
+  const [router,setRouter]=useState('');const [domain,setDomain]=useState('ALL');const [selected,setSelected]=useState<string|null>(readSelected);
   useEffect(()=>{const tick=()=>resource.retry();const timer=window.setInterval(tick,60000);return()=>window.clearInterval(timer);},[resource.retry]);
+  useEffect(()=>{const read=()=>setSelected(readSelected());window.addEventListener('hashchange',read);return()=>window.removeEventListener('hashchange',read);},[]);
   const data=resource.data;
   const rows=data?filterMikaEvents(data.events,{query,priority,state,router,domain}):[];
   const event=selected?data?.events.find(e=>e.id===selected):undefined;
@@ -26,13 +31,13 @@ export function Mikajani() {
     <ResourceState {...resource}/>
     {data&&!resource.loading&&!resource.error&&<>
       <section className="panel mika-panel"><h2>Operasyonel özet</h2><p>{data.operational_summary}</p><p>Kaynak: {data.source} · Değerlendirme: {dateTime(data.evaluated_at)} · Yanıt: {dateTime(data.generated_at)}</p>
-        <div className="mika-counts">{['P1','P2','P3','P4'].map(p=><button className="button-secondary" key={p} onClick={()=>{setPriority(p);setState('ACTIVE');}}>{p} · {data.summary[p]??0}</button>)}<span>Çözülen: {data.summary.resolved} · Sağlığı belirsiz: {data.summary.uncertain}</span></div>
+        <div className="mika-counts">{['P1','P2','P3','P4'].map(p=><button className="button-secondary" key={p} onClick={()=>{setPriority(p as typeof priorities[number]);setState('ACTIVE');}}>{p} · {data.summary[p]??0}</button>)}<span>Çözülen: {data.summary.resolved} · Sağlığı belirsiz: {data.summary.uncertain}</span></div>
       </section>
       <section className="panel mika-panel"><h2>Merkezi ağ sağlığı</h2><p>İyi gözlem canlı bağlantı garantisi değildir. IPsec kaynağı yoksa Bilinmiyor gösterilir.</p><div className="mika-health">{data.health.map(r=><article key={r.router_id}><h3>{r.name}</h3><p>{mikaStatus[r.health]} · {mikaStatus[r.reliability]}</p><small>{dateTime(r.latest_observed_at)}</small><dl>{Object.entries(r.signals).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{mikaStatus[v]??v}</dd></div>)}</dl>{r.reliability!=='CURRENT'&&<p>Öneri: yeni zaman damgalı gözlem sağlayın.</p>}</article>)}</div></section>
       <section className="panel mika-panel"><h2>Olaylar ve geçmiş</h2><div className="mika-filters">
         <label>Olay ara<input value={query} onChange={e=>setQuery(e.target.value)}/></label>
-        <label>Öncelik<select value={priority} onChange={e=>setPriority(e.target.value)}>{['ALL','P1','P2','P3','P4'].map(v=><option key={v} value={v}>{v==='ALL'?'Tümü':v}</option>)}</select></label>
-        <label>Yaşam döngüsü<select value={state} onChange={e=>setState(e.target.value)}>{['ACTIVE','ALL','OPEN','UPDATED','RECOVERING','RESOLVED'].map(v=><option key={v} value={v}>{v==='ACTIVE'?'Aktif olaylar':v==='ALL'?'Tüm geçmiş':mikaStatus[v]}</option>)}</select></label>
+        <label>Öncelik<select aria-label="MikAjanı öncelik filtresi" value={priority} onChange={e=>setPriority(e.target.value as typeof priorities[number])}>{['ALL','P1','P2','P3','P4'].map(v=><option key={v} value={v}>{v==='ALL'?'Tümü':v}</option>)}</select></label>
+        <label>Yaşam döngüsü<select aria-label="MikAjanı yaşam döngüsü filtresi" value={state} onChange={e=>setState(e.target.value as typeof states[number])}>{['ACTIVE','ALL','OPEN','UPDATED','RECOVERING','RESOLVED'].map(v=><option key={v} value={v}>{v==='ACTIVE'?'Aktif olaylar':v==='ALL'?'Tüm geçmiş':mikaStatus[v]}</option>)}</select></label>
         <label>Router<select value={router} onChange={e=>setRouter(e.target.value)}><option value="">Tümü</option>{data.health.map(r=><option key={r.router_id} value={r.router_id}>{r.name}</option>)}</select></label>
         <label>Alan<select value={domain} onChange={e=>setDomain(e.target.value)}>{['ALL','ROUTER','WAN','IPSEC','PPPOE','MONITOR','DATA','CORRELATION'].map(v=><option key={v} value={v}>{v==='ALL'?'Tümü':v}</option>)}</select></label>
       </div><p role="status">{rows.length} olay · Önceliğe göre sıralı</p><div className="mika-events">{rows.map(e=><article key={e.id}><div><strong>{e.priority} · {e.title}</strong><span>{mikaStatus[e.state]} · Güven: {mikaStatus[e.confidence]}</span></div><p>{e.reason}</p><p>{e.affected_router_ids.map(id=>names[id]??id).join(', ')}</p><p>Öneri: {e.recommendation}</p><time>{dateTime(e.updated_at)}</time><button className="button-secondary" onClick={()=>setSelected(e.id)}>Kanıt ve geçmişi aç</button></article>)}</div>{rows.length===0&&<p className="table-empty">Bu filtrelerde olay yok. Eksik veri sağlıklı sonuç anlamına gelmez.</p>}</section>

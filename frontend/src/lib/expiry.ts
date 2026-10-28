@@ -1,5 +1,5 @@
 export type ExpiryStatus = 'EXPIRED' | 'TODAY' | 'WITHIN_3' | 'WITHIN_7' | 'WITHIN_30' | 'ACTIVE' | 'UNKNOWN';
-export type ExpiryFilter = ExpiryStatus | 'ALL' | 'VALID';
+export type ExpiryFilter = ExpiryStatus | 'ALL' | 'VALID' | 'WITHIN_15';
 export const expiryLabels: Record<ExpiryStatus, string> = {
   EXPIRED: 'Süresi dolmuş', TODAY: 'Bugün dolacak', WITHIN_3: '1–3 gün içinde bitecek',
   WITHIN_7: '4–7 gün içinde bitecek', WITHIN_30: '8–30 gün içinde bitecek',
@@ -31,6 +31,7 @@ export function matchesExpiry(expiresOn: string | null | undefined, filter: Expi
   if (filter === 'VALID') return info.days !== null && info.days >= 0;
   if (filter === 'WITHIN_3') return info.days !== null && info.days >= 0 && info.days <= 3;
   if (filter === 'WITHIN_7') return info.days !== null && info.days >= 0 && info.days <= 7;
+  if (filter === 'WITHIN_15') return info.days !== null && info.days >= 0 && info.days <= 15;
   if (filter === 'WITHIN_30') return info.days !== null && info.days >= 0 && info.days <= 30;
   return info.status === filter;
 }

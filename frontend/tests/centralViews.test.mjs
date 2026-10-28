@@ -30,9 +30,9 @@ test('central screen renders unknown/outage scope and existing rolling operation
  }finally{delete globalThis.__centralSummary;}
 });
 test('router detail keeps WAN unknown, formats valid samples, and links only assigned subscribers',()=>{
- const assigned=[{id:'subscriber & one',customer_name:'Demo kişi',username:'demo.user',router_id:'r',router_name:'Eski ad',source:'RADIUS',status:'ACTIVE',plan:'Demo paket',access_type:'PPPOE'},{id:'wrong',customer_name:'Yanlış abone',router_id:'other',router_name:router.name}];
+ const assigned=[{id:'subscriber & one',customer_name:'Demo kişi',username:'demo.user',router_id:'r',router_name:'Eski ad',source:'RADIUS',status:'ACTIVE',plan:'Demo paket',access_type:'PPPOE',is_demo:true},{id:'wrong',customer_name:'Yanlış abone',router_id:'other',router_name:router.name}];
  const html=renderToStaticMarkup(createElement(RouterDetails,{detail:{item:router,assigned_subscribers:assigned,is_demo:true}}));
- assert.match(html,/WAN IP<\/dt><dd>Veri yok/);assert.match(html,/Default route<\/dt><dd>Veri yok/);
+ assert.match(html,/WAN IP<\/dt><dd>Bilinmiyor/);assert.match(html,/Default route<\/dt><dd>Bilinmiyor/);
  assert.match(html,/Canlı bağlantı<\/dt><dd>Bilinmiyor/);assert.match(html,/24% \/ Veri yok/);
  assert.match(html,/12:42 \(İstanbul\)/);assert.match(html,/RADIUS/);
  assert.match(html,/Kayıtlı ilişkili abonelik<\/dt><dd>1/);

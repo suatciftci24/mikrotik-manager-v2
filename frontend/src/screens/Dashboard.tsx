@@ -1,3 +1,5 @@
+import { DashboardHealth } from '../components/DashboardHealth';
+import { invalidateResources } from '../lib/resourceEvents';
 import { InternetReport } from './InternetReport';
 import { useListFilter } from '../lib/useListFilter';
 import { ManagementReport } from './ManagementReport';
@@ -31,14 +33,24 @@ function DashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigat
   useEffect(() => {
     if (previousDay.current !== today) {previousDay.current = today;resource.retry();}
   }, [today, resource.retry]);
-  const data = resource.data;
+  const refresh=()=>invalidateResources(['/routers','/subscribers','/router-events','/mikajani']);
+  useEffect(()=>{
+    const tick=()=>{if(!document.hidden)invalidateResources(['/routers','/subscribers','/router-events','/mikajani']);};
+    const timer=window.setInterval(tick,60000);
+    window.addEventListener('focus',tick);document.addEventListener('visibilitychange',tick);
+    return()=>{window.clearInterval(timer);window.removeEventListener('focus',tick);document.removeEventListener('visibilitychange',tick);};
+  },[]);
+  const lastData=useRef<DailySummary|undefined>(undefined);
+  if(resource.data)lastData.current=resource.data;
+  const data = resource.data??(resource.loading?lastData.current:undefined);
   const goSubscribers = (params: Record<string,string> = {}) => onNavigate('subscribers', params);
   const goRouters = (params: Record<string,string> = {}) => onNavigate('routers', params);
   const fullDate = data ? new Intl.DateTimeFormat('tr-TR', {dateStyle:'full', timeZone:'UTC'}).format(new Date(data.as_of_date+'T00:00:00Z')) : 'Türkiye takvim günü · Europe/Istanbul';
-  return <div className="screen-stack">
-    <PageHeading title="Merkezi Dashboard" eyebrow={fullDate} description="Sentetik demo envanteri ve kaydedilmiş abonelik işlemleri. Canlı sistem durumu değildir. PPPoE yönetimi kapsamındaki eski abonelerde erişim türü belirtilmemiş olabilir." actions={<><button className="button-secondary" onClick={onInternet}>İnternet Kullanım ve Bağlantı Raporları</button><button className="button-primary" onClick={onReport}>Günlük Yönetim Raporu</button><button className="button-secondary" disabled={resource.loading} onClick={resource.retry}><RefreshCw size={15}/>Özeti yenile</button></>}/>
-    <ResourceState {...resource}/>
-    {data && !resource.loading && !resource.error && <>
+  return <div className="screen-stack" aria-busy={resource.loading}>
+    <PageHeading title="Merkezi Dashboard" eyebrow={fullDate} description="Sentetik demo envanteri ve kaydedilmiş abonelik işlemleri. Canlı sistem durumu değildir. PPPoE yönetimi kapsamındaki eski abonelerde erişim türü belirtilmemiş olabilir." actions={<><button className="button-secondary" onClick={onInternet}>İnternet Kullanım ve Bağlantı Raporları</button><button className="button-primary" onClick={onReport}>Günlük Yönetim Raporu</button><button className="button-secondary" disabled={resource.loading} onClick={refresh}><RefreshCw size={15}/>Özeti yenile</button></>}/>
+    <ResourceState {...resource} retry={refresh}/>
+    {data&&resource.loading&&<p role="status">Önceki özet gösteriliyor; kayıtlar yenileniyor.</p>}
+    {data && !resource.error && <>
       <div className="metric-grid">
         <DailyTile title="Toplam router" value={data.router_counts.total} note="Sentetik envanter kayıtları" icon={<RouterIcon size={17}/>} tone="blue" label="Tüm routerları göster" onClick={()=>goRouters()}/>
         <DailyTile title="Online kaydı" value={data.router_counts.online} note="Son sentetik envanter durumu" icon={<RouterIcon size={17}/>} tone="teal" label="Online kayıtlı routerları göster" onClick={()=>goRouters({status:'ONLINE'})}/>
@@ -55,6 +67,7 @@ function DashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigat
             <button onClick={()=>goSubscribers({status:'PAUSED'})}>Duraklatıldı <strong>{data.subscribers.paused}</strong></button>
             <button onClick={()=>goSubscribers({status:'PENDING'})}>Bekliyor <strong>{data.subscribers.pending}</strong></button>
             <button onClick={()=>goSubscribers({expiry:'WITHIN_7'})}>7 gün içinde bitecek <strong>{data.expiry.within_7}</strong></button>
+            <button onClick={()=>goSubscribers({expiry:'WITHIN_15'})}>15 gün içinde bitecek <strong>{data.expiry.within_15}</strong></button>
             <button onClick={()=>goSubscribers({expiry:'UNKNOWN'})}>Bitiş tarihi bilinmiyor <strong>{data.expiry.unknown}</strong></button>
             <button onClick={()=>goSubscribers({expiry:'ACTIVE'})}>Bitişine 30 günden fazla <strong>{data.expiry.active}</strong></button>
             <button onClick={()=>goSubscribers({source:'LOCAL'})}>LOCAL kaynak <strong>{data.subscribers.local}</strong></button>
@@ -68,6 +81,7 @@ function DashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigat
           <button onClick={()=>goRouters({status:'DEGRADED'})}>Dikkat gerektiren <strong>{data.router_counts.degraded}</strong></button>
         <button onClick={()=>goRouters({status:'UNKNOWN'})}>Bilinmiyor <strong>{data.router_counts.unknown}</strong></button></div><p className="missing-data">Veri yok: canlı router bağlantısı, çevrimiçi abone oturumu, ölçülmüş trafik ve günlük tahsilat kaynağı bağlı değil.</p></section>
       </div>
+      <DashboardHealth/>
       <AlarmEvents mode="cards" routers={data.routers}/>
       <div className="dashboard-grid bottom-grid">
         <section className="panel router-panel"><button className="button-secondary report-entry" onClick={()=>goRouters({view:'REPORT'})}>Kullanım ve bağlantı raporu <ArrowRight size={14}/></button><div className="panel-heading"><div><div className="panel-title"><h2>Router envanteri</h2><span className="soft-count">{data.routers.length}</span></div><p>Sentetik kayıt · kaynak zamanı aşağıda gösterilir</p></div><button className="text-link" onClick={()=>goRouters()}>Tümünü gör <ArrowRight size={14}/></button></div>
@@ -75,7 +89,7 @@ function DashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigat
         </section>
         <RecentOperations data={data} onSubscriber={id=>goSubscribers({id})}/>
       </div>
-      <p className="screen-footnote daily-updated"><span><Clock3 size={14}/>Özet güncellendi: {dateTime(data.generated_at)} · Gün hesabı: Europe/Istanbul</span></p>
+      <p className="screen-footnote daily-updated"><span><Clock3 size={14}/>Özet güncellendi: {dateTime(data.generated_at)} · Her 60 saniye / odak dönüşünde yenilenir · Gün hesabı: Europe/Istanbul</span></p>
     </>}
   </div>;
 }
