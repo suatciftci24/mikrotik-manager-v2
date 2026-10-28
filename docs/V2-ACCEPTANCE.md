@@ -110,3 +110,23 @@ Aşama 8'in yerel kod ve soketsiz sözleşme kontrolleri geçti. Genel gerçek e
 | Canlı router/RADIUS/AI/üretim işlemleri | Kapsam dışı — bağlantı/işlem yok; dağıtım, migration ve restart yapılmadı |
 
 Backend kanıtı: 11 hedefli `test_mikajani` testi ve devam görevindeki ek OpenAPI testi (toplam 12). Frontend kanıtı: `frontend/tests/mikajani.test.mjs`, TypeScript/Vite build. Kaynak geçmişi değişmedikçe olay kimliği/geçmişi tekrar üretilebilir; kaynakta olmayan eski gözlemler veya ayrı bir MikAjanı kalıcı olay arşivi bu fazda sunulmaz.
+
+## Aşama 9 — gerçek yerel demo kabulü — 2026-10-28, temel `5615d6b`
+
+**Karar: BLOCKED.** Bu çalıştırmada ürün kaynaklı FAIL kanıtlanmadı; altyapı engelleri nedeniyle gerçek uçtan uca kabul tamamlanamadı. Önceki birim/sözleşme PASS sonuçları gerçek HTTP, PostgreSQL veya tarayıcı kabulü olarak devralınmadı.
+
+| Kabul adımı | Sonuç | Bu görevdeki kanıt |
+| --- | --- | --- |
+| İzole DB hedefi | PASS (yalnız yapılandırma) | Mevcut adaptör kontrolü: loopback 55432, mikrotik_manager_v2, v2_local, v2_demo |
+| PostgreSQL bağlantısı, demo şeması ve sentetik veriler | BLOCKED | Süre sınırlı tek bağlantı OperationalError / Connection unavailable; şema-marker ve kayıt sayımı sorgularına ulaşılamadı |
+| FastAPI gerçek HTTP erişimi | BLOCKED | Uvicorn startup complete mesajından sonra curl ile loopback 8000 erişimi başarısız: curl 7 / HTTP 000; süreç bu görevin sonunda durduruldu |
+| HTTP giriş, oturum/yetki, Dashboard ve detaylar | BLOCKED | API HTTP önkoşulu sağlanmadı; uygulama yanıtları alınamadı |
+| PPPoE toplu uzatma, idempotency ve audit | BLOCKED | Gerçek DB/HTTP transaction akışı çalışmadı; mevcut abone değiştirilmedi |
+| PPPoE yetki reddi ve kısmi başarısızlık | BLOCKED | Gerçek HTTP yanıtı alınamadı; tarihsel soketsiz testler bu kabulün yerine sayılmadı |
+| Raporlar ve alarmlar | BLOCKED | Gerçek kayıt/HTTP okumasına ulaşılamadı |
+| MikAjanı 7 senaryo, geçmiş ve salt okunur API sınırı | BLOCKED | Gerçek HTTP üzerinden doğrulanamadı; önceki Aşama 8 testleri yeniden çalıştırılmadı |
+| Frontend başlatma | BLOCKED | Vite tek denemede listen EPERM: 127.0.0.1:5173 |
+| Tarayıcı kritik akışları / mobil / temalar | BLOCKED | UI sunucusu açılamadı; yerel tarayıcı ve Playwright/Puppeteer yok; kurulum denenmedi |
+| Veri ve üretim izolasyonu | Korundu | Yeni özellik, migration, init/seed, veri yazma/silme, üretim erişimi veya servis restartı yapılmadı |
+
+Kabul sırasında yalnız mevcut V2 hedefi okuma amacıyla denendi; genel/system PostgreSQL veya farklı DB/port aranmadı. `--prepare-demo`/dev-db hazırlığı migration içerdiğinden çalıştırılmadı. Başlangıç öncesine denk gelebilen ilk HTTP isteğinin ardından yalnız bir startup-sonrası kontrol yapıldı; başarısız altyapı döngüsü, ASGI/httpx araştırması veya güvenlik gevşetme uygulanmadı. Ürün kodu değişmediği için geçmiş başarılı testler/build tekrar edilmedi. Gerekli sonraki koşul: izinli normal yerel ortamda mevcut V2 DB ve loopback HTTP erişimi; ardından yukarıdaki gerçek kabul adımları tamamlanmalıdır.
