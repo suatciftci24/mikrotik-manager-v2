@@ -769,3 +769,9 @@ ve readiness yönetimini kullanır. Mevcut sağlıklı servisler korunur; yalnı
 başlatılan repo süreçleri çıkışta temizlenir. Normal geliştirme modu DB kontrolü
 ve kabul veri işlemi başlatmaz. UI readiness Vite istemcisini ve `/api/ready`
 proxy kimliğini de doğrular; HTTP hazırlığı gerçek tarayıcı PASS sayılmaz.
+
+Tarayıcı kabulü Chromium indirmez: mevcut Playwright binary'sini, aynı revision'ın
+`~/.cache/ms-playwright` önbelleğini veya kurulu Linux Chrome/Chromium'u kullanır.
+Gerekirse `V2_BROWSER_EXECUTABLE` ile yerel Linux binary yolu seçilebilir.
+Uygun binary yoksa veri yazmadan Browser BLOCKED döner. Windows `.exe` dosyası
+Linux Playwright'a doğrudan verilmez; kişisel tarayıcı profili kullanılmaz.

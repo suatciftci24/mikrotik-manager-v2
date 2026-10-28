@@ -32,7 +32,5 @@ if [[ ! -f "$V2_BROWSER_TOOLS/node_modules/playwright/index.mjs" ]]; then
     printf "BROWSER BLOCKED: yerel test aracı indirilemedi; veri değiştirilmedi.\n" >&2; exit 1
   fi
 fi
-if ! node "$V2_BROWSER_TOOLS/node_modules/playwright/cli.js" install chromium; then
-  printf "BROWSER BLOCKED: Chromium hazırlanamadı; veri değiştirilmedi.\n" >&2; exit 1
-fi
+# Browser selection reuses an installed binary/cache; Chromium is never downloaded here.
 exec node frontend/tests/detailCenter.browser.mjs

@@ -1,5 +1,6 @@
 // Real browser acceptance. Writes only to two new synthetic IDs; existing records are immutable.
 import assert from 'node:assert/strict';
+import {selectBrowser} from './browserRuntime.mjs';
 import {randomUUID} from 'node:crypto';
 import {mkdirSync,writeFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
@@ -10,7 +11,7 @@ const root=new URL('../../',import.meta.url),run=randomUUID();
 const output=fileURLToPath(new URL('.local/browser-acceptance/'+run+'/',root));
 mkdirSync(output,{recursive:true});
 let browser;
-try{browser=await chromium.launch({headless:true});}catch(error){
+try{browser=await chromium.launch(selectBrowser(chromium));}catch(error){
  writeFileSync(output+'result.json',JSON.stringify({status:'BLOCKED',test_ids:[],error:String(error)},null,2));
  console.error('BROWSER BLOCKED: Chromium başlatılamadı; veri değiştirilmedi.',String(error));process.exit(1);
 }
