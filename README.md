@@ -632,3 +632,35 @@ DB connections. Existing subscribers are untouched. Each explicit run with this 
 creates a new pair; omit the flag for repair/read-only HTTP verification without
 additional acceptance accounts. Read the command's DB/HTTP/PPPoE PASS or BLOCKED
 output; a successful helper/build/unit test alone is not real integration acceptance.
+
+## Final PPPoE acceptance on an already running local demo
+
+Once the local V2 DB/API/UI are working, run in a **normal WSL terminal**:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && ./accept-demo.sh
+```
+
+This command performs no repair, schema/seed, service restart or migration. It
+validates the isolated PostgreSQL destination and marker, fingerprints every
+existing subscriber plus audit history, and writes only to **two new, uniquely
+named PAUSED acceptance subscribers**. Existing demo subscribers are never test
+write targets. Each invocation creates a new pair and retains their records/audit.
+Planned and created IDs are printed, including IDs useful if a response is lost.
+
+The real HTTP/DB checks cover creation, catalog plan/price changes, enable/disable,
+7/15/30-day extensions, direct custom end date, two-subscriber bulk extension,
+preview without writes, confirmation/header/session rejection, replay protection,
+conflicting replay, separate audit and intentionally stale partial failure. New
+DB connections verify committed records; API list/detail and Dashboard totals
+must agree. Actual HTTP snapshots are passed to the existing frontend date,
+subscription alert, Dashboard and daily-report projection functions under Node
+22.18+ to check their results. This is not browser automation: actual dialog
+clicks, visible confirmation, and automatic rendered-screen refresh remain
+BLOCKED until separately observed in a browser.
+
+Success prints the actual check count and writes a non-secret JSON summary under
+`.local/acceptance/<run-id>.json`. Only a completed run after original-record
+preservation checks prints `PPPoE API/DB PASS`; an infrastructure obstacle is
+BLOCKED and an unexpected HTTP/domain assertion is FAIL. Unit tests of the runner
+are not a substitute for running this command against the real local services.

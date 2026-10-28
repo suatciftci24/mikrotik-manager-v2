@@ -1,0 +1,22 @@
+// Live HTTP snapshots supplied by the Python acceptance runner; no fixture fallback.
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {buildDailySummary} from '../src/lib/dailySummary.ts';
+import {buildSubscriptionAlerts} from '../src/lib/subscriptionAlerts.ts';
+import {buildManagementReport} from '../src/lib/managementReport.ts';
+import {extensionDate} from '../src/lib/quick.ts';
+import {turkeyToday} from '../src/lib/expiry.ts';
+const data=JSON.parse(readFileSync(0,'utf8'));
+const now=new Date(data.now),items=data.details.map(d=>d.item);
+assert.equal(data.test_ids.length,2);
+assert.deepEqual(buildSubscriptionAlerts(items,turkeyToday(now)),data.expected_alerts);
+const daily=buildDailySummary(data.routers,data.details,now);
+assert.equal(daily.subscribers.total,items.length);
+assert.equal(daily.subscribers.paused,items.filter(i=>i.status==='PAUSED').length);
+assert.equal(daily.operations.total,data.details.reduce((n,d)=>n+d.history.length,0));
+const report=buildManagementReport({routers:data.routers,details:data.details,events:null},{period:'LAST_7',router:'',kind:'ALL'},now);
+const history=data.details.filter(d=>data.test_ids.includes(d.item.id)).flatMap(d=>d.history);
+assert.deepEqual(new Set(report.operations.filter(e=>data.test_ids.includes(e.subscriber_id)).map(e=>e.id)),new Set(history.map(e=>e.id)));
+for(const kind of ['CREATE','PLAN_CHANGE','STATUS_CHANGE','RENEWAL','DATE_EDIT'])assert.ok(history.some(e=>e.operation===kind));
+for(const preview of data.previews)if(preview.days!==null)assert.equal(extensionDate(preview.old,preview.today,preview.days),preview.new);
+console.log('PROJECTION PASS: gerçek HTTP verisiyle uyarılar, Dashboard, günlük rapor işlem kimlikleri ve frontend uzatma önizlemesi. Tarayıcı testi değildir.');

@@ -152,3 +152,26 @@ cd ~/Codex-Projects/mikrotik-manager-v2 && ./repair-demo.sh --check-writes
 ```
 
 Komutun yazma doğrulaması her çalıştırmada iki yeni, benzersiz sentetik kabul hesabını kalıcı bırakır; kimlikleri çıktıda gösterilir. Bayrağı çıkarmak yalnız onarım ve HTTP okuma doğrulamasını yapar. Yalnız bu açık bakım akışı gerekli yerel demo şemasını hazırlayabilir; üretim migration'ı veya uygulama başlangıcında otomatik migration yoktur. Yardımcının DB PASS / HTTP PASS / PPPoE PASS çıktıları alınmadan bu kabul matrisi PASS'e çevrilmez.
+
+## Aşama 9 — son PPPoE kabulü, çalışan WSL ortamı — 2026-10-28
+
+Kullanıcının WSL doğrulaması: PostgreSQL/API/UI çalışıyor; 4 router, 9 sentetik abone, 7 MikAjanı bulgusu. Codex'teki tek DB/HTTP denemeleri hâlâ engelli; bu iki ortamın sonuçları karıştırılmaz.
+
+| Kapsam | Sonuç / kanıt |
+| --- | --- |
+| WSL veritabanı ve mevcut veri görünümü | PASS — kullanıcı bildirimi; bağımsız Codex DB kontrolü BLOCKED |
+| Codex gerçek HTTP / DB PPPoE son kabulü | BLOCKED — OperationalError ve loopback HTTP erişim engeli; tekrar döngüsü yok |
+| Oluşturma / paket-fiyat / ACTIVE–PAUSED / 7–15–30 gün / özel tarih | WSL komutu hazır; gerçek çalıştırma sonucu henüz yok, BLOCKED |
+| Toplu uzatma / önizlemede yazmama / onay-yetki / idempotency / audit / kısmi hata | WSL komutu hazır; gerçek çalıştırma sonucu henüz yok, BLOCKED |
+| Mevcut dokuz abonenin korunması | Çalıştırıcı bütün başlangıç kayıt/audit özetlerini karşılaştırır; yalnız iki yeni test kimliği yazma hedefi olabilir |
+| Liste/detay/Dashboard DB-HTTP uyumu, uyarı ve günlük rapor projeksiyonları | WSL komutu gerçek HTTP kayıtlarıyla denetler; bu ortamda gerçek kabul BLOCKED |
+| Tarayıcıda görünen önizleme/onay ve otomatik ekran yenilenmesi | BLOCKED — API/DB/projeksiyon testinin yerine geçirilmez; ayrı tarayıcı kanıtı gerekir |
+| Kabul çalıştırıcısı güvenlik/regresyon testleri | PASS — 5 soketsiz test; gerçek entegrasyon olarak sayılmaz |
+
+Normal WSL terminalinde V2 dev.sh oturumu çalışırken **onarım veya migration yapmadan**:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && ./accept-demo.sh
+```
+
+Komut her çalıştırmada iki yeni benzersiz pasif sentetik test abonesi bırakır; eski dokuz ve sonradan eklenmiş diğer kayıtlar değişmez. Gerçek API/DB alt kontrol sayısı başarı çıktısında, test kimlikleri ve mevcut kayıt koruma sonucu `.local/acceptance/<run-id>.json` raporunda bulunur. Bu ortamda tamamlanan gerçek PPPoE uçtan uca senaryo sayısı 0'dır. WSL komutunun sonucu alınmadan bu matris toplu PASS'e çevrilmez. Frontend hesapları gerçek HTTP verileriyle kontrol edilse de tarayıcı davranışı ayrıca doğrulanmalıdır.
