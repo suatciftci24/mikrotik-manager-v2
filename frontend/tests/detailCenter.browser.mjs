@@ -36,10 +36,42 @@ try{
  await page.goto('/#module=dashboard');
  await page.getByRole('heading',{name:'MikAjanı · ağ operasyonları',exact:true}).waitFor();
  await page.getByRole('region',{name:'Operasyon WAN ve IPsec özeti',exact:true}).waitFor();
- await page.getByRole('link',{name:/^P2 · /}).click();
- await page.getByLabel('MikAjanı öncelik filtresi',{exact:true}).waitFor();
- ok('Dashboard MikAjanı P2 bağlantısı filtreyi koruyor',await page.getByLabel('MikAjanı öncelik filtresi',{exact:true}).inputValue()==='P2');
- ok('Dashboard MikAjanı aktif yaşam döngüsü',await page.getByLabel('MikAjanı yaşam döngüsü filtresi',{exact:true}).inputValue()==='ACTIVE');
+ for(const priority of ['P1','P2','P3','P4']){
+  const summary=page.getByLabel('MikAjanı öncelik filtreleri',{exact:true})
+    .getByRole('link',{name:new RegExp('^'+priority+' · [0-9]+$')});
+  await summary.waitFor();assert.equal(await summary.count(),1,priority+' tek özet bağlantısı');
+  assert.equal(await summary.getAttribute('href'),'#module=mikajani&priority='+priority+'&state=ACTIVE');
+  await summary.click();
+  await page.getByLabel('MikAjanı öncelik filtresi',{exact:true}).waitFor();
+  ok('Dashboard MikAjanı '+priority+' bağlantısı filtreyi koruyor',await page.getByLabel('MikAjanı öncelik filtresi',{exact:true}).inputValue()===priority);
+  ok(priority+' aktif yaşam döngüsü',await page.getByLabel('MikAjanı yaşam döngüsü filtresi',{exact:true}).inputValue()==='ACTIVE');
+  await page.goto('/#module=dashboard');
+ }
+ await page.getByRole('region',{name:'Operasyon WAN ve IPsec özeti',exact:true}).waitFor();
+ const eventLinks=await page.getByRole('region',{name:'MikAjanı operasyon özeti',exact:true})
+  .locator('a[href*="&event="]').evaluateAll(links=>links.map(link=>({href:link.getAttribute('href'),name:link.textContent})));
+ const mika=await api('/v1/mikajani/analysis');
+ assert.equal(eventLinks.length,Math.min(5,mika.events.filter(event=>event.state!=='RESOLVED').length));
+ ok('Dashboard açık olay bağlantıları kayıtlı aktif listeyle eşleşiyor',true);
+ for(const link of eventLinks){
+  const eventLink=page.getByRole('region',{name:'MikAjanı operasyon özeti',exact:true}).locator('a[href='+JSON.stringify(link.href)+']');
+  await eventLink.click();
+  const dialog=page.getByRole('dialog',{name:link.name,exact:true});await dialog.waitFor();
+  ok('Dashboard olay bağlantısı doğru kanıt detayını açıyor: '+new URLSearchParams(link.href.slice(1)).get('event'),await dialog.isVisible());
+  await dialog.getByRole('button',{name:'Kapat',exact:true}).click();
+  await page.goto('/#module=dashboard');
+ }
+ const inventory=(await api('/v1/routers')).items;
+ for(const [status,label]of [['ONLINE','Online kayıtlı routerları göster'],['OFFLINE','Offline kayıtlı routerları göster'],['UNKNOWN','Durumu bilinmeyen routerları göster']]){
+  await page.getByRole('button',{name:label,exact:true}).click();
+  const table=page.getByRole('region',{name:'Router envanter tablosu',exact:true});await table.waitFor();
+  ok('Dashboard router filtresi '+status,new URLSearchParams(new URL(page.url()).hash.slice(1)).get('status')===status);
+  const rows=await table.locator('tbody tr').allTextContents();
+  const expected=inventory.filter(router=>(['ONLINE','OFFLINE','DEGRADED'].includes(router.status)?router.status:'UNKNOWN')===status);
+  assert.equal(rows.length,expected.length);
+  for(const router of expected)assert.ok(rows.some(row=>row.includes(router.name)),router.name);
+  await page.goto('/#module=dashboard');
+ }
  await page.goto('/#module=dashboard');
  await page.getByRole('button',{name:/^15 gün içinde bitecek/}).click();
  ok('Dashboard 15 gün bağlantısı doğru abone filtresini açıyor',await page.getByLabel('Abonelik bitiş filtresi',{exact:true}).inputValue()==='WITHIN_15');
@@ -49,6 +81,7 @@ try{
  ok('Mobil operasyon Dashboard body taşması yok',await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
  await page.screenshot({path:output+'dashboard-390.png'});
  await page.setViewportSize({width:1440,height:1000});
+ if(process.env.V2_BROWSER_DASHBOARD_ONLY!=='1'){
  const options=await api('/v1/subscribers/demo-options'),router=options.routers[0];
  assert.ok(options.plans.length>=2);
  for(let i=0;i<2;i++){
@@ -146,6 +179,7 @@ try{
   ok(width+'px router detayında body taşması yok',await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
   await page.screenshot({path:output+`router-${width}.png`});
  }
+ } // Full detail/QuickActions acceptance; dashboard-only mode performs no mutations.
  for(const [id,originalDetail]of baseline)assert.deepEqual(await api('/v1/subscribers/'+id),originalDetail,'Eski abone/audit değişti: '+id);
  ok('Başlangıçtaki bütün abone/audit kayıtları korundu',true);
  const result={status:'PASS',run_id:run,checks,test_ids:created.map(s=>s.id),preserved_existing:baseline.size};

@@ -40,3 +40,23 @@ test('15-day cumulative count exactly matches target subscriber filter including
  assert.equal(data.expiry.within_15,dates.filter(date=>matchesExpiry(date,'WITHIN_15',today)).length);
  assert.equal(data.expiry.within_7,2);assert.equal(data.expiry.within_30,4);
 });
+
+
+test('priority summary scope stays unique with two same-priority event links',()=>{
+ const data={...analysis,events:[event('p2-one','P2','OPEN',['r&1']),event('p2-two','P2','UPDATED',['r&1'])]};
+ function nodes(element){return element&&typeof element==='object'?[element,...React.Children.toArray(element.props?.children).flatMap(nodes)]:[];}
+ const tree=nodes(DashboardHealthView({data}));
+ const text=node=>React.Children.toArray(node.props?.children).join('');
+ const scopes=tree.filter(node=>node.props?.['aria-label']==='MikAjanı öncelik filtreleri');
+ assert.equal(scopes.length,1);
+ const summaries=nodes(scopes[0]).filter(node=>node.type==='a');
+ for(const priority of ['P1','P2','P3','P4']){
+  const found=summaries.filter(link=>new RegExp('^'+priority+' · [0-9]+$').test(text(link)));
+  assert.equal(found.length,1);
+  assert.equal(found[0].props.href,'#module=mikajani&priority='+priority+'&state=ACTIVE');
+ }
+ assert.equal(tree.filter(node=>node.type==='a'&&/^P2 · /.test(text(node))).length,3);
+ const eventLinks=tree.filter(node=>node.type==='a'&&node.props.href.includes('&event='));
+ assert.equal(eventLinks.length,2);
+ assert.deepEqual(eventLinks.map(link=>new URLSearchParams(link.props.href.slice(1)).get('event')),['p2-one','p2-two']);
+});
