@@ -74,3 +74,16 @@ class SubscriberList(BaseModel):
     items: list[SubscriberRecord]
     total: int
     is_demo: Literal[True]
+
+
+class QuickResult(BaseModel):
+    item_id: str
+    success: bool
+    result: SubscriberDetail | None = None
+    status: int | None = None
+    error: str | None = None
+
+
+class QuickBatchResponse(BaseModel):
+    results: list[QuickResult]
+    is_demo: Literal[True]

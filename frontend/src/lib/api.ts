@@ -43,6 +43,7 @@ export type DashboardData = {
 };
 
 export type SubscriberHistoryEvent = {
+  action?: string; previous_plan?: string; plan?: string; previous_status?: string; status?: string;
   id: string; occurred_at: string; previous_expires_on?: string | null; expires_on?: string | null;
   previous_values?: Record<string, string | number | null>; new_values?: Record<string, string | number | null>;
   actor_id: string;

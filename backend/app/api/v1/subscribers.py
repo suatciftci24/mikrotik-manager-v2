@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.schemas.details import SubscriberDetail, SubscriberList
+from app.schemas.details import SubscriberDetail, SubscriberList, QuickBatchResponse
 from app.services.details import subscriber_detail
 from app.core.security import current_demo_user, current_demo_mutator, current_demo_account_mutator
 from app.services import demo_subscriptions
-from app.schemas.subscriber_events import ExpiryChange
+from app.schemas.subscriber_events import ExpiryChange, QuickBatch
 from app.schemas.subscriber_management import SubscriberCreate, SubscriberChange, DemoOptions
 from app.services.demo_management import demo_plans
 from app.services.demo_data import ROUTERS
@@ -62,3 +62,24 @@ def change_demo_expiry(item_id: str, payload: ExpiryChange, user: dict = Depends
         return demo_subscriptions.store.change_expiry(item_id, payload, user['id'])
     except demo_subscriptions.DemoChangeError as error:
         raise HTTPException(status_code=error.status_code, detail=error.detail) from error
+
+
+@router.post('/demo-quick', response_model=QuickBatchResponse)
+def quick_batch(payload: QuickBatch, user: dict = Depends(current_demo_mutator)):
+    entries = payload.entries
+    if len({e.item_id for e in entries}) != len(entries) or len({str(e.change.request_id) for e in entries}) != len(entries):
+        raise HTTPException(422, 'Tekrarlanan abone veya işlem kimliği.')
+    if len(entries) > 1 and (len({e.change.router_id for e in entries}) != 1 or any(e.change.action != 'EXTEND' for e in entries)):
+        raise HTTPException(422, 'Toplu işlem yalnız aynı router üzerinde uzatma içindir.')
+    results = []
+    for entry in entries:
+        if entry.change.action == 'CREATE' and entry.item_id != f'demo-sub-{entry.change.request_id}':
+            raise HTTPException(422, 'Sentetik oluşturma kimliği geçersiz.')
+        try:
+            result = demo_subscriptions.store.change_expiry(entry.item_id, entry.change, user['id'])
+            results.append({'item_id': entry.item_id, 'success': True, 'result': result})
+        except demo_subscriptions.DemoChangeError as error:
+            results.append({'item_id': entry.item_id, 'success': False, 'status': error.status_code, 'error': error.detail})
+        except demo_subscriptions.DemoStorageUnavailable:
+            results.append({'item_id': entry.item_id, 'success': False, 'status': 503, 'error': 'Demo saklama erişilemiyor; aynı isteği tekrar deneyin.'})
+    return {'results': results, 'is_demo': True}

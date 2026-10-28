@@ -82,12 +82,19 @@ class PostgresDemoStore:
         try:
             with self.engine.begin() as connection:
                 self._verify(connection)
+                connection.execute(text('SELECT pg_advisory_xact_lock(hashtextextended(:id,0))'), {'id': item_id})
+                if getattr(change, 'action', None) == 'CREATE':
+                    connection.execute(text(f'LOCK TABLE {self.schema}.subscribers IN SHARE ROW EXCLUSIVE MODE'))
                 item = self._item(connection, item_id, lock=True)
                 cached = self._request(connection, request_id, fingerprint)
                 if cached is not None:
                     return deepcopy(cached)
-                updated, event = calculate_change(item, change, actor_id)
-                response = self._persist(connection, updated, event, fingerprint)
+                items = list(connection.execute(text(f'SELECT payload FROM {self.schema}.subscribers')).scalars()) if getattr(change, 'action', None) == 'CREATE' else None
+                updated, event = calculate_change(item, change, actor_id, items)
+                updated['id'] = item_id
+                if hasattr(change, 'action'):
+                    event['subscriber_id'] = item_id
+                response = self._persist(connection, updated, event, fingerprint, create=item is None)
                 # No success is returned until context-manager COMMIT completes.
             return response
         except IntegrityError:
