@@ -718,17 +718,20 @@ query/router/plan filters remain in URL context across details and reload.
 
 Stage 9's local JSON artifact confirms **110 HTTP/PostgreSQL checks PASS and 9
 original subscribers preserved**. Stage 10 browser interactions are separate.
-With the V2 UI/API already running in normal WSL, execute one browser acceptance
-step:
+With the V2 UI running in normal WSL, execute one browser acceptance step. The
+existing Stage 9 manager reuses a ready API or starts its own temporary API if absent:
 
 ```bash
 cd ~/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh
 ```
 
-The wrapper first checks local V2 API/UI availability. On first use it downloads
-only Playwright/Chromium test tools into ignored `.local/browser-tools`; it does
-not alter app dependencies, install system libraries, start/restart services,
-prepare schemas or seed data. Tool/browser/network restrictions stop with BLOCKED.
+The wrapper delegates API ownership/readiness to the same `ManagedAPI` used by
+`./dev.sh --accept-demo`; no second API launcher exists. A ready existing API is
+never stopped; only a child started by this command is cleaned up on success or
+failure. UI port 5173 must already be running; this command does not restart UI or
+DB services. On first use it downloads only Playwright/Chromium test tools into
+ignored `.local/browser-tools`; it does not alter app dependencies, install system
+libraries, prepare schemas or seed data. Tool/browser/network restrictions stop with BLOCKED.
 The browser blocks external page requests and follows no API redirects. It creates
 **two new, uniquely named PAUSED synthetic test subscribers**, mutates only its own
 first new record, and compares all preexisting records/audit afterward. Tests cover

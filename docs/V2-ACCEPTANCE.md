@@ -221,3 +221,24 @@ cd ~/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh
 ```
 
 İlk kullanım yalnız `.local/browser-tools` içine test aracı/Chromium indirir; uygulama bağımlılığı/sistem paketi/servis/şema değiştirmez. Ağ/Chromium/işletim sistemi bağımlılık engeli BLOCKED kalır. Komut iki yeni benzersiz pasif sentetik test abonesi oluşturur; UI üzerinden yalnız kendi yeni kimliklerinde çalışır, başlangıçtaki bütün aboneleri/audit'i koruma karşılaştırmasına alır. Önizleme iptali, onay/replay, gerçek detay/liste/uyarı/Dashboard/rapor güncellemesi, filtreli geri dönüş ve 320/390 px kontrolleri hazırdır. Gerçek sonuç ve görüntüler `.local/browser-acceptance/<run-id>/` altındadır; betiğin varlığı veya statik render PASS'i tarayıcı PASS sayılmaz. Üretim, gerçek cihaz/RADIUS ve deploy/migration/restart kapsam dışı kalır.
+
+## Aşama 10 — ABSENT sonrası ortak API başlatma düzeltmesi — 2026-10-28
+
+**Kök neden:** Aşama 9 geçici API'si kabul sonunda kapanır. Eski tarayıcı wrapper'ı aynı API yöneticisini kullanmadan hazır bir API bekliyordu; ABSENT bu varsayımı açığa çıkardı.
+
+| Kapsam | Sonuç |
+| --- | --- |
+| Aşama 9 ManagedAPI/readiness yeniden kullanımı | Tamamlandı — demo_api_runner --browser, aynı sınıf ve sahip olunan çocuk cleanup'ı; ikinci başlatma altyapısı yok |
+| Hazır mevcut API korunması / yalnız kendi geçici API'si | Mevcut yaşam döngüsü korunur; yanlış servis/izin engelinde worker çalışmaz, restart/kill yok |
+| Browser dispatch ve hata/cleanup | PASS — 5 yeni soketsiz hedefli test; Aşama 9 varsayılan dispatch de korunur |
+| Shell/browser syntax | PASS |
+| Gerçek tarayıcı, detaylar, QuickActions/audit/otomatik yenileme | BLOCKED — tek Codex denemesi ortak readiness'in sandbox izin engelinde durdu; HTTP/projeksiyon sonuçları browser PASS sayılmadı |
+| Eski 9 abone/audit | Bu görevde veri erişimi/yazması yok; browser worker yalnız yeni test kimliklerinde çalışacak şekilde korunur |
+
+Normal WSL terminalinde **UI çalışırken**, API kapalı olsa da tek komut:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh
+```
+
+Komut hazır API'yi kullanır veya ortak yöneticiyle geçici V2 API açar. Yalnız kendi başlattığı API temizlenir; mevcut API/UI/DB'ye restart uygulanmaz. UI 5173 kapalıysa ayrı açık hata ile BLOCKED kalır. Gerçek browser result.json/görüntüleri alınmadan tarayıcı kabulü PASS'e çevrilmez; geçmiş Aşama 9 110 HTTP/PostgreSQL PASS kanıtı ayrı kalır.

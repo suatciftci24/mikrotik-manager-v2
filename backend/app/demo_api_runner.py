@@ -57,10 +57,14 @@ class ManagedAPI:
 
 
 def main(argv=None):
-    parser=argparse.ArgumentParser(description='Yerel V2 API hazırsa kullanır; kapalıysa yalnız kendi geçici API sürecini açıp iki yeni sentetik aboneyle kabul çalıştırır. Mevcut süreç/veri değiştirilmez.')
-    parser.parse_args(argv)
+    parser=argparse.ArgumentParser(description='Ortak yerel V2 API yöneticisi: mevcut API korunur; gerekirse sadece kendi geçici API sürecini açar ve seçilen kabulü çalıştırır.')
+    parser.add_argument('--browser',action='store_true',help='Aynı ManagedAPI yaşam döngüsü içinde gerçek tarayıcı kabulünü çalıştırır; UI zaten çalışıyor olmalı.')
+    args=parser.parse_args(argv)
     try:
         with ManagedAPI():
+            if args.browser:
+                # The worker rechecks readiness, but never starts a second API owner.
+                return subprocess.run([str(ROOT/'browser-accept-demo.sh'),'--with-ready-api'],cwd=ROOT).returncode
             from app.demo_acceptance import main as accept
             return accept([])
     except (RepairBlocked,OSError,subprocess.SubprocessError) as failure:
