@@ -69,3 +69,13 @@ def integration_resilience(user:dict=Depends(current_admin)):
 def sync_simulator(page:int=Query(1,ge=1,le=1000000),page_size:int=Query(5,ge=1,le=5),user:dict=Depends(current_admin)):
     from app.simulation.report import read_report
     return read_report(user,page,page_size)
+
+@router.get('/system/integration-management')
+def integration_management(router_id:str='',page:int=Query(1,ge=1,le=1000000),page_size:int=Query(10,ge=1,le=25),user:dict=Depends(current_admin)):
+    from app.integrations.planning import inventory
+    return inventory(user,router_id,page,page_size)
+
+@router.get('/system/integration-management/{router_id}')
+def integration_management_detail(router_id:str,user:dict=Depends(current_admin)):
+    from app.integrations.planning import detail
+    return detail(user,router_id)

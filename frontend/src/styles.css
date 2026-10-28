@@ -156,3 +156,4 @@ input::placeholder{color:var(--muted);opacity:1}
 /* Nested health cards must wrap source identifiers instead of widening the page. */
 .settings-health>.panel{overflow-wrap:anywhere}
 .simulator-panel,.simulator-panel .panel{min-width:0;overflow-wrap:anywhere}.simulator-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px}.simulator-panel details p{white-space:normal}
+.integration-management,.integration-management .panel{min-width:0;overflow-wrap:anywhere}.integration-management input{min-width:0;max-width:100%;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text);padding:8px}.integration-management label{display:flex;flex-wrap:wrap;gap:8px}.integration-management button{white-space:normal;max-width:100%}
