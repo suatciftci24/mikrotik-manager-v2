@@ -24,6 +24,7 @@ class RouterRecord(BaseModel):
 
 
 class SubscriberRecord(BaseModel):
+    can_manage_pppoe: bool = False
     id: str
     access_type: Literal['PPPOE'] | None = None
     router_id: str | None = None
@@ -64,6 +65,7 @@ class RouterDetail(BaseModel):
 
 
 class SubscriberDetail(BaseModel):
+    history_available: bool = True
     item: SubscriberRecord
     history: list[SubscriberHistoryEvent] = Field(default_factory=list)
     persistence: Literal['process-memory', 'local-postgresql-demo'] = 'process-memory'

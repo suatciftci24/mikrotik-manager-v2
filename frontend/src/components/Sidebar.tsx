@@ -5,7 +5,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 export type ScreenKey = 'dashboard' | 'routers' | 'subscribers' | 'radius' | 'operations' | 'mikajani' | 'system';
-export type User = { id: string; name: string; email: string; role: string; is_demo: boolean };
+export type User = { id: string; name: string; email: string; role: string; role_code?:'ADMIN'|'VIEWER';can_manage_users?:boolean;active?:boolean;revision?:number;username?:string;permissions?:Record<string,Record<string,boolean>>; is_demo: boolean };
 
 const nav: { key: ScreenKey; label: string; icon: LucideIcon; group: string }[] = [
   { key: 'dashboard', label: 'Genel Bakış', icon: LayoutDashboard, group: 'WORKSPACE' },
@@ -29,7 +29,7 @@ export function Sidebar({ active, onNavigate, user, onLogout }: {
     </button>
     <button className="workspace-switch"><span className="workspace-dot" /><span><strong>Demo çalışma alanı</strong><small>Yerel geliştirme</small></span><ChevronDown size={15} /></button>
     <div className="side-label">ÇALIŞMA ALANI</div>
-    <div className="nav-list">{nav.map(item => {
+    <div className="nav-list">{nav.filter(item=>item.key!=='system'||user.can_manage_users===true).map(item => {
       const first = item.group !== group; group = item.group;
       const Icon = item.icon;
       return <div key={item.key}>{first && <div className="nav-group">{item.group}</div>}

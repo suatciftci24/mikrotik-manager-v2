@@ -1,3 +1,4 @@
+from app.services.identity import bootstrap,public_user
 """Seed/projection regression checks, no PostgreSQL or sockets."""
 from copy import deepcopy
 from unittest import TestCase
@@ -109,7 +110,7 @@ class DemoIntegrationSeed(TestCase):
         with patch('app.services.demo_subscriptions.store') as store:
             store.list_items.return_value = items
             from app.api.v1.router_events import list_router_events
-            self.assertEqual(list_router_events({'is_demo': True}), events)
+            self.assertEqual(list_router_events(public_user(bootstrap())), events)
             detail = router_detail(items[0]['router_id'])
             self.assertEqual(detail['assigned_subscribers'], [items[0]])
             self.assertEqual(detail['item']['wan_snapshot']['ip'], '192.0.2.101')

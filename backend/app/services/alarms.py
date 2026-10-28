@@ -47,7 +47,7 @@ def combine(records,actions,user_id):
     return sorted(result,key=lambda row:(row['state']=='RESOLVED',row['severity'],row['id']))
 
 
-def project_alarms(items,routers,actions,user_id,now=None):
+def project_alarms(items,routers,actions,user_id,now=None,mika_routers=None):
     now=now or datetime.now(timezone.utc)
     if any(item.get('is_demo') is not True for item in items):raise ValueError('Synthetic source required')
     records=[]
@@ -63,7 +63,10 @@ def project_alarms(items,routers,actions,user_id,now=None):
             occurrence_id=row['id'],first_seen=row['occurred_at'],last_seen=row.get('last_observed_at') or lifecycle['ended_at'] or row['occurred_at'],
             source_state=state,title={'WAN_DOWN':'Kaydedilmiş internet kesintisi','WAN_RECOVERED':'Kaydedilmiş bağlantı geri gelmesi','WAN_CHANGED':'Kaydedilmiş WAN değişikliği'}[kind],
             evidence='Sentetik internet olay kaydı: '+row['id'],source='router-events',source_id=row['id'],lifecycle=lifecycle))
-    analysis=analyze(routers,project_saved(routers,items),now)
+    from app.core.authorization import router_id
+    mika_scope=routers if mika_routers is None else mika_routers
+    mika_items=[row for row in items if router_id(row) in {r['id'] for r in mika_scope}]
+    analysis=analyze(mika_scope,project_saved(mika_scope,mika_items),now)
     for event in analysis.events:
         if event.domain not in ('ROUTER','IPSEC','CORRELATION'):continue
         for rid in event.affected_router_ids:

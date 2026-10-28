@@ -15,6 +15,7 @@ from app.services.demo_data import SUBSCRIBERS
 from app.services.demo_subscriptions import DemoSubscriptionStore, DemoStorageUnavailable
 from app.adapters.demo_subscriptions import PostgresDemoStore
 from app.main import app
+from app.services.identity import bootstrap,public_user
 
 
 class AcceptanceSecurity(TestCase):
@@ -22,6 +23,9 @@ class AcceptanceSecurity(TestCase):
         session_patch = patch('app.core.security._sessions', set())
         session_patch.start()
         self.addCleanup(session_patch.stop)
+        self.user=public_user(bootstrap())
+        identity_patch=patch('app.core.security.find_user',side_effect=lambda key,by_username=False:bootstrap() if key==('demo' if by_username else 'demo-user') else None)
+        identity_patch.start();self.addCleanup(identity_patch.stop)
         self.store = DemoSubscriptionStore(SUBSCRIBERS)
         storage_patch = patch('app.services.demo_subscriptions.store', self.store)
         storage_patch.start()
@@ -41,7 +45,7 @@ class AcceptanceSecurity(TestCase):
         self.assertEqual(cookie['samesite'].lower(),'strict')
         self.assertEqual(cookie['path'],'/api')
         self.assertEqual(cookie['max-age'],'28800')
-        self.assertEqual(set(UserResponse.model_validate(user).model_dump()),{'id','name','email','role','is_demo'})
+        self.assertEqual(set(UserResponse.model_validate(user).model_dump()),{'id','name','email','role','is_demo','username','role_code','active','revision','permissions','can_manage_users'})
         self.assertTrue(user['is_demo'])
         self.assertEqual(auth.me(current_demo_user(cookie.value)),user)
         auth.logout(Response(),cookie.value)
@@ -73,13 +77,13 @@ class AcceptanceSecurity(TestCase):
     def test_valid_creation_is_closed_when_persistent_storage_is_missing(self):
         command=SubscriberCreate.model_validate(dict(customer_name='Sentetik Kabul',username='demo.acceptance',source='LOCAL',router_id='demo-router-001',plan='Fiber 100',confirmed=True,request_id='4ab81a94-d106-44c5-8eb2-09ec651fd953'))
         with self.assertRaises(HTTPException) as error:
-            subscribers.create_demo_subscriber(command,{'id':'demo-user'})
+            subscribers.create_demo_subscriber(command,self.user)
         self.assertEqual(error.exception.status_code,503)
         self.assertEqual(len(self.store.list_items()),7)
 
     def test_compatibility_summary_reads_saved_counts_and_does_not_invent_telemetry(self):
         with patch.object(self.store,'list_items',return_value=SUBSCRIBERS[:2]):
-            data=dashboard.dashboard_summary({'is_demo':True})
+            data=dashboard.dashboard_summary(self.user)
         self.assertEqual(data['summary']['subscribers_total'],2)
         self.assertEqual(data['summary']['local_accounts'],1)
         self.assertEqual(data['summary']['radius_accounts'],1)
@@ -90,7 +94,7 @@ class AcceptanceSecurity(TestCase):
             self.assertIsNone(data[key])
         with patch.object(self.store,'list_items',side_effect=DemoStorageUnavailable):
             with self.assertRaises(DemoStorageUnavailable):
-                dashboard.dashboard_summary({'is_demo':True})
+                dashboard.dashboard_summary(self.user)
 
     def test_destination_isolation_rejects_external_v1_and_arbitrary_schemas_before_io(self):
         base='postgresql+psycopg://v2_local:v2_local@127.0.0.1:55432/mikrotik_manager_v2'

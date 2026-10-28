@@ -13,8 +13,7 @@ def demo_login(payload: DemoLogin, response: Response):
     token = login_demo(payload.username, payload.password)
     response.set_cookie('v2_session', token, httponly=True, secure=settings.session_secure,
                         samesite='strict', max_age=8 * 60 * 60, path='/api')
-    from app.core.security import _DEMO_USER
-    return _DEMO_USER
+    return current_demo_user(token)
 
 
 @router.get('/me', response_model=UserResponse)

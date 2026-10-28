@@ -12,3 +12,9 @@ class UserResponse(BaseModel):
     email: str
     role: str
     is_demo: bool
+    username: str = ''
+    role_code: str = 'VIEWER'
+    active: bool = True
+    revision: int = 0
+    permissions: dict[str,dict[str,bool]] = Field(default_factory=dict)
+    can_manage_users: bool = False

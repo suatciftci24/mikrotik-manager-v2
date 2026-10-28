@@ -1,3 +1,4 @@
+from app.core.authorization import routers_for,items_for,require_feature,is_admin
 """Authenticated GET-only analysis. No command endpoints or external AI client."""
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -11,14 +12,17 @@ from app.services.mikajani_sources import SCENARIOS, project_saved, scenario_ana
 router = APIRouter(prefix='/mikajani', tags=['mikajani-read-only'], dependencies=[Depends(current_demo_user)])
 
 
-def analysis(scenario: str | None = Query(default=None)) -> Analysis:
+def analysis(scenario: str | None = Query(default=None),user:dict=Depends(current_demo_user)) -> Analysis:
+    require_feature(user,'can_use_mikajani')
     if scenario is not None:
+        if not is_admin(user) or len(routers_for(user,'can_use_mikajani'))!=len(ROUTERS):raise HTTPException(403,'Senaryo erişim yetkisi gerekli')
         if scenario not in SCENARIOS:
             raise HTTPException(422, 'Bilinmeyen sentetik senaryo.')
         return scenario_analysis(scenario)
     try:
-        items = demo_subscriptions.store.list_items()
-        return analyze(ROUTERS, project_saved(ROUTERS,items), datetime.now(timezone.utc))
+        items = items_for(demo_subscriptions.store.list_items(),user,'can_use_mikajani')
+        routers=routers_for(user,'can_use_mikajani')
+        return analyze(routers, project_saved(routers,items), datetime.now(timezone.utc))
     except (demo_subscriptions.DemoStorageUnavailable, ValueError):
         raise HTTPException(503, 'Kayıtlı sentetik kaynak okunamadı veya kanıt tutarsız. Senaryolar ayrı kaynaktır.') from None
 
@@ -55,5 +59,6 @@ def recommendations(result: Analysis = Depends(analysis)):
 
 
 @router.get('/scenarios')
-def scenarios():
+def scenarios(user:dict=Depends(current_demo_user)):
+    if not is_admin(user) or len(routers_for(user,'can_use_mikajani'))!=len(ROUTERS):return {'items':[],'is_demo':True,'read_only':True}
     return {'items':[{'key':key,'name':name} for key,name in SCENARIOS.items()],'is_demo':True,'read_only':True}

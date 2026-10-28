@@ -11,7 +11,7 @@ export function operationFilter(hash:string,now=new Date()):ReportFilter{
 export function operationQuery(filter:ReportFilter){return new URLSearchParams({...filter,page:String(filter.page)}).toString();}
 export function operationHash(filter:ReportFilter){return '#module=dashboard&view=OPERATIONS_REPORT&'+operationQuery(filter);}
 export type ConnectionRecord=RouterEvent&{lifecycle:AlarmEvent};
-export type OperationReportData={items:(DailyOperation|ConnectionRecord|MikaEvent)[];routers:Router[];total:number;page:number;page_size:number;read_at:string;from_at:string;until_at:string;connections_available:boolean;is_demo:true;read_only:true;summary:{subscribers:number;active:number;paused:number;activated:number;deactivated:number;operations:number;failures:null;open_events:number;connections:number|null;router_status:Record<string,number>}};
+export type OperationReportData={items:(DailyOperation|ConnectionRecord|MikaEvent)[];routers:Router[];total:number;page:number;page_size:number;read_at:string;from_at:string;until_at:string;connections_available:boolean;is_demo:true;read_only:true;summary:{subscribers:number;active:number;paused:number;activated:number;deactivated:number;operations:number;failures:null;open_events:number|null;connections:number|null;router_status:Record<string,number>}};
 export function operationDetailHash(module:'routers'|'subscribers',id:string,filter:ReportFilter){return '#'+new URLSearchParams({module,id,report_start:filter.start,report_end:filter.end,report_router:filter.router_id});}
 export function detailOperationHash(kind:'routers'|'subscribers',id:string,hash:string){
  const p=new URLSearchParams(hash.replace(/^#/,'')),base=operationFilter('');

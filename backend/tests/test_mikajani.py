@@ -10,6 +10,7 @@ from app.services.demo_data import ROUTERS
 from app.services.demo_subscriptions import DemoStorageUnavailable
 from app.api.v1 import mikajani
 from app.main import app
+from app.services.identity import bootstrap,public_user
 from app.core.security import current_demo_user
 
 
@@ -107,12 +108,12 @@ class MikaAnalysisTests(TestCase):
         self.assertEqual(failure.exception.status_code,401)
         with patch('app.services.demo_subscriptions.store') as store:
             store.list_items.side_effect=DemoStorageUnavailable()
-            with self.assertRaises(HTTPException) as failure:mikajani.analysis(None)
+            with self.assertRaises(HTTPException) as failure:mikajani.analysis(None,public_user(bootstrap()))
             self.assertEqual(failure.exception.status_code,503)
-            scenario=mikajani.analysis('ipsec')
+            scenario=mikajani.analysis('ipsec',public_user(bootstrap()))
             self.assertEqual(scenario.source,'scenario:ipsec')
             store.list_items.assert_called_once()
-        with self.assertRaises(HTTPException):mikajani.analysis('invalid')
+        with self.assertRaises(HTTPException):mikajani.analysis('invalid',public_user(bootstrap()))
         self.assertTrue(all(e.state!='RESOLVED' for e in mikajani.events(scenario)))
         self.assertEqual(mikajani.history(scenario),scenario.events)
         self.assertEqual(mikajani.recommendations(scenario),mikajani.events(scenario))

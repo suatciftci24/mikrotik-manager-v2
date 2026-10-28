@@ -29,7 +29,7 @@ def snapshot(adapter):
 
 
 @storage_errors
-def mutate(adapter,alarm_id,request_id,occurrence_id,action,actor_id):
+def mutate(adapter,alarm_id,request_id,occurrence_id,action,actor_id,scope=None):
     fingerprint=json.dumps([alarm_id,occurrence_id,action,actor_id],separators=(',',':'))
     with adapter.engine.begin() as connection:
         adapter._verify(connection)
@@ -42,7 +42,10 @@ def mutate(adapter,alarm_id,request_id,occurrence_id,action,actor_id):
         # Serialize against source writes so a stale occurrence cannot be acknowledged.
         connection.execute(text(f'LOCK TABLE {adapter.schema}.subscribers IN SHARE MODE'))
         items=list(connection.execute(text(f'SELECT payload FROM {adapter.schema}.subscribers')).scalars())
-        alarms,_=project_alarms(items,ROUTERS,[],actor_id)
+        from app.core.authorization import router_id
+        routers=scope['routers'] if scope is not None else ROUTERS
+        items=[item for item in items if router_id(item) in {r['id'] for r in routers}]
+        alarms,_=project_alarms(items,routers,[],actor_id,mika_routers=scope['mika_routers'] if scope is not None else None)
         alarm=next((row for row in alarms if row['id']==alarm_id),None)
         if alarm is None and action=='READ':
             archived=connection.execute(text(f'SELECT source_snapshot FROM {adapter.schema}.alarm_actions WHERE alarm_id=:alarm AND occurrence_id=:occurrence ORDER BY occurred_at DESC LIMIT 1'),dict(alarm=alarm_id,occurrence=occurrence_id)).scalar_one_or_none()

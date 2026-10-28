@@ -43,11 +43,14 @@ def connection_records(source):
     return result
 
 
-def project_report(items, routers, audits, audit_total, groups, bounds, category, router, priority, state, page, size):
+def project_report(items, routers, audits, audit_total, groups, bounds, category, router, priority, state, page, size, mika_routers=None):
     if any(item.get('is_demo') is not True for item in items):raise ValueError('Sentetik kaynak doğrulanamadı.')
     scoped=[item for item in items if not router or item.get('router_id')==router or
             (not item.get('router_id') and item.get('router_name')==next((r['name'] for r in routers if r['id']==router),None))]
-    analysis=analyze(routers,project_saved(routers,items),bounds[2])
+    from app.core.authorization import router_id
+    mika_scope=routers if mika_routers is None else mika_routers
+    mika_items=[row for row in items if router_id(row) in {r['id'] for r in mika_scope}]
+    analysis=analyze(mika_scope,project_saved(mika_scope,mika_items),bounds[2])
     connections=connection_records(router_event_records(items))
     connection_rows=None if connections is None else [row for row in connections if (not router or row['router_id']==router) and in_range(row['occurred_at'],bounds)]
     mika=[row.model_dump(mode='json') for row in analysis.events if (not router or router in row.affected_router_ids)
@@ -64,6 +67,6 @@ def project_report(items, routers, audits, audit_total, groups, bounds, category
         summary=dict(subscribers=len(scoped),active=sum(item['status']=='ACTIVE' for item in scoped),paused=sum(item['status']=='PAUSED' for item in scoped),
           operations=sum(row['total'] for row in groups),activated=sum(row['total'] for row in groups if row['operation']=='STATUS_CHANGE' and row['status']=='ACTIVE'),
           deactivated=sum(row['total'] for row in groups if row['operation']=='STATUS_CHANGE' and row['status']=='PAUSED'),failures=None,
-          open_events=len(active),connections=None if connection_rows is None else len(connection_rows),
+          open_events=len(active) if mika_scope else None,connections=None if connection_rows is None else len(connection_rows),
           router_status={status:sum((r['status'] if r['status'] in ('ONLINE','OFFLINE','DEGRADED') else 'UNKNOWN')==status for r in routers if not router or r['id']==router) for status in ('ONLINE','OFFLINE','DEGRADED','UNKNOWN')}),
         connections_available=connections is not None)

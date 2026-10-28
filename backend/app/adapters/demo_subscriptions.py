@@ -55,17 +55,23 @@ class PostgresDemoStore:
         return None
 
     @storage_errors
-    def report_records(self, start, until, cutoff, router_id, router_name, subscriber_id, operation, limit, offset):
+    def report_records(self, start, until, cutoff, router_id, router_name, subscriber_id, operation, limit, offset, scope_routers=None):
         """Bounded audit response and aggregates in one read-only snapshot; no detail fan-out."""
+        from app.services.demo_data import ROUTERS
+        scope=ROUTERS if scope_routers is None else scope_routers
+        ids=[r['id'] for r in scope]
+        names=[r['name'] for r in scope if sum(x['name']==r['name'] for x in ROUTERS)==1]
         params=dict(start=start,until=until,cutoff=cutoff,router=router_id,name=router_name,
-                    subscriber=subscriber_id,operation=operation,limit=limit,offset=offset)
+                    subscriber=subscriber_id,operation=operation,limit=limit,offset=offset,scope_ids=ids,scope_names=names)
         base=f"""FROM {self.schema}.events e JOIN {self.schema}.subscribers s ON s.id=e.subscriber_id
           WHERE (e.payload->>'occurred_at')::timestamptz >= :start
           AND (e.payload->>'occurred_at')::timestamptz < :until
           AND (e.payload->>'occurred_at')::timestamptz <= :cutoff
           AND (:router='' OR s.payload->>'router_id'=:router OR
                (s.payload->>'router_id' IS NULL AND s.payload->>'router_name'=:name))
-          AND (:subscriber='' OR s.id=:subscriber)"""
+          AND (:subscriber='' OR s.id=:subscriber)
+          AND (s.payload->>'router_id'=ANY(CAST(:scope_ids AS text[])) OR
+              (s.payload->>'router_id' IS NULL AND s.payload->>'router_name'=ANY(CAST(:scope_names AS text[]))))"""
         with self.engine.connect().execution_options(isolation_level='REPEATABLE READ') as connection:
             with connection.begin():
                 connection.execute(text('SET TRANSACTION READ ONLY'))

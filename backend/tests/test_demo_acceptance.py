@@ -16,6 +16,8 @@ from app.schemas.subscriber_management import SubscriberCreate, SubscriberChange
 from app.schemas.subscriber_events import QuickBatch
 from app.api.v1.subscribers import quick_batch
 from app.api.v1.dashboard import dashboard_summary
+from app.services.identity import bootstrap,public_user
+from app.core.authorization import public_item
 
 
 class TestStore(DemoSubscriptionStore):
@@ -37,9 +39,11 @@ class TestStore(DemoSubscriptionStore):
 
 class InProcessDriver:
     def __init__(self,store):
-        self.store=store;self.logged=False;self.cache={}
+        self.store=store;self.logged=False;self.cache={};self.user=public_user(bootstrap())
 
-    def detail(self,value):return SubscriberDetail.model_validate(value).model_dump(mode='json')
+    def detail(self,value):
+        result=SubscriberDetail.model_validate(value).model_dump(mode='json');result['item']['can_manage_pppoe']=True
+        return result
 
     def request(self,path,body=None,action=None,expected=200):
         if path=='/api/health':status,result=200,dict(environment='local-demo',database_connected=True,device_adapters_connected=False)
@@ -54,13 +58,13 @@ class InProcessDriver:
 
     def dispatch(self,path,body,action):
         if body is not None and action is None:return 403,{}
-        if path=='/api/v1/subscribers':return 200,{'items':[SubscriberRecord.model_validate(r).model_dump(mode='json') for r in self.store.list_items()]}
-        if path=='/api/v1/dashboard/summary':return 200,dashboard_summary({})
+        if path=='/api/v1/subscribers':return 200,{'items':[SubscriberRecord.model_validate(public_item(r,self.user)).model_dump(mode='json') for r in self.store.list_items()]}
+        if path=='/api/v1/dashboard/summary':return 200,dashboard_summary(self.user)
         if path=='/api/v1/subscribers/demo-options':return 200,{'routers':ROUTERS,'plans':demo_plans()}
         if path=='/api/v1/routers':return 200,{'items':ROUTERS}
         if path.startswith('/api/v1/routers/'):return 200,router_detail(path.rsplit('/',1)[1])
         if path=='/api/v1/subscribers/demo-quick':
-            raw=quick_batch(QuickBatch.model_validate(body),{'id':'demo-user'})
+            raw=quick_batch(QuickBatch.model_validate(body),self.user)
             for result in raw['results']:
                 if result['success']:result['result']=self.detail(result['result'])
             return 200,raw

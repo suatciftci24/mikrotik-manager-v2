@@ -7,6 +7,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...init.headers },
   });
   if (!response.ok) {
+    if([401,403].includes(response.status)&&!path.startsWith('/auth/')&&typeof window!=='undefined')window.dispatchEvent(new Event('v2-auth-refresh'));
     const body = await response.json().catch(() => ({}));
     throw new Error(typeof body.detail === 'string' ? body.detail : `API yanıtı: ${response.status}`);
   }
@@ -25,6 +26,7 @@ export type DemoSession = {id:string;started_at:string|null;ended_at:string|null
 export type DemoTraffic = {id:string;measured_at:string;download_bytes:number|null;upload_bytes:number|null;is_demo:true};
 export type DemoReport = {subscriber_id:string;router_id:string;recorded_at:string;sessions:DemoSession[];traffic:DemoTraffic[];is_demo:true};
 export type Subscriber = {
+  can_manage_pppoe?: boolean;
   demo_report?: DemoReport | null;
   access_type?: 'PPPOE' | null; router_id?: string | null;
   id: string; username: string; customer_name: string; router_name: string; plan: string;
@@ -49,7 +51,7 @@ export type SubscriberHistoryEvent = {
   actor_id: string;
   operation: 'RENEWAL' | 'DATE_EDIT' | 'CREATE' | 'PLAN_CHANGE' | 'STATUS_CHANGE'; source: 'LOCAL' | 'RADIUS'; is_demo: true;
 };
-export type SubscriberDetailData = {item: Subscriber; history: SubscriberHistoryEvent[]; is_demo: true; persistence: 'process-memory' | 'local-postgresql-demo'};
+export type SubscriberDetailData = {item: Subscriber; history: SubscriberHistoryEvent[]; history_available?:boolean; is_demo: true; persistence: 'process-memory' | 'local-postgresql-demo'};
 
 export type DemoOptions = {
   plans: {name: string; monthly_price: number}[]; routers: {id: string; name: string}[];

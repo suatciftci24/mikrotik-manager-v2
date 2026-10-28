@@ -74,12 +74,12 @@ test('loader reuses authenticated versioned inventory/details/events and propaga
  try{
   globalThis.fetch=async(url,init)=>{
    calls.push(url);assert.equal(init.credentials,'include');assert.equal(init.signal,controller.signal);
-   const value=url.endsWith('/routers')?{items:routers}:url.endsWith('/subscribers')?{items:[{id:'a'}]}:url.endsWith('/router-events')?{items:[],available:false,is_demo:true}:detail('a','r1');
+   const value=url.endsWith('/reports/inventory')?{routers,items:[{id:'a'}]}:url.endsWith('/routers')?{items:routers}:url.endsWith('/subscribers')?{items:[{id:'a'}]}:url.endsWith('/router-events')?{items:[],available:false,is_demo:true}:detail('a','r1');
    return new Response(JSON.stringify(value));
   };
   const loaded=await loadManagementReport('ignored',{signal:controller.signal});
   assert.equal(loaded.events,null);assert.equal(loaded.details[0].item.id,'a');
-  assert.deepEqual(calls.sort(),['/api/v1/router-events','/api/v1/routers','/api/v1/subscribers','/api/v1/subscribers/a']);
+  assert.deepEqual(calls.sort(),['/api/v1/reports/inventory','/api/v1/router-events','/api/v1/subscribers/a']);
   globalThis.fetch=async()=>new Response(JSON.stringify({detail:'Demo rapor kaynağı okunamadı'}),{status:503});
   await assert.rejects(loadManagementReport('ignored'),/okunamadı/);
  }finally{globalThis.fetch=original;}

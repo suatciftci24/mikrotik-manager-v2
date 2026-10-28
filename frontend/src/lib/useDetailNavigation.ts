@@ -31,7 +31,7 @@ export function useDetailNavigation(kind: 'routers' | 'subscribers') {
 }
 
 /** Empty hash is a real Dashboard destination when returning with browser history. */
-export function screenFromHash(hash: string): 'routers'|'subscribers'|'operations'|'mikajani'|'dashboard' {
+export function screenFromHash(hash: string): 'routers'|'subscribers'|'operations'|'mikajani'|'dashboard'|'system' {
   const key=new URLSearchParams(hash.replace(/^#/, '')).get('module');
-  return key==='routers'||key==='subscribers'||key==='operations'||key==='mikajani'?key:'dashboard';
+  return key==='routers'||key==='subscribers'||key==='operations'||key==='mikajani'||key==='system'?key:'dashboard';
 }

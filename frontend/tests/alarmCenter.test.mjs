@@ -7,7 +7,7 @@ import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {alarmFilter,alarmHash,alarmQuery} from '../src/lib/alarms.ts';
 const require=createRequire(import.meta.url);
-const {outputFiles}=await build({entryPoints:[fileURLToPath(new URL('../src/components/AlarmCenter.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'source',setup(build){build.onResolve({filter:/lib\/useResource$/},()=>({path:'source',namespace:'test'}));build.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function useResource(path){globalThis.__alarmQueries.push(path);return path.startsWith("/alarms/demo-alarm-")?{data:{item:globalThis.__alarmItem},loading:false,retry(){}}:globalThis.__alarmResource}',loader:'js'}));}}]});
+const {outputFiles}=await build({entryPoints:[fileURLToPath(new URL('../src/components/AlarmCenter.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'source',setup(build){build.onResolve({filter:/lib\/useResource$/},()=>({path:'source',namespace:'test'}));build.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function useResource(path){globalThis.__alarmQueries.push(path);return path.startsWith("/alarms/demo-alarm-")?{data:{item:globalThis.__alarmItem,can_ack:globalThis.__alarmResource.data?.detail_can_ack??globalThis.__alarmResource.data?.can_ack},loading:false,retry(){}}:globalThis.__alarmResource}',loader:'js'}));}}]});
 const module={exports:{}};new Function('require','module','exports',outputFiles[0].text)(require,module,module.exports);
 const {AlarmCenter}=module.exports;
 const alarm={id:'demo-alarm-test',occurrence_id:'demo-source',router_id:'r & 1',subscriber_id:'s & 1',kind:'WAN_DOWN',severity:'P2',title:'Kaydedilmiş WAN',state:'OPEN',source_state:'OPEN',source_available:true,first_seen:null,last_seen:null,repeat_count:1,evidence:'Sentetik kanıt',source:'router-events',source_id:'demo-source',acknowledgement:null,notification_read:false,action_history:[]};
@@ -37,6 +37,8 @@ test('ACK controls use server permission; detail links retain exact record IDs',
  const hash=alarmHash(alarmFilter(''),alarm.id);
  const readonly=render({data:{...data,can_ack:false},loading:false,retry(){}},{},hash);
  assert.doesNotMatch(readonly,/>Alarmı onayla<\/button>/);
+ const restricted=render({data:{...data,detail_can_ack:false},loading:false,retry(){}},{},hash);
+ assert.doesNotMatch(restricted,/>Alarmı onayla<\/button>/);
  const admin=render({data,loading:false,retry(){}},{},hash);
  assert.match(admin,/>Alarmı onayla<\/button>/);assert.match(admin,/Bildirimi okundu işaretle/);
  assert.match(admin,/module=routers&amp;id=r\+%26\+1/);assert.match(admin,/module=subscribers&amp;id=s\+%26\+1/);

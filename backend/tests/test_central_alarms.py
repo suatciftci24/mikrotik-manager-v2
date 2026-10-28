@@ -15,6 +15,7 @@ from app.api.v1 import alarms as routes
 from app.core.security import current_alarm_mutator, current_demo_user
 from app.services.demo_subscriptions import DemoChangeError, DemoStorageUnavailable
 from app.services.demo_data import ROUTERS
+from app.services.identity import bootstrap,public_user
 from app.services.demo_examples import demo_examples
 
 AT=datetime(2026,10,28,12,tzinfo=timezone.utc)
@@ -188,10 +189,11 @@ class AlarmSetupTests(TestCase):
         self.assertNotIn(id,{item['id'] for item in before});self.assertEqual(demo_storage.SUBSCRIBERS,before)
 
     def test_notification_write_requires_header_and_does_not_use_ack_permission(self):
-        user=dict(id='demo-reader',is_demo=True,role='Gözlemci')
+        user={**public_user(bootstrap()),'id':'demo-reader','role':'Gözlemci','role_code':'VIEWER'}
         body=routes.AlarmAction(request_id=uuid4(),occurrence_id='demo-source',confirmed=True)
         with patch.object(routes.demo_subscriptions,'store') as store:
             with self.assertRaises(HTTPException):routes.notification_read('demo-alarm-id',body,user,None)
             store.alarm_action.assert_not_called()
-            routes.notification_read('demo-alarm-id',body,user,'alarm-read')
-            self.assertEqual(store.alarm_action.call_args.args[-2:],('READ','demo-reader'))
+            with patch.object(routes,'source',return_value=([{'id':'demo-alarm-id','router_id':ROUTERS[0]['id']}],{},True)):
+                routes.notification_read('demo-alarm-id',body,user,'alarm-read')
+            self.assertEqual(store.alarm_action.call_args.args[-3:-1],('READ','demo-reader'))

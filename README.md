@@ -812,3 +812,27 @@ Bu açık test modu yalnız yeni UUID'li `alarm.accept.*` başlangıç sentetik 
 ekler; eski aboneleri/audit'i değiştirmez. Yeni kayıt ve alarm audit'i test sonunda
 silinmez. Kaynak kaybolursa kayıtlı kullanıcı işlem kanıtı tarihsel olarak korunur;
 çözülme varsayılmaz ve açık kritik sayımına eklenmez.
+
+Aşama 14: **Sistem ve Kullanıcı** ekranı kullanıcı arama/sayfalama, sentetik
+kullanıcı oluşturma, ADMIN/VIEWER, aktif/pasif durum, altı router grant'i ve audit
+geçmişini yönetir. Merkezi kullanıcı yönetimi tam router görüntüleme kapsamlı
+ADMIN'e aittir; sınırlı ADMIN yalnız izinli router işlemlerini yapabilir. VIEWER
+salt okunurdur. Hotspot izni saklanır; henüz Hotspot işlem servisi yoktur.
+
+Oturumlar rol/grant taşımaz. Backend her istekte güncel kullanıcı yetkisini okur;
+router/abone/alarm/rapor/MikAjanı kapsamları ve toplamlar sunucuda filtrelenir.
+Şifreler scrypt hash olarak saklanır; API/audit'e parola veya hash çıkmaz. Kendi
+ADMIN/merkezi yönetim erişimini ve son aktif ADMIN'i kaldırma engellidir.
+
+Ek kimlik şeması uygulama başlangıcında çalışmaz. Yalnız repo sahibi yerel V2
+kümesi için açık hazırlık: `PYTHONPATH=backend .venv/bin/python -m app.demo_storage users-init`.
+İlk hazırlık mevcut demo hesabını aynı kimlik/parolayla hash olarak korur; sonraki
+hazırlık hesap/parola/izin sıfırlamaz. DB hatasında veya kurulmuş kimlik deposu
+kaybolursa eski demo-admin yetkisine geri düşülmez.
+
+Tek yerel kullanıcı/yetki kabulü: `./browser-accept-demo.sh --user-acceptance`.
+Komut mevcut DB/API/UI yöneticisini kullanır, yalnız ek kimlik şemasını hazırlar
+ve üç yeni sentetik test hesabıyla izolasyon/revocation/audit/mobil kontrollerini
+çalıştırır. Eski demo yönetici ve abone/audit kayıtları değiştirilmez. Yeni test
+hesapları silinmez; kabul/cleanup sonunda pasifleştirilir. Gerçek tarayıcı sonucu
+olmadan bu senaryo PASS sayılmaz.

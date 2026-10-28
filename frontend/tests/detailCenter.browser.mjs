@@ -1,3 +1,4 @@
+import {checkUsers} from './userAcceptance.mjs';
 import {checkAlarms} from './alarmAcceptance.mjs';
 import {checkReports} from './reportAcceptance.mjs';
 // Real browser acceptance. Writes only to two new synthetic IDs; existing records are immutable.
@@ -22,7 +23,7 @@ await context.route('**/*',route=>{
  const url=new URL(route.request().url());
  return url.hostname==='127.0.0.1'&&['5173','8000'].includes(url.port)?route.continue():route.abort();
 });
-const page=await context.newPage(),checks=[],created=[];
+const page=await context.newPage(),checks=[],created=[],createdUsers=[];
 const ok=(name,value)=>{assert.ok(value,name);checks.push(name);console.log('PASS:',name);};
 async function api(path,body,action){
  const response=await context.request.fetch('/api'+path,{method:body?'POST':'GET',data:body,maxRedirects:0,headers:action?{'X-V2-Demo-Action':action}:undefined});
@@ -35,6 +36,8 @@ try{
  await api('/v1/auth/login',{username:'demo',password:'demo-only'});logged=true;
  const original=(await api('/v1/subscribers')).items;
  for(const s of original)baseline.set(s.id,await api('/v1/subscribers/'+s.id));
+ if(process.env.V2_BROWSER_USERS_ONLY==='1')await checkUsers(page,ok,api,output,browser,createdUsers);
+ if(process.env.V2_BROWSER_USERS_ONLY!=='1'){
  if(process.env.V2_BROWSER_ALARMS_ONLY==='1')await checkAlarms(page,ok,api,output);
  if(process.env.V2_BROWSER_ALARMS_ONLY!=='1'){
  if(process.env.V2_BROWSER_DASHBOARD_ONLY!=='1')await checkReports(page,ok,api,output);
@@ -188,12 +191,13 @@ try{
  } // Full detail/QuickActions acceptance; dashboard-only mode performs no mutations.
  } // Reports-only acceptance never enters dashboard/QuickActions mutation flow.
  } // Alarm-only acceptance uses a separate, explicit fixture for ACK and no subscriber mutation.
+ } // User acceptance only changes fresh synthetic identities, never subscriber/audit rows.
  for(const [id,originalDetail]of baseline)assert.deepEqual(await api('/v1/subscribers/'+id),originalDetail,'Eski abone/audit değişti: '+id);
  ok('Başlangıçtaki bütün abone/audit kayıtları korundu',true);
- const result={status:'PASS',run_id:run,checks,test_ids:created.map(s=>s.id),preserved_existing:baseline.size};
+ const result={status:'PASS',run_id:run,checks,test_user_ids:createdUsers,test_ids:created.map(s=>s.id),preserved_existing:baseline.size};
  writeFileSync(output+'result.json',JSON.stringify(result,null,2));console.log('BROWSER PASS:',checks.length,'kontrol; rapor:',output);
 }catch(error){
- writeFileSync(output+'result.json',JSON.stringify({status:'FAIL_OR_BLOCKED',checks,test_ids:created.map(s=>s.id),error:String(error)},null,2));
+ writeFileSync(output+'result.json',JSON.stringify({status:'FAIL_OR_BLOCKED',checks,test_user_ids:createdUsers,test_ids:created.map(s=>s.id),error:String(error)},null,2));
  console.error('BROWSER FAIL/BLOCKED:',String(error),'Yeni test kimlikleri:',created.map(s=>s.id).join(','));process.exitCode=1;
 }finally{
  if(logged)await api('/v1/auth/logout',{}).catch(()=>{});

@@ -12,7 +12,7 @@ function compile(path,react=React){
  const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?react:require(name),module,module.exports);return module.exports;
 }
 const router={id:'demo-router-001',name:'Demo · Router',model:'Demo model',routeros_version:'7.demo',management_address:'192.0.2.1',site:'Demo',status:'ONLINE',cpu_percent:0,memory_percent:10,subscriber_count:649,last_seen:'2026-10-28T09:00:00Z',uptime:'1g',is_demo:true};
-const subscriber={id:'demo-sub-test',router_id:router.id,router_name:router.name,username:'demo.test',customer_name:'Test Abone',source:'LOCAL',access_type:'PPPOE',plan:'Fiber 100',monthly_price:549.9,status:'PAUSED',expires_on:'2026-10-30',revision:1,last_seen:null,joined_at:'2026-10-28',ip_address:'—',is_demo:true};
+const subscriber={can_manage_pppoe:true,id:'demo-sub-test',router_id:router.id,router_name:router.name,username:'demo.test',customer_name:'Test Abone',source:'LOCAL',access_type:'PPPOE',plan:'Fiber 100',monthly_price:549.9,status:'PAUSED',expires_on:'2026-10-30',revision:1,last_seen:null,joined_at:'2026-10-28',ip_address:'—',is_demo:true};
 const detail={item:subscriber,is_demo:true,persistence:'local-postgresql-demo',history:[{id:'demo-event-id',operation:'CREATE',actor_id:'demo-user',occurred_at:'2026-10-28T09:00:00Z',previous_values:{},new_values:{plan:'Fiber 100'},source:'LOCAL',is_demo:true}]};
 function nodes(element){return element&&typeof element==='object'?[element,...React.Children.toArray(element.props?.children).flatMap(nodes)]:[];}
 

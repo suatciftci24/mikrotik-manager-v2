@@ -101,3 +101,17 @@ class BrowserAPIReuse(TestCase):
              patch('app.demo_storage.prepare_alarm_acceptance') as setup,redirect_stderr(StringIO()):
             self.assertEqual(runner.main(['--browser','--alarm-acceptance']),1)
             setup.assert_not_called();ui.assert_not_called()
+
+    def test_user_acceptance_only_initializes_identity_after_database_gate(self):
+        with patch.object(runner,'ManagedAPI'),patch.object(runner,'ManagedUI'),patch.object(runner,'require_browser_database'), \
+             patch('app.services.identity.initialize_users') as setup,patch('app.demo_storage.prepare_alarm_acceptance') as fixture, \
+             patch.object(runner.subprocess,'run',return_value=SimpleNamespace(returncode=0)) as worker:
+            self.assertEqual(runner.main(['--browser','--user-acceptance']),0)
+            setup.assert_called_once();fixture.assert_not_called()
+            self.assertEqual(worker.call_args.kwargs['env']['V2_BROWSER_USERS_ONLY'],'1')
+
+    def test_user_setup_is_not_attempted_when_database_is_blocked(self):
+        with patch.object(runner,'ManagedAPI'),patch.object(runner,'ManagedUI') as ui,patch.object(runner,'require_browser_database',side_effect=RepairBlocked('blocked')), \
+             patch('app.services.identity.initialize_users') as setup,redirect_stderr(StringIO()):
+            self.assertEqual(runner.main(['--browser','--user-acceptance']),1)
+            setup.assert_not_called();ui.assert_not_called()

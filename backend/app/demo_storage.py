@@ -15,6 +15,7 @@ def validated_snapshots(snapshots):
     clean, ids, event_ids = [], set(), set()
     for raw in snapshots:
         detail = SubscriberDetail.model_validate(raw).model_dump(mode='json', exclude_unset=True)
+        detail['item'].pop('can_manage_pppoe',None)
         detail.setdefault('history', [])
         item, events = detail['item'], detail['history']
         for key, value in (('revision', 0), ('source', None), ('expires_on', None)):
@@ -208,12 +209,12 @@ def prepare_alarm_acceptance():
 
 def main():
     parser = argparse.ArgumentParser(description='Explicit local V2 demo setup and synthetic event processing (never resets records)')
-    parser.add_argument('command', choices=['init','process-events','alarms-init'])
+    parser.add_argument('command', choices=['init','process-events','alarms-init','users-init'])
     parser.add_argument('--observations', type=Path, help='Optional JSON batches: subscriber_id and observations; synthetic append-only input')
     parser.add_argument('--examples', action='store_true', help='Add missing deterministic demo examples without overwriting existing records')
     parser.add_argument('--snapshot', type=Path, help='Optional synthetic memory snapshot to preserve existing edits/history')
     args = parser.parse_args()
-    if args.command=='alarms-init' and (args.examples or args.snapshot or args.observations):
+    if args.command in ('alarms-init','users-init') and (args.examples or args.snapshot or args.observations):
         parser.error('alarms-init ek veri/seed argümanı kabul etmez')
     if args.command=='process-events' and (args.examples or args.snapshot):
         parser.error('process-events accepts only --observations')
@@ -222,6 +223,11 @@ def main():
     snapshots = json.loads(args.snapshot.read_text()) if args.snapshot else None
     from app.core.database import engine
     try:
+        if args.command=='users-init':
+            from app.services.identity import initialize_users
+            initialize_users()
+            print('V2 identity schema ready; existing users/subscribers/audits preserved.')
+            return
         if args.command=='alarms-init':
             from app.adapters.alarm_actions import initialize
             initialize(PostgresDemoStore(engine))

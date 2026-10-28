@@ -56,7 +56,10 @@ class Acceptance:
     def snapshot(self,item_id):
         result=self.adapter.detail(item_id)
         require(result is not None,'Kayıt kalıcı depoda yok: '+item_id)
-        return SubscriberDetail.model_validate(result).model_dump(mode='json')
+        normalized=SubscriberDetail.model_validate(result).model_dump(mode='json')
+        # The acceptance actor is the full-scope demo administrator; capability is a read projection.
+        normalized['item']['can_manage_pppoe']=True
+        return normalized
 
     def capture_originals(self,rows):
         self.baseline={row['id']:digest(self.snapshot(row['id'])) for row in rows}

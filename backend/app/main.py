@@ -36,3 +36,10 @@ async def ready():
     # Liveness identity only: DB health stays on /api/health, without thread-worker dependency here.
     return {'service':'mikrotik-manager-v2', 'environment':settings.environment,
             'api_version':'v1', 'database_checked':False}
+
+
+# Never echo credential inputs in validation responses (including model-level errors).
+from fastapi.exceptions import RequestValidationError
+@app.exception_handler(RequestValidationError)
+async def invalid_request(_request,error):
+    return JSONResponse(status_code=422,content={'detail':'İstek alanları doğrulanamadı.','errors':[{'loc':list(issue['loc']),'msg':issue['msg'],'type':issue['type']} for issue in error.errors()]})

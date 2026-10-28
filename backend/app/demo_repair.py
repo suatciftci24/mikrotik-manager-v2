@@ -178,7 +178,9 @@ def verify_writes(http, adapter):
         require(len(saved['history'])==(2 if i==0 else 1), 'Kalıcı denetim kaydı sayısı hatalı.')
         require(saved['item']['revision']==item['revision']+(1 if i==0 else 0), 'İşlem ikinci kez uygulanmış veya başarısız işlem değişiklik yapmış.')
         require(saved['item']['expires_on']==(entries[0]['change']['expires_on'] if i==0 else item['expires_on']), 'Bitiş tarihi kalıcılığı doğrulanamadı.')
-        require(http.request('/api/v1/subscribers/'+item['id'])['item']==SubscriberRecord.model_validate(saved['item']).model_dump(mode='json'), 'HTTP ve kalıcı DB kaydı farklı.')
+        expected=SubscriberRecord.model_validate(saved['item']).model_dump(mode='json')
+        expected['can_manage_pppoe']=True  # authenticated full-scope demo acceptance actor
+        require(http.request('/api/v1/subscribers/'+item['id'])['item']==expected, 'HTTP ve kalıcı DB kaydı farklı.')
     require(http.request('/api/v1/dashboard/summary')['summary']['subscribers_total']==len(adapter.list_items()),'Dashboard işlem sonrasında güncel değil.')
     print('PPPoE PASS: iki yeni demo kabul kaydı, oluşturma/uzatma kalıcılığı, tekrar koruması, ayrı audit, yetki ve kısmi hata. Önceki aboneler değiştirilmedi.',flush=True)
 

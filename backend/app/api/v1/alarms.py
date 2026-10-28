@@ -1,3 +1,4 @@
+from app.core.authorization import routers_for,items_for,allowed,require_router,is_admin
 from datetime import date, datetime, timezone, timedelta, time
 from typing import Literal
 from uuid import UUID
@@ -22,7 +23,10 @@ class AlarmAction(BaseModel):
 def source(user):
     try:
         items,actions,storage=demo_subscriptions.store.alarm_snapshot()
-        alarms,coverage=project_alarms(items,ROUTERS,actions,user['id'])
+        scope=routers_for(user);ids=allowed(user);mika_ids=allowed(user,'can_use_mikajani')
+        actions=[a for a in actions if a.get('source_snapshot',{}).get('router_id') in ids
+                 and set(a.get('source_snapshot',{}).get('mika',{}).get('affected_router_ids',[]))<=mika_ids]
+        alarms,coverage=project_alarms(items_for(items,user),scope,actions,user['id'],mika_routers=routers_for(user,'can_use_mikajani'))
         return alarms,coverage,storage
     except ValueError:raise HTTPException(503,'Sentetik alarm kanıtı doğrulanamadı; kaynak değiştirilmedi.') from None
 
@@ -60,8 +64,8 @@ def list_alarms(router_id:str='',subscriber_id:str='',severity:Literal['ALL','P1
     if order=='LATEST':rows.sort(key=lambda row: (datetime.fromisoformat(row['last_seen'].replace('Z','+00:00')).timestamp() if row['last_seen'] else float('-inf'),row['id']),reverse=True)
     return dict(items=[public_alarm(row) for row in rows[(page-1)*page_size:page*page_size]],total=len(rows),page=page,page_size=page_size,
         summary=dict(active=sum(row['state']!='RESOLVED' and row['source_available'] for row in alarms),critical=sum(row['state']!='RESOLVED' and row['source_available'] and row['severity'] in ('P1','P2') for row in alarms),
-                     unread=sum(not row['notification_read'] for row in alarms)),routers=[dict(id=r['id'],name=r['name']) for r in ROUTERS],
-        can_ack=storage and user.get('is_demo') is True and user.get('role')=='Sistem Yöneticisi',storage_ready=storage,
+                     unread=sum(not row['notification_read'] for row in alarms)),routers=[dict(id=r['id'],name=r['name']) for r in routers_for(user)],
+        can_ack=storage and is_admin(user) and bool(allowed(user,'can_ack_alarms')),storage_ready=storage,
         coverage=coverage,generated_at=datetime.now(timezone.utc).isoformat(),is_demo=True)
 
 
@@ -70,11 +74,16 @@ def alarm_detail(alarm_id:str,user:dict=Depends(current_demo_user)):
     alarms,coverage,storage=source(user)
     alarm=next((row for row in alarms if row['id']==alarm_id),None)
     if alarm is None:raise HTTPException(404,'Kaynak alarm bulunamadı.')
-    return dict(item=public_alarm(alarm,detail=True),coverage=coverage,storage_ready=storage,is_demo=True)
+    return dict(item=public_alarm(alarm,detail=True),can_ack=storage and is_admin(user) and alarm['router_id'] in allowed(user,'can_ack_alarms'),coverage=coverage,storage_ready=storage,is_demo=True)
 
 
 def apply(alarm_id,payload,user,action):
-    try:return demo_subscriptions.store.alarm_action(alarm_id,str(payload.request_id),payload.occurrence_id,action,user['id'])
+    alarms,_,_=source(user)
+    alarm=next((row for row in alarms if row['id']==alarm_id),None)
+    if alarm is None:raise HTTPException(404,'Kayıt bulunamadı')
+    require_router(user,alarm['router_id'],'can_ack_alarms' if action=='ACK' else 'can_view')
+    scope=dict(routers=routers_for(user),mika_routers=routers_for(user,'can_use_mikajani'))
+    try:return demo_subscriptions.store.alarm_action(alarm_id,str(payload.request_id),payload.occurrence_id,action,user['id'],scope)
     except demo_subscriptions.DemoChangeError as error:raise HTTPException(error.status_code,error.detail) from None
     except ValueError:raise HTTPException(503,'Alarm kaynak kanıtı doğrulanamadı; işlem uygulanmadı.') from None
 

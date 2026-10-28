@@ -8,6 +8,7 @@ from app.schemas.router_events import RouterEventList
 from app.api.v1 import reports
 from app.core.security import current_demo_user
 from app.main import app
+from app.services.identity import bootstrap,public_user
 from app.services.demo_data import ROUTERS
 
 class ReportsTests(TestCase):
@@ -52,7 +53,7 @@ class ReportsTests(TestCase):
     def test_route_rejects_bad_dates_and_router_before_store_access(self):
         with patch.object(reports.demo_subscriptions,'store') as store:
             with self.assertRaises(HTTPException):reports.operations('bad','2026-10-28')
-            with self.assertRaises(HTTPException):reports.operations('2026-10-28','2026-10-28',router_id='foreign')
+            with self.assertRaises(HTTPException):reports.operations('2026-10-28','2026-10-28',router_id='foreign',user=public_user(bootstrap()))
             store.report_records.assert_not_called()
 
     def test_report_route_is_authenticated_get_and_bounds_page_size(self):
@@ -66,9 +67,9 @@ class ReportsTests(TestCase):
     def test_page_and_filters_reach_storage_without_unbounded_audit_fetch(self):
         with patch.object(reports.demo_subscriptions,'store') as store,patch.object(reports,'project_report',return_value={}) as project:
             store.report_records.return_value=([],[],0,[])
-            reports.operations('2026-10-28','2026-10-28',router_id=ROUTERS[0]['id'],operation='STATUS_CHANGE',page=3,page_size=25)
+            reports.operations('2026-10-28','2026-10-28',router_id=ROUTERS[0]['id'],operation='STATUS_CHANGE',page=3,page_size=25,user=public_user(bootstrap()))
             args=store.report_records.call_args.args
-            self.assertEqual(args[-3:],('STATUS_CHANGE',25,50))
+            self.assertEqual(args[-4:-1],('STATUS_CHANGE',25,50))
             self.assertEqual(args[3],ROUTERS[0]['id']);project.assert_called_once()
 
     def test_sql_reader_uses_readonly_snapshot_and_database_page_bounds(self):

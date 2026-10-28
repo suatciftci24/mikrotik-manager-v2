@@ -42,7 +42,7 @@ export function AlarmCenter({notifications=false,compact=false}:{notifications?:
  </section>;
 }
 function AlarmDialog({id,canAck,storage,onClose}:{id:string;canAck:boolean;storage:boolean;onClose:()=>void}){
- const resource=useResource<{item:CentralAlarm}>('/alarms/'+encodeURIComponent(id),undefined,dependencies);
+ const resource=useResource<{item:CentralAlarm;can_ack:boolean}>('/alarms/'+encodeURIComponent(id),undefined,dependencies);
  const dialog=useRef<HTMLDialogElement>(null),sending=useRef(false);
  const [review,setReview]=useState(false),[pending,setPending]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const request=useRef<{ACK:string;READ:string}>({ACK:crypto.randomUUID(),READ:crypto.randomUUID()});
@@ -59,7 +59,7 @@ function AlarmDialog({id,canAck,storage,onClose}:{id:string;canAck:boolean;stora
    <div className="daily-links"><a className="button-secondary" href={'#'+new URLSearchParams({module:'routers',id:alarm.router_id})}>Router detayını aç</a>{alarm.subscriber_id&&<a className="button-secondary" href={'#'+new URLSearchParams({module:'subscribers',id:alarm.subscriber_id})}>Abone detayını aç</a>}<a className="button-secondary" href={'#'+new URLSearchParams({module:'mikajani',...(alarm.mika?{event:alarm.mika.id}:{})})}>MikAjanı kanıtlarını aç</a><a className="button-secondary" href={'#'+new URLSearchParams({module:'dashboard',view:'OPERATIONS_REPORT',router_id:alarm.router_id,category:alarm.source==='mikajani'?'MIKA':alarm.source==='router-events'?'CONNECTION':'AUDIT',...(alarm.last_seen?{start:turkeyToday(new Date(alarm.last_seen)),end:turkeyToday(new Date(alarm.last_seen))}:{}),...(alarm.subscriber_id?{subscriber_id:alarm.subscriber_id}:{})})}>Operasyon raporunu aç</a></div>
    <h3>Alarm işlem audit geçmişi</h3>{alarm.action_history.length?<ol className="subscriber-history">{alarm.action_history.map(a=><li key={a.id}>{a.action==='ACK'?'Operatör onayı':'Bildirim okundu'} · {a.actor_id} · {dateTime(a.occurred_at)} · {a.id}</li>)}</ol>:<p>Henüz kayıtlı alarm işlemi yok.</p>}
    <button className="button-secondary" disabled={pending||!storage||alarm.notification_read} onClick={()=>action('READ')}>Bildirimi okundu işaretle</button>
-   {canAck&&alarm.source_available!==false&&alarm.state!=='RESOLVED'?(review?<><p>Onay yalnız bu kaynak olayı içindir. Arıza çözülmeyecek; adınız ve zaman audit’e kaydedilecek.</p><button className="button-primary" disabled={pending} onClick={()=>action('ACK')}>{alarm.acknowledgement?'Aynı ACK isteğini tekrar gönder':'Alarm onayını kaydet'}</button></>:<button className="button-primary" disabled={pending} onClick={()=>setReview(true)}>Alarmı onayla</button>):<p>Alarm onayı için yetki/depo veya aktif kaynak durumu gerekli.</p>}
+   {canAck&&resource.data?.can_ack===true&&alarm.source_available!==false&&alarm.state!=='RESOLVED'?(review?<><p>Onay yalnız bu kaynak olayı içindir. Arıza çözülmeyecek; adınız ve zaman audit’e kaydedilecek.</p><button className="button-primary" disabled={pending} onClick={()=>action('ACK')}>{alarm.acknowledgement?'Aynı ACK isteğini tekrar gönder':'Alarm onayını kaydet'}</button></>:<button className="button-primary" disabled={pending} onClick={()=>setReview(true)}>Alarmı onayla</button>):<p>Alarm onayı için yetki/depo veya aktif kaynak durumu gerekli.</p>}
   </>}{message&&<p role="status">{message}</p>}{error&&<p role="alert">{error}</p>}
   <button className="button-secondary" disabled={pending} onClick={onClose}>Kapat</button>
  </dialog>;

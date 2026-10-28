@@ -64,7 +64,7 @@ export function buildManagementReport(source:ManagementSource,filter:ManagementF
   };
 }
 export async function loadManagementReport(_path:string,init?:RequestInit):Promise<ManagementSource>{
-  const [inventory,events]=await Promise.all([loadDailyInventory(init),loadRouterEvents('/router-events',init)]);
+  const [inventory,events]=await Promise.all([loadDailyInventory(init,true),loadRouterEvents('/router-events',init)]);
   return {...inventory,events,read_at:new Date().toISOString()};
 }
 
