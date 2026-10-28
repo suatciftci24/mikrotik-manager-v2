@@ -155,3 +155,4 @@ input::placeholder{color:var(--muted);opacity:1}
 
 /* Nested health cards must wrap source identifiers instead of widening the page. */
 .settings-health>.panel{overflow-wrap:anywhere}
+.simulator-panel,.simulator-panel .panel{min-width:0;overflow-wrap:anywhere}.simulator-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px}.simulator-panel details p{white-space:normal}

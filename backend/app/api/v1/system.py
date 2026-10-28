@@ -64,3 +64,8 @@ def integration_readiness(user:dict=Depends(current_admin)):
 def integration_resilience(user:dict=Depends(current_admin)):
     from app.integrations.gateway import resilience
     return resilience(user)
+
+@router.get('/system/simulator')
+def sync_simulator(page:int=Query(1,ge=1,le=1000000),page_size:int=Query(5,ge=1,le=5),user:dict=Depends(current_admin)):
+    from app.simulation.report import read_report
+    return read_report(user,page,page_size)

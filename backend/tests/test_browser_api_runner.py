@@ -130,3 +130,16 @@ class BrowserAPIReuse(TestCase):
              patch('app.services.system_settings.prepare_acceptance') as setup,redirect_stderr(StringIO()):
             self.assertEqual(runner.main(['--browser','--settings-acceptance']),1)
             setup.assert_not_called();ui.assert_not_called()
+
+    def test_simulator_acceptance_only_generates_isolated_report_after_database_gate(self):
+        with patch.object(runner,'ManagedAPI') as api,patch.object(runner,'ManagedUI') as ui,patch.object(runner,'require_browser_database'), \
+             patch('app.sync_simulator.main',return_value=0) as simulate, \
+             patch.object(runner.subprocess,'run',return_value=SimpleNamespace(returncode=0)) as worker:
+            self.assertEqual(runner.main(['--browser','--simulator-acceptance']),0)
+            simulate.assert_called_once_with(['--run']);self.assertEqual(worker.call_args.kwargs['env']['V2_BROWSER_SIMULATOR_ONLY'],'1');api.return_value.__exit__.assert_called_once();ui.return_value.__exit__.assert_called_once()
+
+    def test_simulator_report_generation_never_runs_if_database_gate_blocked(self):
+        with patch.object(runner,'ManagedAPI'),patch.object(runner,'ManagedUI') as ui,patch.object(runner,'require_browser_database',side_effect=RepairBlocked('blocked')), \
+             patch('app.sync_simulator.main') as simulate,redirect_stderr(StringIO()):
+            self.assertEqual(runner.main(['--browser','--simulator-acceptance']),1)
+            simulate.assert_not_called();ui.assert_not_called()

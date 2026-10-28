@@ -5,6 +5,10 @@ from fastapi import HTTPException
 from app.core.authorization import require_router
 from app.integrations.contracts import Batch,Replica,SourceState,reconcile,freshness
 
+def retry_delay(attempt:int)->int:
+    if attempt<1:raise ValueError('Positive attempt required')
+    return min(2**min(attempt-1,6),60)
+
 class RecoveryPreview:
     """Instance-local CAS simulation; every access rechecks router permission.
 
@@ -35,7 +39,7 @@ class RecoveryPreview:
             old=self._entry(id)
             if old['replica'].cursor!=expected_cursor or old['last_success'] is not None and now<old['last_success']:raise HTTPException(409,'Eski başarısız gözlem')
             attempt=min(old['failures']+1,16)
-            self._states[id]={**old,'failures':attempt,'failure':state,'retry_at':None if state==SourceState.ACCESS_DENIED else now+timedelta(seconds=min(2**(attempt-1),60))}
+            self._states[id]={**old,'failures':attempt,'failure':state,'retry_at':None if state==SourceState.ACCESS_DENIED else now+timedelta(seconds=retry_delay(attempt))}
     def view(self,user,id,now:datetime):
         require_router(user,id,'can_view_reports');self._clock(now)
         with self._lock:

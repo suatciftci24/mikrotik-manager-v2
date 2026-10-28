@@ -105,7 +105,9 @@ def main(argv=None):
     parser.add_argument('--alarm-acceptance',action='store_true',help='Açık yerel alarm kabul bakımı: ek alarm şemasını hazırlar ve yalnız yeni UUID sentetik fixture ekler; ACK kabulünü çalıştırır.')
     parser.add_argument('--user-acceptance',action='store_true',help='Açık yerel kullanıcı şeması hazırlığı; kabul yalnız yeni sentetik kullanıcıları değiştirir.')
     parser.add_argument('--settings-acceptance',action='store_true',help='Açık yerel sunum ayarı şeması + yeni izole test profili hazırlar; gerçek varsayılanlar değiştirilmez.')
+    parser.add_argument('--simulator-acceptance',action='store_true',help='Açık izole beş sanal router raporu üretir; browser yalnız okur, business DB değişmez.')
     args=parser.parse_args(argv)
+    if args.simulator_acceptance and (not args.browser or args.settings_acceptance or args.user_acceptance or args.alarm_acceptance):parser.error('--simulator-acceptance yalnız --browser ile tek başına kullanılabilir')
     if args.settings_acceptance and (not args.browser or args.user_acceptance or args.alarm_acceptance):parser.error('--settings-acceptance yalnız --browser ile tek başına kullanılabilir')
     if args.user_acceptance and (not args.browser or args.alarm_acceptance):parser.error('--user-acceptance yalnız --browser ile ve tek başına kullanılabilir')
     if args.alarm_acceptance and not args.browser:parser.error('--alarm-acceptance yalnız --browser ile kullanılabilir')
@@ -154,6 +156,11 @@ def main(argv=None):
                     except (SQLAlchemyError,DemoStorageUnavailable,ValueError):raise RepairBlocked('Ayar kabul hazırlığı tamamlanamadı; mevcut tercihler sıfırlanmadı.') from None
                     worker_env={**os.environ,'V2_BROWSER_SETTINGS_ONLY':'1','V2_SETTINGS_TEST_PROFILE':profile}
                     print('İzole sentetik ayar profili korunacak: '+profile,flush=True)
+                if args.simulator_acceptance:
+                    import os
+                    from app.sync_simulator import main as simulate
+                    require(simulate(['--run'])==0,'İzole simülatör hazırlığı tamamlanamadı; business DB değiştirilmedi.')
+                    worker_env={**os.environ,'V2_BROWSER_SIMULATOR_ONLY':'1'}
                 with ManagedUI():
                     command=[str(ROOT/'browser-accept-demo.sh'),'--with-ready-services']
                     return subprocess.run(command,cwd=ROOT,**({'env':worker_env} if worker_env else {})).returncode
