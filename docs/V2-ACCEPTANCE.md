@@ -130,3 +130,25 @@ Backend kanıtı: 11 hedefli `test_mikajani` testi ve devam görevindeki ek Open
 | Veri ve üretim izolasyonu | Korundu | Yeni özellik, migration, init/seed, veri yazma/silme, üretim erişimi veya servis restartı yapılmadı |
 
 Kabul sırasında yalnız mevcut V2 hedefi okuma amacıyla denendi; genel/system PostgreSQL veya farklı DB/port aranmadı. `--prepare-demo`/dev-db hazırlığı migration içerdiğinden çalıştırılmadı. Başlangıç öncesine denk gelebilen ilk HTTP isteğinin ardından yalnız bir startup-sonrası kontrol yapıldı; başarısız altyapı döngüsü, ASGI/httpx araştırması veya güvenlik gevşetme uygulanmadı. Ürün kodu değişmediği için geçmiş başarılı testler/build tekrar edilmedi. Gerekli sonraki koşul: izinli normal yerel ortamda mevcut V2 DB ve loopback HTTP erişimi; ardından yukarıdaki gerçek kabul adımları tamamlanmalıdır.
+
+## Aşama 9 — yerel DB onarımı teslimi — 2026-10-28
+
+**Gerçek DB/HTTP kabulü BLOCKED kalır.** Kullanıcının gerçek tarayıcısında UI/login çalışıyor; DB kullanan merkezlerin hata vermesi, API/UI başlangıcı ile ayrı PostgreSQL başlangıcının ayrılmasından kaynaklanabilir. Normal dev.sh'nin DB başlatmadığı ve bu ortamda repo kümesinin çalışmadığı gözlendi; WSL'deki DB/auth/şema durumu bağlantı kurulamadığı için kesinleştirilemedi.
+
+| Kontrol | Sonuç |
+| --- | --- |
+| İzinli bağlantı hedefi ve repo küme durumu | Hedef doğrulandı; pg_ctl no server running; tek psycopg bağlantısı OperationalError ile engelli |
+| Veri koruyan onarım yolu | Hazır: repair-demo.sh; yalnız repo sahibi küme, eksik DB/şema/örnekler; mevcut kayıt/history korunur |
+| Rol/şema güvenliği | Her privilege ayrı denetlenir; yanlış küme/marker/rol/symlink reddi; otomatik GRANT/parola reseti/drop yok |
+| Gerçek DB bağlantısı, marker, yetki ve seed | BLOCKED — normal WSL komutunun sonucuyla doğrulanacak |
+| Dashboard/router/abone/MikAjanı ortak kaynak HTTP kabulü | BLOCKED — yardımcı gerçek HTTP ile aynı kimlik/atama/toplam/persistence ve 7 senaryoyu denetlemeye hazır |
+| PPPoE oluşturma, toplu uzatma, idempotency, audit, kısmi hata | BLOCKED — --check-writes iki yeni PAUSED demo hesapla doğrular, eski aboneler değişmez; bu ortamda çalıştırılmadı |
+| Onarım güvenlik testleri | PASS — 7 hedefli soketsiz test; shell syntax, --help, diff kontrolü |
+
+Normal WSL terminalinde mevcut V2 dev.sh oturumu açıkken tek komut:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && ./repair-demo.sh --check-writes
+```
+
+Komutun yazma doğrulaması her çalıştırmada iki yeni, benzersiz sentetik kabul hesabını kalıcı bırakır; kimlikleri çıktıda gösterilir. Bayrağı çıkarmak yalnız onarım ve HTTP okuma doğrulamasını yapar. Yalnız bu açık bakım akışı gerekli yerel demo şemasını hazırlayabilir; üretim migration'ı veya uygulama başlangıcında otomatik migration yoktur. Yardımcının DB PASS / HTTP PASS / PPPoE PASS çıktıları alınmadan bu kabul matrisi PASS'e çevrilmez.

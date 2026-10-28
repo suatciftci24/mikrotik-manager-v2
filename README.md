@@ -597,3 +597,38 @@ node --test --test-isolation=none frontend/tests/alarmAutomation.test.mjs
 real rollback/reopen/idempotency in a disposable V2 test schema. Skipping it does
 not certify actual persistence. No processing command was applied to the local
 DB during development in the restricted session.
+
+## Explicit local V2 database repair
+
+Normal `./dev.sh` starts only the API/UI; it does not start PostgreSQL or initialize
+the demo schema. After a WSL restart, the separate repo-owned PostgreSQL cluster
+may therefore be stopped while login/UI still work. With the existing V2 `dev.sh`
+session running, execute this single command in a **normal WSL terminal**:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && ./repair-demo.sh --check-writes
+```
+
+This explicit maintenance command validates the standard V2 destination
+(`127.0.0.1:55432`, `mikrotik_manager_v2`, `v2_local`), rejects foreign/symlinked
+cluster paths, starts only `.local/postgres-v2-demo`, creates the V2 database/schema
+only if absent, and adds only missing synthetic examples. Existing subscribers,
+expiry edits and audit records are preserved. An incompatible existing schema or
+insufficient credentials/privileges stops with BLOCKED; no password reset, GRANT,
+drop, system service restart or production migration is performed.
+
+It checks schema markers, individual read/write privileges, actual PostgreSQL data
+directory and synthetic records, then uses real HTTP on loopback port 8000 to verify
+login/authorization, Dashboard, router/subscriber details, router events and all
+seven MikAjani scenarios against the same persistent source. API failure is reported
+separately from DB success; there is no memory/fixture fallback. No proxy or HTTP
+redirect is followed. If sockets are restricted, it stops before cluster/schema work.
+
+`--check-writes` additionally creates **two new, uniquely named PAUSED synthetic
+acceptance subscribers** and preserves them for audit. It checks creation replay,
+bulk extension replay, a deliberately stale second subscriber, per-subscriber audit,
+403 without the demo action header, and committed expiry/revision data through new
+DB connections. Existing subscribers are untouched. Each explicit run with this flag
+creates a new pair; omit the flag for repair/read-only HTTP verification without
+additional acceptance accounts. Read the command's DB/HTTP/PPPoE PASS or BLOCKED
+output; a successful helper/build/unit test alone is not real integration acceptance.
