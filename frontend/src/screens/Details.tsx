@@ -1,3 +1,4 @@
+import {detailOperationHash} from '../lib/operationReport';
 import { unknownDetail } from '../lib/detailCenter';
 import { QuickActions, type QuickAction } from '../components/QuickActions';
 import { RouterOverview, RouterSignals, SubscriberWarnings, SubscriberRouterLinks } from '../components/DetailOverview';
@@ -38,6 +39,7 @@ export function DetailCenter({kind, id, onBack, backLabel='Listeye dön'}: {kind
   return <div className="screen-stack"><button className="button-secondary detail-back" onClick={onBack}><ArrowLeft size={16}/>{backLabel}</button>
     <PageHeading title={kind === 'routers' ? 'Router Detay Merkezi' : 'Abone Detay Merkezi'} description="Demo kayıtları gösteriliyor. Canlı bağlantı veya ölçüm yapılmadı." eyebrow="SENTETİK DEMO · CANLI İŞLEM YOK" headingRef={heading} actions={<button className="button-secondary" disabled={resource.loading} onClick={()=>{setNotice('');resource.retry();}}>Detayı yenile</button>}/>
     {notice && <p className="demo-save-notice" role="status">{notice}</p>}
+    {resource.data&&!error&&<a className="button-secondary" href={detailOperationHash(kind,id,typeof window==='undefined'?'':window.location.hash)}>Bu kaydın operasyon raporu</a>}
     <ResourceState {...resource} error={error}/>
     {resource.data && !resource.loading && !error && (kind === 'routers' ? <RouterDetails detail={resource.data as RouterDetail}/> : <SubscriberDetails detail={resource.data as SubscriberDetail} onQuick={action=>setQuick({subscriber:(resource.data as SubscriberDetail).item,action})}/>)}
     {quick&&<QuickActions rows={[quick.subscriber]} today={today} initialAction={quick.action} onClose={()=>setQuick(null)} onSaved={()=>setNotice('Sentetik değişiklik kaydedildi; detay, liste, Dashboard ve uyarılar yeniden yükleniyor.')}/>}

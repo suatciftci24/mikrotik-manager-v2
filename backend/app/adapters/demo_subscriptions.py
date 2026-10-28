@@ -55,6 +55,31 @@ class PostgresDemoStore:
         return None
 
     @storage_errors
+    def report_records(self, start, until, cutoff, router_id, router_name, subscriber_id, operation, limit, offset):
+        """Bounded audit response and aggregates in one read-only snapshot; no detail fan-out."""
+        params=dict(start=start,until=until,cutoff=cutoff,router=router_id,name=router_name,
+                    subscriber=subscriber_id,operation=operation,limit=limit,offset=offset)
+        base=f"""FROM {self.schema}.events e JOIN {self.schema}.subscribers s ON s.id=e.subscriber_id
+          WHERE (e.payload->>'occurred_at')::timestamptz >= :start
+          AND (e.payload->>'occurred_at')::timestamptz < :until
+          AND (e.payload->>'occurred_at')::timestamptz <= :cutoff
+          AND (:router='' OR s.payload->>'router_id'=:router OR
+               (s.payload->>'router_id' IS NULL AND s.payload->>'router_name'=:name))
+          AND (:subscriber='' OR s.id=:subscriber)"""
+        with self.engine.connect().execution_options(isolation_level='REPEATABLE READ') as connection:
+            with connection.begin():
+                connection.execute(text('SET TRANSACTION READ ONLY'))
+                self._verify(connection)
+                items=list(connection.execute(text(f'SELECT payload FROM {self.schema}.subscribers')).scalars())
+                groups=list(connection.execute(text("SELECT e.payload->>'operation' AS operation, e.payload->'new_values'->>'status' AS status, count(*) AS total "+base+" GROUP BY 1,2"),params).mappings())
+                where=base+" AND (:operation='' OR e.payload->>'operation'=:operation)"
+                total=connection.execute(text('SELECT count(*) '+where),params).scalar_one()
+                rows=connection.execute(text("SELECT e.payload AS event,s.payload AS subscriber "+where+" ORDER BY (e.payload->>'occurred_at')::timestamptz DESC,e.id LIMIT :limit OFFSET :offset"),params).mappings()
+                audits=[{**row['event'],'subscriber_id':row['subscriber']['id'],
+                         **{key:row['subscriber'].get(key) for key in ('customer_name','username','router_id','router_name','access_type')}} for row in rows]
+        return items,audits,total,[dict(row) for row in groups]
+
+    @storage_errors
     def ping(self):
         with self.engine.connect() as connection:
             self._verify(connection)

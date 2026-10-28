@@ -46,7 +46,7 @@ export function Mikajani() {
     </>}
   </div>;
 }
-function EventDialog({event,names,onClose}:{event:MikaEvent;names:Record<string,string>;onClose:()=>void}) {
+export function EventDialog({event,names,onClose}:{event:MikaEvent;names:Record<string,string>;onClose:()=>void}) {
   const dialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{const origin=document.activeElement as HTMLElement|null;dialog.current?.showModal();return()=>{dialog.current?.close();origin?.focus({preventScroll:true});};},[]);
   return <dialog ref={dialog} className="expiry-dialog" aria-labelledby="mika-event-title" onCancel={e=>{e.preventDefault();onClose();}}><h2 id="mika-event-title">{event.priority} · {event.title}</h2><p>DEMO / SENTETİK · Salt okunur bulgu</p>

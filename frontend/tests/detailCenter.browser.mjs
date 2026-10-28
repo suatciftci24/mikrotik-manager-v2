@@ -1,3 +1,4 @@
+import {checkReports} from './reportAcceptance.mjs';
 // Real browser acceptance. Writes only to two new synthetic IDs; existing records are immutable.
 import assert from 'node:assert/strict';
 import {selectBrowser} from './browserRuntime.mjs';
@@ -33,6 +34,8 @@ try{
  await api('/v1/auth/login',{username:'demo',password:'demo-only'});logged=true;
  const original=(await api('/v1/subscribers')).items;
  for(const s of original)baseline.set(s.id,await api('/v1/subscribers/'+s.id));
+ if(process.env.V2_BROWSER_DASHBOARD_ONLY!=='1')await checkReports(page,ok,api,output);
+ if(process.env.V2_BROWSER_REPORTS_ONLY!=='1'){
  await page.goto('/#module=dashboard');
  await page.getByRole('heading',{name:'MikAjanı · ağ operasyonları',exact:true}).waitFor();
  await page.getByRole('region',{name:'Operasyon WAN ve IPsec özeti',exact:true}).waitFor();
@@ -180,6 +183,7 @@ try{
   await page.screenshot({path:output+`router-${width}.png`});
  }
  } // Full detail/QuickActions acceptance; dashboard-only mode performs no mutations.
+ } // Reports-only acceptance never enters dashboard/QuickActions mutation flow.
  for(const [id,originalDetail]of baseline)assert.deepEqual(await api('/v1/subscribers/'+id),originalDetail,'Eski abone/audit değişti: '+id);
  ok('Başlangıçtaki bütün abone/audit kayıtları korundu',true);
  const result={status:'PASS',run_id:run,checks,test_ids:created.map(s=>s.id),preserved_existing:baseline.size};

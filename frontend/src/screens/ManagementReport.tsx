@@ -46,6 +46,7 @@ export function ManagementReport({onBack}:{onBack:()=>void}){
       <button className="button-secondary" onClick={()=>change({period:'TODAY',router:'',kind:'ALL'})}>Filtreleri temizle</button>
     </div><p>Dönem ve olay filtresi yalnız zamanlı işlem/olay listelerine uygulanır. Envanter, hesap ve abonelik sayaçları router filtresi kapsamındaki son kayıtlı durumu gösterir; geçmişe ait durum tahmini değildir.</p></section>
     <ResourceState {...resource} error={error}/>
+    {report&&<a className="button-secondary" href={'#'+new URLSearchParams({module:'dashboard',view:'OPERATIONS_REPORT',router_id:filter.router,start:report.range.start,end:report.range.end})}>Bu aralığın operasyon ve audit raporu</a>}
     {report&&!resource.loading&&!error&&<>
       <p role="status" className="daily-description">{reportPeriods[filter.period]}: {expiryDate(report.range.start)} – {expiryDate(report.range.end)} · Türkiye günleri dahil, gelecek kayıtlar hariç. Veri okuması: {resource.data?.read_at?dateTime(resource.data.read_at):'Veri yok'}.</p>
       <h2>Son kayıtlı envanter ve abonelik durumu</h2>

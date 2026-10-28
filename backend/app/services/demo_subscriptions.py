@@ -120,6 +120,9 @@ class ConfiguredDemoStore:
     def change_subscriber(self, item_id, command, actor_id):
         return self._get().change_subscriber(item_id, command, actor_id)
 
+    def report_records(self, *args):
+        return self._get().report_records(*args)
+
     def ping(self):
         return self._get().ping()
 

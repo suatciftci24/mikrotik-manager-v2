@@ -39,6 +39,7 @@ export function InternetReport(){
       <button className="button-secondary" onClick={()=>change({period:'TODAY',router:'',subscriber:''})}>Filtreleri temizle</button>
     </div><p>Dönem hacimleri yalnız kaydedilmiş bayt örneklerinin toplamıdır; ölçülmeyen abone/zaman için kullanım tahmin edilmez. Router WAN sayacı ile abone örnekleri aynı ölçüm değildir. Hız ölçümü yok; GB hacim ile Mbps hız arasında dönüşüm yapılmaz.</p></section>
     <ResourceState {...resource} error={error}/>
+    {report&&<a className="button-secondary" href={'#'+new URLSearchParams({module:'dashboard',view:'OPERATIONS_REPORT',router_id:filter.router,start:report.range.start,end:report.range.end})}>Bu aralığın operasyon ve audit raporu</a>}
     {report&&!resource.loading&&!error&&<>
       <p role="status" className="daily-description">{internetPeriods[filter.period]} · {expiryDate(report.range.start)} – {expiryDate(report.range.end)} · Türkiye takvim günleri dahil. Veri okuması: {resource.data?.read_at?dateTime(resource.data.read_at):'Veri yok'}.</p>
       <div className="metric-grid">

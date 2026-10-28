@@ -783,3 +783,13 @@ kümülatiftir. Özetler görünür sekmede 60 saniyede ve odağa dönüşte yen
 manuel yenile aynı kaynakları okur. Zamanlar/kaynaklar gösterilir, eksik telemetri
 Bilinmiyor/Veri yok kalır. Audit listesi yalnız kaydedilmiş başarılı işlemlerdir;
 başarısız denemelerin sayısı türetilmez. Bütün kaynaklar izole SENTETİK V2 verisidir.
+
+Aşama 12: Dashboard’daki **Operasyon ve audit raporları**, mevcut günlük ve
+internet raporlarını koruyarak özel tarih aralığında PPPoE audit, internet/WAN
+yaşam döngüsü ve MikAjanı olaylarını inceler. Router/abone detaylarından da
+filtreli giriş vardır. Yeni salt okunur `/api/v1/reports/operations` sunucuda
+filtreler; audit SQL sayfalıdır, UI sayfa başına 25 kayıt getirir (API en fazla 50).
+Tarihler Europe/Istanbul, en fazla 366 gündür. Başarısız işlem audit kaynağı ve
+kanıtsız süreler Veri yok kalır; bugünkü snapshot geçmiş durum gibi sunulmaz.
+Yalnız raporların salt okunur tarayıcı kabulü:
+`V2_BROWSER_REPORTS_ONLY=1 ./browser-accept-demo.sh`.
