@@ -102,7 +102,9 @@ def main(argv=None):
     mode=parser.add_mutually_exclusive_group()
     mode.add_argument('--dev',action='store_true',help='API ve UI ortak yaşam döngüsüyle çalışır; DB veya kabul işlemi başlatmaz.')
     mode.add_argument('--browser',action='store_true',help='Aynı ManagedAPI yaşam döngüsü içinde API ve UI hazır olunca gerçek tarayıcı kabulünü çalıştırır; mevcut servisler korunur.')
+    parser.add_argument('--alarm-acceptance',action='store_true',help='Açık yerel alarm kabul bakımı: ek alarm şemasını hazırlar ve yalnız yeni UUID sentetik fixture ekler; ACK kabulünü çalıştırır.')
     args=parser.parse_args(argv)
+    if args.alarm_acceptance and not args.browser:parser.error('--alarm-acceptance yalnız --browser ile kullanılabilir')
     def interrupted(_signum,_frame):
         raise KeyboardInterrupt
     previous=signal.signal(signal.SIGTERM,interrupted)
@@ -119,8 +121,20 @@ def main(argv=None):
 
             if args.browser:
                 require_browser_database()  # Read-only and before UI/tools or test records.
+                worker_env=None
+                if args.alarm_acceptance:
+                    import os
+                    from app.demo_storage import prepare_alarm_acceptance
+                    from sqlalchemy.exc import SQLAlchemyError
+                    from app.services.demo_subscriptions import DemoStorageUnavailable
+                    try:test_id=prepare_alarm_acceptance()
+                    except (SQLAlchemyError,DemoStorageUnavailable,ValueError):
+                        raise RepairBlocked('Alarm kabul şeması/fixture hazırlığı tamamlanamadı; mevcut kayıtlar sıfırlanmadı.') from None
+                    print('Yeni sentetik alarm kabul kaydı korunacak: '+test_id,flush=True)
+                    worker_env={**os.environ,'V2_BROWSER_ALARMS_ONLY':'1','V2_BROWSER_ALARMS_ACK':'1','V2_ALARM_TEST_SUBSCRIBER':test_id}
                 with ManagedUI():
-                    return subprocess.run([str(ROOT/'browser-accept-demo.sh'),'--with-ready-services'],cwd=ROOT).returncode
+                    command=[str(ROOT/'browser-accept-demo.sh'),'--with-ready-services']
+                    return subprocess.run(command,cwd=ROOT,**({'env':worker_env} if worker_env else {})).returncode
             from app.demo_acceptance import main as accept
             return accept([])
     except KeyboardInterrupt:

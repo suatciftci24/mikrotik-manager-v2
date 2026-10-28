@@ -1,3 +1,4 @@
+import { AlarmCenter } from '../components/AlarmCenter';
 import { OperationReport } from './OperationReport';
 import { DashboardHealth } from '../components/DashboardHealth';
 import { invalidateResources } from '../lib/resourceEvents';
@@ -34,9 +35,9 @@ function DashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigat
   useEffect(() => {
     if (previousDay.current !== today) {previousDay.current = today;resource.retry();}
   }, [today, resource.retry]);
-  const refresh=()=>invalidateResources(['/routers','/subscribers','/router-events','/mikajani']);
+  const refresh=()=>invalidateResources(['/routers','/subscribers','/router-events','/mikajani','/alarms']);
   useEffect(()=>{
-    const tick=()=>{if(!document.hidden)invalidateResources(['/routers','/subscribers','/router-events','/mikajani']);};
+    const tick=()=>{if(!document.hidden)invalidateResources(['/routers','/subscribers','/router-events','/mikajani','/alarms']);};
     const timer=window.setInterval(tick,60000);
     window.addEventListener('focus',tick);document.addEventListener('visibilitychange',tick);
     return()=>{window.clearInterval(timer);window.removeEventListener('focus',tick);document.removeEventListener('visibilitychange',tick);};
@@ -82,6 +83,7 @@ function DashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigat
           <button onClick={()=>goRouters({status:'DEGRADED'})}>Dikkat gerektiren <strong>{data.router_counts.degraded}</strong></button>
         <button onClick={()=>goRouters({status:'UNKNOWN'})}>Bilinmiyor <strong>{data.router_counts.unknown}</strong></button></div><p className="missing-data">Veri yok: canlı router bağlantısı, çevrimiçi abone oturumu, ölçülmüş trafik ve günlük tahsilat kaynağı bağlı değil.</p></section>
       </div>
+      <AlarmCenter compact/>
       <DashboardHealth/>
       <AlarmEvents mode="cards" routers={data.routers}/>
       <div className="dashboard-grid bottom-grid">

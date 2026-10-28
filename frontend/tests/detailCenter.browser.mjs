@@ -1,3 +1,4 @@
+import {checkAlarms} from './alarmAcceptance.mjs';
 import {checkReports} from './reportAcceptance.mjs';
 // Real browser acceptance. Writes only to two new synthetic IDs; existing records are immutable.
 import assert from 'node:assert/strict';
@@ -34,6 +35,8 @@ try{
  await api('/v1/auth/login',{username:'demo',password:'demo-only'});logged=true;
  const original=(await api('/v1/subscribers')).items;
  for(const s of original)baseline.set(s.id,await api('/v1/subscribers/'+s.id));
+ if(process.env.V2_BROWSER_ALARMS_ONLY==='1')await checkAlarms(page,ok,api,output);
+ if(process.env.V2_BROWSER_ALARMS_ONLY!=='1'){
  if(process.env.V2_BROWSER_DASHBOARD_ONLY!=='1')await checkReports(page,ok,api,output);
  if(process.env.V2_BROWSER_REPORTS_ONLY!=='1'){
  await page.goto('/#module=dashboard');
@@ -184,6 +187,7 @@ try{
  }
  } // Full detail/QuickActions acceptance; dashboard-only mode performs no mutations.
  } // Reports-only acceptance never enters dashboard/QuickActions mutation flow.
+ } // Alarm-only acceptance uses a separate, explicit fixture for ACK and no subscriber mutation.
  for(const [id,originalDetail]of baseline)assert.deepEqual(await api('/v1/subscribers/'+id),originalDetail,'Eski abone/audit değişti: '+id);
  ok('Başlangıçtaki bütün abone/audit kayıtları korundu',true);
  const result={status:'PASS',run_id:run,checks,test_ids:created.map(s=>s.id),preserved_existing:baseline.size};

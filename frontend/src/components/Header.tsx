@@ -18,7 +18,7 @@ export function Header({ active, user, onOpenSearch, onOpenNotifications }: {
     <div className="topbar-actions"><ThemePicker/>
       <div className="live-pill"><span className="pulse-dot" />Sentetik demo ortamı</div>
       <button className="search-trigger" onClick={onOpenSearch}><Search size={15} /><span>Hızlı ara...</span><kbd>⌘ K</kbd></button>
-      <button className="icon-button notification-button" aria-label="Bildirimler" onClick={onOpenNotifications}><Bell size={17} /><i /></button>
+      <button className="icon-button notification-button" aria-label="Bildirimler" onClick={onOpenNotifications}><Bell size={17} /></button>
       <button className="top-user"><span className="mini-avatar">{user.name.split(' ').map(x => x[0]).join('').slice(0, 2)}</span><ChevronDown size={14} /></button>
     </div>
   </header>;

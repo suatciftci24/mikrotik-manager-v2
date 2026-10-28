@@ -82,3 +82,22 @@ class BrowserAPIReuse(TestCase):
             self.assertEqual(runner.main(['--dev']),130)
             api.return_value.__exit__.assert_called_once();ui.return_value.__exit__.assert_called_once()
         self.assertIs(signal.getsignal(signal.SIGTERM),previous)
+
+    def test_alarm_acceptance_prepares_one_explicit_fixture_inside_existing_service_lifecycle(self):
+        with patch.object(runner,'ManagedAPI') as api,patch.object(runner,'ManagedUI') as ui, \
+             patch.object(runner,'require_browser_database'), \
+             patch('app.demo_storage.prepare_alarm_acceptance',return_value='demo-sub-test-new') as setup, \
+             patch.object(runner.subprocess,'run',return_value=SimpleNamespace(returncode=0)) as worker,redirect_stdout(StringIO()):
+            self.assertEqual(runner.main(['--browser','--alarm-acceptance']),0)
+            setup.assert_called_once();api.return_value.__exit__.assert_called_once();ui.return_value.__exit__.assert_called_once()
+            env=worker.call_args.kwargs['env']
+            self.assertEqual(env['V2_BROWSER_ALARMS_ACK'],'1')
+            self.assertEqual(env['V2_BROWSER_ALARMS_ONLY'],'1')
+            self.assertEqual(env['V2_ALARM_TEST_SUBSCRIBER'],'demo-sub-test-new')
+
+    def test_blocked_database_never_prepares_alarm_schema_or_fixture(self):
+        with patch.object(runner,'ManagedAPI'),patch.object(runner,'ManagedUI') as ui, \
+             patch.object(runner,'require_browser_database',side_effect=RepairBlocked('DB not ready')), \
+             patch('app.demo_storage.prepare_alarm_acceptance') as setup,redirect_stderr(StringIO()):
+            self.assertEqual(runner.main(['--browser','--alarm-acceptance']),1)
+            setup.assert_not_called();ui.assert_not_called()

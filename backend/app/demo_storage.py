@@ -182,13 +182,39 @@ def process_demo_events(engine, batches=(), schema='v2_demo'):
     return changed
 
 
+def prepare_alarm_acceptance():
+    """Explicit local acceptance setup; adds one unique initial synthetic snapshot only."""
+    from uuid import uuid4
+    from copy import deepcopy
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    from app.core.database import engine
+    from app.services.demo_data import ROUTERS
+    from app.adapters.alarm_actions import initialize
+    adapter=PostgresDemoStore(engine)
+    initialize(adapter)  # same repo/marker/cluster checks as explicit alarms-init
+    token=str(uuid4())
+    item=deepcopy(SUBSCRIBERS[0])
+    item.update(id='demo-sub-'+token,username='alarm.accept.'+token,customer_name='SENTETİK Alarm Kabul '+token[:8],
+        source='LOCAL',status='PAUSED',access_type='PPPOE',router_id=ROUTERS[0]['id'],router_name=ROUTERS[0]['name'],
+        expires_on=(datetime.now(ZoneInfo('Europe/Istanbul')).date()-timedelta(days=1)).isoformat(),revision=0,last_seen=None)
+    item.pop('demo_report',None)
+    detail=validated_snapshots([dict(item=item,history=[],is_demo=True)])[0]
+    with engine.begin() as connection:
+        adapter._verify(connection)
+        insert_snapshot(connection,adapter,detail,'v2_demo')
+    return item['id']
+
+
 def main():
     parser = argparse.ArgumentParser(description='Explicit local V2 demo setup and synthetic event processing (never resets records)')
-    parser.add_argument('command', choices=['init','process-events'])
+    parser.add_argument('command', choices=['init','process-events','alarms-init'])
     parser.add_argument('--observations', type=Path, help='Optional JSON batches: subscriber_id and observations; synthetic append-only input')
     parser.add_argument('--examples', action='store_true', help='Add missing deterministic demo examples without overwriting existing records')
     parser.add_argument('--snapshot', type=Path, help='Optional synthetic memory snapshot to preserve existing edits/history')
     args = parser.parse_args()
+    if args.command=='alarms-init' and (args.examples or args.snapshot or args.observations):
+        parser.error('alarms-init ek veri/seed argümanı kabul etmez')
     if args.command=='process-events' and (args.examples or args.snapshot):
         parser.error('process-events accepts only --observations')
     if args.command=='init' and args.observations:
@@ -196,6 +222,11 @@ def main():
     snapshots = json.loads(args.snapshot.read_text()) if args.snapshot else None
     from app.core.database import engine
     try:
+        if args.command=='alarms-init':
+            from app.adapters.alarm_actions import initialize
+            initialize(PostgresDemoStore(engine))
+            print('V2 alarm action schema ready; subscribers and source events unchanged.')
+            return
         if args.command=='process-events':
             batches=json.loads(args.observations.read_text()) if args.observations else []
             if not isinstance(batches,list):

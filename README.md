@@ -793,3 +793,22 @@ Tarihler Europe/Istanbul, en fazla 366 gündür. Başarısız işlem audit kayna
 kanıtsız süreler Veri yok kalır; bugünkü snapshot geçmiş durum gibi sunulmaz.
 Yalnız raporların salt okunur tarayıcı kabulü:
 `V2_BROWSER_REPORTS_ONLY=1 ./browser-accept-demo.sh`.
+
+Aşama 13 **Merkezi Alarm Yönetimi**, Operasyon Merkezi içinde mevcut sentetik
+WAN/MikAjanı/PPPoE kaynaklarını kullanır. Router/önem/durum/tür/tarih filtreleri,
+sayfalama, kaynak kanıtı ve ayrı operatör ACK audit'i vardır. ACK arızayı çözmez;
+bildirimin kişisel okundu durumu ACK'ten ayrıdır. Kaynakta olmayan IPsec veya
+kesin başlangıç/çözülme zamanı üretilmez. Dashboard ve bildirim paneli aynı alarm
+kaynağını kullanır; harici mesaj gönderilmez.
+
+Alarm işlem tabloları uygulama başlangıcında oluşturulmaz. Açık, yalnız bu repo
+izole V2 kümesi için ek şema bakımı: `PYTHONPATH=backend .venv/bin/python -m app.demo_storage alarms-init`.
+Kaynak okuması bu tablolar olmadan da çalışır; ACK/okundu yazması kapalı kalır.
+Salt okunur kabul: `V2_BROWSER_ALARMS_ONLY=1 ./browser-accept-demo.sh`.
+
+Tek komutla ek alarm şeması hazırlığı ve ayrı yetkili ACK/idempotency kabulü:
+`./browser-accept-demo.sh --alarm-acceptance`.
+Bu açık test modu yalnız yeni UUID'li `alarm.accept.*` başlangıç sentetik kaydını
+ekler; eski aboneleri/audit'i değiştirmez. Yeni kayıt ve alarm audit'i test sonunda
+silinmez. Kaynak kaybolursa kayıtlı kullanıcı işlem kanıtı tarihsel olarak korunur;
+çözülme varsayılmaz ve açık kritik sayımına eklenmez.

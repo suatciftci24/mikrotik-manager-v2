@@ -38,3 +38,10 @@ def current_demo_account_mutator(user: dict = Depends(current_demo_user),
     if x_v2_demo_action != 'subscriber-management' or not user.get('is_demo') or user.get('role') != 'Sistem Yöneticisi':
         raise HTTPException(status_code=403, detail='Demo abone yönetim yetkisi gerekli')
     return user
+
+
+def current_alarm_mutator(user: dict = Depends(current_demo_user),
+                          x_v2_demo_action: str | None = Header(default=None)) -> dict:
+    if x_v2_demo_action != 'alarm-ack' or not user.get('is_demo') or user.get('role') != 'Sistem Yöneticisi':
+        raise HTTPException(403, 'Alarm onaylama yetkisi gerekli')
+    return user

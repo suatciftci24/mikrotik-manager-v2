@@ -123,6 +123,14 @@ class ConfiguredDemoStore:
     def report_records(self, *args):
         return self._get().report_records(*args)
 
+    def alarm_snapshot(self):
+        from app.adapters.alarm_actions import snapshot
+        return snapshot(self._get())
+
+    def alarm_action(self, *args):
+        from app.adapters.alarm_actions import mutate
+        return mutate(self._get(), *args)
+
     def ping(self):
         return self._get().ping()
 
