@@ -15,7 +15,7 @@ from app.services.demo_examples import demo_examples
 AT=datetime(2026,10,28,tzinfo=timezone.utc)
 RID=ROUTERS[0]['id']
 def row(**kw):return Observation(id='event1',router_id=RID,kind='EVENT',observed_at=AT,state=SourceState.AVAILABLE,**kw)
-def batch(cursor='c1',records=None,**kw):return Batch(router_id=RID,cursor=cursor,records=tuple(records if records is not None else [row()]),**kw)
+def batch(cursor='c1',records=None,**kw):return Batch(router_id=RID,cursor=cursor,sequence={'c1':1,'c2':2,'empty':2,'reappears':3,'partial':2,'new':2,'next':2,'older':2}.get(cursor,1),records=tuple(records if records is not None else [row()]),**kw)
 
 class IntegrationContracts(TestCase):
     def test_external_flags_and_secret_material_rejected(self):

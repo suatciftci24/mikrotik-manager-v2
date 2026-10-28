@@ -42,4 +42,4 @@ async def ready():
 from fastapi.exceptions import RequestValidationError
 @app.exception_handler(RequestValidationError)
 async def invalid_request(_request,error):
-    return JSONResponse(status_code=422,content={'detail':'İstek alanları doğrulanamadı.','errors':[{'loc':list(issue['loc']),'msg':issue['msg'],'type':issue['type']} for issue in error.errors()]})
+    return JSONResponse(status_code=422,content={'detail':'İstek alanları doğrulanamadı.','errors':[{'loc':[issue['loc'][0]] if issue.get('loc') and issue['loc'][0] in ('body','query','path','header','cookie') else [],'msg':'Alan doğrulanamadı.','type':'validation_error'} for issue in error.errors()[:20]]})

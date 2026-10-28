@@ -36,7 +36,7 @@ def audit(profile:str='default',page:int=Query(1,ge=1,le=1000000),page_size:int=
     except DemoChangeError as error:raise HTTPException(error.status_code,error.detail) from None
 
 @router.get('/system/health')
-def system_health(user:dict=Depends(current_admin)):return health()
+def system_health(user:dict=Depends(current_admin)):return health(user)
 
 @router.get('/system/sources')
 def data_sources(user:dict=Depends(current_admin)):return sources()
@@ -59,3 +59,8 @@ def update_preferences(payload:service.PersonalCommand,user:dict=Depends(current
 def integration_readiness(user:dict=Depends(current_admin)):
     from app.integrations.gateway import readiness
     return readiness()
+
+@router.get('/system/resilience')
+def integration_resilience(user:dict=Depends(current_admin)):
+    from app.integrations.gateway import resilience
+    return resilience(user)

@@ -29,7 +29,8 @@ def read_router(user,router_id,*,provider_name='SYNTHETIC',page=1,page_size=25):
         if batch.router_id!=router_id:raise ValueError('Provider scope mismatch')
         now=datetime.now(timezone.utc)
         rows=[{**row.model_dump(mode='json'),'freshness':freshness(row,now,timedelta(minutes=5)).value} for row in batch.records]
-        return dict(router_id=router_id,state=SourceState.AVAILABLE,cursor=batch.cursor,total=len(rows),page=page,page_size=page_size,items=rows[(page-1)*page_size:page*page_size],is_demo=True)
+        summary=dict(states=sorted({row['freshness'] for row in rows}),observed_at=max((row['observed_at'] for row in rows if row['observed_at']),default=None),no_data=sum(row['freshness']=='NO_DATA' for row in rows))
+        return dict(router_id=router_id,state=SourceState.AVAILABLE,cursor=batch.cursor,summary=summary,total=len(rows),page=page,page_size=page_size,items=rows[(page-1)*page_size:page*page_size],is_demo=True)
     except TimeoutError:state=SourceState.TIMEOUT
     except PermissionError:state=SourceState.ACCESS_DENIED
     except Exception:state=SourceState.ERROR
@@ -38,3 +39,20 @@ def read_router(user,router_id,*,provider_name='SYNTHETIC',page=1,page_size=25):
 
 
 def external_write(*_args,**_kwargs):raise HTTPException(403,'Harici sistem yazması devre dışı')
+
+
+def resilience(user):
+    """Read current sources independently; no hidden retry/cache or fault injection API."""
+    from app.core.authorization import routers_for
+    rows=[]
+    for router in routers_for(user,'can_view_reports'):
+        response=read_router(user,router['id'],page_size=50)
+        # Summary is computed over the full authorized batch in one provider read.
+        observations=response['items']
+        summary=response.get('summary') or dict(states=sorted({item['freshness'] for item in observations}),observed_at=max((item['observed_at'] for item in observations if item['observed_at']),default=None),no_data=sum(item['freshness']=='NO_DATA' for item in observations))
+        states=set(summary['states'])
+        status='DEGRADED' if response['state']!=SourceState.AVAILABLE else 'STALE' if 'STALE' in states else 'UNKNOWN' if not states or states<={'UNKNOWN','NO_DATA'} else 'AVAILABLE'
+        rows.append(dict(router_id=router['id'],status=status,source_state=response['state'],observed_at=summary['observed_at'],no_data=summary['no_data']))
+    status='UNKNOWN' if not rows else 'DEGRADED' if any(row['status']=='DEGRADED' for row in rows) else 'STALE' if any(row['status']=='STALE' for row in rows) else 'UNKNOWN' if any(row['status']=='UNKNOWN' for row in rows) else 'AVAILABLE'
+    return dict(status=status,checked_at=datetime.now(timezone.utc).isoformat(),items=rows,automatic_retry=False,last_success=None,is_demo=True,
+                note='Mevcut sentetik gözlemler; AVAILABLE canlı bağlantı değildir. Kalıcı senkronizasyon/otomatik retry çalışmıyor; toparlanma yalnız offline önizlemede doğrulanır.')

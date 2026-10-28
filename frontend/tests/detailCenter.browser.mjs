@@ -1,3 +1,4 @@
+import {checkResilience} from './resilienceAcceptance.mjs';
 import {checkIntegration} from './integrationAcceptance.mjs';
 import {checkSettings} from './settingsAcceptance.mjs';
 import {checkUsers} from './userAcceptance.mjs';
@@ -38,6 +39,8 @@ try{
  await api('/v1/auth/login',{username:'demo',password:'demo-only'});logged=true;
  const original=(await api('/v1/subscribers')).items;
  for(const s of original)baseline.set(s.id,await api('/v1/subscribers/'+s.id));
+ if(process.env.V2_BROWSER_RESILIENCE_ONLY==='1')await checkResilience(page,ok,api,output);
+ if(process.env.V2_BROWSER_RESILIENCE_ONLY!=='1'){
  if(process.env.V2_BROWSER_INTEGRATION_ONLY==='1')await checkIntegration(page,ok,api,output);
  if(process.env.V2_BROWSER_INTEGRATION_ONLY!=='1'){
  if(process.env.V2_BROWSER_SETTINGS_ONLY==='1')await checkSettings(page,ok,api,output,browser,createdUsers);
@@ -200,6 +203,7 @@ try{
  } // User acceptance only changes fresh synthetic identities, never subscriber/audit rows.
  } // Settings-only uses isolated profiles and fresh identities.
  } // Integration readiness is strictly read-only.
+ } // Resilience-only acceptance performs no persistent mutations.
  for(const [id,originalDetail]of baseline)assert.deepEqual(await api('/v1/subscribers/'+id),originalDetail,'Eski abone/audit değişti: '+id);
  ok('Başlangıçtaki bütün abone/audit kayıtları korundu',true);
  const result={status:'PASS',run_id:run,checks,test_user_ids:createdUsers,test_ids:created.map(s=>s.id),preserved_existing:baseline.size};

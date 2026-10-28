@@ -1,5 +1,5 @@
 import {api} from './api';
-export type Check={status:'UP'|'ERROR'|'UNKNOWN';checked_at:string|null;last_success:string|null;error:string|null};
+export type Check={status:'UP'|'ERROR'|'UNKNOWN'|'DEGRADED'|'STALE';checked_at:string|null;last_success:string|null;error:string|null};
 export type Health={checks:Record<string,Check>;sources:{mode:string;router:string;radius:string;v1:string;evidence:string};is_demo:true;scope:string};
 let previous:Record<string,Check>={};
 export async function probeClient(fetcher:typeof fetch=fetch,now=new Date(),old:Record<string,Check>=previous){

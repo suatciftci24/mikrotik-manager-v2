@@ -76,3 +76,9 @@ idempotency ve geri dönüş tasarımı gerekir. Bu kapılar otomatik onay veya 
 bağlanma yetkisi değildir. V1 verisi/kimliği/adaptörü kullanılmaz, V1→V2 geçişi
 başlatılmaz. Yönetim paneli yalnız DEMO/SYNTHETIC, RouterOS/RADIUS DISCONNECTED ve
 V1 ISOLATED gösterir; connect/test düğmesi yoktur.
+
+Aşama 17 sağlamlaştırması: yeni tam snapshot'lar için açık source sequence,
+UTC/kayıt sırası normalizasyonu, omission sonrası revision watermark ve yetki
+kontrollü offline recovery/CAS/backoff modeli eklendi. Ayrıntı ve operasyonel
+sınırlar [SECURITY_RESILIENCE.md](SECURITY_RESILIENCE.md) belgesindedir. Provider
+özetleri ve readonly sağlık görünümü gerçek entegrasyon veya otomatik retry değildir.

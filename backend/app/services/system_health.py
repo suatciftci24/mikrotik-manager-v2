@@ -15,7 +15,7 @@ def sources():
     return dict(mode='DEMO / SYNTHETIC',router='DISCONNECTED',radius='DISCONNECTED',v1='DISCONNECTED',
                 evidence='Bu V2 uygulamasında canlı adaptör yapılandırması yok; yalnız izole yerel demo depo/projeksiyonları kullanılır.',is_demo=True)
 
-def health():
+def health(user=None):
     now=datetime.now(timezone.utc).isoformat()
     checks={}
     with _lock:
@@ -32,4 +32,8 @@ def health():
     checks['database']=database
     for key in ('ui','proxy','postgres_process','vite_process'):
         checks[key]=dict(status='UNKNOWN',checked_at=None,last_success=None,error='Bu bileşen için sunucu süreç ölçümü yok. UI/proxy istemcide ayrıca kontrol edilir.')
+    if user is not None:
+        from app.integrations.gateway import resilience
+        observed=resilience(user)
+        checks['provider_observations']=dict(status='UP' if observed['status']=='AVAILABLE' else observed['status'],checked_at=observed['checked_at'],last_success=None,error=observed['note'])
     return dict(checks=checks,sources=sources(),is_demo=True,scope='Son başarılı kontrol yalnız bu API sürecinin gözlemidir; restart sonrası bilinmiyor.')

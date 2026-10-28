@@ -24,7 +24,7 @@ class Contract(BaseModel):
 
 class SecretReference(Contract):
     # Opaque lookup key only. No resolver or secret material is implemented.
-    reference:str=Field(pattern=r'^secretref:v2/[a-zA-Z0-9_-]{1,64}/[a-zA-Z0-9_-]{1,64}$')
+    reference:str=Field(repr=False,exclude=True,pattern=r'^secretref:v2/[a-zA-Z0-9_-]{1,64}/[a-zA-Z0-9_-]{1,64}$')
     purpose:Literal['ROUTEROS_AUTH','RADIUS_AUTH','IPSEC_PSK']
 
 class ExternalConfiguration(Contract):
@@ -46,11 +46,16 @@ class Observation(Contract):
     # Exact safe summary fields only; no arbitrary provider dictionaries or credentials.
     name:str|None=Field(default=None,max_length=160)
     state:SourceState=SourceState.UNKNOWN
+    @field_validator('id','router_id','subject_id','name','status')
+    @classmethod
+    def safe_summary(cls,value):
+        if value is not None and any(marker in value.lower() for marker in ('secretref:', 'password=', 'token=', 'api_key=', 'postgresql://', 'postgresql+psycopg://', '://')):raise ValueError('Sensitive provider summary rejected')
+        return value
     @field_validator('observed_at')
     @classmethod
     def aware(cls,value):
         if value is not None and value.utcoffset() is None:raise ValueError('Timezone-aware observation required')
-        return value
+        return value.astimezone(timezone.utc) if value is not None else None
 
 class Batch(Contract):
     version:Literal[1]=1
@@ -59,6 +64,7 @@ class Batch(Contract):
     mode:Literal['SNAPSHOT','DELTA']='SNAPSHOT'
     cursor:str=Field(min_length=1,max_length=160)
     base_cursor:str|None=None
+    sequence:int|None=Field(default=None,ge=0)
     complete:bool=False
     records:tuple[Observation,...]=Field(default=(),max_length=10000)
     @model_validator(mode='after')
@@ -68,6 +74,7 @@ class Batch(Contract):
         if self.mode=='SNAPSHOT' and self.base_cursor is not None:raise ValueError('Snapshot has no base cursor')
         keys=[(row.kind,row.id) for row in self.records]
         if len(keys)!=len(set(keys)):raise ValueError('Duplicate source record')
+        object.__setattr__(self,'records',tuple(sorted(self.records,key=lambda row:(row.kind,row.id))))
         return self
 
 class RouterProvider(Protocol):
@@ -87,6 +94,8 @@ class Replica(Contract):
     source_id:Literal['v2-synthetic']='v2-synthetic'
     router_id:str
     cursor:str|None=None
+    sequence:int|None=None
+    watermarks:tuple[Observation,...]=()
     records:tuple[Observation,...]=()
     # Pure preview state, not a persistent audit/incident ledger.
     receipts:dict[str,str]=Field(default_factory=dict)
@@ -96,25 +105,30 @@ class Replica(Contract):
 def reconcile(state:Replica,batch:Batch)->tuple[Replica,tuple[Observation,...]]:
     """Explicit offline reducer. Never writes audit/incident rows or marks omission DOWN."""
     if (state.source_id,state.router_id)!=(batch.source_id,batch.router_id):raise ValueError('Replica scope mismatch')
+    batch=Batch.model_validate(batch.model_dump(mode='json'))
     digest=sha256(batch.model_dump_json().encode()).hexdigest()
     if batch.cursor in state.receipts:
         if state.receipts[batch.cursor]!=digest:raise ValueError('Cursor reused with different content')
         return state,()
     if batch.mode=='DELTA' and batch.base_cursor!=state.cursor:raise ValueError('Delta cursor gap')
-    previous={(r.kind,r.id):r for r in state.records};changes=[];events=dict(state.event_receipts)
+    if state.cursor is not None and batch.mode=='SNAPSHOT':
+        if batch.sequence is None or state.sequence is not None and batch.sequence<=state.sequence:raise ValueError('Ordered snapshot sequence required')
+    if batch.sequence is not None and state.sequence is not None and batch.sequence<=state.sequence:raise ValueError('Stale source sequence')
+    previous={(r.kind,r.id):r for r in state.records};watermarks={(r.kind,r.id):r for r in state.watermarks};changes=[];events=dict(state.event_receipts)
     for row in batch.records:
-        old=previous.get((row.kind,row.id))
+        old=watermarks.get((row.kind,row.id)) or previous.get((row.kind,row.id))
         if row.kind=='EVENT':
             event_digest=sha256(row.model_dump_json().encode()).hexdigest()
             if row.id in events and events[row.id]!=event_digest:raise ValueError('Event identity reused')
             seen=row.id in events;events[row.id]=event_digest
         else:seen=False
-        if old and (row.revision<old.revision or row.revision==old.revision and row!=old):raise ValueError('Stale/conflicting source revision')
+        if old and (row.revision<old.revision or row.revision==old.revision and row!=old or old.observed_at is not None and row.observed_at is not None and row.observed_at<old.observed_at):raise ValueError('Stale/conflicting source revision')
         if old!=row and not seen:changes.append(row)
     # Missing rows in incomplete snapshots/deltas retain last observations, never recovery/outage events.
     merged={} if batch.mode=='SNAPSHOT' and batch.complete else dict(previous)
     merged.update({(row.kind,row.id):row for row in batch.records})
-    return Replica(router_id=state.router_id,cursor=batch.cursor,records=tuple(merged.values()),receipts={**state.receipts,batch.cursor:digest},event_receipts=events),tuple(changes)
+    watermarks.update({(row.kind,row.id):row for row in batch.records})
+    return Replica(router_id=state.router_id,cursor=batch.cursor,sequence=batch.sequence if batch.sequence is not None else state.sequence,watermarks=tuple(watermarks.values()),records=tuple(merged.values()),receipts={**state.receipts,batch.cursor:digest},event_receipts=events),tuple(changes)
 
 
 def freshness(row:Observation,now:datetime,max_age:timedelta)->SourceState:
