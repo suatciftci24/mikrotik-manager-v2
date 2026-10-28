@@ -128,3 +128,45 @@ class SettingsContracts(TestCase):
             self.assertEqual(result['total'],2);self.assertEqual(result['items'][0]['severity'],'P1');self.assertEqual(result['summary']['active'],4)
             empty=alarms.list_alarms(levels='NONE',page=1,page_size=10,user=public_user(bootstrap()));self.assertEqual(empty['total'],0)
             with self.assertRaises(HTTPException):alarms.list_alarms(levels='P9',page=1,page_size=10,user=public_user(bootstrap()))
+    def test_real_migration_comments_are_not_split_into_executable_statements(self):
+        """Run the real migration through initialization, including its comment semicolon."""
+        from unittest.mock import MagicMock
+        from app.demo_repair import ROOT
+        engine=MagicMock();connection=engine.begin.return_value.__enter__.return_value
+        calls=[];initialized=False;default={'values':{'app_name':'Existing customized name'},'revision':7}
+        def execute(statement,params=None):
+            nonlocal initialized
+            sql=str(statement).strip();calls.append(sql)
+            if 'SHOW data_directory' in sql:value=str(ROOT/'.local/postgres-v2-demo')
+            elif 'to_jsonb' in sql:value='true' if initialized else None
+            elif sql.startswith('INSERT INTO v2_demo.settings_records'):
+                # First setup uses ON CONFLICT DO NOTHING, never overwrites an existing record.
+                self.assertIn('ON CONFLICT DO NOTHING',sql);value=None
+            else:
+                self.assertTrue(sql.startswith(('SELECT ','CREATE TABLE ','ALTER TABLE ','UPDATE v2_demo.schema_state ','CREATE INDEX ')),sql)
+                self.assertNotIn('--',sql)
+                if sql.startswith('UPDATE v2_demo.schema_state '):initialized=True
+                value=None
+            return SimpleNamespace(scalar_one=lambda:value)
+        connection.execute.side_effect=execute
+        with patch.object(identity,'adapter',return_value=SimpleNamespace(engine=engine,_verify=Mock())),patch('app.demo_repair.preflight'),patch.object(identity,'ready',return_value=True),patch.object(service,'ready',return_value=True),patch.object(service,'record',return_value=default):
+            service.initialize();service.initialize()
+        self.assertEqual(sum(sql.startswith('CREATE TABLE ') for sql in calls),4)
+        self.assertEqual(sum(sql.startswith('INSERT INTO v2_demo.settings_records') for sql in calls),1)
+        self.assertFalse(any(sql.startswith(('DELETE','TRUNCATE','DROP','UPDATE v2_demo.settings_records','INSERT INTO v2_demo.users','UPDATE v2_demo.users')) for sql in calls))
+        self.assertEqual(default['values']['app_name'],'Existing customized name');self.assertEqual(default['revision'],7)
+
+    def test_each_acceptance_run_clones_existing_defaults_into_new_profile_only(self):
+        from unittest.mock import MagicMock
+        engine=MagicMock();connection=engine.begin.return_value.__enter__.return_value
+        values=service.Values(app_name='Preserved customized V2',theme='dark',page_size=10).model_dump()
+        before=deepcopy(values)
+        with patch.object(service,'initialize') as setup,patch.object(identity,'adapter',return_value=SimpleNamespace(engine=engine,_verify=Mock())),patch.object(service,'record',return_value={'values':values,'revision':9}):
+            first=service.prepare_acceptance();second=service.prepare_acceptance()
+        self.assertNotEqual(first,second);self.assertEqual(setup.call_count,2)
+        for call in connection.execute.call_args_list:
+            sql=str(call.args[0]);params=call.args[1]
+            self.assertTrue(sql.startswith('INSERT INTO v2_demo.settings_records'))
+            self.assertIn(params['id'],[first,second]);self.assertNotEqual(params['id'],'default')
+            self.assertEqual(json.loads(params['values']),before)
+        self.assertEqual(values,before)

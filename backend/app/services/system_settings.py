@@ -163,7 +163,9 @@ def initialize():
         connection.execute(text("SELECT pg_advisory_xact_lock(hashtext('v2-settings'))"))
         initialized=connection.execute(text("SELECT to_jsonb(s)->>'settings_initialized' FROM v2_demo.schema_state s WHERE version=1")).scalar_one()
         require(initialized!='true' or ready(connection),'Kurulmuş ayar deposu eksik; varsayılanlar yeniden oluşturulmadı.')
-        for statement in (ROOT/'migrations/versions/005_demo_settings.sql').read_text().split(';'):
+        # Full-line SQL comments can contain semicolons; they are not statements.
+        sql='\n'.join(line for line in (ROOT/'migrations/versions/005_demo_settings.sql').read_text().splitlines() if not line.lstrip().startswith('--'))
+        for statement in sql.split(';'):
             if statement.strip():connection.execute(text(statement))
         if initialized!='true':connection.execute(text("INSERT INTO v2_demo.settings_records(id,payload) VALUES ('default',CAST(:values AS jsonb)) ON CONFLICT DO NOTHING"),{'values':Values().model_dump_json()})
         record(connection,'default')
