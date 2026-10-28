@@ -718,8 +718,8 @@ query/router/plan filters remain in URL context across details and reload.
 
 Stage 9's local JSON artifact confirms **110 HTTP/PostgreSQL checks PASS and 9
 original subscribers preserved**. Stage 10 browser interactions are separate.
-With the V2 UI running in normal WSL, execute one browser acceptance step. The
-existing Stage 9 manager reuses a ready API or starts its own temporary API if absent:
+In normal WSL, execute one browser acceptance step. The shared Stage 9 manager
+reuses ready API/UI services and temporarily starts only whichever service is missing:
 
 ```bash
 cd ~/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh
@@ -728,8 +728,12 @@ cd ~/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh
 The wrapper delegates API ownership/readiness to the same `ManagedAPI` used by
 `./dev.sh --accept-demo`; no second API launcher exists. A ready existing API is
 never stopped; only a child started by this command is cleaned up on success or
-failure. UI port 5173 must already be running; this command does not restart UI or
-DB services. On first use it downloads only Playwright/Chromium test tools into
+failure. The same lifecycle manages Vite on 5173 through `dev.sh --ui-only`, which
+also supplies normal dev.sh startup using the existing Vite configuration. It
+never restarts existing API/UI or DB services. Before UI/tools/test writes, it
+checks the isolated DB read-only and verifies the running API DB health; a missing
+DB is BLOCKED without seed, schema or migration. On first use it downloads only
+Playwright/Chromium test tools into
 ignored `.local/browser-tools`; it does not alter app dependencies, install system
 libraries, prepare schemas or seed data. Tool/browser/network restrictions stop with BLOCKED.
 The browser blocks external page requests and follows no API redirects. It creates
@@ -741,3 +745,21 @@ visibility, focus/Escape and 320/390 px overflow. Screenshots and actual results
 in `.local/browser-acceptance/<run-id>/`. No existing demo subscriber is modified.
 A prepared script or component test is not browser PASS; actual result.json and
 screenshots are required for that acceptance.
+
+
+### Browser acceptance owns both missing local services
+
+`./browser-accept-demo.sh` no longer requires a separately started UI or API. Its
+sequence is **API ready → read-only V2 DB ready → UI ready → real browser**. Existing
+ready services are reused; only its newly started children are stopped afterward,
+including when DB/UI/browser setup fails. Wrong services, occupied ports, permission
+errors and timeouts stop without restarting unknown processes. New-child startup
+waits are bounded; infrastructure failures are not retried in a diagnostic loop.
+
+Vite has one launch command in `dev.sh --ui-only`, shared with normal dev.sh. It
+executes the project's existing Vite entrypoint directly under `frontend/` so the
+owned PID is the server itself; no npm-wrapper child is left behind. Existing Vite
+config (loopback 5173, strictPort, API proxy 8000) is unchanged. API/UI logs remain
+in `.local/runtime/accept-api-*/api.log` and `accept-ui-*/ui.log`. Browser/Chromium
+absence or OS dependency failure remains BLOCKED and is never replaced with
+HTTP/projection PASS. No database service start, repair, seed or migration occurs.

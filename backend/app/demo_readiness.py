@@ -23,15 +23,15 @@ class NoRedirect(HTTPRedirectHandler):
         raise ValueError('API yönlendirmesi reddedildi.')
 
 
-def connection_reason(failure):
+def connection_reason(failure,target='127.0.0.1:8000'):
     reason=getattr(failure,'reason',failure)
     code=getattr(reason,'errno',None)
     if isinstance(reason,ConnectionRefusedError) or code==errno.ECONNREFUSED:
-        return APIStatus('ABSENT', '127.0.0.1:8000 bağlantısı reddedildi: API çalışmıyor veya bu WSL ortamında dinlemiyor.')
+        return APIStatus('ABSENT', f'{target} bağlantısı reddedildi: yerel V2 süreç bu WSL ortamında dinlemiyor.')
     if isinstance(reason,PermissionError) or code in (errno.EPERM,errno.EACCES):
         return APIStatus('BLOCKED','Loopback erişimi izin/sandbox engeline takıldı; otomatik tekrar yapılmadı.')
     if isinstance(reason,TimeoutError):
-        return APIStatus('BLOCKED','API zaman aşımı: servis meşgul veya erişim engelli; başka süreç başlatılmadı.')
+        return APIStatus('BLOCKED','Yerel HTTP zaman aşımı: servis meşgul veya erişim engelli; başka süreç başlatılmadı.')
     return APIStatus('BLOCKED','Loopback HTTP erişimi kurulamadı; ağ hatası ayrıntısı yok. Normal WSL ortamını kontrol edin.')
 
 
@@ -52,16 +52,32 @@ def probe_api(opener=None):
         return APIStatus('WRONG','Port 8000 V2 hazır sözleşmesini sağlamıyor; yönlendirme/farklı yanıt reddedildi.')
 
 
-def wait_ready(alive,timeout=12,probe=probe_api,clock=time.monotonic,sleep=time.sleep):
+def probe_ui(opener=None):
+    client=opener or build_opener(ProxyHandler({}),NoRedirect())
+    try:
+        with client.open(Request('http://127.0.0.1:5173/'),timeout=1) as response:
+            body=response.read()
+        if b'MikroTik Manager V2' in body and b'/src/main.tsx' in body:
+            return APIStatus('READY','Yerel V2 Vite UI hazır.')
+        return APIStatus('WRONG','Port 5173 V2 Vite UI kimliğini sağlamıyor; mevcut servise dokunulmadı.')
+    except HTTPError as failure:
+        return APIStatus('WRONG',f'UI portu HTTP {failure.code} verdi; mevcut servis değiştirilmedi.')
+    except (URLError,OSError) as failure:
+        return connection_reason(failure,'127.0.0.1:5173')
+    except (ValueError,TypeError):
+        return APIStatus('WRONG','UI yanıtı veya yönlendirmesi reddedildi.')
+
+
+def wait_ready(alive,timeout=12,probe=probe_api,clock=time.monotonic,sleep=time.sleep,label='API'):
     deadline=clock()+timeout
     while True:
         if not alive():
-            return APIStatus('BLOCKED','Yeni API süreci hazır olmadan kapandı; api.log dosyasını inceleyin.')
+            return APIStatus('BLOCKED',f'Yeni {label} süreci hazır olmadan kapandı; {label.lower()}.log dosyasını inceleyin.')
         status=probe()
         if status.state!='ABSENT':
             return status  # Permission, timeout and wrong-service failures are never retried.
         if clock()>=deadline:
-            return APIStatus('BLOCKED','Yeni API 12 saniyelik hazır olma sınırında yanıt vermedi; api.log dosyasını inceleyin.')
+            return APIStatus('BLOCKED',f'Yeni {label} hazır olma sınırında yanıt vermedi; {label.lower()}.log dosyasını inceleyin.')
         sleep(0.2)
 
 
@@ -75,16 +91,18 @@ def require_api_ready():
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description='Yalnız V2 HTTP hazır kontrolü; DB erişimi yok.')
+    parser.add_argument('--ui',action='store_true',help='Mevcut Vite UI kimliği ve 5173 portunu kontrol et.')
     parser.add_argument('--wait',action='store_true')
     parser.add_argument('--pid',type=int)
     args=parser.parse_args(argv)
+    probe=probe_ui if args.ui else probe_api
     if args.wait:
         if not args.pid or args.pid<=0:parser.error('--wait için geçerli --pid gerekli')
         def alive():
             try:os.kill(args.pid,0);return True
             except OSError:return False
-        status=wait_ready(alive)
-    else:status=probe_api()
+        status=wait_ready(alive,probe=probe,label='UI' if args.ui else 'API')
+    else:status=probe()
     print(status.state+': '+status.detail,flush=True)
     return 0 if status.state=='READY' else 1
 

@@ -5,44 +5,52 @@ import socket
 import subprocess
 import sys
 import tempfile
-from app.demo_readiness import probe_api, wait_ready
+from app.demo_readiness import probe_api, probe_ui, wait_ready
 from app.demo_repair import ROOT, RepairBlocked, require
 
 
 class ManagedAPI:
+    label='API'
+    port=8000
+
+    def probe(self):return probe_api()
+
+    def command(self):
+        return [str(ROOT/'.venv/bin/python'),'-m','uvicorn','app.main:app',
+                '--app-dir',str(ROOT/'backend'),'--host','127.0.0.1','--port','8000']
+
     def __init__(self):
         self.process=None
         self.log_path=None
 
     def __enter__(self):
-        status=probe_api()
+        status=self.probe()
         if status.state=='READY':
-            print('HTTP READY: mevcut V2 API kullanılacak; yaşam döngüsüne dokunulmaz.',flush=True)
+            print(f'{self.label} READY: mevcut V2 süreç kullanılacak; yaşam döngüsüne dokunulmaz.',flush=True)
             return self
         require(status.state=='ABSENT',status.detail)
         # Only start when the exact loopback port is free and sockets are permitted.
         try:
             with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as probe:
-                probe.bind(('127.0.0.1',8000))
+                probe.bind(('127.0.0.1',self.port))
         except OSError:
-            raise RepairBlocked('Yerel API portu kullanılamıyor veya sandbox soketi engelliyor; başka servis durdurulmadı.') from None
+            raise RepairBlocked(f'Yerel {self.label} portu kullanılamıyor veya sandbox soketi engelliyor; başka servis durdurulmadı.') from None
         runtime=ROOT/'.local/runtime'
         for path in (ROOT/'.local',runtime):
             require(not path.is_symlink(),'V2 log yolu symlink olamaz.')
         runtime.mkdir(parents=True,exist_ok=True)
-        folder=Path(tempfile.mkdtemp(prefix='accept-api-',dir=runtime))
-        self.log_path=folder/'api.log'
+        folder=Path(tempfile.mkdtemp(prefix='accept-'+self.label.lower()+'-',dir=runtime))
+        self.log_path=folder/(self.label.lower()+'.log')
         try:
             with self.log_path.open('w') as log:
-                self.process=subprocess.Popen([str(ROOT/'.venv/bin/python'),'-m','uvicorn','app.main:app',
-                    '--app-dir',str(ROOT/'backend'),'--host','127.0.0.1','--port','8000'],cwd=ROOT,stdout=log,stderr=subprocess.STDOUT)
-            status=wait_ready(lambda:self.process.poll() is None)
+                self.process=subprocess.Popen(self.command(),cwd=ROOT,stdout=log,stderr=subprocess.STDOUT)
+            status=wait_ready(lambda:self.process.poll() is None,probe=self.probe,label=self.label)
             require(status.state=='READY',status.detail)
-            print('HTTP READY: bu komutun geçici V2 API süreci hazır. Log: '+str(self.log_path),flush=True)
+            print(f'{self.label} READY: bu komutun geçici V2 süreci hazır. Log: '+str(self.log_path),flush=True)
             return self
         except BaseException:
             self.stop()
-            print('API başlangıç logu korundu: '+str(self.log_path),file=sys.stderr)
+            print(f'{self.label} başlangıç logu korundu: '+str(self.log_path),file=sys.stderr)
             raise
 
     def stop(self):
@@ -56,15 +64,47 @@ class ManagedAPI:
         self.stop()
 
 
+class ManagedUI(ManagedAPI):
+    # Same owner/readiness/cleanup implementation. Vite command lives only in dev.sh.
+    label='UI'
+    port=5173
+
+    def probe(self):return probe_ui()
+
+    def command(self):
+        require((ROOT/'frontend/node_modules/vite/bin/vite.js').is_file(),
+                'Vite bağımlılıkları eksik; frontend paketlerini hazırlayın. Servis başlatılmadı.')
+        return [str(ROOT/'dev.sh'),'--ui-only']
+
+
+def require_browser_database():
+    from app.core.database import engine
+    from app.demo_repair import verify_database, LocalHTTP
+    from app.services.demo_subscriptions import DemoStorageUnavailable
+    from sqlalchemy.exc import SQLAlchemyError
+    try:
+        _adapter,rows=verify_database(engine)
+        health=LocalHTTP().request('/api/health')
+        require(health.get('environment')=='local-demo' and health.get('database_connected') is True
+                and health.get('device_adapters_connected') is False,
+                'API aynı kalıcı izole V2 DB kaynağını doğrulamıyor; veri değiştirilmedi.')
+        print(f'DB READY: izole V2 marker/yetkiler/kaynak doğrulandı; {len(rows)} mevcut kayıt korunuyor.',flush=True)
+    except (SQLAlchemyError,DemoStorageUnavailable):
+        raise RepairBlocked('DB hazır değil: izole V2 bağlantısı/şema/yetki doğrulanamadı; veri değiştirilmedi. Onarım/seed çalıştırılmadı.') from None
+    finally:
+        engine.dispose()
+
+
 def main(argv=None):
     parser=argparse.ArgumentParser(description='Ortak yerel V2 API yöneticisi: mevcut API korunur; gerekirse sadece kendi geçici API sürecini açar ve seçilen kabulü çalıştırır.')
-    parser.add_argument('--browser',action='store_true',help='Aynı ManagedAPI yaşam döngüsü içinde gerçek tarayıcı kabulünü çalıştırır; UI zaten çalışıyor olmalı.')
+    parser.add_argument('--browser',action='store_true',help='Aynı ManagedAPI yaşam döngüsü içinde API ve UI hazır olunca gerçek tarayıcı kabulünü çalıştırır; mevcut servisler korunur.')
     args=parser.parse_args(argv)
     try:
         with ManagedAPI():
             if args.browser:
-                # The worker rechecks readiness, but never starts a second API owner.
-                return subprocess.run([str(ROOT/'browser-accept-demo.sh'),'--with-ready-api'],cwd=ROOT).returncode
+                require_browser_database()  # Read-only and before UI/tools or test records.
+                with ManagedUI():
+                    return subprocess.run([str(ROOT/'browser-accept-demo.sh'),'--with-ready-services'],cwd=ROOT).returncode
             from app.demo_acceptance import main as accept
             return accept([])
     except (RepairBlocked,OSError,subprocess.SubprocessError) as failure:

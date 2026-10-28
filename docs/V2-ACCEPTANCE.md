@@ -242,3 +242,25 @@ cd ~/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh
 ```
 
 Komut hazır API'yi kullanır veya ortak yöneticiyle geçici V2 API açar. Yalnız kendi başlattığı API temizlenir; mevcut API/UI/DB'ye restart uygulanmaz. UI 5173 kapalıysa ayrı açık hata ile BLOCKED kalır. Gerçek browser result.json/görüntüleri alınmadan tarayıcı kabulü PASS'e çevrilmez; geçmiş Aşama 9 110 HTTP/PostgreSQL PASS kanıtı ayrı kalır.
+
+## Aşama 10 — tek komutta API + UI hazırlığı tamamlandı — 2026-10-28
+
+Önceki WSL API READY / UI erişilemiyor çıktısının nedeni UI'nin önceden açık varsayılmasıydı. Güncel akış bu varsayımı kaldırır.
+
+| Kapsam | Sonuç / kanıt |
+| --- | --- |
+| API ve UI aynı sahiplik/cleanup/readiness altyapısı | Tamamlandı — ManagedUI mevcut ManagedAPI uygulamasını paylaşır; hazır süreçler korunur |
+| Vite komutu / yapılandırması | Tek giriş: dev.sh --ui-only; normal dev ve browser aynı komutu çağırır; mevcut Vite config değişmedi |
+| DB gate | Salt okunur data_directory/marker/yetki/kaynak ve API DB health; DB engelinde UI/araç/test yazması başlamaz; repair/seed/migration yok |
+| Hedefli testler | PASS — 6 ManagedUI + 6 dispatch + 10 API/readiness = 22; syntax/compile/diff geçti |
+| Codex gerçek API/UI/DB/browser | BLOCKED — tek API probe sandbox izninde durdu; sonraki adımlar çalışmadı, tekrar yok |
+| WSL geçmiş kabul | API READY kullanıcı çıktısı ve 110 HTTP/DB PASS/9 abone koruma JSON'u tarihsel kapsamıyla geçerli; browser PASS değildir |
+| Demo veri/audit korunması | Bu görevde gerçek veri erişimi/yazması yok; browser yalnız yeni iki test hesabında çalışır, başlangıç kayıtlarını karşılaştırır |
+
+Normal WSL terminalinde **ayrı API/UI başlatmadan** tek komut:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh
+```
+
+Sıra: API READY → DB READY (read-only) → UI READY → gerçek tarayıcı. Hazır mevcut servisler kapanmaz; yalnız komutun kendi başlattığı süreçler temizlenir. UI/DB/browser önkoşul hatası veya araç/Chromium yokluğu BLOCKED kalır; HTTP/projeksiyon sonucu browser PASS diye raporlanmaz. Gerçek `.local/browser-acceptance/<run-id>/result.json` ve ekran görüntüleri alınmadan tarayıcı kabulü tamamlanmış sayılmaz. Üretim servisleri, gerçek cihazlar/RADIUS/veriler ve migration kapsam dışıdır.

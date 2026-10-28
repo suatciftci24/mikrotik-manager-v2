@@ -8,8 +8,8 @@ if [[ ! -x .venv/bin/python ]]; then
   printf 'BROWSER BLOCKED: V2 .venv eksik; servis/veri değiştirilmedi.\n' >&2
   exit 1
 fi
-# The internal worker never owns an API process; it runs inside ManagedAPI.
-if [[ "${1:-}" != '--with-ready-api' ]]; then
+# The worker owns no services; the shared manager holds API and UI lifetimes.
+if [[ "${1:-}" != '--with-ready-services' ]]; then
   exec .venv/bin/python -m app.demo_api_runner --browser "$@"
 fi
 shift
@@ -18,15 +18,7 @@ if [[ $# -ne 0 ]]; then
   exit 1
 fi
 .venv/bin/python -m app.demo_readiness
-.venv/bin/python - <<'PY'
-from urllib.request import build_opener, ProxyHandler
-from app.demo_readiness import NoRedirect
-try:
-    with build_opener(ProxyHandler({}),NoRedirect()).open('http://127.0.0.1:5173',timeout=3) as response:
-        if b'MikroTik Manager V2' not in response.read():raise ValueError('V2 UI identity')
-except Exception:
-    raise SystemExit('BROWSER BLOCKED: yerel V2 UI 127.0.0.1:5173 erişilemiyor; UI servisi başlatılmadı.')
-PY
+.venv/bin/python -m app.demo_readiness --ui
 V2_BROWSER_TOOLS="$V2_BROWSER_ROOT/.local/browser-tools"
 if [[ -L .local || -L "$V2_BROWSER_TOOLS" ]]; then
   printf 'BLOCKED: test araç yolu symlink olamaz.\n' >&2

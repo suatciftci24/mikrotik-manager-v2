@@ -4,6 +4,14 @@ set -euo pipefail
 PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_ROOT"
 
+# One Vite entrypoint shared by normal dev and the browser acceptance manager.
+if [[ "${1:-}" == '--ui-only' ]]; then
+  [[ $# -eq 1 && -f frontend/node_modules/vite/bin/vite.js ]] || { printf 'UI BLOCKED: Vite eksik veya argüman geçersiz.\n' >&2; exit 1; }
+  cd "$PROJECT_ROOT/frontend"
+  # exec Node directly so the owned PID is Vite, not an npm wrapper with an orphan child.
+  exec node node_modules/vite/bin/vite.js --host 127.0.0.1
+fi
+
 # Explicit acceptance bootstrap: no install, schema/seed or UI startup required.
 if [[ "${1:-}" == '--accept-demo' ]]; then
   [[ -x .venv/bin/python ]] || { printf 'BLOCKED: V2 .venv eksik.\n' >&2; exit 1; }
@@ -50,13 +58,13 @@ trap 'exit 143' TERM
 
 .venv/bin/uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 >"$RUNTIME_DIR/api.log" 2>&1 &
 API_PID=$!
-npm --prefix frontend run dev -- --host 127.0.0.1 >"$RUNTIME_DIR/web.log" 2>&1 &
+"$PROJECT_ROOT/dev.sh" --ui-only >"$RUNTIME_DIR/web.log" 2>&1 &
 WEB_PID=$!
 if ! PYTHONPATH=backend .venv/bin/python -m app.demo_readiness --wait --pid "$API_PID"; then
   printf 'V2 API hazır değil. Log: %s/api.log; UI logu: %s/web.log\n' "$RUNTIME_DIR" "$RUNTIME_DIR" >&2
   exit 1
 fi
-if ! kill -0 "$WEB_PID" 2>/dev/null; then
+if ! PYTHONPATH=backend .venv/bin/python -m app.demo_readiness --ui --wait --pid "$WEB_PID"; then
   printf 'V2 UI başlatılamadı; API bu dev.sh oturumu ile durdurulacak. Log: %s/web.log\n' "$RUNTIME_DIR" >&2
   exit 1
 fi

@@ -16,19 +16,21 @@ class BrowserAPIReuse(TestCase):
             def __exit__(self,*args):order.append('cleanup')
         def worker(command,**kwargs):
             self.assertEqual(order,['ready'])
-            self.assertEqual(command,[str(runner.ROOT/'browser-accept-demo.sh'),'--with-ready-api'])
+            self.assertEqual(command,[str(runner.ROOT/'browser-accept-demo.sh'),'--with-ready-services'])
             self.assertEqual(kwargs['cwd'],runner.ROOT)
             order.append('browser')
             return SimpleNamespace(returncode=0)
-        with patch.object(runner,'ManagedAPI',Manager),patch.object(runner.subprocess,'run',side_effect=worker):
+        with patch.object(runner,'ManagedAPI',Manager),patch.object(runner,'ManagedUI'), \
+             patch.object(runner,'require_browser_database'),patch.object(runner.subprocess,'run',side_effect=worker):
             self.assertEqual(runner.main(['--browser']),0)
         self.assertEqual(order,['ready','browser','cleanup'])
 
     def test_browser_failure_code_preserved_and_manager_still_cleans_up(self):
-        with patch.object(runner,'ManagedAPI') as manager, \
+        with patch.object(runner,'ManagedAPI') as manager, patch.object(runner,'ManagedUI') as ui, \
+             patch.object(runner,'require_browser_database'), \
              patch.object(runner.subprocess,'run',return_value=SimpleNamespace(returncode=7)):
             self.assertEqual(runner.main(['--browser']),7)
-            manager.return_value.__exit__.assert_called_once()
+            manager.return_value.__exit__.assert_called_once();ui.return_value.__exit__.assert_called_once()
 
     def test_readiness_blocker_prevents_browser_tools_and_test_records(self):
         with patch.object(runner,'ManagedAPI') as manager,patch.object(runner.subprocess,'run') as worker,redirect_stderr(StringIO()):
@@ -48,3 +50,10 @@ class BrowserAPIReuse(TestCase):
             with self.assertRaises(SystemExit) as result:runner.main(['--browser','--help'])
             self.assertEqual(result.exception.code,0)
             manager.assert_not_called();worker.assert_not_called()
+
+    def test_db_blocker_prevents_ui_tools_and_writes_but_cleans_owned_api(self):
+        with patch.object(runner,'ManagedAPI') as api,patch.object(runner,'ManagedUI') as ui, \
+             patch.object(runner,'require_browser_database',side_effect=RepairBlocked('DB not ready')), \
+             patch.object(runner.subprocess,'run') as worker,redirect_stderr(StringIO()):
+            self.assertEqual(runner.main(['--browser']),1)
+            ui.assert_not_called();worker.assert_not_called();api.return_value.__exit__.assert_called_once()
