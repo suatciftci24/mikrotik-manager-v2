@@ -85,3 +85,15 @@ test('quick preview cannot run before router/catalog data are ready',()=>{
  assert.match(html,/Router\/paket bilgileri yükleniyor/);
  assert.match(html,/<button[^>]*disabled=""[^>]*>Önizle ve gözden geçir<\/button>/);
 });
+
+
+test('quick action select labels exclude option text and catalog errors',()=>{
+ const {QuickActions}=compile('../src/components/QuickActions.tsx');
+ for(const [initialAction,label,key] of [['PLAN','Yeni paket','plan'],['STATUS','Yeni durum','status'],['EXTEND','Uzatma','extension']]){
+  const html=renderToStaticMarkup(React.createElement(QuickActions,{rows:[subscriber],today:'2026-10-28',initialAction,onClose(){}}));
+  const match=html.match(new RegExp(`<span id="([^"]+-${key})">${label}</span><select[^>]*aria-labelledby="([^"]+)"`));
+  assert.ok(match,`${initialAction}: select references a text-only label`);
+  assert.equal(match[1],match[2]);
+  assert.ok(html.includes('<option'),`${initialAction}: real selection options remain rendered`);
+ }
+});
