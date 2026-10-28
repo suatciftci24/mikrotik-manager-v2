@@ -91,3 +91,22 @@ Bu plan bu görevde **uygulanmadı**. Yalnız izinli yerel WSL terminalinde, V2 
    Bu paketler gerçek DB transaction/rollback/eşzamanlılık/idempotency, bağımsız uygulama süreçlerinden yeniden okuma, tam API management ve seed korumasını kapsar. DB yazan testler yalnız `v2_demo_test_*` şemalarını yönetir; mevcut kullanıcı şemasını silme. Aynı V2 test sunucusunda kullanıcı akışını tarayıcıdan da denemek gerekirse yalnız yeni, benzersiz sentetik test hesabı kullan; önceden var olan kayıtları değiştirme.
 5. Beyaz/Gece/Sistem ve 320/390/768/1440 px genişliklerde Dashboard → filtreli router/abone/alarm listesi → detay → ilişkili abone → geri akışını kontrol et. Arama/filtre sıfırlama, uyarı kartları, CREATE/paket/durum/yenileme onay-iptal-hata-başarı, işlem/olay diyaloğu, MiB/süre, Veri yok/Bilinmiyor ve demo etiketlerini gözle doğrula. Tab/Shift+Tab/Enter/Escape, açıcıya odak dönüşü ve tablo kaydırması için ekran görüntüsü/sonuç kaydet. Yeni test hesabını mevcut kullanıcı verisine dokunmadan açıkça ayır.
 6. Yalnız bu adımlara ait yeni sonuçları bu matrise ekle. HTTP, DB kalıcılığı ve görsel akışlar geçmeden BLOCKED kararını kaldırma; üretim kimliği/operasyonel güvenlik incelemesi ayrıca gerekir. Bu plan üretim dağıtımı veya servis restartı içermez.
+
+## Aşama 8 — MikAjanı V2 kabul kapsamı — 2026-10-28
+
+Aşama 8'in yerel kod ve soketsiz sözleşme kontrolleri geçti. Genel gerçek entegrasyon/üretim kabul kararı **BLOCKED** kalır; bu paket üretim yayını yetkisi vermez.
+
+| Kriter | Sonuç / kanıt |
+| --- | --- |
+| Mevcut router/WAN/PPPoE sentetik kaynaklarının salt okunur projeksiyonu | PASS — kayıtlı kaynak zamanları korunur; PPPoE abone bazında; IPsec ölçümü yoksa Bilinmiyor |
+| OPEN, UPDATED, RECOVERING, RESOLVED ve tekrar okumada tek olay | PASS — deterministik kimlik/replay; kanıt değişiminde güncelleme; 60 saniye aralıklı iki iyi gözlemle çözülme |
+| P1–P4, neden/kanıt/router/öneri/güven/zaman | PASS — tipli bulgu sözleşmesi ve inceleme dialog'u; gelecekte/çelişkili/gerçek veri reddi |
+| Tek router / ortak erişim ayrımı | PASS — 120 saniye içinde en az iki router koşulu; ortak neden düşük güvenli adaydır, kesin teşhis değildir |
+| Veri güncelliği ve bilinmeyen kaynak | PASS — 15 dakika eşiği, domain bazında UNKNOWN, kaynak hatasında 503; sağlıklı varsayım veya sessiz fixture fallback'i yok |
+| API kayıt, yetki ve salt okunur sınır | PASS — 7 GET ucu, merkezi oturum bağımlılığı, oturumsuz erişim kontrolü, OpenAPI Analysis yanıt sözleşmesi; mutasyon/AI client yok |
+| Yedi sentetik senaryo | PASS — WAN/IPsec/router/PPPoE/merkezi erişim/iyileşme/belirsiz veri; ayrı sabit senaryo saati; kayıtlı kaynak değişmez |
+| Frontend filtre/gezinme/sentetik sınırı | PASS — hedefli frontend test dosyası ve TypeScript/Vite build; tema/mobil düzen kodda korunur |
+| Gerçek DB, HTTP/ASGI, tarayıcı/mobil görsel kabul | BLOCKED — mevcut ortam engelleri yeniden denenmedi; soketsiz testler bunların yerine PASS sayılmaz |
+| Canlı router/RADIUS/AI/üretim işlemleri | Kapsam dışı — bağlantı/işlem yok; dağıtım, migration ve restart yapılmadı |
+
+Backend kanıtı: 11 hedefli `test_mikajani` testi ve devam görevindeki ek OpenAPI testi (toplam 12). Frontend kanıtı: `frontend/tests/mikajani.test.mjs`, TypeScript/Vite build. Kaynak geçmişi değişmedikçe olay kimliği/geçmişi tekrar üretilebilir; kaynakta olmayan eski gözlemler veya ayrı bir MikAjanı kalıcı olay arşivi bu fazda sunulmaz.

@@ -8,7 +8,7 @@ MODULES = [
     {'key': 'subscribers', 'name': 'Abone Yönetimi', 'status': 'PHASE_1_DEMO'},
     {'key': 'radius', 'name': 'RADIUS Entegrasyonu', 'status': 'SCAFFOLD'},
     {'key': 'operations', 'name': 'Operasyon Merkezi', 'status': 'SCAFFOLD'},
-    {'key': 'mikajani', 'name': 'MikAjanı', 'status': 'SCAFFOLD'},
+    {'key': 'mikajani', 'name': 'MikAjanı', 'status': 'READ_ONLY_SYNTHETIC'},
 ]
 
 
