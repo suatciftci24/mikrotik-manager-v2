@@ -100,8 +100,9 @@ class LocalHTTP:
                 status, content = response.status, response.read()
         except HTTPError as failure:
             status, content = failure.code, failure.read()
-        except (URLError, TimeoutError):
-            raise RepairBlocked('V2 HTTP erişilemiyor. DB sonucu ayrı; mevcut ./dev.sh API oturumunu ve yapılandırmasını kontrol edin.') from None
+        except (URLError, TimeoutError) as failure:
+            from app.demo_readiness import connection_reason
+            raise RepairBlocked(connection_reason(failure).detail+' DB sonucu ayrıdır; API adresi http://127.0.0.1:8000. ./dev.sh --accept-demo ile yerel hazır kontrolü yapabilirsiniz.') from None
         require(status == expected, f'HTTP {path}: beklenen {expected}, alınan {status}; başarı sayılmadı.')
         return json.loads(content)
 

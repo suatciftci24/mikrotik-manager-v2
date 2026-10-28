@@ -10,6 +10,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 from sqlalchemy.exc import SQLAlchemyError
 from app.core.database import engine
+from app.demo_readiness import require_api_ready
 from app.demo_repair import LocalHTTP, RepairBlocked, ROOT, require, verify_database
 from app.schemas.details import SubscriberDetail
 from app.services.demo_subscriptions import DemoStorageUnavailable
@@ -250,6 +251,7 @@ def main(argv=None):
     parser.parse_args(argv)
     acceptance=None
     try:
+        require_api_ready()  # Before DB access, baseline capture or any test write.
         require(not (ROOT/'.local').is_symlink() and not (ROOT/'.local/postgres-v2-demo').is_symlink(),'V2 küme yolu symlink olamaz.')
         adapter,rows=verify_database(engine)  # No prepare/seed, service management or DDL.
         print('DB PASS:',len(rows),'mevcut sentetik abone; değiştirilmeden korunacak.',flush=True)

@@ -664,3 +664,36 @@ Success prints the actual check count and writes a non-secret JSON summary under
 preservation checks prints `PPPoE API/DB PASS`; an infrastructure obstacle is
 BLOCKED and an unexpected HTTP/domain assertion is FAIL. Unit tests of the runner
 are not a substitute for running this command against the real local services.
+
+### API readiness and one-command acceptance startup
+
+If acceptance reports DB PASS but cannot reach HTTP, use this single command in a
+**normal WSL terminal**:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && ./dev.sh --accept-demo
+```
+
+The API and acceptance tool both use `127.0.0.1:8000`; the UI proxy uses the same
+address. `/api/ready` now identifies V2 HTTP readiness without accessing PostgreSQL;
+`/api/health` remains the separate DB health check. Direct `./accept-demo.sh`
+requires readiness before any DB baseline read or test write and reports connection
+refusal, timeout, permissions, or a wrong/old service separately.
+
+The new mode reuses a ready V2 API without starting/stopping it. If connection is
+refused and the exact loopback port is free, it starts only this repo's API with
+its own venv, waits at most a bounded startup interval, then runs acceptance.
+It does not start Vite, so an occupied UI port cannot tear down this temporary API.
+Only the child started by this command is stopped afterward; an existing server is
+never restarted or killed. An occupied port, old API lacking `/api/ready`, wrong
+service, socket permission error, or timeout stops with an explicit message rather
+than guessing another address or managing unknown processes. The existing
+acceptance behavior still creates two new synthetic test subscribers and preserves
+all prior records/audit; no schema, seed or migration is run.
+
+Normal `./dev.sh` now waits for API readiness before announcing startup and retains
+its API/UI logs under `.local/runtime/dev.*/`. If either child exits, the message
+explains that this dev.sh session also stops its other child and identifies the
+retained logs. Temporary acceptance API logs remain in
+`.local/runtime/accept-api-*/api.log`. These logs survive startup failure; no
+production or system service is managed.

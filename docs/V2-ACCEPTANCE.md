@@ -175,3 +175,25 @@ cd ~/Codex-Projects/mikrotik-manager-v2 && ./accept-demo.sh
 ```
 
 Komut her çalıştırmada iki yeni benzersiz pasif sentetik test abonesi bırakır; eski dokuz ve sonradan eklenmiş diğer kayıtlar değişmez. Gerçek API/DB alt kontrol sayısı başarı çıktısında, test kimlikleri ve mevcut kayıt koruma sonucu `.local/acceptance/<run-id>.json` raporunda bulunur. Bu ortamda tamamlanan gerçek PPPoE uçtan uca senaryo sayısı 0'dır. WSL komutunun sonucu alınmadan bu matris toplu PASS'e çevrilmez. Frontend hesapları gerçek HTTP verileriyle kontrol edilse de tarayıcı davranışı ayrıca doğrulanmalıdır.
+
+## Aşama 9 — HTTP erişim engeli: hazır olma düzeltmesi — 2026-10-28
+
+Kullanıcı WSL'de DB PASS, HTTP BLOCKED bildirdi. Port/adresler kodda aynıdır: API/kabul/Vite proxy `127.0.0.1:8000`. Önceki dev.sh hazır olmadan başarı duyuruyor, çocuklardan biri kapanınca diğerini kapatıyor ve logları siliyordu; kesin WSL kapanış nedeni eski log olmadan doğrulanamadı.
+
+| Kontrol | Sonuç |
+| --- | --- |
+| API hazır sinyali / DB sağlığı ayrımı | PASS (sözleşme testi): /api/ready DB erişmez; /api/health ayrı DB kontrolüdür |
+| accept-demo.sh yazma öncesi HTTP readiness | PASS (soketsiz): API hazır değilse baseline/DB/yazma başlamaz; anlaşılır hata ve tek komut önerilir |
+| Yerel API başlatma ve süreç sahipliği | PASS (soketsiz): hazır mevcut API korunur, sadece boş portta yeni repo API'si açılır; yalnız kendi çocuk süreci kapatılır; yanlış servis/izin/timeout durdurur |
+| Startup logları / dev.sh banner | Düzeltildi: hazır sinyalinden sonra banner, hata ve log konumu açık, loglar korunur |
+| Hedefli testler | PASS: 10 readiness/yaşam döngüsü + 5 kabul çalıştırıcısı; shell syntax/--help/diff |
+| Codex gerçek HTTP / PPPoE kabulü | BLOCKED: tek komut soket izin/sandbox engelinde durdu; tekrar, DB okuma veya abone yazması yapılmadı |
+| Dokuz mevcut abone ve audit | Bu görevde değişmedi; gerçek kabul yazmaları yalnız yeni test kimlikleriyle sınırlıdır |
+
+Normal WSL için **tek komut**:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && ./dev.sh --accept-demo
+```
+
+Komut Vite/şema/seed/migration başlatmaz. Gerekiyorsa sadece geçici yerel V2 API açar; kabul sonunda bu kendi çocuğunu kapatır. Hazır bir mevcut V2 API'sine dokunmaz. Eski API `/api/ready` sağlamıyorsa ya da port başka servise aitse durur; otomatik restart/kill yapılmaz. Gerçek HTTP ve yeni abonelerle PPPoE kontrol çıktısı alınmadan bu bölüm API/PPPoE PASS'e çevrilmez. Tarayıcı onay/refresh kabulü ayrı kapsam olarak BLOCKED kalır.

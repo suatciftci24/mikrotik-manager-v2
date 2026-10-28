@@ -101,7 +101,7 @@ class AcceptanceRunnerTests(TestCase):
 
     def test_db_failure_stops_before_http_or_subscriber_creation(self):
         from sqlalchemy.exc import OperationalError
-        with patch.object(acceptance,'verify_database',side_effect=OperationalError('SELECT',{},Exception())), \
+        with patch.object(acceptance,'require_api_ready'), patch.object(acceptance,'verify_database',side_effect=OperationalError('SELECT',{},Exception())), \
              patch.object(acceptance,'AcceptanceHTTP') as http:
             self.assertEqual(acceptance.main([]),1)
             http.assert_not_called()

@@ -29,3 +29,10 @@ def health():
     return {'status': 'ok', 'environment': 'local-demo', 'database_connected': connected,
             'demo_persistence': 'local-postgresql-demo' if connected else 'process-memory',
             'device_adapters_connected': False}
+
+
+@app.get('/api/ready', tags=['system'])
+async def ready():
+    # Liveness identity only: DB health stays on /api/health, without thread-worker dependency here.
+    return {'service':'mikrotik-manager-v2', 'environment':settings.environment,
+            'api_version':'v1', 'database_checked':False}
