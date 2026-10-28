@@ -1,5 +1,6 @@
 """Offline synthetic mapping review only. No V1 imports, credentials, IO or activation."""
 from collections import Counter
+from hashlib import sha256
 import re
 from datetime import date,datetime,timezone
 from enum import StrEnum
@@ -106,7 +107,7 @@ def validate_mapping(value:MappingSet):
     for row in data.audits:
         if row.account_key not in accounts:issues.add('AUDIT_ACCOUNT_MISSING')
         if not row.actor_key or not row.occurred_at or row.result=='UNKNOWN':issues.add('AUDIT_LINEAGE_INCOMPLETE')
-    return dict(result='BLOCKED' if issues else 'VALIDATED_SYNTHETIC',issues=sorted(issues),counts={name:len(getattr(data,name)) for name in ('routers','accounts','sessions','audits')},unknown_session_times=sum(not s.started_at or not s.ended_at for s in data.sessions))
+    return dict(fixture_digest=sha256(data.model_dump_json().encode()).hexdigest(),result='BLOCKED' if issues else 'VALIDATED_SYNTHETIC',issues=sorted(issues),counts={name:len(getattr(data,name)) for name in ('routers','accounts','sessions','audits')},unknown_session_times=sum(not s.started_at or not s.ended_at for s in data.sessions))
 
 
 def fixture_for(router_id):

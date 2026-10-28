@@ -79,3 +79,13 @@ def integration_management(router_id:str='',page:int=Query(1,ge=1,le=1000000),pa
 def integration_management_detail(router_id:str,user:dict=Depends(current_admin)):
     from app.integrations.planning import detail
     return detail(user,router_id)
+
+@router.get('/system/pilot-decisions')
+def pilot_decisions(router_id:str='',page:int=Query(1,ge=1,le=1000000),page_size:int=Query(10,ge=1,le=25),user:dict=Depends(current_admin)):
+    from app.integrations.pilot_decision import inventory
+    return inventory(user,router_id,page,page_size)
+
+@router.get('/system/pilot-decisions/{router_id}')
+def pilot_decision(router_id:str,user:dict=Depends(current_admin)):
+    from app.integrations.pilot_decision import assessment
+    return assessment(user,router_id)
