@@ -40,6 +40,14 @@ class WorkspaceTransactions(TestCase):
         reopened.delete(item['id'],'DEMO_ROUTER',DeleteWorkspaceRecord(expected_revision=2,confirmed=True),'actor')
         self.assertEqual(reopened.list('DEMO_ROUTER')['total'],0)
         with self.sessions() as s:self.assertEqual(s.scalar(select(func.count()).select_from(Audit)),3)
+    def test_center_detail_reads_existing_record_without_mutation_or_profile_leak(self):
+        item=self.workspace.save('DEMO_ROUTER',self.command('TEST-EV-V2'),'actor')
+        before=self.workspace.detail(item['id'],'DEMO_ROUTER')
+        row,events=self.workspace.center_detail(item['id'])
+        self.assertEqual(row,before);self.assertEqual(row['fields']['name'],'TEST-EV-V2')
+        self.assertEqual([e['action'] for e in events],['CREATED'])
+        self.assertEqual(self.workspace.detail(item['id'],'DEMO_ROUTER'),before)
+        with self.assertRaises(WorkspaceError):self.workspace.center_detail('trust-profile-'+str(uuid4()))
     def test_audit_failure_rolls_back_and_no_memory_fallback(self):
         with patch.object(self.workspace,'audit',side_effect=SQLAlchemyError('fixture')),self.assertRaises(WorkspaceError):self.workspace.save('DEMO_ROUTER',self.command(),'actor')
         self.assertEqual(self.workspace.list('DEMO_ROUTER')['total'],0)

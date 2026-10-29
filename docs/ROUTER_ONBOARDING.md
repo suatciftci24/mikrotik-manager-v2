@@ -234,3 +234,36 @@ Başka süreç/checkout, wildcard listener, belirsiz sahip veya eksik pidfd dest
 durur. Yeniden başlatma normal dev.sh yaşam döngüsünü kullanır; DB/migration/veri
 ve diğer servisleri değiştirmez. Normal dev.sh mevcut güncel süreci yeniden
 kullanır; örtülü restart yapmaz. Yenileme yeni oturum açılmasını gerektirebilir.
+
+## Router Detay Merkezi
+
+Router adına tıklamak ID tabanlı ortak merkeze gider. Kalıcı sentetik kayıt için
+örnek derin bağlantı `#module=routers&source=MANAGED_DEMO&id=<router-id>` biçimindedir.
+Geri dönüş kaynak/arama/sayfa URL durumunu korur. Demo ekleme/düzenleme/silme ve
+kayıtlı cihazların ayrı onaylı bağlantı düzenleme akışları korunur.
+
+Salt okunur `GET /api/v1/router-center/{id}` üç kaynağı ayrı projekte eder:
+
+- `PERSISTENT_DEMO`: Mevcut PostgreSQL kaydı ve en fazla 50 kendi audit olayı.
+  ADMIN kapsamı değişmez. Kimlik/sürüm/bağlantı/CPU/RAM/uptime bilinmiyorsa null
+  döner; TEST-EV-V2 için fixture veya sahte ölçüm yazılmaz.
+- `STATIC_DEMO`: Mevcut sentetik envanter, eski router grant'leriyle filtrelenir.
+  Örnek CPU/RAM/uptime açıkça sentetiktir; last_seen bağlantı başarısına çevrilmez.
+- `REGISTERED`: Mevcut operator allowlist ve merkezi ADMIN sınırı korunur.
+  Yalnız kaydedilmiş doğrulanmış metadata gösterilir. Geçmiş başarı ONLINE değildir.
+
+Yedi sekme Genel Bakış, Ağ Arayüzleri, WAN ve İnternet, PPPoE, Hotspot, Olay
+Geçmişi ve Güvenli Bağlantı'dır. Sekmeler klavye okları/Home/End ve seçili
+ARIA durumlarıyla çalışır. Yeni gerçek modüller Hazırlanıyor, ölçülmemiş sentetik
+alanlar Ölçülmedi olarak görünür. Ayrı `sections` sözleşmesi ileride modüler veri
+kaynaklarının bağlanmasına izin verir; bugün cihaz sorgusu veya polling yoktur.
+
+Özet API credential, CA içeriği, leaf pin ve secret referansı/path döndürmez.
+Kaynak ve ID eşleşmesi istemcide de doğrulanır. Güvenli Bağlantı sekmesindeki
+mevcut tek seferlik gerçek kontrol ancak eski açık onay/flag/allowlist akışından
+çalışabilir; detay açılması hiçbir bağlantı başlatmaz. Eski statik demo raporları
+ve ilişkili aboneler Genel Bakış'taki açılır bölümde erişilebilir kalır.
+
+Bu paket yeni migration, seed, production işlemi veya mevcut kayıt güncellemesi
+gerektirmez. Model/görünüm/sekme ve değişen CRUD bağlantıları hedefli test edilir;
+SSR kontrolleri tarayıcı veya gerçek PostgreSQL kabulü olarak sunulmaz.

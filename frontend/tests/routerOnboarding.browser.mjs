@@ -29,6 +29,7 @@ await context.route('**/*',async route=>{
    body={verification_id:lastPayload.request_id,state:'VERIFIED',expires_at:new Date(Date.now()+300000).toISOString(),error_code:null,saved_router_id:null,is_demo:false,preview:{name:lastPayload.name,management_address:lastPayload.management_address,port:lastPayload.port,metadata:{identity:item.identity,model:item.model,routeros_version:item.routeros_version},source_ip:item.source_ip,checked_at:stamp,expected_revision:lastPayload.expected_revision}};
   }else if(pathname==='/router-registry/register'){saveCalls++;items=[{...item,name:lastPayload.name}];body={item:items[0],is_demo:false,replayed:false};}
   else if(pathname===`/router-registry/${item.id}`)body={item:items[0],history:[{action:'ROUTER_REGISTERED',actor_id:'fixture-operator',occurred_at:stamp,details:{revision:1}}],is_demo:false};
+  else if(pathname===`/router-center/${item.id}`)body={source:'REGISTERED',is_demo:false,device_connection_started:false,item:{id:item.id,name:items[0].name,identity:item.identity,model:item.model,routeros_version:item.routeros_version,management_address:item.management_address,site:null,status:item.status,last_success_at:stamp,last_seen_at:null,cpu_percent:null,memory_percent:null,uptime:null},sections:{overview:'AVAILABLE',interfaces:'PREPARING',wan:'PREPARING',pppoe:'PREPARING',hotspot:'PREPARING',events:'AVAILABLE',security:'AVAILABLE'},events:[]};
   else if(pathname.endsWith('/cancel'))body={cancelled:true};
   else body={items:[],total:0,is_demo:true};
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});return;
@@ -50,7 +51,7 @@ try{
  await dialog.getByRole('heading',{name:/Cihaz doğrulandı/}).waitFor();assert.equal(verificationCalls,1);assert.equal(saveCalls,0);ok('Tek doğrulama; onay öncesi kayıt yok');
  await dialog.getByText(item.identity,{exact:true}).waitFor();await dialog.getByText(item.model,{exact:true}).waitFor();assert.equal(await dialog.locator('input[type="password"]').count(),0);ok('Cihaz önizlemesi; parola görünümden kaldırılır');
  await dialog.getByRole('checkbox',{name:/Okunan cihaz kimliği/}).check();await dialog.getByRole('button',{name:'Doğrulanmış routerı kaydet',exact:true}).click();
- await page.getByRole('heading',{name:'Cihaz ve son doğrulama',exact:true}).waitFor();assert.equal(saveCalls,1);assert.equal(verificationCalls,1);ok('Kayıt sonrası detay ve audit; ikinci bağlantı yok');
+ await page.getByRole('heading',{name:'Router Detay Merkezi',exact:true}).waitFor();assert.equal(saveCalls,1);assert.equal(verificationCalls,1);ok('Kayıt sonrası detay ve audit; ikinci bağlantı yok');
  assert.equal(await page.evaluate(()=>JSON.stringify({...localStorage,...sessionStorage}).includes('SYNTHETIC_UI_PASSWORD')),false);ok('Parola tarayıcı deposuna yazılmaz');
  await page.getByRole('button',{name:'Bağlantıyı düzenle',exact:true}).click();dialog=page.getByRole('dialog',{name:'Router bağlantısını düzenle',exact:true});await dialog.waitFor();
  assert.equal(await dialog.getByLabel('API parolası',{exact:true}).inputValue(),'');assert.equal(await dialog.getByLabel('API kullanıcı adı',{exact:true}).inputValue(),'');ok('Düzenlemede secret gösterilmez');

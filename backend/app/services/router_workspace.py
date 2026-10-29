@@ -48,6 +48,13 @@ class RouterWorkspace:
             if not row or row.kind!=kind:raise WorkspaceError(404,'Kayıt bu çalışma alanında bulunamadı.')
             return public(row)
     @boundary
+    def center_detail(self,id):
+        with self.sessions() as session:
+            self.check(session);row=session.get(Record,id)
+            if not row or row.kind!='DEMO_ROUTER':raise WorkspaceError(404,'Sentetik router bu çalışma alanında bulunamadı.')
+            events=session.scalars(select(Audit).where(Audit.record_id==id).order_by(Audit.occurred_at.desc(),Audit.id).limit(50)).all()
+            return public(row),[dict(action=e.action,occurred_at=e.occurred_at,actor_id=e.actor_id,revision=e.revision) for e in events]
+    @boundary
     def save(self,kind,payload,actor,id=None):
         values=payload.fields.model_dump(mode='json')
         if kind=='TRUST_PROFILE':

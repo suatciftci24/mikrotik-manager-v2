@@ -1,3 +1,4 @@
+import {RouterDeviceCenter} from './RouterDeviceCenter';
 import {applyTrustProfile,type TrustProfile} from '../lib/routerTrustProfiles';
 import {connectionProfile,routerConnectionProfiles} from '../lib/routerConnectionProfiles';
 import {offlineRouterPreview,syntheticRouterPreview} from '../lib/routerOnboardingPreview';
@@ -115,7 +116,7 @@ export function RouterOnboarding({item,onClose,onSaved}:{item?:RegisteredRouter;
  </dialog>;
 }
 
-export function RegisteredRouterDetail({id,onBack,onEdit}:{id:string;onBack:()=>void;onEdit:(item:RegisteredRouter)=>void}){
+export function RegisteredRouterDetail({id,onBack,onEdit,embedded=false}:{id:string;onBack:()=>void;onEdit:(item:RegisteredRouter)=>void;embedded?:boolean}){
  const detail=useResource<{item:RegisteredRouter;history:{action:string;occurred_at:string;actor_id:string;details:Record<string,unknown>}[]}>('/router-registry/'+encodeURIComponent(id));
  const options=useResource<RegistryOptions>('/router-registry/options');
  const [checking,setChecking]=useState(false),[error,setError]=useState(''),[confirm,setConfirm]=useState(false);
@@ -127,10 +128,15 @@ export function RegisteredRouterDetail({id,onBack,onEdit}:{id:string;onBack:()=>
   catch(e){setError(connectionError(e instanceof Error?e.message:''));}
   finally{setChecking(false);sending.current=false;setConfirm(false);invalidateResources(['/router-registry']);}
  }
- return <section className="screen-stack"><button className="detail-back button-secondary" onClick={onBack}>← Router listesine dön</button><ResourceState {...detail} error={detail.error?connectionError(detail.error):undefined}/>{item&&<>
-  <div className="page-heading-row"><div><div className="eyebrow">KAYITLI CİHAZ · SALT OKUNUR</div><h1>{item.name}</h1><p>{item.identity} · {item.management_address}:{item.port}</p></div><button className="button-secondary" disabled={checking} onClick={()=>onEdit(item)}>Bağlantıyı düzenle</button></div>
+ return <section className="screen-stack">{!embedded&&<button className="detail-back button-secondary" onClick={onBack}>← Router listesine dön</button>}<ResourceState {...detail} error={detail.error?connectionError(detail.error):undefined}/>{item&&<>
+  {!embedded&&<><div className="page-heading-row"><div><div className="eyebrow">KAYITLI CİHAZ · SALT OKUNUR</div><h1>{item.name}</h1><p>{item.identity} · {item.management_address}:{item.port}</p></div><button className="button-secondary" disabled={checking} onClick={()=>onEdit(item)}>Bağlantıyı düzenle</button></div>
   <div className="panel registry-detail"><h2>Cihaz ve son doğrulama</h2><dl className="registry-facts">{Object.entries({'Kimlik':item.identity,'Model':item.model,'RouterOS':item.routeros_version,'Durum':registryStatus(item.status),'Son başarılı kontrol':dateTime(item.last_success_at),'Son kontrol':dateTime(item.last_checked_at),'Kaynak IP':item.source_ip,'Sertifika leaf SHA-256':item.leaf_sha256,'WAN / IPsec / trafik / aboneler':'Bilinmiyor — bu onboarding oturumunda okunmadı.'}).map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><p>Sürekli izleme kapalıdır. Başarılı geçmiş kontrol, şu an çevrimiçi olduğunun kanıtı değildir.</p>{item.last_error&&<p role="alert" className="form-error">{connectionError(item.last_error)} <span className="registry-error-code">{item.last_error}</span></p>}</div>
-  <div className="panel registry-detail"><h2>Tek seferlik kontrol</h2><ResourceState {...options} error={options.error?connectionError(options.error):undefined}/><label className="registry-consent"><input type="checkbox" checked={confirm} onChange={e=>setConfirm(e.target.checked)} disabled={checking||!!request.current}/>Kimlik ve sistem kaynağı için tek salt-okunur bağlantıyı onaylıyorum.</label><button className="button-secondary" onClick={()=>void check()} disabled={!confirm||checking||!!request.current||!options.data?.connection_enabled||!options.data?.operator_authorized}>{checking?'Kontrol ediliyor…':request.current?'Bu görünümdeki kontrol tamamlandı':'Şimdi bir kez kontrol et'}</button>{error&&<p role="alert" className="form-error">{error}</p>}</div>
-  <div className="panel registry-detail"><h2>İşlem geçmişi</h2>{detail.data?.history.length?<ol className="registry-history">{detail.data.history.map((event,index)=><li key={index}><strong>{event.action}</strong><span>{dateTime(event.occurred_at)} · {event.actor_id}</span>{typeof event.details.error_code==='string'&&<span>{connectionError(event.details.error_code)}</span>}</li>)}</ol>:<p>İşlem kaydı bulunamadı.</p>}</div>
+  </>}<div className="panel registry-detail"><h2>Tek seferlik kontrol</h2><ResourceState {...options} error={options.error?connectionError(options.error):undefined}/><label className="registry-consent"><input type="checkbox" checked={confirm} onChange={e=>setConfirm(e.target.checked)} disabled={checking||!!request.current}/>Kimlik ve sistem kaynağı için tek salt-okunur bağlantıyı onaylıyorum.</label><button className="button-secondary" onClick={()=>void check()} disabled={!confirm||checking||!!request.current||!options.data?.connection_enabled||!options.data?.operator_authorized}>{checking?'Kontrol ediliyor…':request.current?'Bu görünümdeki kontrol tamamlandı':'Şimdi bir kez kontrol et'}</button>{error&&<p role="alert" className="form-error">{error}</p>}</div>
+  {!embedded&&<div className="panel registry-detail"><h2>İşlem geçmişi</h2>{detail.data?.history.length?<ol className="registry-history">{detail.data.history.map((event,index)=><li key={index}><strong>{event.action}</strong><span>{dateTime(event.occurred_at)} · {event.actor_id}</span>{typeof event.details.error_code==='string'&&<span>{connectionError(event.details.error_code)}</span>}</li>)}</ol>:<p>İşlem kaydı bulunamadı.</p>}</div>}
  </>}</section>;
+}
+
+export function RegisteredRouterCenter({id,onBack,onEdit}:{id:string;onBack:()=>void;onEdit:(item:RegisteredRouter)=>void}){
+ const detail=useResource<{item:RegisteredRouter}>('/router-registry/'+encodeURIComponent(id));
+ return <RouterDeviceCenter id={id} onBack={onBack} actions={detail.data&&<button className="button-secondary" onClick={()=>onEdit(detail.data!.item)}>Bağlantıyı düzenle</button>} security={<RegisteredRouterDetail id={id} onBack={onBack} onEdit={onEdit} embedded/>}/>;
 }

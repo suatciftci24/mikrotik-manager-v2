@@ -182,3 +182,10 @@ input::placeholder{color:var(--muted);opacity:1}
 .registry-inventory .inventory-toolbar{flex-wrap:wrap}.registry-inventory .inventory-toolbar .form-label{margin:0}.registry-inventory .table-search{flex:1;min-width:180px}
 @media(max-width:600px){.onboarding-fields,.registry-facts{grid-template-columns:minmax(0,1fr)}.router-onboarding{padding:18px;max-height:calc(100dvh - 24px)}.registry-section-title,.registry-detail,.registry-message{padding:14px}.registry-inventory .inventory-toolbar{align-items:stretch;flex-direction:column}.registry-inventory .table-search{width:100%;min-width:0;box-sizing:border-box}.registry-inventory .inventory-toolbar select{width:100%}.registry-source-tabs{flex-wrap:wrap}.registry-source-tabs button{white-space:normal}.registry-inventory .table-footer{gap:12px;flex-wrap:wrap}}
 .onboarding-fields textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.router-device-summary,.router-device-panel{min-width:0;overflow-wrap:anywhere}
+.router-device-tabs{display:flex;flex-wrap:wrap;gap:6px;height:auto;max-width:100%}
+.router-device-tabs button{white-space:normal;min-height:40px}
+.router-device-summary .page-heading-row{flex-wrap:wrap;gap:12px}
+.router-device-panel details>summary{cursor:pointer;color:var(--text-primary);padding:12px 0}
+@media(max-width:600px){.router-device-tabs button{flex:1 1 130px}.router-device-summary .page-heading-row{align-items:flex-start}.router-device-summary .detail-facts{grid-template-columns:1fr}}
