@@ -63,7 +63,7 @@ class QuickChange(BaseModel):
     expected_source: Literal['LOCAL', 'RADIUS']
     expected_expires_on: date | None
     expires_on: date | None
-    days: Literal[7, 15, 30] | None = None
+    days: Literal[7, 15, 30, 60, 90] | None = None
     plan: str = Field(default='', max_length=80)
     status: Literal['ACTIVE', 'PAUSED'] = 'ACTIVE'
     router_id: str = Field(min_length=1, max_length=100)

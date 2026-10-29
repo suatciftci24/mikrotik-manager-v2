@@ -35,3 +35,14 @@ def update(id:str,payload:SyntheticSubscriberCommand,user:dict=Depends(mutator))
 
 @router.post('/subscriber-workspace/{id}/renew',response_model=CenterSubscriber)
 def renew(id:str,payload:SubscriberRenewal,user:dict=Depends(mutator)):return execute(workspace.renew,id,payload,user['id'])
+
+from app.schemas.subscriber_management_center import SubscriberOperations,OperationResults,OperationHistory
+from app.services.subscriber_operations import operations
+
+@router.post('/subscriber-workspace/management/execute',response_model=OperationResults)
+def manage(payload:SubscriberOperations,user:dict=Depends(mutator)):
+    return {'results':[operations.execute(entry,user['id']) for entry in payload.entries],'is_demo':True}
+
+@router.get('/subscriber-workspace/management/history',response_model=OperationHistory)
+def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',pattern='^(ALL|EDIT|PLAN|STATUS|EXPIRE|EXTEND|ROUTER|CREATE|UPDATE|RENEWAL)$'),result:str=Query('ALL',pattern='^(ALL|SUCCESS|FAILED)$'),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_admin)):
+    return execute(operations.history,item_id,operation,result,page,page_size)

@@ -125,3 +125,53 @@ opt-in PostgreSQL sınıfı kalıcı ilişki, iki erişim türü, filtre/sayfa, 
 ve sabit sorgu sayısı kabulünü de içerir. Testler ayrı UUID şemalarındadır; mevcut
 router/abone kayıtlarına yazmaz. Orphan gösterimi yalnız disposable SQLite
 bozulma fixture'ında sınanır; uygulama FK koruması gevşetilmez.
+
+## Merkezi günlük yönetim — Aşama 1
+
+Kalıcı sentetik PPPoE/Hotspot listesinde sayfalar ve routerlar arasında en fazla
+100 kayıt seçilebilir. Gerçek/salt-okunur/router bağı eksik kayıtlar seçilemez.
+Tek satırda veya detayda **Günlük işlemler**, çoklu seçimde **Seçilenlere toplu
+ işlem** ortak önizleme ve açık onay penceresini açar. Seçilen adlar, kullanıcılar,
+erişim türleri ve routerlar görünür. İşlem başlatılırken alınan revizyonlar sessizce
+güncellenmez; stale kayıtlar kendi hata sonucunu üretir.
+
+Desteklenen tekil işlemler ad, paket/profil, hesap Aktif/Pasif, EXPIRE belirleme
+veya temizleme, 30/60/90 gün uzatma ve router değişikliğidir. Router değişimi
+**yalnız bu yeni açık onaylı günlük akışta** desteklenir; eski genel düzenleme
+endpoint'i router/kullanıcı adı/erişim türü/kaynak kısıtlarını korur. Kaynak veya
+tür aktarılmaz. Hedef router, mevcut kalıcı sentetik ID ile ve parent kilidi/FK
+altında doğrulanır; aynı transaction'da hem JSON hem router_id kolonu güncellenir.
+Router ve Abone Merkezlerinin ilişkili listeleri/değişiklik sonrası detayları
+invalidate edilir. Yeni abone formuna da kayıt öncesi önceki/yeni önizleme eklenir.
+
+Toplu işlem yalnız aynı türde uzatma veya Aktif/Pasif değişimidir; farklı
+routerların PPPoE/Hotspot kayıtları aynı istekte olabilir. Her kayıt ayrı
+transaction'da işlenir. Başarılı, kayıtlı başarısız ve sonucu doğrulanamayan
+kayıtlar ayrı gösterilir. Sonuncusu veritabanı/audit yanıtı alınamadığında kullanılır;
+bu durumda işlem uygulanmadı diye iddia edilmez. Aynı UUID ile sonucu alınır.
+Kayıtlı başarısız sonucu düzeltmek için güncel kayıttan yeni önizleme gerekir.
+
+`POST /subscriber-workspace/management/execute` 1–100 tipli kayıt ve her kayda
+ayrı request_id/expected_revision/expected_source/expected_router_id/onay ister.
+Gerçek/legacy ID'ler kabul edilmez. ADMIN + mevcut ayrı CSRF başlığı korunur.
+Request fingerprint aktör ve tam komuta bağlıdır. Aynı istek, sonraki düzenlemeler
+olsa da mevcut audit'teki özgün sonucu getirir; ikinci kez iş kuralı uygulamaz.
+UUID çakışması/eski revizyon/kaynak uyuşmazlığı veri değiştirmez. İş mantığı
+başarısızlıkları ayrıca mevcut Event tablosuna FAILED sonucu olarak kaydedilir;
+kayıt/audit yazma arızasında iş transaction'ı geri alınır, kalıcı başarı uydurulmaz.
+Yeni tablo/migration gerekmez; `_management` receipt/fingerprint metadatası mevcut
+JSON audit alanında saklanır. Credential veya ham hata/SQL bilgisi yazılmaz.
+
+`GET /subscriber-workspace/management/history` merkezi ADMIN için işlem/sonuç/
+abone ID filtreleri ve sunucu sayfalaması sunar. Aynı geçmiş Abone Detay
+Merkezi'nde işlem türü, abone/router ID, önceki/yeni değerler, UTC→İstanbul zamanı,
+sonuç ve güvenli hata açıklamasıyla görünür. Eski audit'ler dar projeksiyonla
+okunur; bulunmayan geçmiş router bilgisi tahmin edilmez. Hesap durumu ve tarih
+ayrıdır; süre uzatmak/pasiflemek gerçek oturum üretmez, RADIUS veya RouterOS'a
+bağlanmaz. Eski Hızlı İşlemler ve yenileme pencereleri de 60/90 gün seçeneklerini
+korunan 7/15/30 gün seçeneklerine ekler.
+
+`accept-subscriber-postgres.sh` mevcut UUID test şemalarında günlük CRUD, iki erişim
+türü, router değişimi, 30/60/90, bulk partial result, retry, audit ve rollback
+senaryolarını içerir. Mevcut business kayıtlarına seed/UPDATE yapmaz. Sandbox
+nedeniyle bu kabul çalıştırılmadığında unit/SSR testleri PG/browser PASS sayılmaz.

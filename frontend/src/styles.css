@@ -204,3 +204,8 @@ input::placeholder{color:var(--muted);opacity:1}
 .synthetic-subscriber-table th,.synthetic-subscriber-table td{padding:10px 9px}
 .synthetic-subscriber-table td:first-child{max-width:210px;white-space:normal;overflow-wrap:anywhere}
 .synthetic-subscriber-table td:first-child small{display:block;color:var(--text-secondary)}
+.daily-review{max-height:45vh;overflow:auto}
+.daily-review .quick-preview{overflow-wrap:anywhere}
+.synthetic-subscriber-table td:first-child:has(input[type=checkbox]){width:46px}
+.synthetic-subscriber-table td:nth-child(2){max-width:210px;white-space:normal;overflow-wrap:anywhere}
+.synthetic-subscriber-table td:nth-child(2) small{display:block;color:var(--text-secondary)}

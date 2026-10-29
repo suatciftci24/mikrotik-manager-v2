@@ -36,6 +36,7 @@ test('Hotspot edit preserves locked identity and submits only synthetic fields w
  try{
   let tree=render();const fields=nodes(tree).filter(n=>n.type==='input'||n.type==='select');
   for(const value of [data.item.username,data.item.router_id,'HOTSPOT','LOCAL'])assert.equal(fields.find(n=>n.props.value===value).props.disabled,true);
+  await nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});tree=render();assert.match(renderToStaticMarkup(tree),/Önceki → Yeni/);assert.equal(calls.length,0);
   nodes(tree).find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});
   tree=render();await nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});
   assert.equal(calls.length,1);assert.equal(calls[0].url,'/api/v1/subscriber-workspace/'+data.item.id);
@@ -53,4 +54,9 @@ test('missing router keeps subscriber detail and renders no invented router link
  assert.equal(safeSubscriberCenter(missing,missing.item.id),true);
  const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:missing,tab:'overview',onTab:()=>{}}));
  assert.match(html,/Router kaydı bulunamadı/);assert.match(html,/demo-managed-router-fixture/);assert.doesNotMatch(html,/href="#module=routers/);
+});
+
+test('failed per-record audit stays failed and never claims the business value changed',()=>{
+ const changed={...data,history:[{operation:'STATUS',occurred_at:'2026-10-29T12:00:00Z',actor_id:'demo-user',revision:1,previous_expires_on:null,expires_on:null,date_changed:false,result:'FAILED',error:'Revizyon değişti',router_id:data.item.router_id,previous_values:{},new_values:{}}]};
+ const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:changed,tab:'history',onTab:()=>{}}));assert.match(html,/Başarısız · Kayıt değiştirilmedi/);assert.match(html,/Revizyon değişti/);assert.doesNotMatch(html,/Sonuç: Uygulandı/);
 });

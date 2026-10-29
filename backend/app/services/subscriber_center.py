@@ -44,8 +44,8 @@ class SubscriberWorkspace:
             if not account:raise WorkspaceError(404,'Sentetik abone bulunamadı.')
             router=session.get(Router,account.router_id)
             if router and router.kind!='DEMO_ROUTER':router=None
-            events=session.scalars(select(Event).where(Event.subscriber_id==id).order_by(Event.revision.desc()).limit(50)).all()
-            return SubscriberCenterData(item=account_view(account,router),source='PERSISTENT_WORKSPACE',persistence='local-postgresql-workspace',history=[dict(operation=e.operation,occurred_at=e.occurred_at,actor_id=e.actor_id,revision=e.revision,previous_expires_on=e.changes.get('expires_on',{}).get('previous'),expires_on=e.changes.get('expires_on',{}).get('new'),date_changed='expires_on' in e.changes and e.changes['expires_on'].get('previous')!=e.changes['expires_on'].get('new')) for e in events])
+            events=session.scalars(select(Event).where(Event.subscriber_id==id).order_by(Event.occurred_at.desc(),Event.id).limit(50)).all()
+            return SubscriberCenterData(item=account_view(account,router),source='PERSISTENT_WORKSPACE',persistence='local-postgresql-workspace',history=[center_event(e) for e in events])
     @boundary
     def save(self,command,actor,id=None):
         values=command.fields.model_dump(mode='json');target=id or 'demo-managed-sub-'+str(command.request_id)
@@ -91,6 +91,7 @@ class SubscriberWorkspace:
     @staticmethod
     def audit(session,row,actor,before,request_id,operation=None,renewal=None):
         changes={key:{'previous':before.get(key),'new':value} for key,value in row.fields.items() if before.get(key)!=value}
+        changes['_router_id']=row.router_id
         if renewal is not None:changes['_renewal']=renewal
         session.add(Event(id=request_id,subscriber_id=row.id,actor_id=actor,revision=row.revision,operation=operation or ('UPDATE' if before else 'CREATE'),occurred_at=datetime.now(timezone.utc).isoformat(),changes=changes))
 
@@ -112,3 +113,8 @@ def legacy_event(event):
     old=previous.get('expires_on',event.get('previous_expires_on'))
     new=values.get('expires_on',event.get('expires_on'))
     return dict(operation=event.get('operation','UNKNOWN'),occurred_at=event['occurred_at'],actor_id=event['actor_id'],previous_expires_on=old,expires_on=new,date_changed=has_date and old!=new,result='APPLIED')
+
+def center_event(event):
+    from app.services.subscriber_operations import event_receipt
+    receipt=event_receipt(event)
+    return dict(operation=event.operation,occurred_at=event.occurred_at,actor_id=event.actor_id,revision=event.revision,subscriber_id=event.subscriber_id,router_id=receipt['router_id'],previous_values=receipt['previous'],new_values=receipt['values'],result='APPLIED' if receipt['success'] else 'FAILED',error=receipt['error'],previous_expires_on=event.changes.get('expires_on',{}).get('previous'),expires_on=event.changes.get('expires_on',{}).get('new'),date_changed='expires_on' in event.changes and event.changes['expires_on'].get('previous')!=event.changes['expires_on'].get('new'))

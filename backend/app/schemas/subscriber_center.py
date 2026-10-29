@@ -61,7 +61,12 @@ class CenterSubscriberEvent(BaseModel):
     previous_expires_on:date|None=None
     expires_on:date|None=None
     date_changed:bool=False
-    result:Literal['APPLIED']='APPLIED'
+    result:Literal['APPLIED','FAILED']='APPLIED'
+    error:str|None=None
+    subscriber_id:str|None=None
+    router_id:str|None=None
+    previous_values:dict[str,str|None]=Field(default_factory=dict)
+    new_values:dict[str,str|None]=Field(default_factory=dict)
 
 class SubscriberCenterData(BaseModel):
     item:CenterSubscriber
@@ -86,7 +91,7 @@ class SubscriberRenewal(BaseModel):
     expected_source:Literal['LOCAL','RADIUS']
     expected_expires_on:date|None
     expires_on:date
-    days:Literal[7,15,30]|None=None
+    days:Literal[7,15,30,60,90]|None=None
     confirmed:Literal[True]
     _confirmed=field_validator('confirmed',mode='before')(SyntheticSubscriberCommand.explicit.__func__)
     _dates=field_validator('expected_expires_on','expires_on',mode='before')(ExpiryChange.calendar_date_only.__func__)
