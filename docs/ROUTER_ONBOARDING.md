@@ -113,3 +113,30 @@ engelliyse exit 2/BLOCKED döner. Bu mocked UI sonucu gerçek HTTP/PostgreSQL ve
 canlı MikroTik kabulü değildir. Bu ortamda Chromium başlatma BLOCKED oldu; tekrar
 edilmedi. Bilinen PostgreSQL/ASGI engelleri tekrar araştırılmadı. Migration ve
 canlı onboarding çalıştırılmadığından bu entegrasyonlar **BLOCKED / doğrulanmadı**.
+
+## Bağlantısız form hazırlığı ve bağlantı profilleri
+
+Sihirbaz zorunlu alanları ve isteğe bağlı kimlik/sürüm alanlarını açıklar.
+İlk kayıtta public CA, kullanıcı adı ve parola zorunludur; düzenlemede boş alanlar
+kayıtlı materyali korur. Public CA dosyası yükleme ve PEM yapıştırma aynı alanı
+besler. Public sertifika zinciri PEM biçiminde olabilir; özel anahtar ve DER
+kabul edilmez. Yerel kontrol yalnız PEM metin biçimini inceler, X509 geçerliliği
+ve CA güveni iddiası üretmez.
+
+**Formu bağlantısız kontrol et** cihaz, DB veya doğrulama endpoint'ine istek
+atmaz. **Sentetik örneği önizle** ayrı sentetik verilerle aynı kontrolleri gösterir;
+canlı formu doldurmaz. Önizleme açıkça SENTETİK / CİHAZA BAĞLANILMADI gösterir,
+credential/CA değerlerini içermez ve kayıt için gereken verification ID üretmez.
+Kapalı bağlantı politikası veya yetkisiz operatör gerçek doğrulamaya geçemez.
+Önizleme gerçek cihaz doğrulaması, envanter kaydı veya TLS kabulü değildir.
+
+`routerConnectionProfiles.ts` yeniden kullanılabilir, salt okunur ve sürümlenebilir
+profil kataloğunun temelidir. Otomatik/6.49.x/7.x şablonları ortak API-SSL 8729
+varsayılanını ve değiştirilemez chain/IP SAN/leaf pin/read-only koşullarını taşır.
+Sürüm ailesi açıklamadır; tam beklenen sürüm ayrı alanla belirtilebilir.
+Profil seçimi TLS politikasını veya sunucu allowlist'ini değiştirmez. Profilde
+adres, credential, public CA veya cihaz pini saklanmaz; bunlar her hedefe özeldir.
+Paylaşımlı credential deposu, profil DB migration'ı veya pilot dosyası importu
+oluşturulmadı. Mevcut backend'in pilotla ortak katı TLS doğrulayıcısı korunur.
+
+Hedefli test: `node frontend/tests/routerOnboardingPreview.test.mjs`.

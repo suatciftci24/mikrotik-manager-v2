@@ -43,7 +43,7 @@ try{
  await page.getByRole('button',{name:'Router ekle',exact:true}).click();
  let dialog=page.getByRole('dialog',{name:'Router ekle',exact:true});await dialog.waitFor();
  assert.equal(await dialog.getByRole('button',{name:'Bağlantıyı doğrula',exact:true}).isDisabled(),true);ok('Onay olmadan doğrulama kapalı');
- for(const [label,value] of [['Router adı',item.name],['Yönetim IPv4 adresi',item.management_address],['API kullanıcı adı','fixture-ro'],['API parolası','SYNTHETIC_UI_PASSWORD'],['Public CA PEM','PUBLIC_CA_FIXTURE'],['Sunucu leaf SHA-256 pini',item.leaf_sha256]])await dialog.getByLabel(label,{exact:true}).fill(value);
+ for(const [label,value] of [['Router adı',item.name],['Yönetim IPv4 adresi',item.management_address],['API kullanıcı adı','fixture-ro'],['API parolası','SYNTHETIC_UI_PASSWORD'],['Public CA PEM','-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----'],['Sunucu leaf SHA-256 pini',item.leaf_sha256]])await dialog.getByLabel(label,{exact:true}).fill(value);
  assert.equal(await dialog.getByLabel('API parolası',{exact:true}).getAttribute('type'),'password');
  await dialog.getByRole('checkbox',{name:/Bu hedefte tek seferlik/}).check();await dialog.getByRole('button',{name:'Bağlantıyı doğrula',exact:true}).click();
  await dialog.getByRole('heading',{name:/Cihaz doğrulandı/}).waitFor();assert.equal(verificationCalls,1);assert.equal(saveCalls,0);ok('Tek doğrulama; onay öncesi kayıt yok');

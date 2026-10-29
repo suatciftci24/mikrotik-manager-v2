@@ -1,3 +1,5 @@
+import {connectionProfile,routerConnectionProfiles} from '../lib/routerConnectionProfiles';
+import {offlineRouterPreview,syntheticRouterPreview} from '../lib/routerOnboardingPreview';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {api} from '../lib/api';
 import {useResource} from '../lib/useResource';
@@ -11,13 +13,16 @@ export function RouterOnboarding({item,onClose,onSaved}:{item?:RegisteredRouter;
  const options=useResource<RegistryOptions>('/router-registry/options');
  const [form,setForm]=useState(()=>routerForm(item));const [consent,setConsent]=useState(false),[confirm,setConfirm]=useState(false);
  const [proof,setProof]=useState<Verification|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[phase,setPhase]=useState<'FORM'|'REVIEW'>('FORM');
+ const [profileId,setProfileId]=useState('api-ssl-auto');
+ const [preview,setPreview]=useState<ReturnType<typeof offlineRouterPreview>|null>(null);
+ const [caSource,setCaSource]=useState('');
  const [attempted,setAttempted]=useState(false);const active=useRef(true);
  useEffect(()=>{active.current=true;const origin=document.activeElement as HTMLElement|null;const node=dialog.current;node?.showModal();return()=>{active.current=false;node?.close();origin?.isConnected&&origin.focus({preventScroll:true});};},[]);
- const update=(field:keyof typeof form,value:string)=>{setForm(previous=>({...previous,[field]:value}));requestId.current=crypto.randomUUID();setAttempted(false);setError('');};
+ const update=(field:keyof typeof form,value:string)=>{setForm(previous=>({...previous,[field]:value}));requestId.current=crypto.randomUUID();setAttempted(false);setError('');setPreview(null);};
  const close=()=>{if(sending.current)return;if(proof&&(proof.state==='VERIFIED'||proof.state==='EXPIRED'))void api('/router-registry/verifications/'+proof.verification_id+'/cancel',{method:'POST',headers:actionHeaders}).catch(()=>{});onClose();};
  async function verify(event:FormEvent){
-  event.preventDefault();if(sending.current||!consent||!window.isSecureContext)return;setError('');
-  let payload;try{payload=candidatePayload(form,requestId.current,item);}catch(e){setError(e instanceof Error?e.message:'Alanlar geçersiz.');return;}
+  event.preventDefault();if(sending.current||!consent||!window.isSecureContext||!options.data?.connection_enabled||!options.data.operator_authorized)return;setError('');
+  let payload;try{offlineRouterPreview(form,item);payload=candidatePayload(form,requestId.current,item);}catch(e){setError(e instanceof Error?e.message:'Alanlar geçersiz.');return;}
   sending.current=true;setBusy(true);setAttempted(true);
   try{
    const result=await api<Verification>('/router-registry/verify',{method:'POST',signal:AbortSignal.timeout(25000),headers:actionHeaders,body:JSON.stringify(payload)});
@@ -39,10 +44,14 @@ export function RouterOnboarding({item,onClose,onSaved}:{item?:RegisteredRouter;
  async function loadCa(file?:File){
   if(!file)return;
   if(file.size>262144){setError('Public CA en fazla 256 KiB olabilir.');return;}
-  try{const text=await file.text();if(text.includes('PRIVATE KEY')){setError('Özel anahtar yüklenemez. Yalnız public CA seçin.');return;}if(active.current)update('ca_pem',text);}
+  try{const text=await file.text();if(text.includes('PRIVATE KEY')){setError('Özel anahtar yüklenemez. Yalnız public CA seçin.');return;}if(active.current){update('ca_pem',text);setCaSource('Public CA dosyası yüklendi; içeriği aşağıdaki PEM alanındadır.');}}
   catch{if(active.current)setError('Public CA dosyası okunamadı.');}
  }
 
+ function previewForm(){
+  setError('');setPreview(null);
+  try{setPreview(offlineRouterPreview(form,item));}catch(e){setError(e instanceof Error?e.message:'Form doğrulanamadı.');}
+ }
  const ready=options.data?.connection_enabled&&options.data.operator_authorized&&window.isSecureContext;
  return <dialog ref={dialog} className="expiry-dialog router-onboarding" aria-labelledby="router-onboarding-title" onCancel={event=>{event.preventDefault();close();}}>
   <div className="onboarding-heading"><span className="eyebrow">GÜVENLİ ROUTER ONBOARDING</span><h2 id="router-onboarding-title">{item?'Router bağlantısını düzenle':'Router ekle'}</h2><p>1. Güvenli bağlantı → 2. Cihazı doğrula → 3. Kaydı onayla</p></div>
@@ -50,6 +59,11 @@ export function RouterOnboarding({item,onClose,onSaved}:{item?:RegisteredRouter;
   {!window.isSecureContext&&<p role="alert" className="form-error">Parola girişi için HTTPS veya localhost gerekir. Bu sayfadan credential gönderilemez.</p>}
   <ResourceState {...options} error={options.error?connectionError(options.error):undefined}/>
   {options.data&&!ready&&<p role="alert" className="form-error">{connectionError(options.data.connection_enabled?'ONBOARDING_OPERATOR_NOT_AUTHORIZED':'ONBOARDING_CONNECTION_DISABLED')}</p>}
+  {phase==='FORM'&&<>
+   <p><strong>Zorunlu:</strong> Router adı, yönetim IPv4 adresi, API-SSL portu ve SHA-256 pin. {item?'Kullanıcı adı, parola ve CA boş bırakılırsa kayıtlı değerler korunur.':'İlk kayıtta API kullanıcı adı, parola ve public CA da gereklidir.'} <strong>İsteğe bağlı:</strong> Beklenen RouterOS sürümü ve ilk kayıtta cihaz kimliği.</p>
+   <label className="form-label">Bağlantı profili<select value={profileId} disabled={busy} onChange={e=>{const profile=connectionProfile(e.target.value);setProfileId(profile.id);update('port',profile.port);setConsent(false);}}>{routerConnectionProfiles.map(profile=><option key={profile.id} value={profile.id}>{profile.label}</option>)}</select></label>
+   <p>{connectionProfile(profileId).versionHint} Profiller yalnız güvenli port varsayılanını doldurur; sertifika, pin, hedef adresi ve hesap bilgileri cihaza özeldir.</p>
+  </>}
   {phase==='FORM'?<form onSubmit={verify} autoComplete="off">
    <fieldset disabled={busy||!window.isSecureContext} className="onboarding-fields"><legend>Cihaz ve güvenli erişim</legend>
     <label className="form-label">Router adı<input required maxLength={120} value={form.name} onChange={e=>update('name',e.target.value)}/></label>
@@ -59,10 +73,15 @@ export function RouterOnboarding({item,onClose,onSaved}:{item?:RegisteredRouter;
     <label className="form-label">Beklenen cihaz kimliği<input maxLength={120} placeholder="İlk kayıtta isteğe bağlı; önizlemede doğrulanır" value={form.expected_identity} onChange={e=>update('expected_identity',e.target.value)}/></label>
     <label className="form-label">API kullanıcı adı<input required={!item} autoComplete="off" maxLength={128} placeholder={item?'Boş: mevcut hesabı koru':''} value={form.username} onChange={e=>update('username',e.target.value)}/></label>
     <label className="form-label">API parolası<input required={!item} type="password" aria-label="API parolası" autoComplete="new-password" maxLength={1024} placeholder={item?'Boş: kayıtlı parolayı koru':''} value={form.password} onChange={e=>update('password',e.target.value)}/><small>API yanıtına, denetim kaydına veya tarayıcı depolamasına yazılmaz.</small></label>
+    <p className="onboarding-wide">Public CA için iki seçenekten birini kullanın: PEM dosyası yükleyin veya aşağıya sertifika metnini yapıştırın. Dosya yükleme aynı PEM alanını doldurur. DER ve özel anahtar dosyaları kabul edilmez.</p>
     <label className="form-label">Public CA dosyası<input type="file" accept=".pem,.crt,.cer" onChange={e=>{void loadCa(e.target.files?.[0]);e.target.value='';}}/></label>
-    <label className="form-label onboarding-wide">Public CA PEM<textarea required={!item} rows={5} spellCheck={false} placeholder={item?'Boş: mevcut public CA korunur':'-----BEGIN CERTIFICATE-----'} value={form.ca_pem} onChange={e=>update('ca_pem',e.target.value)}/></label>
+    <label className="form-label onboarding-wide">Public CA PEM<textarea required={!item} rows={5} spellCheck={false} placeholder={item?'Boş: mevcut public CA korunur':'-----BEGIN CERTIFICATE-----'} value={form.ca_pem} onChange={e=>{update('ca_pem',e.target.value);setCaSource('PEM metni elle düzenlendi.');}}/></label>
+    {caSource&&<p role="status" className="onboarding-wide">{caSource}</p>}
+    <p className="onboarding-wide">CA, cihazın TLS sertifikasını imzalayan public sertifikadır. Cihaz sertifikasının IP SAN alanı yönetim IPv4 adresini içermeli. SHA-256 pinini güvenilir kanaldan alın; burada otomatik üretilmez.</p>
     <label className="form-label onboarding-wide">Sunucu leaf SHA-256 pini<input required minLength={64} maxLength={64} spellCheck={false} autoCapitalize="none" value={form.leaf_sha256} onChange={e=>update('leaf_sha256',e.target.value.trim().toLowerCase())}/></label>
    </fieldset>
+   <div className="heading-actions"><button type="button" className="button-secondary" disabled={busy} onClick={previewForm}>Formu bağlantısız kontrol et</button><button type="button" className="button-secondary" disabled={busy} onClick={()=>{setError('');setPreview(syntheticRouterPreview());}}>Sentetik örneği önizle</button></div>
+   <p>Bağlantısız kontrol form biçimini inceler. Cihazla bağlantı kurmaz, sertifika güvenini kanıtlamaz ve kayıt oluşturmaz.</p>
    <p>Yönetim kaynağı: <strong>{options.data?.source_ip??'Yapılandırılmamış'}</strong> · İzinli portlar: {options.data?.allowed_ports.join(', ')??'Bilinmiyor'}</p>
    <label className="registry-consent"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} disabled={busy}/>Bu hedefte tek seferlik, salt-okunur API-SSL bağlantısını yapmaya yetkiliyim ve onaylıyorum.</label>
    <button className="button-primary" disabled={!ready||!consent||busy}>{busy?'Güvenli bağlantı doğrulanıyor…':attempted?'Aynı isteğin sonucunu getir':'Bağlantıyı doğrula'}</button>
@@ -73,6 +92,7 @@ export function RouterOnboarding({item,onClose,onSaved}:{item?:RegisteredRouter;
    <label className="registry-consent"><input type="checkbox" checked={confirm} onChange={e=>setConfirm(e.target.checked)} disabled={busy}/>Okunan cihaz kimliği/model/sürümü ve hedef adresini inceledim; bu V2 kaydını onaylıyorum.</label>
    <button className="button-primary" disabled={!confirm||busy} onClick={()=>void save()}>{busy?'Kaydediliyor…':item?'Değişikliği kaydet':'Doğrulanmış routerı kaydet'}</button>
   </section>}
+  {phase==='FORM'&&preview&&<section className="onboarding-review" aria-label="Sentetik bağlantısız önizleme"><h3>SENTETİK ÖNİZLEME · CİHAZA BAĞLANILMADI</h3><p>Bu bir cihaz doğrulaması değildir. Veritabanına kayıt yapılamaz.</p><dl className="registry-facts">{Object.entries({'Panel adı':preview.name,'Uç nokta':preview.endpoint,'Giriş alanları':preview.credentials,'Public CA':preview.certificate,'SHA-256 pin':preview.pin,'Cihaz bilgisi':preview.identity,'Güven kontrolü':preview.trust}).map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></section>}
   {error&&<p role="alert" className="form-error">{error}</p>}
   {proof?.error_code&&<p className="registry-error-code">STOP: {proof.error_code}</p>}
   <button className="button-secondary expiry-editor-cancel" disabled={busy} onClick={close}>Kapat</button>
