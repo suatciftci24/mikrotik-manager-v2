@@ -1,3 +1,4 @@
+from app.local_ports import ui_base
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from app.services import demo_subscriptions
@@ -9,7 +10,7 @@ from app.core.config import settings
 app = FastAPI(title=settings.app_name, version='0.1.0', docs_url='/api/docs')
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['http://127.0.0.1:5173'],
+    allow_origins=[ui_base()],
     allow_credentials=True,
     allow_methods=['GET', 'POST'],
     allow_headers=['Content-Type', 'X-V2-Demo-Action'],

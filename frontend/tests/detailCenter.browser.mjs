@@ -1,3 +1,4 @@
+import {uiBase,localPorts} from './localPorts.mjs';
 import {checkCebeciAcceptanceRequirements} from './cebeciAcceptanceRequirementsAcceptance.mjs';
 import {checkCebeciDecisionPacket} from './cebeciDecisionPacketAcceptance.mjs';
 import {checkCebeciAccountPreparation} from './cebeciAccountPreparationAcceptance.mjs';
@@ -31,10 +32,10 @@ try{browser=await chromium.launch(selectBrowser(chromium));}catch(error){
  writeFileSync(output+'result.json',JSON.stringify({status:'BLOCKED',test_ids:[],error:String(error)},null,2));
  console.error('BROWSER BLOCKED: Chromium başlatılamadı; veri değiştirilmedi.',String(error));process.exit(1);
 }
-const context=await browser.newContext({baseURL:'http://127.0.0.1:5173',viewport:{width:1440,height:1000}});
+const context=await browser.newContext({baseURL:uiBase,viewport:{width:1440,height:1000}});
 await context.route('**/*',route=>{
  const url=new URL(route.request().url());
- return url.hostname==='127.0.0.1'&&['5173','8000'].includes(url.port)?route.continue():route.abort();
+ return url.hostname==='127.0.0.1'&&localPorts.includes(url.port)?route.continue():route.abort();
 });
 const page=await context.newPage(),checks=[],created=[],createdUsers=[];
 const ok=(name,value)=>{assert.ok(value,name);checks.push(name);console.log('PASS:',name);};

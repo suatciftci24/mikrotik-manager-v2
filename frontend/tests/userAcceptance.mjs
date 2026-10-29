@@ -1,3 +1,4 @@
+import {uiBase,localPorts} from './localPorts.mjs';
 // Only new synthetic users are changed. Existing administrators and subscriber audits are immutable.
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -31,8 +32,8 @@ export async function checkUsers(page,ok,api,output,browser,createdUsers=[]){
  }
  const viewer=await create('viewer'),admin=await create('admin'),manager=await create('manager');
  ok('Yalnız üç yeni sentetik kullanıcı UI ile oluşturuldu; parola yanıtta yok',true);
- const context=await browser.newContext({baseURL:'http://127.0.0.1:5173'}),limited=await browser.newContext({baseURL:'http://127.0.0.1:5173'}),management=await browser.newContext({baseURL:'http://127.0.0.1:5173'});
- for(const ctx of [context,limited,management])await ctx.route('**/*',route=>{const u=new URL(route.request().url());return u.hostname==='127.0.0.1'&&['5173','8000'].includes(u.port)?route.continue():route.abort();});
+ const context=await browser.newContext({baseURL:uiBase}),limited=await browser.newContext({baseURL:uiBase}),management=await browser.newContext({baseURL:uiBase});
+ for(const ctx of [context,limited,management])await ctx.route('**/*',route=>{const u=new URL(route.request().url());return u.hostname==='127.0.0.1'&&localPorts.includes(u.port)?route.continue():route.abort();});
  async function request(ctx,path,expected=200,body,header){const response=await ctx.request.fetch('/api/v1'+path,{method:body?'POST':'GET',data:body,headers:header?{'X-V2-Demo-Action':header}:undefined,maxRedirects:0});assert.equal(response.status(),expected,path);return response.json();}
  try{
   await request(context,'/auth/login',200,{username:viewer.username,password});await request(limited,'/auth/login',200,{username:admin.username,password});await request(management,'/auth/login',200,{username:manager.username,password});

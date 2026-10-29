@@ -1,5 +1,6 @@
 """Own only a newly started local V2 API child; never restart/kill an existing server."""
 import argparse
+import errno
 from pathlib import Path
 import socket
 import signal
@@ -7,19 +8,21 @@ import time
 import subprocess
 import sys
 import tempfile
+from app.local_ports import api_port, ui_port, ui_base
 from app.demo_readiness import probe_api, probe_ui, wait_ready
 from app.demo_repair import ROOT, RepairBlocked, require
 
 
 class ManagedAPI:
     label='API'
-    port=8000
+    @property
+    def port(self):return api_port()
 
     def probe(self):return probe_api()
 
     def command(self):
         return [str(ROOT/'.venv/bin/python'),'-m','uvicorn','app.main:app',
-                '--app-dir',str(ROOT/'backend'),'--host','127.0.0.1','--port','8000']
+                '--app-dir',str(ROOT/'backend'),'--host','127.0.0.1','--port',str(self.port)]
 
     def __init__(self):
         self.process=None
@@ -34,9 +37,19 @@ class ManagedAPI:
         # Only start when the exact loopback port is free and sockets are permitted.
         try:
             with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as probe:
+                probe.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
                 probe.bind(('127.0.0.1',self.port))
-        except OSError:
-            raise RepairBlocked(f'Yerel {self.label} portu kullanılamıyor veya sandbox soketi engelliyor; başka servis durdurulmadı.') from None
+        except OSError as failure:
+            endpoint=f'127.0.0.1:{self.port}'
+            if failure.errno==errno.EADDRINUSE:
+                detail=f'PORT_IN_USE: {endpoint} kullanımda; başka servis durdurulmadı. V2_API_PORT/V2_UI_PORT ile ayrı port seçin.'
+            elif isinstance(failure,PermissionError) or failure.errno in (errno.EPERM,errno.EACCES):
+                detail=f'SOCKET_PERMISSION_DENIED: {endpoint} izin/sandbox engeli; port değiştirmek bu engeli çözmez.'
+            elif failure.errno==errno.EADDRNOTAVAIL:
+                detail=f'BIND_ADDRESS_UNAVAILABLE: {endpoint} loopback adresi bu ortamda yok.'
+            else:
+                detail=f'SOCKET_ERROR: {endpoint} errno={failure.errno}; süreç başlatılmadı.'
+            raise RepairBlocked(detail) from None
         runtime=ROOT/'.local/runtime'
         for path in (ROOT/'.local',runtime):
             require(not path.is_symlink(),'V2 log yolu symlink olamaz.')
@@ -69,7 +82,8 @@ class ManagedAPI:
 class ManagedUI(ManagedAPI):
     # Same owner/readiness/cleanup implementation. Vite command lives only in dev.sh.
     label='UI'
-    port=5173
+    @property
+    def port(self):return ui_port()
 
     def probe(self):return probe_ui()
 
@@ -115,10 +129,11 @@ def main(argv=None):
         raise KeyboardInterrupt
     previous=signal.signal(signal.SIGTERM,interrupted)
     try:
+        ui_port()  # Validate both endpoints before any service starts.
         with ManagedAPI() as api:
             if args.dev:
                 with ManagedUI() as ui:
-                    print('Yerel V2 API/UI hazır. Durdur: Ctrl+C',flush=True)
+                    print(f'Yerel V2 API/UI hazır: {ui_base()}/ · Durdur: Ctrl+C',flush=True)
                     while True:
                         for manager in (api,ui):
                             require(manager.process is None or manager.process.poll() is None,
@@ -168,8 +183,8 @@ def main(argv=None):
             return accept([])
     except KeyboardInterrupt:
         return 130
-    except (RepairBlocked,OSError,subprocess.SubprocessError) as failure:
-        message=str(failure) if isinstance(failure,RepairBlocked) else type(failure).__name__
+    except (RepairBlocked,ValueError,OSError,subprocess.SubprocessError) as failure:
+        message=str(failure) if isinstance(failure,(RepairBlocked,ValueError)) else type(failure).__name__
         print('HTTP BLOCKED: '+message,file=sys.stderr)
         return 1
     finally:

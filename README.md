@@ -845,3 +845,25 @@ API/audit/DB'ye credential değeri yazılmaz. Sentetik envanter korunur.
 
 Canlı onboarding varsayılan kapalıdır. Bir kez yapılan V2 şema/policy/operator
 hazırlığı, güvenlik sınırları ve hedefli kabul: [Router onboarding](docs/ROUTER_ONBOARDING.md).
+
+### Yerel port çakışması
+
+Varsayılan API/UI portları 8000/5173'tür. Başka servisleri durdurmadan ayrı V2
+portları seçmek için normal WSL terminalinde:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && ./dev-db.sh && V2_API_PORT=18000 V2_UI_PORT=15173 ./dev.sh
+```
+
+Panel `http://127.0.0.1:15173/` olur. API, UI proxy, hazır olma kontrolleri ve
+kabul araçları aynı port değişkenlerini kullanır. Dinleme adresi yalnız
+`127.0.0.1` kalır; otomatik port taraması/geçişi yapılmaz. PostgreSQL ayrı V2
+kümesinde 55432'de kalır; `dev-db.sh` mevcut DB'yi sıfırlamaz ve uygulama
+migration çalıştırmaz. Gerekli registry şeması için Router onboarding belgesini
+izleyin; HTTP hazır olması DB/migration kabulü değildir.
+
+`PORT_IN_USE` kullanımda portu, `SOCKET_PERMISSION_DENIED` izin/sandbox engelini,
+`BIND_ADDRESS_UNAVAILABLE` loopback adresi sorununu ayırır. İzin engelinde port
+seçmek çözüm değildir; normal WSL terminali gerekir. Başlatma öncesi kontrol
+`SO_REUSEADDR` ile kapanmış bağlantıların TIME_WAIT durumunu dinleyen başka
+servisle karıştırmaz. Başka servis durdurulmaz; Vite `strictPort` korunur.

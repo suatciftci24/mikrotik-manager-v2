@@ -1,3 +1,4 @@
+import {uiBase,localPorts} from './localPorts.mjs';
 // Real UI checks; mutations are restricted to a new settings profile and new synthetic user.
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -31,7 +32,7 @@ export async function checkSettings(page,ok,api,output,browser,createdUsers=[]){
   await request(root,'/system/settings'+suffix,409,{...command,request_id:randomUUID()},'system-settings');await request(root,'/system/settings'+suffix,422,{...command,request_id:randomUUID(),values:{...command.values,cookie_secure:false}},'system-settings');await request(root,'/system/settings'+suffix,403,{...command,request_id:randomUUID()});ok('Eski revision, güvenlik alanı ve eksik onay başlığı reddi',true);
   const password='Synthetic!'+randomUUID(),username='accept.settings.'+randomUUID().slice(0,12);
   const viewer=await api('/v1/users',{request_id:randomUUID(),name:'Sentetik Ayar Viewer',username,email:username+'@local.test',password,role:'VIEWER',active:true,permissions:{},expected_revision:0,confirmed:true},'user-management');createdUsers.push(viewer.id);
-  const ctx=await browser.newContext({baseURL:'http://127.0.0.1:5173'});
+  const ctx=await browser.newContext({baseURL:uiBase});
   try{
    await request(ctx,'/auth/login',200,{username,password});for(const path of ['/system/settings','/system/health','/system/sources','/system/audit'])await request(ctx,path,403);
    await request(ctx,'/system/settings'+suffix,403,{...command,request_id:randomUUID()},'system-settings');ok('Yeni VIEWER tüm sistem endpointlerinde backend 403 alır',true);

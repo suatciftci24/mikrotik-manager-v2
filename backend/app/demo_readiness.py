@@ -9,7 +9,7 @@ import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
 
-API_BASE='http://127.0.0.1:8000'
+from app.local_ports import api_base, ui_base, api_port, ui_port
 
 
 @dataclass(frozen=True)
@@ -38,30 +38,30 @@ def connection_reason(failure,target='127.0.0.1:8000'):
 def probe_api(opener=None):
     client=opener or build_opener(ProxyHandler({}),NoRedirect())
     try:
-        with client.open(Request(API_BASE+'/api/ready'),timeout=1) as response:
+        with client.open(Request(api_base()+'/api/ready'),timeout=1) as response:
             payload=json.loads(response.read())
         if (payload.get('service')=='mikrotik-manager-v2' and payload.get('environment')=='local-demo'
                 and payload.get('api_version')=='v1' and payload.get('database_checked') is False):
             return APIStatus('READY','Yerel V2 HTTP hazır; DB sağlığı henüz kontrol edilmedi.')
-        return APIStatus('WRONG','Port 8000 yanıt veriyor fakat V2 hazır kimliği doğrulanamadı; mevcut servise dokunulmadı.')
+        return APIStatus('WRONG',f'Port {api_port()} yanıt veriyor fakat V2 hazır kimliği doğrulanamadı; mevcut servise dokunulmadı.')
     except HTTPError as failure:
-        return APIStatus('WRONG',f'Port 8000 HTTP {failure.code} verdi. Eski V2 sürümü veya başka servis olabilir; yalnız kendi V2 dev.sh oturumunuzu kontrol edin.')
+        return APIStatus('WRONG',f'Port {api_port()} HTTP {failure.code} verdi. Eski V2 sürümü veya başka servis olabilir; yalnız kendi V2 dev.sh oturumunuzu kontrol edin.')
     except (URLError,OSError) as failure:
-        return connection_reason(failure)
+        return connection_reason(failure,api_base())
     except (ValueError,TypeError,AttributeError):
-        return APIStatus('WRONG','Port 8000 V2 hazır sözleşmesini sağlamıyor; yönlendirme/farklı yanıt reddedildi.')
+        return APIStatus('WRONG',f'Port {api_port()} V2 hazır sözleşmesini sağlamıyor; yönlendirme/farklı yanıt reddedildi.')
 
 
 def probe_ui(opener=None):
     client=opener or build_opener(ProxyHandler({}),NoRedirect())
     try:
-        with client.open(Request('http://127.0.0.1:5173/'),timeout=1) as response:
+        with client.open(Request(ui_base()+'/'),timeout=1) as response:
             body=response.read()
         if b'<title>MikroTik Manager V2</title>' not in body or b'/src/main.tsx' not in body:
-            return APIStatus('WRONG','Port 5173 V2 Vite UI kimliğini sağlamıyor; mevcut servise dokunulmadı.')
-        with client.open(Request('http://127.0.0.1:5173/@vite/client'),timeout=1) as response:
+            return APIStatus('WRONG',f'Port {ui_port()} V2 Vite UI kimliğini sağlamıyor; mevcut servise dokunulmadı.')
+        with client.open(Request(ui_base()+'/@vite/client'),timeout=1) as response:
             vite=response.read()
-        with client.open(Request('http://127.0.0.1:5173/api/ready'),timeout=1) as response:
+        with client.open(Request(ui_base()+'/api/ready'),timeout=1) as response:
             api=json.loads(response.read())
         if (b'vite' in vite.lower() and api.get('service')=='mikrotik-manager-v2'
                 and api.get('environment')=='local-demo' and api.get('api_version')=='v1'
@@ -71,7 +71,7 @@ def probe_ui(opener=None):
     except HTTPError as failure:
         return APIStatus('WRONG',f'UI portu HTTP {failure.code} verdi; mevcut servis değiştirilmedi.')
     except (URLError,OSError) as failure:
-        return connection_reason(failure,'127.0.0.1:5173')
+        return connection_reason(failure,ui_base())
     except (ValueError,TypeError,AttributeError):
         return APIStatus('WRONG','UI yanıtı veya yönlendirmesi reddedildi.')
 

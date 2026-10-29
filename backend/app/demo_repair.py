@@ -12,6 +12,7 @@ from urllib.request import Request, build_opener, HTTPCookieProcessor, ProxyHand
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+from app.local_ports import api_base
 from app.adapters.demo_subscriptions import PostgresDemoStore
 from app.core.database import engine
 from app.demo_storage import initialize_demo, seed_examples
@@ -94,7 +95,7 @@ class LocalHTTP:
         headers = {'Content-Type':'application/json'}
         if action:
             headers['X-V2-Demo-Action'] = action
-        request = Request('http://127.0.0.1:8000'+path, data=json.dumps(body).encode() if body is not None else None, headers=headers)
+        request = Request(api_base()+path, data=json.dumps(body).encode() if body is not None else None, headers=headers)
         try:
             with self.client.open(request, timeout=8) as response:
                 status, content = response.status, response.read()
@@ -102,7 +103,7 @@ class LocalHTTP:
             status, content = failure.code, failure.read()
         except (URLError, TimeoutError) as failure:
             from app.demo_readiness import connection_reason
-            raise RepairBlocked(connection_reason(failure).detail+' DB sonucu ayrıdır; API adresi http://127.0.0.1:8000. ./dev.sh --accept-demo ile yerel hazır kontrolü yapabilirsiniz.') from None
+            raise RepairBlocked(connection_reason(failure,api_base()).detail+f' DB sonucu ayrıdır; API adresi {api_base()}. ./dev.sh --accept-demo ile yerel hazır kontrolü yapabilirsiniz.') from None
         require(status == expected, f'HTTP {path}: beklenen {expected}, alınan {status}; başarı sayılmadı.')
         return json.loads(content)
 
