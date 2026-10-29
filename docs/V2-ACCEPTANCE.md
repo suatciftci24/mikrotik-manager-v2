@@ -339,3 +339,10 @@ kanıtlar için [pilot sözleşmesi](CEBECI_TOWERS_PILOT.md) esas alınır.
 - Hazırlık onayı gerçek pilot execution/bağlantı yetkisi değildir. Yeni hesap/provisioner/credential/connection endpoint'i yok; dispatch 403 ve NO_GO korunur.
 - Routerda **UYGULANMADI**: canlı yönetim erişimi/credential kullanılmadı; API-SSL/sertifika/V1/webpanel/API8728/IPsec değişmedi. Operatör için mevcut hesap belgesindeki Aşama 28 tek güvenli uygulama akışı hazırlanmıştır; source/kimlik/disabled-first sağlanamıyorsa STOP.
 - Demo/audit verisine yazılmadı. Frontend değişmediği için frontend/build/browser tekrarları yapılmadı; bunlara yeni PASS iddiası yoktur.
+
+## Aşama 29 — kapalı API-SSL adaptörü — 2026-10-29
+
+- PASS: 15 yeni backend mocked TLS/API kontrolü ve 3 yeni frontend statü kontrolü; TypeScript/Vite build, diff. Yalnız son değişiklikten etkilenen marker/build format testleri tekrarlandı; geniş eski regresyon/browser paketi yok.
+- Mevcut read-intent/proplist + CA/TLS context kullanılır; single CEBECI / fixed hedef-source / 8729. Chain/SAN/pin/peer/source hatasında credential gönderilmez; yanlış identity'de resource/user read başlamaz. Mutation/unknown fields/secret marker/frame-limit/timeouts redacted STOP ve cleanup üretir; retry/polling yok.
+- Default disabled; ayrıca gerçek DEVICE_READ yetkisi hâlâ 403, provider kayıtlı değil. Enable env gerçek yürütme onayı değildir. ADMIN saf statüden NOT CONNECTED / NOT READY / NO_GO gösterir; yeni bağlantı/credential/enable route veya buton yoktur.
+- Gerçek TLS/router/VDS/V1/DB entegrasyonu **ÇALIŞTIRILMADI**; mocked PASS gerçek cihaz/sertifika/pin/policy uyumu değildir. Hesap Disabled bildirimi korunur; hesap/API-SSL/cert/IPsec/firewall/servis değişimi ve deploy/migration/restart yapılmadı. Demo/audit değişmedi.

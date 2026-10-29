@@ -294,3 +294,135 @@ Hedefli sonuç: 9 yeni backend kontrolü PASS. Testler salt yerel public OS CA's
 **açıkça verilen public fixture** olarak kullanır, gerçek cihaz sertifikası/anahtarı
 veya handshake kullanmaz. Hiçbir private key/test credential üretimi yapılmadı.
 Frontend değişmedi; yeni browser senaryosu/eski kabul tekrarları oluşturulmadı.
+
+## Aşama 29 — kapalı API-SSL adaptörü
+
+Başlangıç `bf5efb9`. Ayrı hesabın/grubun ve source /32 kısıtının operatör tarafından
+hazırlandığı, hesabın Disabled olduğu ve API-SSL'in kapalı/sertifikasız olduğu bu
+görevde kullanıcı tarafından bildirildi. Bu bir handshake veya minimum yetki
+kanıtı değildir. Gerçek credential değeri bu belgeye, Git'e veya demo kayıtlarına
+aktarılmaz. **Hesap etkinleştirilmedi, servis açılmadı, sertifika yüklenmedi.**
+
+### Mimariye bağlantı ve kapalı yetki
+
+`backend/app/adapters/cebeci_api_ssl.py` mevcut `PilotReadAdapter.read_metadata`
+imzasını uygular. `ReadIntent`, dar beş menülü `READ_SCOPE`, metadata sanitizer
+ve Aşama 28 `prepare_offline_tls_context` yeniden kullanılır. Yeni sayfa/matris,
+credential deposu veya bağlantı endpoint'i yoktur. Sentetik gateway bu adaptörü
+provider olarak kaydetmez; tüm mevcut demo kaynakları aynı kalır.
+
+İki bağımsız kapı vardır: default `enabled=false` ve backend
+`authorize(...purpose='DEVICE_READ')`. **Mevcut backend gate'i CEBECI için hâlâ 403
+verir; environment enable isteği tek başına bağlantı açamaz.** Mevcut dispatcher
+da aynı kapalı sınırı korur. ADMIN plan GET'i yalnız saf `adapter_status` okur;
+config/credential okumaz, adaptör instantiate etmez ve socket açmaz. Ekranda
+NOT CONNECTED / NOT READY / NO_GO gösterilir; yeni test/connect/enable butonu yoktur.
+
+### V2'ye özel yapılandırma
+
+`.env.example` yalnız boş secret alanları ve kapalı örnek değerleri içerir. Modül
+.env/V1 dosyası veya veritabanı okumaz; yalnız süreç ortamındaki aşağıdaki isimleri
+kullanır. Gerçek secret değerlerini örnek dosyaya yazmayın; gelecekte yetkili ayrı
+V2 servisinin korunan runtime secret/env enjeksiyonundan sağlayın. Bu görevde servis
+kurulumu/deploy veya env secret girişi yapılmadı.
+
+| Değişken | Sınır |
+| --- | --- |
+| V2_CEBECI_API_SSL_ENABLED | Default false; sadece true/false, gerçek yürütme yetkisi vermez |
+| V2_CEBECI_API_SSL_HOST | Yalnız 10.250.0.19; DNS adı/başka router yok |
+| V2_CEBECI_API_SSL_SOURCE_IP | Yalnız 10.250.0.1; bind edilen kaynak; V1 config'inden okunmaz |
+| V2_CEBECI_API_SSL_PORT | Yalnız 8729; 8728 fallback yok |
+| V2_CEBECI_API_SSL_CA_PEM | Explicit public CA PEM; private key/client cert/default OS trust yok |
+| V2_CEBECI_API_SSL_LEAF_SHA256 | Ayrı incelenmiş public leaf DER SHA-256; 64 küçük hex |
+| V2_CEBECI_API_SSL_USERNAME / PASSWORD | Dedicated V2 runtime credential; boş default; auth objesi/demo/API/log'a yazılmaz |
+| V2_CEBECI_API_SSL_CONNECT_TIMEOUT | Default 2 saniye; 0.1–5 |
+| V2_CEBECI_API_SSL_IO_TIMEOUT | Default 2 saniye; 0.1–5 |
+| V2_CEBECI_API_SSL_TOTAL_TIMEOUT | Default 10 saniye; 1–30, auth ve bütün okumalar için ortak üst bütçe |
+
+Kullanıcının doğruladığı hedef/source değerleri yalnız yeni, tek-router transport
+config pinleridir; eski kanıtların zamanı veya doğrulanmışlık durumu değiştirilmez.
+V2 runtime credential'ı V1/webpanel/admin/reception'dan otomatik alınamaz. Username
+V2 namespace'inde olmalı; özel V2 hesabının gerçek değerini operatör runtime'da
+sağlar. Bu isim kuralı hesap/grup güvenlik kanıtı değildir. Salt okunurluk aşağıdaki
+uygulama sınırıyla ayrıca korunur; read/api grubuna güvenilmez.
+
+### Doğrulama ve protokol sırası
+
+1. Backend yetkisi, enabled flag ve immutable/revalidated tek-router config;
+   sonra `ReadIntent` exact menü/print/property kontrolü. Yetkisiz, kapalı veya
+   mutasyon isteğinde TLS, socket veya secret çözümü başlamaz.
+2. Explicit CA ile TLS 1.2+, CERT_REQUIRED, hostname/SAN, strict X509 ve Aşama 28
+   AEAD cipher politikası hazırlanır. Doğrulamasız/anonymous TLS seçeneği yoktur;
+   context zayıfsa TCP açılmadan reddedilir.
+3. Yalnız IPv4 socket, fixed source bind ve fixed hedef/8729; DNS keşfi, proxy,
+   port/cihaz tarama veya alternatif adres yoktur. Connect ve handshake için bounded
+   timeout; bütün oturum için monotonic total deadline uygulanır.
+4. TLS handshake'in zincir/hedef doğrulaması başarılı olmadan devam edilmez.
+   Gerçek peer/source socket adresi, TLS sürümü, binary leaf sertifika SHA-256 pini
+   (constant-time karşılaştırma) ve exact IP SAN ayrıca kontrol edilir. Pin zincir
+   doğrulamasının yerine geçmez. TLS/pin/SAN/source hata verirse credential okunmaz.
+5. Ancak bundan sonra dedicated V2 username/password runtime'dan alınır ve TLS
+   içinde post-6.43 `/login` protokolü kullanılır. Challenge/fallback auth yoktur;
+   beklenmeyen yanıt sabit AUTHENTICATION_REJECTED/STOP kodudur. Credential değerleri
+   instance/config üzerinde saklanmaz veya loglanmaz.
+6. İlk okuma sadece `/system/identity/print` ile name'dir; yanlış identity'de
+   resource veya kullanıcı isteğine dahi geçilmez. Sonra board-name ve version
+   okunur. Exact RB3011UiAS ve numeric 6.49.19 beklenir; yalnız aynı numeric build'in
+   `6.49.19 (stable)` seri gösterimi de kabul edilir. Diğer suffix/build/model,
+   çoklu/eksik row veya çelişki STOP'tur; belirsiz alias normalize edilmez.
+7. Yalnız doğrulanmış kimlik sonrasında kullanıcının dar metadata print isteği
+   çalışır. Dönen alanlar .proplist'e rağmen tekrar denetlenir; ek/tekrarlı/eksik
+   alan, sensitive marker veya control-character değeri reddedilir. Ham hata/yanıt
+   dışarı çıkmaz. Boş normal session listesi mümkündür; buradan router OFFLINE,
+   güvenli yetki veya abonelik kaynağı sonucu çıkarılmaz.
+8. Başarıda da hatada da oturum kapanır. Ağ/TLS/timeout/protokol/scope hatası instance
+   STOP latch'i oluşturur; aynı instance sonraki okumayı başlatamaz. Eşzamanlı ikinci
+   isteğe izin verilmez. Otomatik retry/reconnect/polling/background task yoktur.
+
+Protocol budget: en fazla 4096 bayt/word, 32 word/sentence, 256 reply sentence,
+128 row/query ve auth dahil 262144 toplam response baytı; total süreye ek olarak
+her IO kalan bütçeyle sınırlandırılır. Malformed/reserved frame veya limit aşımı
+fail-closed STOP'tur. Kaynak hata exception'ları, trap mesajları, auth paketi,
+sertifika veya credential değerleri log/API hata metni olarak kullanılmaz; sadece
+sabit hata kodları verilir. Field allowlist/marker kontrolü, olası tüm hassas
+semantik veriyi keşfeden genel bir DLP sistemi değildir.
+
+### Salt okunurluk ve V1 izolasyonu
+
+Dışarı açılan tek yetenek `read_metadata(ReadIntent)` olup yazma/execute metodu yoktur.
+İzinli beş menu/print alanı eski Aşama 22 scope'udur. User/scheduler/script/firewall/
+NAT/config/PPPoE secret/IPsec SA/RADIUS ve add/set/remove/enable/disable/run/export/
+listen/getall/wildcard istekleri reddedilir. `/login` sadece iç auth akışıdır; genel
+komut gönderme kabiliyeti olarak sunulmaz. Credential sahibi yanlışlıkla geniş yetkili
+olsa bile bu uygulama herhangi bir mutation komutu oluşturamaz; yine de minimum
+hesap/ROS6 lab kanıtı gerçek pilot ön koşulu olarak kalır.
+
+V1 aynı VDS üzerinde çalışacak olsa da ayrı V2 env, servis ve veritabanı sınırları
+korunur. V1 runtime/config/credential/DB bağlantısı aranmaz veya devralınmaz.
+V1 API 8728 ve IPsec ayarı değiştirilmez; V1'i kapatma/migration/deploy/restart bu
+adaptörün işi değildir. Yeni endpoint veya automatic sync sayesinde demo verisiyle
+karışma yoktur; gerçek provider hâlâ kayıtlı değildir.
+
+### Test ve gerçek doğrulama sınırı
+
+15 yeni hedefli backend testi tüm socket/TLS transport'unu fake/Mock ile değiştirir;
+gerçek dinleyici, handshake, router, VDS veya private key kullanmaz. Lokalize test
+authorization mock'u sadece gelecekte ayrıca yetkili bir çağrının wire yolunu sınar;
+production auth gate'i değiştirilmemiştir. Zincir/SAN doğrulama hatası, zayıf context,
+pin/source/peer/identity/model/version farkı, mutation/extra-secret alanları,
+framing/row/byte limitleri, timeout/deadline ve STOP/cleanup/no-fallback denetlenir.
+Son sensitive-value ve build-format değişikliklerinde yalnız ilgili testler yeniden
+çalıştırıldı. Üç yeni frontend kontrolü, gerçek offline domain profilinde environment
+enable isteğine rağmen closed/not-ready statüsünü ve credential çıkmadığını doğrular.
+TypeScript/Vite build PASS; eski geniş kabul paketleri çalıştırılmadı.
+
+**Gerçek zincir/sertifika/pin/ROS6 field veya bağlantı uyumluluğu bu görevde
+DOĞRULANMADI.** Hesap Disabled, API-SSL kapalı/sertifikasız kullanıcı bildirimi
+çözülmüş sayılmaz; cert validity/revocation ve policy lab kanıtları eksik kalır.
+Pilotu çalıştıran HTTP route veya onay/hesap etkinleştirme/servis/sertifika işlemi yoktur.
+Mevcut karar matrisi NO_GO ve gerçek bağlantı kapalıdır.
+
+Teknik uygulama referansları:
+[RouterOS API framing/login/proplist](https://help.mikrotik.com/docs/spaces/ROS/pages/47579160/API),
+[Python SSL client chain/hostname doğrulaması](https://docs.python.org/3.12/library/ssl.html).
+Bunlar gerçek cihazın mevcut sertifikası/yetki davranışı kanıtı değildir.

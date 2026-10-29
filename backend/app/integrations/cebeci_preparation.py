@@ -112,6 +112,8 @@ def profile(user,candidate=CANDIDATE):
     authorize(user,candidate)
     from app.integrations.cebeci_access import assess
     access_preparation=assess(user)
+    from app.adapters.cebeci_api_ssl import adapter_status
+    access_preparation["api_ssl_adapter"]=adapter_status(user)
     from app.integrations.cebeci_prerequisites import review
     access_preparation["prerequisites"]=review(user)
     from app.integrations.cebeci_manual import manual_review

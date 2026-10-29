@@ -611,3 +611,13 @@ oluşturmasını, çakışmada STOP ve sadece yeni nesnelere geri dönüşü tan
 Codex canlı erişim kullanmadı; routerda hiçbir uygulama yapılmadı. API-SSL açılmadı,
 sertifika yüklenmedi, mevcut V1/API/IPsec korunur. Yerel public-CA/TLS context
 hazırlığı soketsizdir; cihaz/pin doğrulanmış sayılmaz. Pilot NO_GO devam eder.
+
+## Aşama 29 — API-SSL transport altyapısı
+
+[Hesap/TLS belgesinin Aşama 29 bölümü](CEBECI_TOWERS_ACCOUNT_PREPARATION.md)
+varsayılan kapalı, tek hedef/source/8729 pinli, zorunlu chain/SAN/pin doğrulamalı ve
+exact read-only API-SSL adaptörünü açıklar. Adaptör mevcut sentetik gateway'e canlı
+provider olarak bağlanmadı; DEVICE_READ backend yetkisi hâlâ 403'tür. Environment
+enable isteği bu kapıyı aşmaz. ADMIN yalnız NOT CONNECTED / NOT READY / NO_GO okur.
+Bu görevde gerçek router/VDS/V1 erişimi, hesap etkinleştirme, servis/sertifika veya
+IPsec/firewall değişikliği yapılmadı; mevcut demo/audit kaynakları korunur.
