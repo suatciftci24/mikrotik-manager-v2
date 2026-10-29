@@ -9,6 +9,7 @@ import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
 
+from app.runtime_identity import current_contract
 from app.local_ports import api_base, ui_base, api_port, ui_port
 
 
@@ -42,6 +43,7 @@ def probe_api(opener=None):
             payload=json.loads(response.read())
         if (payload.get('service')=='mikrotik-manager-v2' and payload.get('environment')=='local-demo'
                 and payload.get('api_version')=='v1' and payload.get('database_checked') is False):
+            if not current_contract(payload):return APIStatus('STALE','V2 API eski sürümden veya farklı checkout üzerinden çalışıyor. ./dev.sh --refresh-owned ile yalnız bu projenin yerel süreçlerini yenileyin.')
             return APIStatus('READY','Yerel V2 HTTP hazır; DB sağlığı henüz kontrol edilmedi.')
         return APIStatus('WRONG',f'Port {api_port()} yanıt veriyor fakat V2 hazır kimliği doğrulanamadı; mevcut servise dokunulmadı.')
     except HTTPError as failure:
@@ -66,6 +68,7 @@ def probe_ui(opener=None):
         if (b'vite' in vite.lower() and api.get('service')=='mikrotik-manager-v2'
                 and api.get('environment')=='local-demo' and api.get('api_version')=='v1'
                 and api.get('database_checked') is False):
+            if not current_contract(api):return APIStatus('STALE','UI proxy eski veya farklı V2 API sürümüne bağlı. ./dev.sh --refresh-owned ile bu projenin yerel süreçlerini yenileyin.')
             return APIStatus('READY','Yerel V2 Vite UI ve API proxy hazır.')
         return APIStatus('WRONG','Vite istemcisi veya V2 API proxy kimliği doğrulanamadı.')
     except HTTPError as failure:

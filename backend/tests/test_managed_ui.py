@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 from urllib.error import URLError
 from app import demo_api_runner as runner
 from app import demo_readiness as readiness
+from app.runtime_identity import BUILD_ID,REPO_ID
 from app.demo_repair import RepairBlocked
 
 
@@ -27,7 +28,7 @@ class ManagedUITests(TestCase):
             def response(request,**kwargs):
                 if request.full_url.endswith('/@vite/client'):return HTML(b'vite client')
                 if request.full_url.endswith('/api/ready'):
-                    return HTML(json.dumps(dict(service='mikrotik-manager-v2',environment='local-demo',api_version='v1',database_checked=False)).encode())
+                    return HTML(json.dumps(dict(service='mikrotik-manager-v2',environment='local-demo',api_version='v1',database_checked=False,api_port=8000,repo_id=REPO_ID,build_id=BUILD_ID,router_workspace_version=1)).encode())
                 return HTML(body)
             client=SimpleNamespace(open=response)
             self.assertEqual(readiness.probe_ui(client).state,state)

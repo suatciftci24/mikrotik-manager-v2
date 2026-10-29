@@ -205,3 +205,32 @@ Eski demo ve public registry baseline'ları kontrol edilir, business tabloların
 örnek router eklenmez. Normal başlangıç migration çalıştırmaz. Yalnız 007 için:
 `PYTHONPATH=backend .venv/bin/python -m app.local_router_workspace --apply`.
 Sandbox loopback engelinde gerçek migration/PG kabulü tamamlanmış sayılmaz.
+
+## Sentetik liste 404 / eski çalışan API
+
+Sentetik CRUD sözleşmesi `/api/v1/router-workspace/routers` altındadır. Vite,
+`V2_API_PORT` ile aynı loopback backend'e proxy yapar. Eski bir API sürecinin
+`/api/ready` yanıtı tek başına güncel route'ların varlığını kanıtlamaz.
+
+Hazır kontrolü artık import sırasında sabitlenen backend kaynak hash'i, checkout
+kimliği, API portu ve workspace sözleşme sürümünü doğrular. Eski/farklı checkout
+veya yanlış porttaki API hazır kabul edilmez; UI proxy kontrolü de aynı sözleşmeyi
+ister. Kaynağı güncellemek, hâlihazırda import edilmiş eski Python sürecini
+değiştirmez. API root'undan gelen ham 404, UI'da modülün çalışan backend'de
+bulunmadığını açıklayan mesajla gösterilir; gerçekten silinmiş kayıtların özel
+404 açıklaması korunur.
+
+Normal ev WSL'de tek yenileme/başlatma komutu:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && V2_API_PORT=18000 V2_UI_PORT=15173 ./dev.sh --refresh-owned
+```
+
+Bu açık seçenek önce loopback iznini, iki portun dinleyen socket sahibini, aynı
+UID'yi, tam proje cwd/argv/port eşleşmesini ve process başlangıç kimliğini doğrular.
+İki süreç de doğrulanmadan sinyal göndermez. Yalnız bu projenin bilinen
+Uvicorn/Vite süreçlerine sabit pidfd üzerinden SIGTERM yollar; SIGKILL kullanmaz.
+Başka süreç/checkout, wildcard listener, belirsiz sahip veya eksik pidfd desteğinde
+durur. Yeniden başlatma normal dev.sh yaşam döngüsünü kullanır; DB/migration/veri
+ve diğer servisleri değiştirmez. Normal dev.sh mevcut güncel süreci yeniden
+kullanır; örtülü restart yapmaz. Yenileme yeni oturum açılmasını gerektirebilir.

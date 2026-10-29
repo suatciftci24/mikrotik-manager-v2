@@ -1,4 +1,5 @@
-from app.local_ports import ui_base
+from app.runtime_identity import BUILD_ID,REPO_ID
+from app.local_ports import ui_base,api_port
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from app.services import demo_subscriptions
@@ -36,7 +37,8 @@ def health():
 async def ready():
     # Liveness identity only: DB health stays on /api/health, without thread-worker dependency here.
     return {'service':'mikrotik-manager-v2', 'environment':settings.environment,
-            'api_version':'v1', 'database_checked':False}
+            'api_version':'v1', 'database_checked':False,
+            'api_port':api_port(),'repo_id':REPO_ID,'build_id':BUILD_ID,'router_workspace_version':1}
 
 
 # Never echo credential inputs in validation responses (including model-level errors).

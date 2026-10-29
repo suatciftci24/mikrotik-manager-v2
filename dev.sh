@@ -37,6 +37,12 @@ if [[ "${1:-}" == '--prepare-demo' ]]; then
   PYTHONPATH=backend .venv/bin/python -m app.demo_storage init --examples
   exit 0
 fi
+if [[ "${1:-}" == '--refresh-owned' ]]; then
+  [[ $# -eq 1 ]] || { printf 'Geçersiz refresh argümanı.\n' >&2; exit 1; }
+  PYTHONPATH=backend .venv/bin/python -m app.local_refresh
+elif [[ $# -ne 0 ]]; then
+  printf 'Geçersiz dev.sh argümanı.\n' >&2; exit 1
+fi
 # Normal dev and acceptance share the same ownership/readiness/log lifecycle.
 export PYTHONPATH="$PROJECT_ROOT/backend"
 exec .venv/bin/python -m app.demo_api_runner --dev
