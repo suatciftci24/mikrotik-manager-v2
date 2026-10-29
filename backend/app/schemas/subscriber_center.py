@@ -56,6 +56,10 @@ class CenterSubscriberEvent(BaseModel):
     occurred_at:str
     actor_id:str
     revision:int|None=None
+    previous_expires_on:date|None=None
+    expires_on:date|None=None
+    date_changed:bool=False
+    result:Literal['APPLIED']='APPLIED'
 
 class SubscriberCenterData(BaseModel):
     item:CenterSubscriber
@@ -72,3 +76,15 @@ class SubscriberWorkspaceList(BaseModel):
     page:int
     page_size:int
     is_demo:Literal[True]=True
+
+class SubscriberRenewal(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    request_id:UUID
+    expected_revision:int=Field(ge=1)
+    expected_source:Literal['LOCAL','RADIUS']
+    expected_expires_on:date|None
+    expires_on:date
+    days:Literal[7,15,30]|None=None
+    confirmed:Literal[True]
+    _confirmed=field_validator('confirmed',mode='before')(SyntheticSubscriberCommand.explicit.__func__)
+    _dates=field_validator('expected_expires_on','expires_on',mode='before')(ExpiryChange.calendar_date_only.__func__)

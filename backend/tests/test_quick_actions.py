@@ -16,7 +16,8 @@ class QuickActionsTests(TestCase):
     def setUp(self):
         self.store = DemoSubscriptionStore(SUBSCRIBERS)
         self.today = datetime.now(ZoneInfo('Europe/Istanbul')).date()
-        self.user = {'id':'test', 'is_demo':True, 'role':'Sistem Yöneticisi'}
+        self.user = {'id':'test', 'is_demo':True, 'role':'Sistem Yöneticisi', 'role_code':'ADMIN',
+                     'permissions':{r['id']:{'can_view':True,'can_manage_pppoe':True} for r in ROUTERS}}
 
     def change(self, item, **kwargs):
         old = item['expires_on']

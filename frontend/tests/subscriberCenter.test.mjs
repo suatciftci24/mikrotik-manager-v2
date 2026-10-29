@@ -42,3 +42,8 @@ test('Hotspot edit preserves locked identity and submits only synthetic fields w
   const payload=JSON.parse(calls[0].init.body);assert.equal(payload.fields.access_type,'HOTSPOT');assert.equal(payload.fields.router_id,data.item.router_id);assert.equal(payload.expected_revision,1);assert.equal(payload.confirmed,true);assert.equal(calls[0].init.headers['X-V2-Demo-Action'],'subscriber-workspace');assert.equal('password' in payload.fields,false);assert.equal(saved,data.item.id);
  }finally{globalThis.fetch=original;globalThis.window=originalWindow;}
 });
+
+test('renewal history shows previous/new dates, time and applied result without secrets',()=>{
+ const changed={...data,history:[{operation:'RENEWAL',occurred_at:'2026-10-29T12:00:00Z',actor_id:'demo-user',revision:2,previous_expires_on:'2026-10-01',expires_on:'2026-11-28',date_changed:true,result:'APPLIED'}]};
+ const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:changed,tab:'history',onTab:()=>{}}));assert.match(html,/Abonelik uzatıldı/);assert.match(html,/Eski bitiş/);assert.match(html,/Yeni bitiş/);assert.match(html,/Sonuç: Uygulandı/);assert.match(html,/2026/);
+});

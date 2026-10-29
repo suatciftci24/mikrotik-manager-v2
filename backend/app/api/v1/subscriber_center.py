@@ -3,7 +3,7 @@ from app.core.security import current_demo_user,current_admin
 from app.core.authorization import subscriber_for,public_detail
 from app.api.v1.router_workspace import execute
 from app.services.subscriber_center import workspace,legacy_center
-from app.schemas.subscriber_center import SubscriberCenterData,SubscriberWorkspaceList,CenterSubscriber,SyntheticSubscriberCommand
+from app.schemas.subscriber_center import SubscriberCenterData,SubscriberWorkspaceList,CenterSubscriber,SyntheticSubscriberCommand,SubscriberRenewal
 
 router=APIRouter(tags=['subscriber-center'])
 def mutator(user:dict=Depends(current_admin),x_v2_demo_action:str|None=Header(default=None)):
@@ -22,3 +22,6 @@ def list_subscribers(query:str=Query('',max_length=120),access_type:str=Query('A
 def create(payload:SyntheticSubscriberCommand,user:dict=Depends(mutator)):return execute(workspace.save,payload,user['id'])
 @router.post('/subscriber-workspace/{id}',response_model=CenterSubscriber)
 def update(id:str,payload:SyntheticSubscriberCommand,user:dict=Depends(mutator)):return execute(workspace.save,payload,user['id'],id)
+
+@router.post('/subscriber-workspace/{id}/renew',response_model=CenterSubscriber)
+def renew(id:str,payload:SubscriberRenewal,user:dict=Depends(mutator)):return execute(workspace.renew,id,payload,user['id'])

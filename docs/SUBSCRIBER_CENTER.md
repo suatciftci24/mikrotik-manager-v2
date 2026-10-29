@@ -56,3 +56,36 @@ Tipli Pydantic sözleşmeleri, explicit onay, optimistic revision, idempotency,
 audit/record atomikliği ve literal UNKNOWN oturum modeli test edilir. Geçici
 SQLite testleri gerçek PostgreSQL kabulü olarak sunulmaz. Mevcut canlı aboneler
 ve production migration/deployment bu paketin dışındadır.
+
+## Kompakt tablo ve abonelik uzatma
+
+Eski listede kaynak, paket ve router/işlem bilgileri korunur. Aylık tutar paketin
+altına, abonelik durumu bitiş tarihinin altına alınır; ayrı gereksiz sütunlar
+kaldırılır. 1550 px alt sınır yerine 1040 px ve sınırlı/saran ad-paket-router
+alanları kullanılır. Mobilde tablo kendi alanında yatay kayar. Yeni kalıcı listede
+de hesap, kaynak, tarih/abonelik, kalan gün ve detay alanları ayrı gösterilir.
+Arama/filtre/seçim işlemleri değiştirilmez.
+
+**Hesap: Aktif** ile **Abonelik: Süresi dolmuş** birlikte geçerli olabilir.
+Takvim tarihi hesap veya oturum durumunu değiştirmez. Bitiş bilinmiyorsa durum
+üretilmez; mevcut Europe/Istanbul takvim günü ve bitiş günü dahil kuralları korunur.
+
+Eski Hızlı İşlemler penceresi eski/yeni tarih önizlemesini korur. Sonuçta sunucunun
+yanıtındaki kaydedilmiş tarih gösterilir; tüm işlemler başarılıysa tekrar düğmesi
+kapanır. Kayıp/eksik sonuçlar aynı istek kimliğiyle alınabilir. Router ID varsa
+önizleme bunu esas alır; isimle lookup yalnız tek bir eşleşmede kullanılabilir.
+
+Kalıcı sentetik abonenin EXPIRE sekmesindeki **Hızlı İşlemler · Aboneliği uzat**
+7/15/30 gün veya özel tarih, eski/yeni önizleme ve ayrı onay sunar.
+`POST /api/v1/subscriber-workspace/{id}/renew` yalnız bitiş tarihini değiştirir.
+Aktör, kaynak, eski tarih, revizyon ve server-side Türkiye günü önizlemesi
+kontrol edilir; kayıt ve RENEWAL audit'i tek transaction'dadır. Aynı istek yeniden
+uygulanmaz; payload/aktör/revizyon uyuşmazlığı ve audit hatası değişiklik yapmaz.
+Bilinmeyen eski tarihte yalnız özel tarih mümkündür. Hesap durumu korunur.
+
+Detay İşlem Geçmişi eski tarih, yeni tarih, UTC saklanan işlem zamanının İstanbul
+gösterimi ve Uygulandı sonucunu sunar. Yalnız tamamlanmış kayıt audit'i gösterilir;
+başarısız denemeler başarı geçmişine eklenmez. Credential veya ham audit JSON'u
+projeksiyona taşınmaz. Mevcut JSON/audit şemaları kullanılır; yeni migration/seed
+gerekmez. PostgreSQL kabul betiğine üç hedefli uzatma/retry/rollback senaryosu
+eklenmiştir; sandbox engelindeki SKIPPED sonuçlar PG PASS değildir.
