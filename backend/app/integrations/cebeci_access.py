@@ -218,3 +218,41 @@ def assess(user,plan:AccessPlan|None=None,evidence:OfflineEvidence|None=None,*,n
           'STALE_OR_UNKNOWN_EVIDENCE','UNEXPECTED_WRITE_ATTEMPT','LIVE_SA_OR_CREDENTIAL_INTAKE','V1_IMPACT','AUDIT_OR_TIMEBOX_UNVERIFIED'],
         audit_fields=['candidate_id','policy_version','packet_digest','criterion','fixed_reason_code','review_time'],
         raw_evidence_stored=False,live_observation_verified=False,secret_resolution=False,network_enabled=False,polling=False,automatic_retry=False)
+
+
+def prepare_offline_tls_context(user,plan:AccessPlan|None=None,*,public_ca_pem:str|None=None):
+    """Prepare a client verifier in memory only. Never connects, resolves, loads keys or authorizes IO.
+
+    A reviewed plan/pin is metadata, not live verification. Future transport must separately
+    enforce the public leaf pin after verified TLS and before credentials; dispatch stays 403.
+    """
+    authorize(user)
+    try:plan=AccessPlan.model_validate(dict((plan or AccessPlan()).__dict__))
+    except (ValueError,AttributeError):raise ValueError('PILOT_CONTRACT_REJECTED') from None
+    if any(value is None for value in (plan.reviewed_management_pin,plan.reviewed_source_cidr,plan.public_certificate_sha256)):
+        raise ValueError('REVIEWED_TARGET_SOURCE_AND_PUBLIC_PIN_REQUIRED')
+    import re
+    import ssl
+    if not isinstance(public_ca_pem,str) or not 1<=len(public_ca_pem)<=262144:
+        raise ValueError('PILOT_PUBLIC_CA_REQUIRED')
+    public_ca_pem=public_ca_pem.replace('\r\n','\n').strip()
+    # Only public CA certificates. Reject keys, DH params, file paths and mixed/raw payloads.
+    if not re.fullmatch(r'(?:-----BEGIN CERTIFICATE-----\n[A-Za-z0-9+/=\n]+-----END CERTIFICATE-----\s*)+',public_ca_pem):
+        raise ValueError('PILOT_PUBLIC_CA_REJECTED')
+    count=public_ca_pem.count('-----BEGIN CERTIFICATE-----')
+    if count>16:raise ValueError('PILOT_PUBLIC_CA_REJECTED')
+    try:
+        # Bare constructor deliberately avoids default/system trust and SSLKEYLOGFILE side effects.
+        context=ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.minimum_version=ssl.TLSVersion.TLSv1_2
+        context.verify_mode=ssl.CERT_REQUIRED
+        context.check_hostname=True
+        context.hostname_checks_common_name=False
+        context.verify_flags|=ssl.VERIFY_X509_STRICT
+        context.options|=ssl.OP_NO_COMPRESSION
+        context.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:!aNULL:!eNULL:!DSS:!MD5:!RC4:!3DES')
+        context.load_verify_locations(cadata=public_ca_pem)
+        # No leaf/non-CA or duplicate anchors in this dedicated trust input.
+        if len(context.get_ca_certs())!=count:raise ValueError('CA_REQUIRED')
+        return context
+    except (ssl.SSLError,ValueError):raise ValueError('PILOT_PUBLIC_CA_REJECTED') from None

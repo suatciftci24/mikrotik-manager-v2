@@ -331,3 +331,11 @@ kanıtlar için [pilot sözleşmesi](CEBECI_TOWERS_PILOT.md) esas alınır.
 - Browser BLOCKED: tek yeni Aşama 27 çağrısı ilk loopback sandbox engelinde durdu. Önceki kabul paketleri tekrar çalıştırılmadı; 320/390/1440px bu ortamda doğrulanmadı.
 - Yeni sayfa/kanıt/approval deposu, live intake/credential/hesap/connect/test/deploy kontrolü veya demo/audit yazması yok.
 - Normal ofis WSL tek komut: `cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_REQUIREMENTS_ONLY=1 ./browser-accept-demo.sh`.
+
+## Aşama 28 — sınırlı hesap/TLS hazırlığı — 2026-10-29
+
+- Kullanıcı Aşama 27 için 12/12 BROWSER PASS bildirdi. Yeni ekran/matris/browser aşaması yoktur.
+- PASS: yalnız 9 yeni backend testi ve diff kontrolü. Disabled-first ayrı hesap/collision sözleşmesi; explicit public CA ile soketsiz TLS 1.2+/chain/SAN/strict/cipher/no-keylog hazırlığı ve redacted input reddi. Gerçek handshake/peer/pin veya ROS6 hesap davranışı doğrulanmadı.
+- Hazırlık onayı gerçek pilot execution/bağlantı yetkisi değildir. Yeni hesap/provisioner/credential/connection endpoint'i yok; dispatch 403 ve NO_GO korunur.
+- Routerda **UYGULANMADI**: canlı yönetim erişimi/credential kullanılmadı; API-SSL/sertifika/V1/webpanel/API8728/IPsec değişmedi. Operatör için mevcut hesap belgesindeki Aşama 28 tek güvenli uygulama akışı hazırlanmıştır; source/kimlik/disabled-first sağlanamıyorsa STOP.
+- Demo/audit verisine yazılmadı. Frontend değişmediği için frontend/build/browser tekrarları yapılmadı; bunlara yeni PASS iddiası yoktur.

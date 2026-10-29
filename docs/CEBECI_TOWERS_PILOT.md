@@ -600,3 +600,14 @@ Kullanıcı Aşama 26 için 12/12 BROWSER PASS bildirdi; tarihsel yerel UI kabul
 aynı yirmi alana beklenen kaynak/kabul/yöntem/onay/STOP metadata'sı ekler; 9/8/20 ve
 tek karar kaynağı korunur. Eski manuel tarihler UNKNOWN; gerçek onay/yürütme yok,
 TLS zorunlu ve B otomatik istisna değil. Gerçek router/V1 erişimi yapılmadı, NO_GO.
+
+## Aşama 28 — sınırlı hazırlık onayı
+
+Ayrı V2 hesabı ve güvenli API hazırlığı için kullanıcı onayı verildi; gerçek V2
+bağlantısı, diğer routerlar, V1 ve mevcut hesap/servis/IPsec değişimi kapsam dışıdır.
+[Hesap belgesinin Aşama 28 uygulama akışı](CEBECI_TOWERS_ACCOUNT_PREPARATION.md)
+operatörün yalnız yeni özel read,api aday grubu ve ilk anda disabled kullanıcı
+oluşturmasını, çakışmada STOP ve sadece yeni nesnelere geri dönüşü tanımlar.
+Codex canlı erişim kullanmadı; routerda hiçbir uygulama yapılmadı. API-SSL açılmadı,
+sertifika yüklenmedi, mevcut V1/API/IPsec korunur. Yerel public-CA/TLS context
+hazırlığı soketsizdir; cihaz/pin doğrulanmış sayılmaz. Pilot NO_GO devam eder.

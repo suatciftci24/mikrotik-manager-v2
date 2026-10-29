@@ -81,6 +81,9 @@ class PilotAccountContract(ClosedContract):
     candidate_id:Literal['CEBECI_TOWERS']='CEBECI_TOWERS'
     policies:tuple[str,...]=('read','api')
     account_reuse:Literal['FORBIDDEN']='FORBIDDEN'
+    provisioning_method:Literal['OPERATOR_SECURE_MANAGEMENT_SESSION']='OPERATOR_SECURE_MANAGEMENT_SESSION'
+    initial_account_state:Literal['DISABLED']='DISABLED'
+    existing_object_action:Literal['STOP_PRESERVE_EXISTING']='STOP_PRESERVE_EXISTING'
     credential_intake:Literal['NONE']='NONE'
     @field_validator('policies')
     @classmethod

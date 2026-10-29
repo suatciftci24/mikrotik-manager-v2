@@ -154,3 +154,143 @@ cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_ACCOUNT_ONLY=1 ./br
 hazırlık ve yirmi alanın durumlarını aynen kaynaklarından okur, Aşama 23 matrisine
 bağlar. Hesap/kanıt modeli, policy, TLS/NO_GO veya yetki sınırı değiştirilmez.
 Referans özeti teknik doğrulama, operatör onayı veya yürütme yetkisi değildir.
+
+## Aşama 28 — onaylı ayrı hesap hazırlığı ve tek operatör uygulaması
+
+Başlangıç `7e4d872`; kullanıcı Aşama 27 için 12/12 BROWSER PASS bildirdi.
+**Bu görevdeki açık onay:** yalnız CEBECI_TOWERS için ayrı V2 pilot hesabı
+oluşturma ve güvenli API erişiminin hazırlığı. Gerçek V2 bağlantısı, başka router,
+V1 veya mevcut hesap/servis/IPsec değişikliği bu onaydan çıkarılamaz. Önceki
+bölümlerdeki genel onay gereksinimleri artık bu dar hazırlık onayının yok olduğu
+anlamına gelmez; gerçek pilot yürütme yetkisi ise hâlâ verilmedi.
+
+### Gerçek uygulama durumu ve çelişmeyen kapsam
+
+Bu Codex oturumunda onaylı bir canlı router yönetim oturumu/credential kullanılmadı;
+hiçbir cihaza ping, DNS/port keşfi, SSH/API/Winbox bağlantısı veya handshake denenmedi.
+**Routerda yeni grup/hesap/sertifika oluşturulmadı; servis açılmadı.** V1, webpanel,
+admin/reception, API 8728 ve IPsec ayarları değişmedi. Mevcut manuel gözlem zamanları
+UNKNOWN; gerçek minimum yetki/TLS/path kanıtı elde edilmedi. Pilot NO_GO.
+
+API-SSL 8729'un kapalı/sertifikasız olduğu önceki tek zamanlı bildirimdir. API-SSL
+servisini açmak veya sertifika bağlamak **mevcut servis ayarını değiştirir**; bu
+görevin “mevcut servisleri değiştirme” sınırı nedeniyle uygulanmaz. Güvenli API
+hazırlığı burada yerel TLS doğrulayıcı politikası ve operatör sertifika planıdır.
+API 8728'i kapatma/taşıma, V2 için otomatik kullanma veya plain API fallback yoktur.
+
+### Yerel yazılım hazırlığı — mevcut sözleşmeler üzerinde
+
+`PilotAccountContract` aynı exact read,api adayını korur; üç hazırlık varsayılanı eklendi:
+
+- `provisioning_method=OPERATOR_SECURE_MANAGEMENT_SESSION`: uygulama provisioner'ı
+  değil, yetkili operatörün güvenli ayrı yönetim oturumu.
+- `initial_account_state=DISABLED`: güvenliği henüz kanıtlanmamış hesap ilk anda
+  devre dışı oluşturulmalı; önce etkin oluşturup sonra kapatma yöntemi yoktur.
+- `existing_object_action=STOP_PRESERVE_EXISTING`: isim/grup çakışmasında overwrite,
+  reuse veya policy değişimi yerine STOP. Mevcut V1 nesneleri korunur.
+
+Hesap/grup adı, parola, credential reference veya yeni bağlantı ayarı alınmaz.
+Bu metadata mevcut politika paketinin hash'ine dahildir; eski paket referansı
+geçersizleşir. Yeni ekran, matris, endpoint, grant/onay deposu veya browser aşaması yoktur.
+`account_creation_allowed=false` uygulamanın routerda hesap oluşturamayacağını,
+`operator_approval=NOT_RECORDED` gerçek **pilot yürütme** onayının bu uygulamada
+kaydedilmediğini ifade eder; bu görevdeki sınırlı insan hazırlık onayını geri almaz.
+
+`cebeci_access.prepare_offline_tls_context` yalnız ADMIN için, bellek içinde bir
+Python TLS istemci doğrulayıcısı hazırlar. Default boş planla durur; ayrıca
+incelenmiş hedef/source /32/public leaf pin metadata'sı ve açıkça verilen public
+CA PEM gerektirir. Eski adresler otomatik atanmaz. Bu metadata'nın sağlanması da
+gerçek kanıt veya execution yetkisi değildir.
+
+- Sistem trust store'u kendiliğinden kullanılmaz. Yalnız verilen public CA'lar
+  yüklenir; eksik/bozuk/private-key/leaf-only/duplicate veya aşırı büyük girdi reddedilir.
+- TLS 1.2+, CERT_REQUIRED, hostname kontrolü, SAN gereksinimi (CN fallback kapalı),
+  X.509 strict inceleme; TLS 1.2 için ECDHE/DHE + AEAD (AES-GCM/uygun CHACHA20),
+  TLS 1.3 varsayılan AEAD ve anonymous/NULL/DSS/MD5/RC4/3DES dışlama politikası hazırlanır.
+- Secret/private key/client certificate yükleme, dosya/credential okuma, keylog,
+  DNS, socket, handshake, connect veya polling yapılmaz. SSLKEYLOGFILE ortamından
+  keylog açılmaz. Hata mesajları PEM/secret girdisini içermez.
+- Bu fonksiyon **cihaz zincirini veya pinini doğrulamış değildir**; sadece boşta
+  istemci context'i üretir. 6.49.19 istemci/cipher/CA/SAN uyumu, sertifika zaman/
+  kullanım/iptal incelemesi ve bağımsız public pin kanıtları hâlâ eksiktir.
+- Gelecekte ayrı onaylı adapter; doğrulanmış handshake ve hedef ismi sonrasında
+  public leaf SHA-256 pinini ayrıca eşleştirmeden ve kimliği doğrulamadan credential
+  gönderemez. O transport/pin handshake uygulaması bu görevde eklenmedi; mevcut
+  `dispatch_pilot_read` hâlâ adapter'a dokunmadan 403 verir.
+
+### Tek güvenli operatör adımı
+
+**Yalnız CEBECI_TOWERS'a ait, kimliği doğrulanmış güvenli yönetim oturumunda aşağıdaki
+sınırlı hesap hazırlık akışını uygulayın; V2/API testi veya servis değişimi yapmayın.**
+Codex'e credential veya özel anahtar göndermeyin. Bu tek operatör işi aşağıdaki
+ön kontrol/uygulama/geri dönüş sınırlarının tamamını kapsar; otomatik script değildir.
+
+1. Operatörün kendi yetkili güvenli Winbox/yerel konsol oturumunda hedefin
+   CEBECI_TOWERS / RB3011UiAS / 6.49.19 olduğunu bağımsız doğrulayın. Eski IP tek
+   başına hedef kanıtı değildir. Yanlış/şüpheli kimlikte hiçbir nesne oluşturmayın.
+   Güvenli yönetim oturumu yoksa API 8728 üzerinden yeni parola taşıyarak devam etmeyin.
+2. Yalnız bu cihazda değişiklik öncesi mevcut hesap/grup, API 8728/8729 servis
+   durumu/kaynak sınırı ve yönetim IPsec politikasının **gizli olmayan** baseline'ını,
+   gözlem zamanını ve geri dönüş sorumlusunu kurum içinde belirleyin. Ham export,
+   PSK, SA, private key veya şifre ekran görüntüsü almayın. Mevcut korunan yedeğin
+   kurtarılabilirliğini kurum içinde inceleyin; V2'ye backup dosyası vermeyin.
+3. Cihazın göreceği güncel V2 yönetim kaynağının tek /32'sini ve iptal sahibini
+   belirleyin. 10.250.0.1/32 V1 kaynağını otomatik kopyalamayın. Hedef/source veya
+   güvenli geri dönüş belirsizse STOP; geniş/boş address ile hesap oluşturmayın.
+4. Users/Groups yönetiminde **yeni**, V1 ile paylaşılmayan bir özel grup için yalnız
+   read ve api policy adaylarını seçin. Örnek hazırlık etiketi `v2-cebeci-pilot-ro`;
+   etiket var olan grupsa onu düzenlemeyin/kullanmayın: STOP. Varsayılan read/full
+   grubunu kopyalamayın; write/policy/test/sensitive/password/reboot ve diğer bütün
+   policy'ler kapalı kalmalı. read,api yeterliliği bu işlemle kanıtlanmaz.
+5. Yine benzersiz **yeni** bir V2 kullanıcı nesnesini yalnız bu özel gruba ve
+   incelenmiş /32 adresine bağlayın. Başlangıçta **Disabled** olmasını sağlayın;
+   kullanılan 6.49.19 yönetim arayüzünde oluşturma anında Disabled desteklenmiyorsa
+   etkin kullanıcı oluşturup sonra kapatmayın: STOP. Güçlü benzersiz parolayı sadece
+   operatörün güvenli yönetim/parola yöneticisi sürecinde üretip girin; boş/default
+   parola bırakmayın, terminal/script/history/chat/GitHub/V2'ye yazmayın. Kullanıcı
+   adı çakışmasında mevcut hesabı değiştirmek yerine STOP. Bu belge parola veya
+   otomatik çalıştırılabilir RouterOS komutu içermez.
+6. Aynı güvenli oturumda yeni nesnenin disabled, exact read,api grubunda ve doğru
+   tek /32 kapsamında olduğunu kontrol edin; mevcut V1/webpanel/gruplar/API/IPsec
+   baseline'ının değişmediğini inceleyin. V2 ile login/API testi yapmayın, hesabı
+   etkinleştirmeyin. ROS6 alan/dosya/yan etki lab raporu olmadan “salt okunur güvenli”
+   sonucu vermeyin. Sadece gizli olmayan sonuç kodu/rol/zamanı kurumda koruyun.
+7. Bu akış sertifika veya API-SSL servisi değiştirmez. Güvenlik sahibi public CA
+   zinciri, tek hedef SAN/IP, server-auth kullanım/zaman/iptal/public pin ve tam
+   6.49.19 TLS 1.2+ lab uyumluluğu planını kurum içinde hazırlayabilir. Private key
+   router/kurumun güvenli alanından çıkarılmaz; V2'ye aktarılmaz. Servis açma,
+   sertifika yükleme, firewall/IPsec düzenleme ve gerçek V2 bağlantı başlatma bu
+   akışın devamı olarak yapılmaz; mevcut sınırları aşan ayrı kapsam gerekir.
+
+Bu akış **uygulanmış sayılmaz**. Başarı durumu ancak yetkili operatörün yeni nesneye
+ait gizli olmayan gözlem sonucu ile bildirilebilir; tarihi verilmezse UNKNOWN kalır.
+Mevcut yerel karar sistemi bu bildirimi otomatik canlı doğrulanmış kanıta dönüştürmez.
+
+### STOP ve yalnız yeni hazırlık nesnelerine ait geri dönüş
+
+Erişim kaybı, yanlış kimlik/source, beklenmeyen policy/yan etki, isim çakışması veya
+V1 etkisinde ilk hatada durun; başka adres/hesap/port denemeyin. Yeni hesap disabled
+kalmalı; iptal gerekiyorsa yalnız operatörün **bu işlemde oluşturduğu** nesnenin
+kimliğini/aidiyetini doğrulayıp kaldırması planlanır. Yalnız bu yeni gruba bağlı
+kullanıcı kalmadığı kesinleşirse yine sadece yeni grup kaldırılabilir. V1 veya
+başkasına ait nesneyi isim benzerliğinden kaldırmayın; wildcard/overwrite yoktur.
+Erişim kaybolmuşsa yeni bağlantılarla zorlamayın; belirlenmiş kurtarma sorumlusunun
+güvenli yerel erişim prosedürüne geçin, otomatik global restore/restart yapmayın.
+Baseline/audit/aboneler silinmez; mevcut API 8728, webpanel ve IPsec değiştirilmez.
+
+### Teknik kaynak ve doğrulama sınırı
+
+[Resmi User belgesi](https://help.mikrotik.com/docs/spaces/ROS/pages/8978504/User)
+policy/grup/adres modelini ve default read/dosya erişimi sınırlarını;
+[API belgesi](https://help.mikrotik.com/docs/spaces/ROS/pages/47579160/API)
+API-SSL'in sertifikasız anonymous DH seçeneğini;
+[Certificates belgesi](https://help.mikrotik.com/docs/spaces/ROS/pages/2555969/Certificates)
+SAN ve sertifika kullanım alanlarını açıklar. Bunlar gerçek 6.49.19 cihazın GUI,
+policy veya TLS uyumluluğunu kanıtlamaz; burada belirtilen strict context/disabled
+ilk durum/rollback sınırları bizim hazırlık politikamızdır. GUI'de gerekli ilk durum
+uygulanamıyorsa güvenliği gevşetmeden STOP yapılır.
+
+Hedefli sonuç: 9 yeni backend kontrolü PASS. Testler salt yerel public OS CA'sını
+**açıkça verilen public fixture** olarak kullanır, gerçek cihaz sertifikası/anahtarı
+veya handshake kullanmaz. Hiçbir private key/test credential üretimi yapılmadı.
+Frontend değişmedi; yeni browser senaryosu/eski kabul tekrarları oluşturulmadı.
