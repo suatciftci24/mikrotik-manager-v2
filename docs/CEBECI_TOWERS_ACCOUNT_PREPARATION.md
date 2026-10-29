@@ -816,3 +816,29 @@ Yeni tanılama geçmiş generic hatanın gerçek nedenini geriye dönük çözem
 Operatör yalnız mevcut VDS V2 kodunu ff-only güncelleyip --run-once'ı bir kez
 çalıştırır; sadece sabit STOP kodu paylaşılır. Tekrarlı giriş/parola yenileme veya
 router konfigürasyon değişikliği bu geliştirmede yapılmaz.
+
+### Pilot hesabı yeniden Disabled oluşturulduğunda
+
+Operatör, `CREDENTIAL_OR_ACCOUNT_POLICY:MESSAGE_CODE_6:CATEGORY_NONE` ret koduyla
+birlikte hesabın yeniden `disabled=yes` oluşturulduğunu bildirdi. İlk hazırlıkta
+Disabled oluşturma kasıtlıdır; fakat bu durum Aşama 30'daki kontrollü etkinleştirme
+adımının yerine geçmez. Yeniden oluşturma bu adımı geri alır. Hesap hâlâ Disabled
+ise doğru parola ve `read,api` grubu da login sağlamaz. Parola kaydındaki
+`PILOT_PASSWORD_STORED_CONNECTION_DISABLED` yalnız yerel credential kaydını bildirir;
+router hesabını etkinleştirmez.
+
+Bu, bildirilen hesap durumuna dayanan somut bir erişim engelidir; ret kodu tek
+başına Disabled durumunu veya başka tüm nedenlerin elendiğini kanıtlamaz.
+Router'ın güncel kullanıcı durumu burada okunmadı. [API belgesi](https://manual.mikrotik.com/docs/developer-guides/api/)
+bu mesajın yanlış credential veya API kullanamayan hesap için dönebileceğini
+belirtir. [User belgesinde](https://help.mikrotik.com/docs/spaces/ROS/pages/8978504/User)
+`api` erişim, `read` okuma yetkisidir; ek `write`, `policy` veya `sensitive` çözüm
+olarak verilmez. Kaynak sınırı hâlâ yalnız `10.250.0.1/32` olmalıdır.
+
+Tek operatör işlemi: mevcut, kimliği doğrulanmış CEBECI_TOWERS WinBox oturumunda
+System → Users → `v2-cebeci-ro` için, grubun `v2-cebeci-pilot-ro` ve exact
+`read,api`, Address'in `10.250.0.1/32` olduğunu kontrol ederek yalnız Disabled
+durumunu kaldırın (Enable). Kapsam farklıysa veya hesap zaten Enabled ise başka
+değişiklik yapmadan STOP. Parola/grup/kaynak sınırı değiştirilmez; V1/webpanel,
+API 8728/8729, IPsec ve RADIUS'a dokunulmaz. Bu işlem API oturumu/polling başlatmaz;
+pilot başarısı ancak ayrıca alınacak gerçek sonuçla doğrulanabilir.
