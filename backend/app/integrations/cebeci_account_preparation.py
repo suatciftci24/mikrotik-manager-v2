@@ -44,6 +44,39 @@ GROUPS=(
  ('OPERATOR_APPROVAL','Operatör onayı',('OPERATOR_REVIEW',)),
 )
 
+
+# Stage 27 enriches the same twenty fields; no second evidence or decision model.
+RULE_VERSION='CEBECI_EVIDENCE_ACCEPTANCE_V1'
+OFFLINE='OFFLINE_REPORT_REVIEW'
+LIVE='EXPLICIT_APPROVAL_BEFORE_LIVE_VERIFICATION_OR_CHANGE'
+# acceptance, expected source, safe completion, approval scope, STOP condition
+EVIDENCE_RULES={
+ 'ACCOUNT_SEPARATE':('V1 hesapları paylaşılmadan ayrı aday/kapsam/iptal sahibi; mevcut hesap değişmez.', 'Yetkili hesap sahibi tarafından maskeli ayrı hesap tasarım/inceleme özeti', 'Mevcut onaylı hesap envanterini offline incele; yeni hesap veya cihaz sorgusu ayrı onay bekler.', LIVE, 'Ortak V1 hesabı, yetkisiz oluşturma veya sorumlu eksikliği'),
+ 'ACCOUNT_AUTH':('Ayrı auth yaşam döngüsü, saklamama ve iptal süreci incelenmiş; credential alınmamış.', 'Güvenlik sorumlusunun sır içermeyen auth süreç raporu', 'Kurumdaki auth/iptal prosedürünü incele; hesap adı/parola/token isteme.', OFFLINE, 'Credential/PSK/private key talebi veya V1 auth paylaşımı'),
+ 'POLICY_EXACT':('Yalnız özel read,api aday seti; ek/eksik/tekrarlı policy yok; yeterlilik ayrıca lab kanıtı.', 'Sır içermeyen policy kapsam incelemesi ve kanonik hesap sözleşmesi', 'Aday policy listesini offline karşılaştır; eksik alan için yetki artırma.', OFFLINE, 'write/policy/sensitive/password/reboot/test veya başka ek yetki'),
+ 'ROS6_LAB':('Tam 6.49.19 üzerinde beş metadata print alanı ve dosya/yan etki sınırları negatif lab raporuyla incelenmiş.', 'İzole lab sorumlusunun tam build ve kapsamı belirtilmiş raporu', 'Var olan onaylı lab raporunu incele; üretimde negatif yazma testi yapma.', OFFLINE, 'Build/kapsam uyuşmazlığı, read,api yeterliliğini varsayma'),
+ 'TLS_CLIENT':('TLS 1.2+ istemci/cipher uyumu; anonymous DH, eski protokol ve bypass/fallback yok.', 'Tam 6.49.19 izole TLS uyumluluk lab raporu', 'Mevcut lab raporunu incele; gerçek handshake veya servis açma için ayrı onay gerekir.', OFFLINE, 'Legacy/anonymous DH veya doğrulama kapatma gereksinimi'),
+ 'IPSEC_AUTH':('Peer kimliği ve auth yönteminin bağımsız incelemesi; active/ph2-count yeterli değil.', 'Yetkili ağ/güvenlik sahibinin maskeli peer kimlik doğrulama incelemesi', 'Onaylı mevcut peer inceleme özetini kullan; PSK/anahtar/SA isteme; canlı sorgu ayrı onay bekler.', LIVE, 'Peer kimliği/auth belirsizliği veya gizli SA/PSK talebi'),
+ 'IPSEC_PATH':('Tek-router iki yön/selector/NAT ve tünel dışına kaçmama kanıtı; V1 etkisi ayrı incelenir.', 'Ağ sahibinin maskeli güncel yol/topoloji inceleme raporu', 'Mevcut onaylı diyagramı offline incele; ping/API/tünel testi bu aşamada yok.', LIVE, 'Açık yola kaçış, yanlış hedef veya doğrulanamayan IPsec sınırı'),
+ 'SOURCE_ACCOUNT':('Cihazın gördüğü güncel V2 tek /32 ile hesap sınırı eşleşmiş; eski V1 /32 devralınmamış.', 'Hesap ve ağ sahibinin maskeli hedef/kaynak eşleştirme incelemesi', 'Mevcut yetkili raporları karşılaştır; kullanıcı/source değişimi veya güncel sorgu ayrı onay bekler.', LIVE, 'Geniş/yanlış/UNKNOWN kaynak veya V1 kaynağını otomatik atama'),
+ 'SOURCE_SERVICE':('Seçilen servis ve güncel V2 /32 sınırı incelenmiş; mevcut V1 servisi etkilenmez.', 'Yetkili servis/ağ sahibinin kaynak kapsam inceleme özeti', 'Mevcut servis inceleme raporunu kullan; API açma/taşıma veya address değiştirme yok.', LIVE, 'Servis/source belirsizliği veya V1 servis etkisi'),
+ 'SOURCE_FIREWALL':('Tam input sırası/kapsam/yol/source incelemesi; kısmi kurallar genel güvenlik kanıtı değil.', 'Yetkili firewall sahibinin sır içermeyen tam kapsam değerlendirmesi', 'Var olan onaylı kural değerlendirme özetini incele; raw export veya firewall değişimi yapma.', LIVE, 'Eksik sıra/default politika/yönetim kapsamı veya geniş kaynak riski'),
+ 'ROUTER_IDENTITY':('CEBECI_TOWERS/RB3011UiAS/6.49.19 ve tek güncel yönetim hedefi bağımsız eşleşmiş.', 'Ağ sahibinin bağımsız envanter ve taze zamanlı kimlik incelemesi', 'Mevcut envanter raporunu karşılaştır; geçmiş 10.250.0.19 endpoint sayılmaz, yeni sorgu ayrı onay bekler.', LIVE, 'Yanlış identity/model/build/hedef veya UNKNOWN gözlem zamanı'),
+ 'TLS_CHAIN':('İncelenmiş trust store ve eksiksiz CA zinciri; public pin tek başına yeterli değil.', 'Güvenlik sahibinin public metadata üzerinden zincir inceleme sonucu', 'Mevcut maskeli zincir değerlendirmesini incele; ham sertifika/private key alma.', LIVE, 'Güvenilmeyen/eksik zincir veya verification bypass'),
+ 'TLS_NAME':('Tek incelenmiş hedef SAN/IP ile exact eşleşmiş; hostname kontrolü atlanmamış.', 'Güvenlik sahibinin hedef-SAN/IP eşleşme inceleme özeti', 'Mevcut public isim eşleşme raporunu karşılaştır; gerçek TLS testi ayrı onay bekler.', LIVE, 'SAN/IP uyuşmazlığı veya hostname doğrulamasını kapatma'),
+ 'TLS_VALIDITY':('Sertifika zaman/kullanım/iptal incelemesi geçerli; kapalı/sertifikasız servis yeterli değil.', 'Güvenlik sahibinin public validity/usage/revocation inceleme sonucu', 'Mevcut geçerlilik raporunu incele; yeni sertifika yükleme veya servis açma yok.', LIVE, 'Süre dolması/iptal/kullanım belirsizliği veya certificate=none'),
+ 'TLS_PIN':('Ayrı gözden geçirilmiş public SHA-256 pin eşleşir; zincir ve isim kanıtları da gerekir.', 'Güvenlik sahibinin public fingerprint karşılaştırma sonucu', 'Yalnız public pin inceleme sonucunu kullan; secret/private key veya sır hash alma.', LIVE, 'Pin uyuşmazlığı, eksik pin veya zincir yerine pin kullanma'),
+ 'V1_IMPACT':('Mevcut V1 hesap/API/IPsec/abonelerin korunması ve etkisizlik baseline incelemesi.', 'V1 izolasyon sorumlusunun mevcut onaylı baseline/etki raporu', 'Mevcut offline etki raporunu incele; V1 sisteme bağlanma veya konfigürasyon değiştirme.', LIVE, 'V1 etkisi/paylaşılan hesap/yol riski veya baseline eksikliği'),
+ 'AUDIT':('Sır içermeyen baseline ve UTC/ofset zamanlı sonuç/rol/paket referansı korunur.', 'Audit sahibinin redaction/retention ve baseline inceleme özeti', 'Mevcut audit süreç raporunu offline incele; raw yanıt veya abone/audit silme yok.', OFFLINE, 'Audit/baseline eksikliği veya credential/raw SA kaydı'),
+ 'STOP_OWNER':('Atanacak sorumlu rol/irtibat, süre-okuma bütçesi ve ilk hatada durdurma planı açık.', 'Operasyon sahibinin görev/timebox/STOP runbook incelemesi', 'Sorumluluk ve bütçe planını masa başında tamamla; gerçek süreç başlatma/durdurma yok.', OFFLINE, 'Sorumlu/bütçe belirsizliği veya otomatik retry planı'),
+ 'ROLLBACK':('Güvenli yedek kurtarılabilirlik incelemesi ve yalnız yeni V2 erişimine özel iptal planı.', 'Yetkili yedek/operasyon sahibinin gizli olmayan restore/iptal planı değerlendirmesi', 'Mevcut kurtarılabilirlik raporunu incele; backup dosyası alma, restore veya canlı iptal uygulama.', OFFLINE, 'Geri dönüş kanıtı eksikliği veya V1/global restore gereksinimi'),
+ 'OPERATOR_REVIEW':('Aday/kapsam/yöntem/timebox/change/iptal planı incelenmiş; gerçek onay/yetki ayrı.', 'Sorumlu operatörün yalnız plan incelemesi; gerçek onay dış süreçte ayrıca gerekir', 'İnceleme kapsamını belgele; bu ekranda onay verme veya yürütme izni kaydetme.', 'SEPARATE_EXPLICIT_USER_APPROVAL_AND_EXECUTION_REVIEW', 'Plan incelemesini gerçek onay/yürütme yetkisi sayma'),
+}
+RULE_KEYS=('acceptance_criteria','expected_source','completion_method','approval_requirement','stop_condition')
+
+def evidence_requirements(key):
+    return dict(zip(RULE_KEYS,EVIDENCE_RULES[key],strict=True))
+
 class PilotAccountContract(ClosedContract):
     candidate_id:Literal['CEBECI_TOWERS']='CEBECI_TOWERS'
     policies:tuple[str,...]=('read','api')
@@ -75,7 +108,7 @@ def prepare(user,claims:tuple[PreparationClaim,...]=(),*,contract:PilotAccountCo
     except (ValueError,AttributeError):raise ValueError('ACCOUNT_PREPARATION_CONTRACT_REJECTED') from None
     now=now or datetime.now(timezone.utc)
     base=assess(user,now=now)  # Preserve the current closed policy, auth and aware-clock boundary.
-    packet=sha256(json.dumps([VERSION,base['packet_digest'],contract.model_dump(mode='json'),dict(READ_SCOPE),FIELDS,GROUPS],sort_keys=True).encode()).hexdigest()
+    packet=sha256(json.dumps([VERSION,base['packet_digest'],contract.model_dump(mode='json'),dict(READ_SCOPE),FIELDS,GROUPS,RULE_VERSION,EVIDENCE_RULES],sort_keys=True).encode()).hexdigest()
     fields=[]
     for key,label,required in FIELDS:
         matches=[claim for claim in claims if claim.field==key]
@@ -91,7 +124,7 @@ def prepare(user,claims:tuple[PreparationClaim,...]=(),*,contract:PilotAccountCo
             elif claim.source!='SYNTHETIC_FIXTURE':status,reason='UNVERIFIED','MANUAL_OR_OFFLINE_NOT_VERIFIED'
             else:status,reason='SYNTHETIC_REVIEW_PASS','SIMULATION_NOT_REAL_VERIFICATION'
         fields.append(dict(field=key,label=label,status=status,reason_code=reason,evidence_required=required,
-            source=claim.source if claim else 'NOT_PROVIDED',observed_at=claim.observed_at.isoformat() if claim and claim.observed_at else None,validity_seconds=300))
+            source=claim.source if claim else 'NOT_PROVIDED',observed_at=claim.observed_at.isoformat() if claim and claim.observed_at else None,validity_seconds=300,**evidence_requirements(key)))
     by_key={row['field']:row for row in fields}
     groups=[dict(id=key,label=label,fields=list(keys),status='NOT_RECORDED' if key=='OPERATOR_APPROVAL' else
         'SYNTHETIC_REVIEW_ONLY' if all(by_key[k]['status']=='SYNTHETIC_REVIEW_PASS' for k in keys) else 'NOT_READY',
@@ -102,7 +135,7 @@ def prepare(user,claims:tuple[PreparationClaim,...]=(),*,contract:PilotAccountCo
         status=status,approved=False,connection_allowed=False) for key,label,required,status in (
           ('A','API-SSL 8729',common+[row['field'] for row in fields if row['field'].startswith('TLS_')],'NO_GO_APPROVAL_AND_LIVE_VERIFICATION_REQUIRED'),
           ('B','API 8728 üzerinden IPsec',common,'BLOCKED_BY_CURRENT_TLS_CONTRACT'))]
-    return dict(version=VERSION,decision='NO_GO',connection='NOT CONNECTED',approval='APPROVAL REQUIRED',
+    return dict(version=VERSION,evidence_rule_version=RULE_VERSION,decision='NO_GO',connection='NOT CONNECTED',approval='APPROVAL REQUIRED',
         operator_approval='NOT_RECORDED',execution_authority='DENIED',network_enabled=False,connection_allowed=False,
         account_creation_allowed=False,polling=False,automatic_retry=False,live_verification=False,
         synthetic_checklist_complete=all(row['status']=='SYNTHETIC_REVIEW_PASS' for row in fields),

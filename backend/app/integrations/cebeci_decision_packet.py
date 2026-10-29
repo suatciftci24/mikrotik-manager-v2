@@ -1,6 +1,6 @@
 """Stage 26 derived indexes over existing evidence. No new evidence store or execution path."""
 from app.integrations.cebeci_preparation import authorize
-from app.integrations.cebeci_account_preparation import FIELDS, GROUPS
+from app.integrations.cebeci_account_preparation import FIELDS, GROUPS, RULE_VERSION, evidence_requirements
 from app.integrations.cebeci_prerequisites import KEYS
 from app.integrations.cebeci_manual import FINDINGS
 
@@ -36,6 +36,10 @@ def decision_packet(user,security):
     exact_ids(groups,'id',[key for key,*_ in GROUPS],'GROUP_REFERENCES_INVALID')
     exact_ids(matrix,'criterion',KEYS,'MATRIX_REFERENCES_INVALID')
     exact_ids(findings,'id',['IDENTITY']+[key for key,*_ in FINDINGS],'MANUAL_REFERENCES_INVALID')
+    if prep.get('evidence_rule_version')!=RULE_VERSION or any(
+        any(row.get(name)!=value for name,value in evidence_requirements(row['field']).items()) or row.get('validity_seconds')!=300
+        for row in fields if isinstance(row.get('field'),str) and row['field'] in {key for key,*_ in FIELDS}
+    ):errors.append('EVIDENCE_ACCEPTANCE_RULES_INVALID')
     if any(row.get('status') not in STATES for row in fields):errors.append('UNSUPPORTED_EVIDENCE_STATE')
     if any(row.get('status')=='SYNTHETIC_REVIEW_PASS' and row.get('source')!='SYNTHETIC_FIXTURE' for row in fields):errors.append('UNTRUSTED_PASS_STATE')
     if prep.get('current_transport_contract')!='API_SSL' or node(security,'configuration').get('transport')!='API_SSL':errors.append('TLS_CONTRACT_INVALID')

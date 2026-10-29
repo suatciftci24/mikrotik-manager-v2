@@ -592,3 +592,11 @@ hazırlık ve yirmi alan için yeni kanıt modeli/deposu kurmaz. ADMIN ekranınd
 özet/engeller/UNKNOWN ve manuel-stale-verified ayrımı, A/B tablo ve güvenli operatör
 adımları başta gösterilir. Gerçek doğrulanmış kanıt 0, onay NOT_RECORDED, yürütme
 DENIED; TLS sözleşmesi ve NO_GO korunur. Canlı erişim veya değişiklik yapılmaz.
+
+## Aşama 27 — kanıt kabul ölçütleri
+
+Kullanıcı Aşama 26 için 12/12 BROWSER PASS bildirdi; tarihsel yerel UI kabulüdür.
+[Mevcut karar paketinin Aşama 27 bölümü](CEBECI_TOWERS_DECISION_PACKET.md#aşama-27--kritik-kanıtlar-için-kabul-ve-tamamlama-sözleşmesi)
+aynı yirmi alana beklenen kaynak/kabul/yöntem/onay/STOP metadata'sı ekler; 9/8/20 ve
+tek karar kaynağı korunur. Eski manuel tarihler UNKNOWN; gerçek onay/yürütme yok,
+TLS zorunlu ve B otomatik istisna değil. Gerçek router/V1 erişimi yapılmadı, NO_GO.

@@ -134,3 +134,98 @@ cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_PACKET_ONLY=1 ./bro
 ```
 
 Bu komut yerel V2 demo kabulüdür; CEBECI/V1/VDS'ye bağlanmaz, gerçek pilot başlatmaz.
+
+## Aşama 27 — kritik kanıtlar için kabul ve tamamlama sözleşmesi
+
+Başlangıç `a0aba30`. Kullanıcı Aşama 26 için **12/12 BROWSER PASS** bildirdi;
+bu tarihsel yerel kabul, güncel cihaz veya gerçek yürütme onayı değildir.
+Yeni sayfa, kanıt deposu veya ikinci karar modeli oluşturulmadı. Aynı ADMIN
+paketindeki açılır kanıt alanları, mevcut yirmi kanonik alanın aşağıdaki özelliklerini
+okur. 9 matris / 8 durum / 20 alan ve Aşama 22 kapalı dispatch sözleşmesi korunur.
+
+Tek tanım `cebeci_account_preparation.EVIDENCE_RULES` içindedir; metadata aynı
+`account_preparation.evidence_fields` satırına eklenir:
+
+- `evidence_required`: önceden var olan beklenen kanıt, yeniden tanımlanmaz.
+- `acceptance_criteria`: hangi eşleşme/kapsam/bağımsız incelemenin gerektiği.
+- `expected_source`: kanıtı sağlaması gereken yetkili rol/rapor türü; gerçek kişi
+  atanmış veya rapor alınmış sayılmaz. Kullanıcı adı veya credential istenmez.
+- `completion_method`: mevcut onaylı offline kayıtlarla güvenli inceleme yöntemi;
+  yeni gerçek sorgu veya change bu aşamada yapılmaz.
+- `approval_requirement`: offline plan/rapor incelemesi ile ayrıca açık canlı
+  doğrulama/change onayının ayrımı. Bu bir onay kaydı/endpoint'i değildir.
+- `validity_seconds`: mevcut üst sınır **300 saniye**; eksik/gelecek zaman UNKNOWN,
+  beş dakika veya daha eski STALE. İlgili değişiklik daha erken yeniden inceleme
+  gerektirir; otomatik drift izlemesi yoktur. Eski matrisin lab raporu için daha
+  uzun metadata süresi bu yirmi alanın 300 saniyelik kontrolünü gevşetmez.
+- `stop_condition`: alana özel belirsizlik/uyuşmazlık/yan etki/ayrı onay eksikliği.
+
+Kurallar `CEBECI_EVIDENCE_ACCEPTANCE_V1` revizyonuyla mevcut politika paketinin
+hash'ine bağlanır. Kabul ölçütü/kaynak/yöntem/onay/STOP değişince eski iddianın paket
+referansı CONFLICT olur; son kayıt kazanır veya sessiz onay yoktur. Mevcut karar
+paketi, alan metadata'sının kanonik tanımla birebir eşleşmesini ve TTL'yi denetler;
+eksik/değiştirilmiş kural `EVIDENCE_ACCEPTANCE_RULES_INVALID` ve kaynak bütünlüğü
+BLOCKED üretir. Kurallar evidence input'u üzerinden değiştirilemez.
+
+### Sekiz güvenlik gereksinimi ve operatörün tamamlayacağı kanıt
+
+| Gereksinim | Alanlar ve kabul odağı | Kaynak / güvenli tamamlama | STOP |
+| --- | --- | --- | --- |
+| Ayrı V2 hesabı | ACCOUNT_SEPARATE, ACCOUNT_AUTH: V1 paylaşılmadan ayrı aday/kapsam/iptal sahibi ve sır almadan auth süreci | Hesap/güvenlik sahibinin mevcut maskeli envanter ve auth süreç incelemesi | Ortak V1 hesabı, credential talebi veya yetkisiz kullanıcı oluşturma |
+| RouterOS 6 minimum API yetkisi | POLICY_EXACT, ROS6_LAB: exact özel read,api adayı ve tam 6.49.19 beş metadata/dosya/yan etki lab raporu | Mevcut kapsam/lab raporunu offline karşılaştır; üretimde negatif write testi yok | Ek write/policy/sensitive/password/reboot/test/başka policy veya lab/build eksikliği |
+| TLS sertifikası/güven | TLS_CLIENT, TLS_CHAIN, TLS_NAME, TLS_VALIDITY, TLS_PIN: istemci/zincir/SAN-IP/zaman-kullanım-iptal/public pin ayrı | Tam build lab ve güvenlik sahibinin public metadata inceleme sonuçları; ham sertifika/private key alınmaz | Anonymous DH/bypass/legacy fallback, zincir/isim/pin uyuşmazlığı veya certificate=none |
+| IPsec sınırları | IPSEC_AUTH, IPSEC_PATH: peer kimliği/auth ve iki yön/selector/NAT/tünel dışına kaçmama ayrı | Yetkili ağ/güvenlik sahibinin mevcut maskeli peer/yol incelemesi; ping/API/SA sorgusu yok | Active/ph2-count'u yeterli sayma, yanlış peer/yol veya PSK/SA talebi |
+| Kaynak IP kısıtı | SOURCE_ACCOUNT, SOURCE_SERVICE ve ROUTER_IDENTITY: tek güncel V2 /32, hedef/kimlik/build, V1 etkisi ayrı | Mevcut bağımsız envanter/hedef-source inceleme raporları; geçmiş adres endpoint yapılmaz | Geniş/yanlış/UNKNOWN source veya eski V1 /32'yi otomatik devralma |
+| V1 izolasyonu | V1_IMPACT: mevcut hesap/API/IPsec/abonelerin korunması ve etkisizlik baseline incelemesi | V1 izolasyon sahibinin zaten onaylı offline etki/baseline raporu; V1'e bağlanılmaz | V1 etkisi, ortak auth/yol veya baseline belirsizliği |
+| Firewall | SOURCE_FIREWALL: tam input sıra/default politika/yol/yönetim source kapsamı | Yetkili firewall sahibinin mevcut sır içermeyen inceleme özeti; raw export veya kural değişimi yok | Görülen kısmi input kurallarından genel güvenlik sonucu çıkarma |
+| Audit/STOP/geri dönüş | AUDIT, STOP_OWNER, ROLLBACK, OPERATOR_REVIEW: redaction/baseline/zaman, sorumlu/bütçe, yedek kurtarılabilirlik/yalnız yeni V2 iptal planı, ayrı onay/yürütme | Mevcut audit/operasyon/restore raporlarını masa başında incele; backup dosyası alınmaz | Eksik sorumlu/bütçe/audit, global/V1 restore veya plan incelemesini gerçek onay sayma |
+
+Alan bazında ayrıntılı kaynak, kabul, TTL ve STOP ifadeleri doğrudan kanonik API
+metadata'sından gösterilir; bu tablo ikinci bir makine karar modeli değildir.
+
+### Hangi işlemler ayrıca açık onay gerektirir?
+
+**OFFLINE_REPORT_REVIEW:** ACCOUNT_AUTH, POLICY_EXACT, ROS6_LAB, TLS_CLIENT,
+AUDIT, STOP_OWNER, ROLLBACK için yalnız mevcut onaylı rapor/süreç incelemesi.
+Bu kategori yeni sorguya veya canlı işlemlere izin vermez. Yeni lab/rapor veya
+üretim verisi gerekiyorsa kapsam ayrıca incelenir; gerçek sisteme erişim yine ayrı
+onay bekler. Tamamlandı diye işaretleme/sorumlu atama veya onay alımı bu UI'da yoktur.
+
+**EXPLICIT_APPROVAL_BEFORE_LIVE_VERIFICATION_OR_CHANGE:** ACCOUNT_SEPARATE,
+IPSEC_AUTH, IPSEC_PATH, SOURCE_ACCOUNT, SOURCE_SERVICE, SOURCE_FIREWALL,
+ROUTER_IDENTITY, TLS_CHAIN, TLS_NAME, TLS_VALIDITY, TLS_PIN, V1_IMPACT.
+Mevcut onaylı offline raporlar incelenebilir; yeni gerçek sorgu veya herhangi bir
+hesap/sertifika/API/IPsec/firewall değişikliği gerekiyorsa **önce ayrı açık
+kullanıcı/operatör onayı** şarttır. Bu görev o onayı almaz ve hiçbirini çalıştırmaz.
+
+**SEPARATE_EXPLICIT_USER_APPROVAL_AND_EXECUTION_REVIEW:** OPERATOR_REVIEW.
+Aday/kapsam/yöntem/timebox/change/iptal sorumluluğunun plan incelemesi, gerçek pilot
+onayı değildir. Gerçek onay ayrı insan süreci ve dar yürütme uygulaması/incelemesi
+gerektirir; onay/yürütme bayrakları bu tipin girdisi değildir.
+
+### Değerlendirme sınırı ve taşıma kararı
+
+Kabul metni tanımlamak, cihazdan kanıt almak veya TLS zincirini kriptografik olarak
+uygulamada doğrulamak değildir. Gerçek kanıt intake/verifier eklenmedi. Tek karar
+kaynağı olan mevcut `prepare` sonuçları ve `decision_packet` projeksiyonu kullanılır.
+Manual/offline PASS hâlâ UNVERIFIED; eski manual tarihleri null/UNKNOWN; verified=0.
+Tam sentetik kriter listesi bile NO_GO / NOT_VERIFIED / NOT_RECORDED / DENIED kalır.
+
+A API-SSL yirmi alanın güncel teknik incelemesini ve ayrı onayı bekler; sertifikasız/
+kapalı servis bildirimi çözülmüş sayılmaz. B IPsec/API 8728, IPsec/source/V1 kanıtı
+gösterilse dahi **BLOCKED_BY_CURRENT_TLS_CONTRACT**; TLS istisnası/fallback değildir.
+Aşama 22 API_SSL/8729 ve zorunlu chain/hostname sınırları gevşetilmedi.
+
+Gerçek bağlantı, credential girişi, onay, hesap oluşturma, API test/deploy kontrolü,
+migration/restart veya router komutu/script'i yoktur. Demo/audit kayıtlarına yazılmaz.
+
+### Aşama 27 kabulü
+
+Yalnız yeni salt okunur dal, aynı karar görünümündeki yirmi açılır kuralın
+kanıt/kabul/kaynak/TTL/yöntem/onay/STOP içeriğini API'yle eşleştirir; önceki
+senaryolar çalıştırılmaz. 320/390/1440px, UNKNOWN ve NO_GO, kapalı kontroller,
+reload ve yönetim/abone/audit baseline korunması denetlenir. Normal ofis WSL:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_REQUIREMENTS_ONLY=1 ./browser-accept-demo.sh
+```
