@@ -1,0 +1,24 @@
+from fastapi import APIRouter,Depends,Query,Header,HTTPException
+from app.core.security import current_demo_user,current_admin
+from app.core.authorization import subscriber_for,public_detail
+from app.api.v1.router_workspace import execute
+from app.services.subscriber_center import workspace,legacy_center
+from app.schemas.subscriber_center import SubscriberCenterData,SubscriberWorkspaceList,CenterSubscriber,SyntheticSubscriberCommand
+
+router=APIRouter(tags=['subscriber-center'])
+def mutator(user:dict=Depends(current_admin),x_v2_demo_action:str|None=Header(default=None)):
+    current_admin(user)
+    if x_v2_demo_action!='subscriber-workspace':raise HTTPException(403,'Sentetik abone işlem onayı gerekli.')
+    return user
+@router.get('/subscriber-center/{id}',response_model=SubscriberCenterData)
+def detail(id:str,user:dict=Depends(current_demo_user)):
+    if id.startswith('demo-managed-sub-'):
+        current_admin(user);return execute(workspace.detail,id)
+    return legacy_center(public_detail(subscriber_for(user,id),user))
+@router.get('/subscriber-workspace',response_model=SubscriberWorkspaceList)
+def list_subscribers(query:str=Query('',max_length=120),access_type:str=Query('ALL',pattern='^(ALL|PPPOE|HOTSPOT)$'),status:str=Query('ALL',pattern='^(ALL|ACTIVE|PAUSED)$'),router_id:str=Query('',max_length=100),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_admin)):
+    return execute(workspace.list,query,access_type,status,router_id,page,page_size)
+@router.post('/subscriber-workspace',response_model=CenterSubscriber)
+def create(payload:SyntheticSubscriberCommand,user:dict=Depends(mutator)):return execute(workspace.save,payload,user['id'])
+@router.post('/subscriber-workspace/{id}',response_model=CenterSubscriber)
+def update(id:str,payload:SyntheticSubscriberCommand,user:dict=Depends(mutator)):return execute(workspace.save,payload,user['id'],id)

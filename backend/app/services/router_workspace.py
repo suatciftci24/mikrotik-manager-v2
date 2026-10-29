@@ -20,7 +20,7 @@ def boundary(method):
     @wraps(method)
     def call(*args,**kwargs):
         try:return method(*args,**kwargs)
-        except IntegrityError:raise WorkspaceError(409,'Kayıt aynı anda değişti. Listeyi yenileyin.') from None
+        except IntegrityError:raise WorkspaceError(409,'Kayıt başka kayıtlarla ilişkili veya aynı kimlik zaten kullanılıyor; işlem uygulanmadı.') from None
         except (SQLAlchemyError,DemoStorageUnavailable):raise WorkspaceError(503,'Yerel router çalışma alanı hazır değil. V2 migration 007 gerekli; veri belleğe kaydedilmedi.') from None
     return call
 

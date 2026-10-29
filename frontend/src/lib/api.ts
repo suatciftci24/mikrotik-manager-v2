@@ -10,6 +10,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     if([401,403].includes(response.status)&&!path.startsWith('/auth/')&&typeof window!=='undefined')window.dispatchEvent(new Event('v2-auth-refresh'));
     const body = await response.json().catch(() => ({}));
+    if(response.status===404&&(path.startsWith('/subscriber-center/')||path.startsWith('/subscriber-workspace'))&&body.detail==='Not Found')throw new Error('Abone modülü çalışan backend sürümünde bulunamadı. Yerel V2 servislerini yenileyin; kayıtlar korunur.');
     if(response.status===404&&path.startsWith('/router-workspace/')&&body.detail==='Not Found')throw new Error('Sentetik router API modülü çalışan backend sürümünde bulunamadı. Bu projenin yerel V2 servislerini yenileyin; mevcut kayıtlar silinmez.');
     throw new Error(typeof body.detail === 'string' ? body.detail : `API yanıtı: ${response.status}`);
   }
