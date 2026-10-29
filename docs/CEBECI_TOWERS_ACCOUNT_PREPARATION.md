@@ -747,3 +747,19 @@ Python heredoc veya stdin pipe kullanmaz; bu nedenle terminal gizli girişine st
 bırakılır. Parolayı komuta, shell history'ye veya chat'e eklemeyin. V1 Python ortamı
 aranmaz/kullanılmaz, paket kurulmaz ve servis başlatılmaz. Git clone olmayan bir
 VDS snapshot'ında bu güncelleme adımı uygulanmış sayılmaz; komut STOP olur.
+
+### Aşama 34: tek seferlik gerçek pilot CLI girişi
+
+Operatörün ayrı açık tek-router/two-read onayı için giriş:
+`PYTHONPATH=backend <izole-V2-python> -m app.adapters.cebeci_api_ssl --run-once`.
+Bu giriş yalnız operatör tarafından elle çalıştırılır; uygulama endpoint/provider
+ve DEVICE_READ yetki kapısı açılmaz. Mevcut izole runtime kökünden
+`trust/ca.pem`, `secrets/username`, `secrets/password` zorunludur; inherited V2
+transport/credential override'ları kullanılmaz. Hesap tam `v2-cebeci-ro` olmalı.
+TLS zinciri, IP SAN ve sabit incelenmiş SHA-256 pin zorunlu; kaynak
+10.250.0.1'e bind, hedef yalnız 10.250.0.19:8729. Tek login sonrası yalnız
+`/system/identity/print` (name) ve `/system/resource/print` (board-name,version)
+okunur; identity/model/RouterOS uyuşmazlığı STOP. Ortak 10 saniye bütçe,
+2 saniye bağlantı/IO timeout, sıfır retry/polling ve finally socket close korunur.
+Çıktı yalnız PASS/kimlik/sürüm veya sabit STOP kodudur. Bu geliştirme sırasında
+canlı bağlantı yapılmadı; yerel altı hedefli kontrol mock transport ile PASS.

@@ -206,14 +206,19 @@ class CebeciApiSslAdapter:
     def read_metadata(self,intent:ReadIntent)->tuple[dict,...]:
         # Existing server-side gate is intentionally still closed for all production callers.
         authorize(self._user,self._configuration.candidate_id,purpose='DEVICE_READ')
+        return self._read_session(intent)
+
+    def _read_session(self,intent):
+        # Shared bounded transport; None is reserved for the explicit local CLI pilot.
         if not self._lock.acquire(blocking=False):raise ApiSslStop('ADAPTER_BUSY')
         raw=None;secure=None
         try:
             if self._stopped:raise ApiSslStop('ADAPTER_STOPPED')
             cfg=ApiSslConfiguration.model_validate(dict(self._configuration.__dict__))
             if not cfg.enabled:raise ApiSslStop('ADAPTER_DISABLED')
-            try:intent=ReadIntent.model_validate(dict(intent.__dict__))
-            except (ValueError,AttributeError):raise ApiSslStop('COMMAND_REJECTED') from None
+            if intent is not None:
+                try:intent=ReadIntent.model_validate(dict(intent.__dict__))
+                except (ValueError,AttributeError):raise ApiSslStop('COMMAND_REJECTED') from None
             plan=AccessPlan(reviewed_management_pin=cfg.host,reviewed_source_cidr=cfg.source_ip+'/32',public_certificate_sha256=cfg.public_leaf_sha256)
             context=prepare_offline_tls_context(self._user,plan,public_ca_pem=cfg.public_ca_pem)
             if context.verify_mode!=ssl.CERT_REQUIRED or context.check_hostname is not True or context.minimum_version<ssl.TLSVersion.TLSv1_2 or context.hostname_checks_common_name is not False:
@@ -236,7 +241,8 @@ class CebeciApiSslAdapter:
             resource=wire.read(ReadIntent(menu='/system/resource',properties=('board-name','version')))
             if len(resource)!=1 or resource[0]['board-name']!=plan.expected_model or resource[0]['version'] not in (plan.expected_version,plan.expected_version+' (stable)'):
                 raise ApiSslStop('ROUTER_IDENTITY_MODEL_VERSION_MISMATCH')
-            result=wire.read(intent);wire.timeout()  # Don't report success after the total deadline.
+            result=wire.read(intent) if intent is not None else (identity[0],resource[0])
+            wire.timeout()  # Don't report success after the total deadline.
             return result
         except ApiSslStop:
             self._stopped=True;raise
@@ -302,9 +308,41 @@ def store_password_interactively():
     except (OSError,ValueError,EOFError,getpass.GetPassWarning):raise ApiSslStop('PILOT_SECRET_SETUP_REJECTED') from None
 
 
+def run_once():
+    """Operator-invoked CLI only: one session, two reads, no provider/API registration."""
+    # Ignore inherited transport/credential overrides; require the isolated files.
+    for key in tuple(os.environ):
+        if key.startswith('V2_CEBECI_API_SSL_'):del os.environ[key]
+    root=PILOT_RUNTIME_ROOT
+    os.environ.update({
+        'V2_CEBECI_API_SSL_ENABLED':'true',
+        'V2_CEBECI_API_SSL_CA_FILE':str(root/'trust'/'ca.pem'),
+        'V2_CEBECI_API_SSL_USERNAME_FILE':str(root/'secrets'/'username'),
+        'V2_CEBECI_API_SSL_PASSWORD_FILE':str(root/'secrets'/'password'),
+    })
+    # Preflight private material before any socket; never print it or embed it in config.
+    if _runtime_material('USERNAME',128)!='v2-cebeci-ro':raise ApiSslStop('PILOT_ACCOUNT_MISMATCH')
+    password=_runtime_material('PASSWORD',1024)
+    if not 1<=len(password.encode('utf8'))<=1024:raise ApiSslStop('DEDICATED_CREDENTIAL_REQUIRED')
+    del password
+    configuration=configuration_from_environment()
+    # Local operator context for the existing pure planning/TLS helper only.
+    # No application user, grant, provider or DEVICE_READ authorization is changed.
+    operator={'is_demo':True,'role_code':'ADMIN','can_manage_users':True}
+    client=CebeciApiSslAdapter(operator,configuration)
+    identity,resource=client._read_session(None)
+    return 'PASS '+identity['name']+' '+resource['version']
+
+
 if __name__=='__main__':
     import sys
-    if sys.argv[1:]!=['--store-password']:raise SystemExit('ONLY_LOCAL_STORE_PASSWORD_SUPPORTED')
-    try:print(store_password_interactively())
-    except ApiSslStop as error:raise SystemExit('PILOT_SECRET_NOT_STORED:'+str(error)) from None
-    except KeyboardInterrupt:raise SystemExit('PILOT_SECRET_NOT_STORED:CANCELLED') from None
+    if sys.argv[1:]==['--store-password']:
+        try:print(store_password_interactively())
+        except ApiSslStop as error:raise SystemExit('PILOT_SECRET_NOT_STORED:'+str(error)) from None
+        except KeyboardInterrupt:raise SystemExit('PILOT_SECRET_NOT_STORED:CANCELLED') from None
+    elif sys.argv[1:]==['--run-once']:
+        try:print(run_once())
+        except ApiSslStop as error:raise SystemExit('STOP '+str(error)) from None
+        except KeyboardInterrupt:raise SystemExit('STOP CANCELLED') from None
+        except Exception:raise SystemExit('STOP PILOT_PREFLIGHT_REJECTED') from None
+    else:raise SystemExit('EXPLICIT_STORE_PASSWORD_OR_RUN_ONCE_REQUIRED')
