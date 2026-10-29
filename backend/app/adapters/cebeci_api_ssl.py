@@ -32,8 +32,9 @@ PILOT_RUNTIME_ROOT=Path(__file__).resolve().parents[3]/'.local'/'cebeci-pilot'
 
 def _private_directory(path):
     info=path.lstat()
-    if not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077:
-        raise ValueError('PRIVATE_DIRECTORY_REQUIRED')
+    if not stat.S_ISDIR(info.st_mode):raise ValueError('DIRECTORY_TYPE_OR_SYMLINK')
+    if info.st_uid!=os.getuid():raise ValueError('DIRECTORY_OWNER')
+    if info.st_mode&0o077:raise ValueError('DIRECTORY_PERMISSIONS')
 
 def _checked_pilot_path(value):
     path=Path(value)
@@ -48,18 +49,38 @@ def _checked_pilot_path(value):
         current=current/part;_private_directory(current)
     return path
 
-def _read_pilot_file(value,limit):
+def _read_pilot_file(value,limit,*,diagnostic_role=None):
+    stage='PATH'
     try:
-        path=_checked_pilot_path(value);before=path.lstat()
+        path=_checked_pilot_path(value)
+        stage='FILE';before=path.lstat()
+        if not stat.S_ISREG(before.st_mode):raise ValueError('FILE_TYPE_OR_SYMLINK')
         fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
         with os.fdopen(fd,'rb') as stream:
             info=os.fstat(stream.fileno())
-            if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077 or info.st_nlink!=1 or info.st_size>limit or (info.st_dev,info.st_ino)!=(before.st_dev,before.st_ino):
-                raise ValueError('PRIVATE_FILE_REQUIRED')
+            if not stat.S_ISREG(info.st_mode):raise ValueError('FILE_TYPE_OR_SYMLINK')
+            if info.st_uid!=os.getuid():raise ValueError('FILE_OWNER')
+            if info.st_mode&0o077:raise ValueError('FILE_PERMISSIONS')
+            if info.st_nlink!=1:raise ValueError('FILE_HARDLINK')
+            if info.st_size>limit:raise ValueError('MATERIAL_LIMIT')
+            if (info.st_dev,info.st_ino)!=(before.st_dev,before.st_ino):raise ValueError('FILE_CHANGED')
             raw=stream.read(limit+1)
         if not raw or len(raw)>limit:raise ValueError('MATERIAL_LIMIT')
         return raw.decode('utf8',errors='strict')
-    except (OSError,ValueError,TypeError):raise ApiSslStop('PILOT_RUNTIME_FILE_REJECTED') from None
+    except (OSError,ValueError,TypeError) as error:
+        code='PILOT_RUNTIME_FILE_REJECTED'
+        # Never include arbitrary exception text, paths, file bytes, UID or secret size.
+        if diagnostic_role in ('USERNAME','PASSWORD','CA_PEM'):
+            allowed={'DIRECTORY_TYPE_OR_SYMLINK','DIRECTORY_OWNER','DIRECTORY_PERMISSIONS',
+                     'ISOLATED_PATH_REQUIRED','REGULAR_FILE_REQUIRED','ISOLATED_PARENT_REQUIRED',
+                     'FILE_TYPE_OR_SYMLINK','FILE_OWNER','FILE_PERMISSIONS','FILE_HARDLINK',
+                     'MATERIAL_LIMIT','FILE_CHANGED'}
+            reason=(str(error) if type(error) is ValueError and str(error) in allowed else
+                    'NOT_FOUND' if isinstance(error,FileNotFoundError) else
+                    'ACCESS_DENIED' if isinstance(error,PermissionError) else
+                    'INVALID_UTF8' if isinstance(error,UnicodeError) else 'INVALID_PATH_OR_IO')
+            code+=':'+diagnostic_role+':'+stage+':'+reason
+        raise ApiSslStop(code) from None
 
 def _runtime_material(kind,limit):
     prefix='V2_CEBECI_API_SSL_'
@@ -67,7 +88,7 @@ def _runtime_material(kind,limit):
     file_key='CA_FILE' if kind=='CA_PEM' else kind+'_FILE'
     location=os.environ.get(prefix+file_key,'')
     if direct and location:raise ApiSslStop('AMBIGUOUS_V2_MATERIAL_SOURCE')
-    value=_read_pilot_file(location,limit) if location else direct
+    value=_read_pilot_file(location,limit,diagnostic_role=kind) if location else direct
     if len(value.encode('utf8'))>limit:raise ApiSslStop('V2_MATERIAL_LIMIT')
     if kind!='CA_PEM' and any(char in value for char in ('\x00','\r','\n')):raise ApiSslStop('V2_CREDENTIAL_FORMAT_REJECTED')
     return value

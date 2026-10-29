@@ -763,3 +763,26 @@ okunur; identity/model/RouterOS uyuşmazlığı STOP. Ortak 10 saniye bütçe,
 2 saniye bağlantı/IO timeout, sıfır retry/polling ve finally socket close korunur.
 Çıktı yalnız PASS/kimlik/sürüm veya sabit STOP kodudur. Bu geliştirme sırasında
 canlı bağlantı yapılmadı; yerel altı hedefli kontrol mock transport ile PASS.
+
+### Runtime dosya reddinin güvenli tanılaması
+
+`--run-once` artık örneğin
+`STOP PILOT_RUNTIME_FILE_REJECTED:USERNAME:FILE:NOT_FOUND` veya
+`STOP PILOT_RUNTIME_FILE_REJECTED:CA_PEM:PATH:DIRECTORY_PERMISSIONS`
+bildirir. Rol USERNAME = app/.local/cebeci-pilot/secrets/username,
+PASSWORD = aynı secrets/password, CA_PEM = trust/ca.pem. PATH üst dizinleri,
+FILE dosyayı ifade eder. NOT_FOUND, FILE_OWNER, FILE_PERMISSIONS,
+DIRECTORY_OWNER, DIRECTORY_PERMISSIONS, FILE_TYPE_OR_SYMLINK,
+FILE_HARDLINK, INVALID_UTF8 gibi sabit kodlar içerik göstermeden ret nedenini
+belirtir. Dosya/dizinler mevcut mikadmin sahibi olmalı; pilot/trust/secrets
+0700, dosyalar 0600 ve tek hardlinkli regular file olmalı. Symlink, başka
+owner, dış konum ve bozuk/boş/aşırı büyük dosya kabul edilmez.
+
+Parola kaydı username/CA oluşturmaz veya aktarmış sayılmaz. Önceki WSL
+Git-dışı dosyalarının VDS'ye ulaştığı doğrulanmamıştır. Başka konumdaki
+sertifikalar otomatik bulunmaz veya CA olarak seçilmez. Leaf PEM runtime
+okuması gerekmez: gerçek TLS peer leaf SHA-256 incelenmiş sabit pinle
+karşılaştırılır. Bu görevde remote metadata görülmediğinden kesin remote
+neden bilinmiyor; geniş izinli chmod/chown, parola yeniden yazma veya CA
+fallback uygulanmadı. Mevcut tek --run-once çağrısı hatayı güvenli olarak
+ayrıştırır; ön koşullar sağlanmadıysa soket açılmadan STOP kalır.
