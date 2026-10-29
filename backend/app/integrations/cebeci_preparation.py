@@ -114,10 +114,12 @@ def profile(user,candidate=CANDIDATE):
     access_preparation=assess(user)
     from app.integrations.cebeci_prerequisites import review
     access_preparation["prerequisites"]=review(user)
+    from app.integrations.cebeci_manual import manual_review
+    access_preparation["manual_review"]=manual_review(user)
     at=datetime(2026,10,28,12,tzinfo=timezone.utc)
     # Deliberately incomplete synthetic rows: no real device observation or current health claim.
     fixture=Snapshot(identity=CANDIDATE,model='RB3011UiAS',version='6.49.19',observed_at=at,captured_at=at,rows={'/system/identity':[{'name':CANDIDATE}],'/system/resource':[{'board-name':'RB3011UiAS','version':'6.49.19'}],'/ppp/secret':[{'name':'synthetic-user-cebeci','service':'pppoe','profile':'fixture-profile-basic','disabled':False}]})
-    return dict(access_preparation=access_preparation,candidate_id=CANDIDATE,mode='SYNTHETIC / PLANNING',connection='NOT CONNECTED',history_label='HISTORICAL DATA',approval='APPROVAL REQUIRED',execution_authorized=False,routeros_enabled=False,radius_enabled=False,automatic_retry=False,polling=False,
+    return dict(access_preparation=access_preparation,candidate_id=CANDIDATE,mode='MANUAL OBSERVATION / SYNTHETIC PLANNING',connection='NOT CONNECTED',history_label='HISTORICAL DATA',approval='APPROVAL REQUIRED',execution_authorized=False,routeros_enabled=False,radius_enabled=False,automatic_retry=False,polling=False,
         historical=dict(identity=CANDIDATE,model='RB3011UiAS',version='6.49.19',management_address='10.250.0.19',ipsec_center_address='10.250.0.1',source='USER_PROVIDED_HISTORICAL',verified_at=None),
         authorization=dict(binding='UNASSIGNED',device_access='NOT_GRANTED',plan_view='FULL_SCOPE_ADMIN_ONLY',required_permissions=['can_view','can_view_reports'],note='Aday envantere veya demo router izinlerine bağlanmadı; mevcut ADMIN rolü cihaz erişimi vermez.'),
         read_scope=[dict(menu=menu,properties=list(fields),compatibility='ROS6_LAB_VERIFICATION_REQUIRED') for menu,fields in READ_FIELDS.items()],

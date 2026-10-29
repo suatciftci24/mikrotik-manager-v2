@@ -295,3 +295,12 @@ kanıtlar için [pilot sözleşmesi](CEBECI_TOWERS_PILOT.md) esas alınır.
 - NO_GO: dokuz kanıt varsayılan MISSING; receipt validasyonunda eksik/duplicate/uyuşmazlık/stale/yanlış rol/paket değişimi ve identity/TLS/policy/V1 kapıları kapalıdır. Teknik uygunluk/operatör onayı/yürütme ayrı; otomatik GO ve execution yok.
 - Aşama 23 Browser BLOCKED: tek yeni salt okunur senaryo çağrısı ilk loopback sandbox engelinde durdu; eski browser kabulü çalıştırılmadı. 320/390/1440px gerçek browser sonucu henüz yok. Mevcut abone/audit verisine yazılmadı.
 - Normal ofis WSL tek komut: `cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_PREREQUISITES_ONLY=1 ./browser-accept-demo.sh`.
+
+## Aşama 24 — manuel güvenlik bulguları — 2026-10-29
+
+- Aşama 23 için kullanıcı 10/10 BROWSER PASS bildirdi; tarihsel yerel UI kabulü, gerçek cihaz güvenliği değil.
+- PASS: 9 yeni backend testi, 5 yeni frontend + 4 doğrudan etkilenen güvenlik paneli render kontrolü, TypeScript/Vite build, browser JS syntax/diff.
+- Manuel rapor OPERATOR_REPORTED_MANUAL / MANUAL_OBSERVATION; zaman null/UNKNOWN. Dokuz başlıkta manuel eşleşme/risk ayrı, teknik kanıt MISSING; TLS yok ve mevcut write/test hesap uygun değil. Kısmi firewall/policy güvenlik garantisi değil. A/B onaysız; API/8728 mevcut TLS kontratında kapalı, ayrı inceleme/onay gerekir.
+- Aşama 24 Browser BLOCKED: tek yeni salt okunur kabul çağrısı ilk loopback sandbox engelinde durdu. Önceki browser senaryoları çalıştırılmadı; 320/390/1440px sonucu bu ortamda doğrulanmadı.
+- Gerçek router/V1 erişimi veya veri yazması yok; mevcut demo aboneleri/audit korunur. Plan doküman, NO_GO / NOT CONNECTED / APPROVAL REQUIRED; yeni execution/credential/onay endpoint'i yok.
+- Normal ofis WSL tek komut: `cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_MANUAL_ONLY=1 ./browser-accept-demo.sh`.

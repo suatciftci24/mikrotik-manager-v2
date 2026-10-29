@@ -1,8 +1,9 @@
 # CEBECI_TOWERS — tek cihaz salt okunur pilot hazırlığı
 
-**PLANLAMA / SYNTHETIC — NOT CONNECTED — HISTORICAL DATA — APPROVAL REQUIRED.**
-Bu aşama pilot veya erişim izni değildir. API, SSH, SNMP, ping, IPsec test veya V1
-sorgusu yapılmadı. Gerçek hesap, servis, firewall, admin/V1 bağlantısı değiştirilmedi.
+**PLANLAMA / SYNTHETIC + MANUAL OBSERVATION — NOT CONNECTED — APPROVAL REQUIRED.**
+Bu çalışma pilot veya erişim izni değildir. Codex tarafından API, SSH, SNMP, ping,
+IPsec test veya V1 sorgusu yapılmadı. Operatörün zaman bilgisi olmayan manuel
+bildirimi Aşama 24 bölümünde ayrıca etiketlenir. Gerçek hesap, servis, firewall, admin/V1 bağlantısı değiştirilmedi.
 
 ## Geçmiş aday profili ve yetki
 
@@ -430,4 +431,145 @@ Normal **ofis WSL** terminalinde tek komut:
 
 ```bash
 cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_PREREQUISITES_ONLY=1 ./browser-accept-demo.sh
+```
+
+## Aşama 24 — gerçek manuel bulgular ve güvenli erişim seçenekleri
+
+Başlangıç `a56715b`. Kullanıcı Aşama 23 için normal WSL **10/10 BROWSER PASS**
+bildirdi. Bu tarihsel yerel ekran/kabul sonucudur; gerçek erişim güvenliği veya
+pilot yürütme onayı değildir. Aşama 21–23 metinleri tarihsel tasarım olarak korunur.
+Profil artık sentetik karşılaştırma ile aşağıdaki gerçek **operatör bildirimini**
+ayrı kaynak etiketleri altında taşır. Yeni cihaz bağlantısı/collector eklenmedi.
+
+### Bildirim kaynağı, zaman ve doğrulama sınırı
+
+Kaynak `OPERATOR_REPORTED_MANUAL`, tür `MANUAL_OBSERVATION`. Operatörün sağladığı
+tek zamanlı, salt okunur inceleme özeti esas alınır; ham komut çıktısı alınmadı.
+Gözlem tarihi/saat/ofseti **verilmedi**: `observed_at=null`, UI **UNKNOWN**.
+Belge/commit tarihi, ithal zamanı veya makine saati gözlem zamanı yapılmaz.
+Güncellik UNKNOWN; bilinmeyen zaman otomatik güncel veya STALE sayılmaz.
+
+| Manuel bildirim | Saklanan gizli olmayan özet | Karar sınırı |
+| --- | --- | --- |
+| Kimlik | CEBECI_TOWERS / RB3011UiAS / 6.49.19 | Beklenen profile manuel eşleşme; güncel bağımsız doğrulama yok |
+| Kaynaklar | CPU %19; boş RAM 956 MiB; boş depolama 81.6 MiB | Tek snapshot; canlı ölçüm, trend/SLA veya TLS kapasite testi değil |
+| Mevcut API | 8728 etkin; service address 10.250.0.1/32 | Operatörün mevcut V1/IPsec erişimi olarak bildirdiği kapsam; V2 yetkisi veya tünel-dışı yolun kapalı olduğunun kanıtı değil |
+| API-SSL | 8729 kapalı, certificate=none, sertifika listesi boş | TLS NOT VERIFIED; A seçeneği için engelleyici bildirim |
+| V1 panel rolü (webpanel) | webpanel-api grubunda read,write,test,api; kaynak 10.250.0.1/32 | V2 salt okunur hesaba uygun değil; mevcut hesap/grup değişmez |
+| Diğer hesap riskleri | admin full, kullanıcı kaynak sınırı boş; reception write ve geniş kaynak sınırı | V1'e dokunmadan ayrı iyileştirme/change planına alınmalı; yeni pilot için bu hesaplar kullanılmaz |
+| IPsec politika özeti | 10.250.0.19/32 → 10.250.0.1/32, active, ph2-count=1 | Sadece policy özeti; ham/live SA alınmadı. V2 uçtan uca koruma, güncel kaynak ve süreklilik kanıtı değil |
+| Görülen input kuralları | RADIUS UDP accept, dinamik hotspot, modem1 DNS drop, blocked-winbox listesi drop | Yalnız görülen alt küme; tam sıra/kapsam/default politika/yol güvenliği bilinmiyor |
+
+Hesap/grup isimleri operatörün verdiği rol etiketleridir; auth alanı, kullanıcı
+parolası, credential reference veya kimlik çözümleyici değildir. Parola, PSK,
+private key, raw certificate/backup/response ve canlı IPsec SA saklanmaz/istenmez.
+Mevcut kaynak adresi ve policy adresleri sadece ADMIN plan metadata'sıdır; null
+AccessPlan hedef/source pinlerine atanmaz ve bağlantı hedefi üretmez.
+
+`ManualIdentityRecord` kapalı tipli, yalnız kaynak/tür/aday ve kimlik/model/build/
+opsiyonel gözlem zamanı taşır. `manual_review` frozen metadata'yı yeniden doğrular;
+LIVE, farklı aday veya credential/raw-output ek alanları reddedilir. Bildirimler
+repo içindeki seçilmiş kısa özetlerdir; upload/düzenleme endpoint'i veya kalıcı
+DB/audit yazması eklenmedi. Gerçek zaman sonradan temin edilse dahi yalnız lab
+fixture testindeki zaman aralığı değerlendirmesi gibi yorumlanır; gerçek
+kaynak/operatör kimliği doğrulanmış sayılmaz.
+
+### Dokuz başlıkla eşleşme
+
+| Aşama 23 başlığı | Yeni manuel değerlendirme | Hâlâ gerekli kanıt |
+| --- | --- | --- |
+| IDENTITY | MATCH_REPORTED | Güncel bağımsız identity/model/tam build ve UTC gözlem zamanı |
+| ADDRESS | PARTIAL_REPORTED | Güncel tek hedef/NAT sonrası kaynak /32 ve V2 kaynak/yol yetkisi; 10.250.0.19 tek başına yeterli değil |
+| ISOLATION | NOT_VERIFIED | V2 uçtan uca IPsec yönetim yolu, fail-closed yol ve V1 etkisizlik incelemesi; kısmi firewall çıktısı yeterli değil |
+| CERTIFICATE | BLOCKED_REPORTED | SSL servis/CA/zincir/SAN-IP/validity/client uyumu için ayrı plan ve bağımsız kanıt |
+| PRIVILEGE | UNSUITABLE_REPORTED | Ayrı pilot hesabı, tam ROS6 build'de read,api adayının negatif alan/dosya/yan etki testleri |
+| READ_SCOPE | MISSING | Beş exact metadata menü/alan/print sözleşmesinin lab raporu ve kapsam onayı |
+| SECRET_PROTECTION | NOT_VERIFIED | Ayrı credential yaşam döngüsü, maskeleme/retention/erişim süreci; V1 hesaplarını paylaşmama |
+| AUDIT | MISSING | Zamanlı redacted evidence/audit baseline ve güncellik kontrolü |
+| STOP | MISSING | Atanmış sorumlu, timebox, iptal/geri dönüş kanıtı ve ayrı açık onay |
+
+Manuel durum mevcut teknik receipt statüsünden ayrıdır: varsayılan receipt'ler
+**MISSING** kalır; bildirimler Stage 22 boolean attestations veya Stage 23 receipt
+olarak yükseltilmez. Bütün dokuz başlık güncel teknik kanıt ihtiyacını korur.
+Bilinen riskler zaman bilinmedi diye silinmez; mevcut cihaz durumu olarak da
+kesinleştirilmez. Testlerde bilinen 5 dakika veya daha eski tarih STALE, gelecek
+UNKNOWN, aralık içi tarih WITHIN_REVIEW_WINDOW_NOT_VERIFIED olur; hiçbiri GO değildir.
+Kimlik/model/build çelişkisi CONFLICT ve STOP'tur. Bu alanlar sonradan otomatik
+polling ile güncellenmez; mevcut yerel plan ekranı yenilemesi cihaz erişimi değildir.
+
+### A/B erişim seçenekleri — onay veya uygulanabilir transport değil
+
+| Boyut | A: Doğrulanmış TLS sertifikasıyla API-SSL | B: Onaylı tek kaynak ve doğrulanmış IPsec üzerinden API 8728 |
+| --- | --- | --- |
+| Şifreleme | İstemci–router doğrulanmış TLS 1.2+ hedefi; mevcut bildirimde servis kapalı/sertifika yok | API düz protokol; ancak gerçekten kapsanan IPsec yolu ağ koruması sağlayabilir; uçlar/tünel dışı kısım korunmuş varsayılmaz |
+| Kimlik doğrulama | İncelenmiş CA zinciri, SAN/IP, zaman/kullanım/iptal + public pin; ayrı pilot hesabı | TLS sunucu kimliği yok; API hesabı ve bağımsız router/yol eşleşmesi gerekir; login gizliliği tünel kapsamına bağlı |
+| Kaynak izolasyonu | Hesap/service/input sınırlarının güncel V2 kaynak /32 ile birlikte kanıtı | Selectors, yönler, NAT sonrası kaynak, tünel dışına kaçmama ve V1'den ayrım birlikte kanıtlanmalı; servis /32 tek başına yetmez |
+| RouterOS 6 sınırı | 6.49.19 TLS/cipher/client ve menü/alan davranışı lab'da doğrulanmalı; anonymous DH/verification bypass yok | 6.43 sonrası API login parolayı protokolde açık iletir; active/ph2-count şifreleme kapsamını ve güvenliği ispatlamaz |
+| V1 etkisi | Yeni sertifika/servis ve hesap canlı change gerektirir; mevcut erişim etkisi/geri dönüş önceden incelenmeli | Mevcut V1 API/tünel/kaynak bağımlılığı ve paylaşılan kaynak riski; mevcut servis/hesap değiştirilmez |
+| Operasyonel risk | PKI süre/iptal/trust-store yönetimi ve kaynak tüketimi; anlık CPU/RAM yeterlilik testi değil | Tünel kaybı/route değişiminde plaintext devam etme riski; ayrı fail-closed yol kanıtı ve risk kabulü gerekir |
+| Mevcut karar | BLOCKED_REPORTED; tasarımsal TLS şartıyla uyumlu, uygulanmış/onaylı değil | BLOCKED_BY_CURRENT_CONTRACT; ayrı güvenlik sözleşmesi/risk incelemesi olmadan kullanılamaz |
+
+**B bir fallback değildir.** Aşama 22 AccessPlan yalnız API_SSL/8729 ve zorunlu
+TLS/hostname doğrulamasını kabul etmeye devam eder; API/8728 ayarı reddedilir.
+B'nin belgelenmesi bu şartı gevşetmez. İleride B seçilecekse, teknik gerekçe,
+tünel dışına kaçmama ve V1 izolasyon kanıtı, ayrı güvenlik politikası değişikliği,
+explicit risk kabulü, yeniden inceleme/test ve ayrı açık kullanıcı pilot onayı gerekir.
+Bu görev bunları sağlamaz; hiçbir seçenek otomatik güvenli veya onaylanmış değildir.
+
+Teknik kaynaklar (yalnız public doküman, gerçek sisteme erişim yok):
+[Resmi API belgesi](https://help.mikrotik.com/docs/spaces/ROS/pages/47579160/API)
+portları, sertifikasız anonymous DH ve 6.43 sonrası login/proplist davranışını;
+[Resmi User belgesi](https://help.mikrotik.com/docs/spaces/ROS/pages/8978504/User)
+api/read/write/test ayrımını, default read ve dosya erişimi uyarısını;
+[Resmi IPsec belgesi](https://help.mikrotik.com/docs/spaces/ROS/pages/11993097/IPsec)
+ağ koruması ve anahtar anlaşması modelini açıklar. Bunlar CEBECI'nin güncel
+uyumluluğu, path'i, algoritmaları veya güvenli yapılandırması hakkında kanıt değildir.
+Tünel kapsamı/güven zinciri/fail-closed gereksinimleri bizim pilot güvenlik politikamızdır.
+
+### Ayrı minimum V2 hesabı — yalnız taslak
+
+- Başlangıç adayı özel grupta **read,api**; write/test/policy/reboot/sensitive ve
+  diğer yönetim erişimleri verilmez. Default read grubu veya webpanel/admin/reception
+  hesabı kullanılmaz. read,api tek başına dar menü/alan ACL veya güvenlik garantisi
+  değildir; tam 6.49.19 lab negatif testleri ve dosya/yan etki incelemesi zorunlu.
+- Ayrı cihaz + güncel incelenmiş tek kaynak /32 + beş metadata print alanı + kısa
+  timebox hedeflenir. Eksik alanı okuyabilmek için policy artırılmaz; STOP ve kapsam
+  yeniden incelemesi gerekir. Üretimde yazma denemesiyle negatif test yapılmaz.
+- Hesap/grup adı veya credential bu uygulamada girilmez/saklanmaz. Credential yönetimi
+  ayrı, yetkili kurumsal süreçte kanıtlanmalıdır. Bu faz hesap oluşturmaz, mevcut
+  webpanel-api grubunu veya V1 erişimini değiştirmez. Geniş admin/reception riskleri
+  ayrı iyileştirme backlog'udur; genel güvenlik düzeltmesi pilot adına uygulanmaz.
+
+### Aşamalı uygulama / geri dönüş planı — SADECE DOKÜMAN
+
+| Faz | Gerekli karar/kanıt | STOP / geri dönüş sınırı |
+| --- | --- | --- |
+| 0 — Bugünkü inceleme | Zamanı bilinmeyen manuel özet, dokuz eksik teknik kanıt ve A/B karşılaştırması | NO_GO / NOT CONNECTED; gerçek işlem yok |
+| 1 — Ön koşullar | Atanmış ağ/güvenlik/V1 izolasyon/audit/STOP sahipleri; güncel doğrulanmış hedef/kaynak, tam build lab ve kapsam | Eksik/çelişkili/stale veriyle ilerleme; V1'e bağlanma/hesap paylaşma yok |
+| 2 — Ayrı açık onay | Kullanıcının aday/kapsam/erişim seçeneği/timebox/bütçe için açık pilot onayı; yetkili operatörün sorumluluk ve change planı incelemesi | Teknik plan hazır olması onay değildir. Hesap/servis/sertifika/firewall/IPsec değişikliği gerekiyorsa kapsamlı ayrı değişiklik onayı da gerekir |
+| 3 — Güvenli yedek / geri dönüş hazırlığı | Yetkili sahibin kurumda koruduğu güvenli yedeğin geri yüklenebilirlik inceleme sonucu ve yalnız yeni V2 değişikliklerine ait geri dönüş planı; V1 baseline korunması | V2 yedek/export/credential/private key toplamaz. Yedek dosyası değil, gizli olmayan inceleme özeti saklanabilir. Kanıt yoksa değişiklik yapılmaz |
+| 4 — Tek-router yürütme sınırı | İleride ayrıca incelenecek dar transport/yetki uygulaması; tam kimlik/adres, kaynak/policy/TLS veya ayrıca onaylı IPsec yolu; süre/okuma/kayıt bütçesi | Şimdiki dispatcher 403; gelecekte bu sınır ayrıca geliştirilip onaylanmadan okuma dahi başlamaz. Diğer router, V1 veya RADIUS kapsam dışı |
+| 5 — Süreli salt okunur pilot | Yalnız beş metadata kaynak, minimum hesap, secret redaction, UTC ve ayrı audit/candidate namespace | Beklenmeyen yazma/alan, yanlış kimlik/kaynak, TLS/IPsec belirsizliği, stale/unknown, V1 etkisi veya audit sorunu: ilk hatada STOP; retry/alternatif port/yol yok |
+| 6 — Durdurma / iptal | Yalnız yeni V2 okuyucu/kanalı durdur; atanmış yetkili sahibi yalnız ayrıca onaylanmış yeni V2 erişimini iptal etsin | Mevcut V1 hesabı/servisi/tüneli etkilenmez. Toplu restore veya V1 ayar geri alma yok. Canlı iptal/geri dönüş de ayrıca yetkilendirilmiş operatör işidir |
+| 7 — Kayıt koruma | Maskelenmiş sonuç kodu, paket/rapor hash'i, sorumlu rol ve zaman; önce/sonra baseline incelemesi | Abone/audit geçmişi silinmez. Yeni onay ve taze teknik inceleme olmadan yeniden başlatma yok |
+
+Şu anda rollback doğrulanmış/uygulanmış değildir; STOP ve geri dönüş sahipleri,
+yedek inceleme sonucu ve bütün gerçek uygulama onayları eksiktir. Plan hiçbir
+üretim komutu veya uygulanabilir change script'i içermez. Pilot onayının varlığı bile
+V1/admin güvenlik iyileştirmelerini veya üretim migration/deploy/restart'ı kapsamaz.
+
+### Yönetim görünümü ve Aşama 24 kabulü
+
+Mevcut ADMIN pilot ekranında kaynak/tarih/UNKNOWN, manuel eşleşme/eksik teknik kanıt,
+kritik riskler, dokuz matris eşleşmesi, A/B altı-boyutlu karşılaştırma ve ayrı
+minimum hesap taslağı gösterilir. Kontroller sadece okumadır: credential, API test,
+onay, bağlantı, deploy veya router ayarı butonu/endpoint'i eklenmedi.
+
+Ayrı Stage 24 Playwright dalı yalnız yerel V2 planını okur; önceki kabul senaryoları
+çalışmaz. Mevcut abone/audit ve yönetim baseline eşitliği, false erişim bayrakları,
+UNKNOWN tarih, kaynak/risk/matris UI eşleşmesi, A/B kilidi, reload ve 320/390/1440px
+kontrol edilir. Yeni hesap/fixture/veri oluşturulmaz. Normal ofis WSL tek komut:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_MANUAL_ONLY=1 ./browser-accept-demo.sh
 ```
