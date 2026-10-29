@@ -8,7 +8,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {routerCenterTabs,validRouterCenter,routerCenterPath,routerCenterStatus,routerCenterError} from '../src/lib/routerCenter.ts';
 const data={source:'PERSISTENT_DEMO',is_demo:true,device_connection_started:false,item:{id:'demo-managed-router-fixture',name:'TEST-EV-V2',identity:null,model:'Sentetik model',routeros_version:null,management_address:'192.0.2.10',site:'Ev',status:'UNMEASURED',last_success_at:null,last_seen_at:null,cpu_percent:null,memory_percent:null,uptime:null},sections:Object.fromEntries(routerCenterTabs.map(([key])=>[key,['overview','events','security'].includes(key)?'AVAILABLE':'UNMEASURED'])),events:[{action:'CREATED',actor_id:'demo-user',occurred_at:'2026-10-29T12:00:00Z',revision:1}]};
 const require=createRequire(import.meta.url);
-const react={...React,useRef:value=>({current:value}),useState:initial=>[initial,()=>{}]};
+const react={...React,useEffect:()=>{},useCallback:fn=>fn,useRef:value=>({current:value}),useState:initial=>[typeof initial==='function'?initial():initial,()=>{}]};
 const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/RouterDeviceCenter.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
 const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?react:require(name),module,module.exports);
 const view=(tab,overrides={},onTab=()=>{})=>module.exports.RouterDeviceCenterView({data:{...data,...overrides},tab,onTab});

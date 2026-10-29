@@ -14,7 +14,17 @@ def mutator(user:dict=Depends(current_admin),x_v2_demo_action:str|None=Header(de
 def detail(id:str,user:dict=Depends(current_demo_user)):
     if id.startswith('demo-managed-sub-'):
         current_admin(user);return execute(workspace.detail,id)
-    return legacy_center(public_detail(subscriber_for(user,id),user))
+    try:return legacy_center(public_detail(subscriber_for(user,id),user))
+    except HTTPException as failure:
+        if failure.status_code!=404:raise
+        # Only a central admin may inspect an orphan; restricted viewers retain 404.
+        try:current_admin(user)
+        except HTTPException:raise failure from None
+        from app.services import demo_subscriptions
+        from app.services.demo_data import ROUTERS
+        detail=demo_subscriptions.store.detail(id)
+        if not detail or detail['item'].get('is_demo') is not True or detail['item'].get('router_id') in {r['id'] for r in ROUTERS}:raise failure
+        return legacy_center(detail)
 @router.get('/subscriber-workspace',response_model=SubscriberWorkspaceList)
 def list_subscribers(query:str=Query('',max_length=120),access_type:str=Query('ALL',pattern='^(ALL|PPPOE|HOTSPOT)$'),status:str=Query('ALL',pattern='^(ALL|ACTIVE|PAUSED)$'),router_id:str=Query('',max_length=100),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_admin)):
     return execute(workspace.list,query,access_type,status,router_id,page,page_size)

@@ -17,7 +17,7 @@ class RouterCenterTests(TestCase):
         RouterCenterData.model_validate(data)
         self.assertEqual(data.item.name,'TEST-EV-V2');self.assertTrue(data.is_demo);self.assertEqual(data.source,'PERSISTENT_DEMO')
         for name in ('identity','routeros_version','cpu_percent','memory_percent','uptime','last_success_at'):self.assertIsNone(getattr(data.item,name))
-        self.assertFalse(data.device_connection_started);self.assertEqual(data.sections['pppoe'],'UNMEASURED')
+        self.assertFalse(data.device_connection_started);self.assertEqual(data.sections['pppoe'],'AVAILABLE')
     def test_registered_projection_excludes_secrets_trust_data_and_claimed_telemetry(self):
         row={'id':'registered-test','is_demo':False,'name':'Inventory','identity':'Saved identity','model':'Model','routeros_version':'6.49.19','management_address':'10.77.0.2','status':'STALE','last_success_at':'2026-10-28T12:00:00+00:00','password':'SECRET_CANARY','credential_ref':'PRIVATE_REF','ca_pem':'PRIVATE_CA','leaf_sha256':'PIN_CANARY','cpu_percent':99}
         data=registered(row,[dict(action='ROUTER_REGISTERED',actor_id='operator',occurred_at='2026-10-28T12:00:00+00:00',details={'password':'SECRET_CANARY'})])

@@ -47,3 +47,10 @@ test('renewal history shows previous/new dates, time and applied result without 
  const changed={...data,history:[{operation:'RENEWAL',occurred_at:'2026-10-29T12:00:00Z',actor_id:'demo-user',revision:2,previous_expires_on:'2026-10-01',expires_on:'2026-11-28',date_changed:true,result:'APPLIED'}]};
  const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:changed,tab:'history',onTab:()=>{}}));assert.match(html,/Abonelik uzatıldı/);assert.match(html,/Eski bitiş/);assert.match(html,/Yeni bitiş/);assert.match(html,/Sonuç: Uygulandı/);assert.match(html,/2026/);
 });
+
+test('missing router keeps subscriber detail and renders no invented router link',()=>{
+ const missing={...data,item:{...data.item,router_name:null,router_model:null,router_missing:true,router_source:'UNKNOWN'}};
+ assert.equal(safeSubscriberCenter(missing,missing.item.id),true);
+ const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:missing,tab:'overview',onTab:()=>{}}));
+ assert.match(html,/Router kaydı bulunamadı/);assert.match(html,/demo-managed-router-fixture/);assert.doesNotMatch(html,/href="#module=routers/);
+});

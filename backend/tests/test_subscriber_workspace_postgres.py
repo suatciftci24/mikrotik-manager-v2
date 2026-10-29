@@ -6,6 +6,7 @@ from sqlalchemy import text,inspect
 from sqlalchemy.orm import sessionmaker
 import test_subscriber_center as cases
 import test_subscriber_renewal as renewals
+import test_router_subscriber_integration as integration
 from app.core.database import engine
 from app.demo_repair import preflight,verify_database
 from app.local_router_registry import demo_digest
@@ -16,6 +17,7 @@ from app.services.subscriber_center import SubscriberWorkspace
 
 @skipUnless(os.environ.get('V2_RUN_SUBSCRIBER_PG_TESTS')=='1','Explicit local V2 subscriber PostgreSQL opt-in required')
 class SubscriberPostgres(cases.SubscriberTransactions):
+    test_scoped_join_filters_types_counts_pages_and_router_model=integration.RouterSubscriberIntegration.test_scoped_join_filters_types_counts_pages_and_router_model
     renewal=renewals.RenewalTests.renewal
     test_renewal_receipt_persists_once_and_account_stays_active=renewals.RenewalTests.test_renewal_receipt_persists_once_and_account_stays_active
     test_renewal_preview_stale_failure_and_audit_failure_leave_no_changes=renewals.RenewalTests.test_renewal_preview_stale_failure_and_audit_failure_leave_no_changes

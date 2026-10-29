@@ -1,3 +1,4 @@
+import {detailReturnHash} from './detailLinks.ts';
 import { useEffect, useRef, useState } from 'react';
 
 export function useDetailNavigation(kind: 'routers' | 'subscribers') {
@@ -27,7 +28,7 @@ export function useDetailNavigation(kind: 'routers' | 'subscribers') {
     const params = new URLSearchParams(window.location.hash.slice(1));
     params.set('module', kind);params.set('id', id);
     window.location.hash = params.toString();
-  }, back: () => { if (origin.current) window.history.back(); else {const params=new URLSearchParams(window.location.hash.slice(1));params.set('module',kind);params.delete('id');window.history.replaceState(null, '', window.location.pathname + window.location.search+'#'+params.toString());previousSelection.current=null;setSelected(null);window.dispatchEvent(new HashChangeEvent('hashchange'));}  }};
+  }, back: () => { if (origin.current) window.history.back(); else {const params=new URLSearchParams(window.location.hash.slice(1));const back=detailReturnHash(params.get('return_to')??'');if(back){window.history.replaceState(null,'',window.location.pathname+window.location.search+back);window.dispatchEvent(new HashChangeEvent('hashchange'));return;}params.set('module',kind);params.delete('id');params.delete('return_to');window.history.replaceState(null, '', window.location.pathname + window.location.search+'#'+params.toString());previousSelection.current=null;setSelected(null);window.dispatchEvent(new HashChangeEvent('hashchange'));}  }};
 }
 
 /** Empty hash is a real Dashboard destination when returning with browser history. */

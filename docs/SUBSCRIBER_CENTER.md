@@ -89,3 +89,39 @@ başarısız denemeler başarı geçmişine eklenmez. Credential veya ham audit 
 projeksiyona taşınmaz. Mevcut JSON/audit şemaları kullanılır; yeni migration/seed
 gerekmez. PostgreSQL kabul betiğine üç hedefli uzatma/retry/rollback senaryosu
 eklenmiştir; sandbox engelindeki SKIPPED sonuçlar PG PASS değildir.
+
+## Router ↔ Abone ilişkisi
+
+Router Detay Merkezi PPPoE/Hotspot sekmeleri
+`GET /api/v1/router-center/{id}/subscribers` sözleşmesini kullanır. `access_type`
+zorunlu PPPOE/HOTSPOT, query/status/page/page_size kontrollüdür. Kalıcı sentetik
+kaynakta router ID/tür doğrulaması, COUNT ve tek JOIN'li sayfa okuması yapılır;
+sorgu sayısı abone sayısıyla artmaz (guard marker'ı dahil en fazla dört SELECT).
+Router adı/modeli aynı JOIN'den gelir; satır başına detail sorgusu yoktur.
+
+Eski demo kaynağında mevcut router grant'i önce doğrulanır ve yalnız açık
+router_id + erişim türü eşleşmeleri gösterilir. İsim benzerliği, eksik erişim
+türü veya geçmiş sayaçlardan ilişki tahmin edilmez. Gerçek envanter için mevcut
+operator allowlist korunur; bağlı abone kaynağı yokken total=null / Hazırlanıyor
+döner. Sentetik hesaplar gerçek cihaz sekmesine taşınmaz.
+
+Router sekmesindeki abone adı ve abone özetindeki router adı ID tabanlı çift
+yönlü bağlantıdır. Özet ayrıca router modelini ve kayıt kimliğini gösterir.
+Bağlantı geçişleri tek seviyeli, yalnız uygulama içi `return_to` bağlamı taşır;
+geri düğmesi önceki detay/sekme/arama/durum/sayfa bağlamını geri getirir. Harici
+URL'ler ve iç içe dönüş zincirleri kabul edilmez. İlişki paneli yalnız GET yapar;
+aktif hesaplar çevrimiçi oturum olarak sunulmaz.
+
+Mevcut FK DELETE RESTRICT korunur: bağlı abonesi olan routerın silinmesi reddedilir,
+router/subscriber/audit transaction'ı yarım uygulanmaz. Aboneler cascade ile
+silinmez. Eski/import edilmiş bozuk bir bağ varsa yetkili detay ekranı stored
+router_id'yi korur, ad/model uydurmaz ve Router kaydı bulunamadı gösterir; link
+üretilmez. Merkezi ADMIN eski orphan kayıtları görebilir; sınırlı kullanıcıların
+router scope 404 sınırı delinmez. Router değişikliği hâlâ mevcut immutable ilişki
+kuralına tabidir; düzenleme ile yetki/kaynak aktarımı yapılamaz.
+
+Yeni tablo/migration yoktur. `accept-subscriber-postgres.sh` içindeki mevcut
+opt-in PostgreSQL sınıfı kalıcı ilişki, iki erişim türü, filtre/sayfa, model JOIN'i
+ve sabit sorgu sayısı kabulünü de içerir. Testler ayrı UUID şemalarındadır; mevcut
+router/abone kayıtlarına yazmaz. Orphan gösterimi yalnız disposable SQLite
+bozulma fixture'ında sınanır; uygulama FK koruması gevşetilmez.

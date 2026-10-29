@@ -10,7 +10,7 @@ from app.schemas.subscriber_center import CenterSubscriber,SubscriberCenterData
 
 
 def account_view(account,router):
-    return CenterSubscriber(id=account.id,**account.fields,revision=account.revision,router_name=router.fields['name'],router_source='PERSISTENT_DEMO')
+    return CenterSubscriber(id=account.id,**account.fields,revision=account.revision,router_name=router.fields['name'] if router else None,router_model=router.fields.get('model') if router else None,router_missing=router is None,router_source='PERSISTENT_DEMO' if router else 'UNKNOWN')
 
 class SubscriberWorkspace:
     def __init__(self,sessions=SessionLocal,check=guard):self.sessions=sessions;self.check=check
@@ -20,16 +20,20 @@ class SubscriberWorkspace:
         if not router or router.kind!='DEMO_ROUTER':raise WorkspaceError(409,'Yalnız kalıcı sentetik router ID seçilebilir; gerçek cihaz ve sertifika profili kullanılamaz.')
         return router
     @boundary
-    def list(self,query='',access_type='ALL',status='ALL',router_id='',page=1,page_size=25):
+    def list(self,query='',access_type='ALL',status='ALL',router_id='',page=1,page_size=25,require_parent=False):
         with self.sessions() as session:
-            self.check(session);clauses=[Router.kind=='DEMO_ROUTER']
+            self.check(session)
+            if require_parent:
+                parent=session.get(Router,router_id)
+                if not parent or parent.kind!='DEMO_ROUTER':raise WorkspaceError(404,'Sentetik router kaydı bulunamadı.')
+            clauses=[or_(Router.kind=='DEMO_ROUTER',Router.id.is_(None))]
             if query:
                 term='%'+query.replace('!','!!').replace('%','!%').replace('_','!_')+'%'
                 clauses.append(or_(Account.username_key.ilike(term,escape='!'),Account.fields['customer_name'].as_string().ilike(term,escape='!')))
             if access_type!='ALL':clauses.append(Account.access_type==access_type)
             if status!='ALL':clauses.append(Account.fields['status'].as_string()==status)
             if router_id:clauses.append(Account.router_id==router_id)
-            base=select(Account,Router).join(Router,Account.router_id==Router.id).where(*clauses)
+            base=select(Account,Router).outerjoin(Router,Account.router_id==Router.id).where(*clauses)
             total=session.scalar(select(func.count()).select_from(base.subquery()))
             rows=session.execute(base.order_by(Account.username_key,Account.id).offset((page-1)*page_size).limit(page_size)).all()
             return dict(items=[account_view(a,r) for a,r in rows],total=total,page=page,page_size=page_size,is_demo=True)
@@ -39,7 +43,7 @@ class SubscriberWorkspace:
             self.check(session);account=session.get(Account,id)
             if not account:raise WorkspaceError(404,'Sentetik abone bulunamadı.')
             router=session.get(Router,account.router_id)
-            if not router or router.kind!='DEMO_ROUTER':raise WorkspaceError(409,'Sentetik router bağı doğrulanamadı.')
+            if router and router.kind!='DEMO_ROUTER':router=None
             events=session.scalars(select(Event).where(Event.subscriber_id==id).order_by(Event.revision.desc()).limit(50)).all()
             return SubscriberCenterData(item=account_view(account,router),source='PERSISTENT_WORKSPACE',persistence='local-postgresql-workspace',history=[dict(operation=e.operation,occurred_at=e.occurred_at,actor_id=e.actor_id,revision=e.revision,previous_expires_on=e.changes.get('expires_on',{}).get('previous'),expires_on=e.changes.get('expires_on',{}).get('new'),date_changed='expires_on' in e.changes and e.changes['expires_on'].get('previous')!=e.changes['expires_on'].get('new')) for e in events])
     @boundary
@@ -97,7 +101,7 @@ def legacy_center(detail):
     from app.services.demo_data import ROUTERS
     router=next((r for r in ROUTERS if r['id']==router_id),None)
     # No name-based join, or transformation of last_seen into a connection assertion.
-    return SubscriberCenterData(item=CenterSubscriber(id=item['id'],customer_name=item['customer_name'],username=item['username'],router_id=router['id'] if router else None,router_name=router['name'] if router else None,router_source='STATIC_DEMO' if router else 'UNKNOWN',
+    return SubscriberCenterData(item=CenterSubscriber(id=item['id'],customer_name=item['customer_name'],username=item['username'],router_id=router_id,router_name=router['name'] if router else None,router_model=router.get('model') if router else None,router_missing=bool(router_id and not router),router_source='STATIC_DEMO' if router else 'UNKNOWN',
         access_type=item.get('access_type') if item.get('access_type') in ('PPPOE','HOTSPOT') else None,source=item.get('source') if item.get('source') in ('LOCAL','RADIUS') else None,plan=item['plan'],status=item['status'],expires_on=item.get('expires_on'),revision=item.get('revision',0),
         ip_address=item.get('ip_address') if item.get('ip_address') not in ('','Veri yok','Bilinmiyor') else None,last_seen_at=item.get('last_seen')),
         source='LEGACY_DEMO',persistence=detail.get('persistence','process-memory'),history=[legacy_event(e) for e in detail.get('history',[])[:50]])

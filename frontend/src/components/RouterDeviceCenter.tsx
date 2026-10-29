@@ -1,13 +1,16 @@
+import {RouterSubscribers} from './RouterSubscribers';
+import {useListFilter} from '../lib/useListFilter';
 import {useEffect,useRef,useState,type KeyboardEvent,type ReactNode} from 'react';
 import {useResource} from '../lib/useResource';
 import {PageHeading} from './PageHeading';
 import {Facts,ResourceState,dateTime} from './Resource';
 import {routerCenterPath,routerCenterTabs,validRouterCenter,routerCenterStatus,routerCenterError,eventLabel,type RouterCenterTab,type RouterCenterData} from '../lib/routerCenter';
+const tabKeys=routerCenterTabs.map(([key])=>key);
 const dependencies=['/router-workspace/routers','/router-registry','/routers'] as const;
 export function RouterDeviceCenter({id,onBack,actions,legacy,security}:{id:string;onBack:()=>void;actions?:ReactNode;legacy?:ReactNode;security?:ReactNode}){
  const resource=useResource<RouterCenterData>(routerCenterPath(id),undefined,dependencies);
- const [tab,setTab]=useState<RouterCenterTab>('overview');const heading=useRef<HTMLHeadingElement>(null);
- useEffect(()=>{setTab('overview');heading.current?.focus();window.scrollTo(0,0);},[id]);
+ const [tab,setTab]=useListFilter('routers','router_tab',tabKeys,'overview');const heading=useRef<HTMLHeadingElement>(null);
+ useEffect(()=>{heading.current?.focus();window.scrollTo(0,0);},[id]);
  const data=resource.data;const error=(resource.error?routerCenterError(resource.error):undefined)||(data&&!validRouterCenter(data,id)?'Router kaynağı veya kayıt kimliği doğrulanamadı; detay gösterilmedi.':undefined);
  return <section className="screen-stack router-device-center"><button className="button-secondary detail-back" onClick={onBack}>← Router listesine dön</button><PageHeading eyebrow="ROUTER YÖNETİMİ · KAYITLI BİLGİLER" title="Router Detay Merkezi" description="Kaydedilmiş bilgiler gösterilir. Bu sayfa cihaz bağlantısı başlatmaz." headingRef={heading}/><ResourceState {...resource} error={error}/>
  {data&&!resource.loading&&!error&&<RouterDeviceCenterView data={data} tab={tab} onTab={setTab} actions={actions} legacy={legacy} security={security}/>}</section>;
@@ -29,6 +32,7 @@ export function RouterDeviceCenterView({data,tab,onTab,actions,legacy,security}:
  <section className="panel registry-detail router-device-panel" role="tabpanel" id={`router-panel-${tab}`} aria-labelledby={`router-tab-${tab}`} tabIndex={0}>
  <h2>{routerCenterTabs.find(([key])=>key===tab)?.[1]}</h2>
  {tab==='overview'?<><Facts items={[["Veri kaynağı",data.source==='PERSISTENT_DEMO'?'Yerel V2 PostgreSQL · kalıcı sentetik kayıt':data.source==='STATIC_DEMO'?'Etiketli sentetik demo envanteri':'Kaydedilmiş doğrulanmış cihaz envanteri'],['Konum',r.site||'Belirtilmemiş'],['Kayıt kimliği',r.id],['Geçmiş örnek zamanı',r.last_seen_at?dateTime(r.last_seen_at):'Bilinmiyor']]}/><p>Eksik bilgiler tahmin edilmez. Geçmiş bir kontrol veya sentetik örnek, cihazın şu an çevrimiçi olduğunu kanıtlamaz.</p>{legacy&&<details onToggle={e=>setLegacyOpen(e.currentTarget.open)}><summary>Mevcut demo raporları ve ilişkili aboneler</summary>{legacyOpen&&legacy}</details>}</>
+ :tab==='pppoe'||tab==='hotspot'?<RouterSubscribers key={r.id+tab} id={r.id} access={tab==='pppoe'?'PPPOE':'HOTSPOT'}/>
  :tab==='events'?<>{data.events.length?<ol className="registry-history">{data.events.map((event,index)=><li key={index}><strong>{eventLabel(event.action)}</strong><span>{dateTime(event.occurred_at)} · {event.actor_id}</span>{event.revision!==null&&<span>Revizyon {event.revision}</span>}</li>)}</ol>:<p>Kayıtlı olay bulunmuyor. Canlı bağlantı/kopma geçmişi kaynağı bağlı değil.</p>}<p>En fazla son 50 kayıt işlemi gösterilir; bunlar ağ olayları veya trafik ölçümleri değildir.</p></>
  :tab==='security'?<><p>{data.is_demo?'Bu router sentetiktir. Cihaz bağlantısı, parola veya sertifika gerektirmez.':'Yalnız mevcut envanterin doğrulanmış metadata bilgileri okunur. Gerçek onboarding varsayılan kapalıdır; bu sayfa bağlantı başlatmaz.'}</p><p>Gerçek onboarding ayrı onaylı akışta TLS CA zinciri, IP SAN ve SHA-256 pin denetimlerini kullanır. Parola, kullanıcı adı, CA içeriği ve credential referansı bu detayda gösterilmez.</p>{security}</>
  :<><p className="missing-data">{data.sections[tab]==='PREPARING'?'Hazırlanıyor. Bu modül için bağlı veri kaynağı henüz yok.':'Ölçülmedi. Bu sentetik kayıt için bu bölümde veri kaynağı yok.'}</p><p>{tab==='interfaces'?'Arayüz envanteri ve sayaçları':tab==='wan'?'WAN adresi, internet erişimi ve trafik':tab==='pppoe'?'PPPoE aboneleri ve oturumları':'Hotspot kullanıcıları ve oturumları'} bilinmiyor. Yönetim IP’si WAN IP’si veya abonelik kanıtı olarak kullanılmaz.</p></>}

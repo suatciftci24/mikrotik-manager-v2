@@ -39,6 +39,8 @@ class CenterSubscriber(BaseModel):
     username:str
     router_id:str|None=None
     router_name:str|None=None
+    router_model:str|None=None
+    router_missing:bool=False
     router_source:Literal['PERSISTENT_DEMO','STATIC_DEMO','UNKNOWN']='UNKNOWN'
     access_type:Literal['PPPOE','HOTSPOT']|None=None
     source:Literal['LOCAL','RADIUS']|None=None
@@ -88,3 +90,9 @@ class SubscriberRenewal(BaseModel):
     confirmed:Literal[True]
     _confirmed=field_validator('confirmed',mode='before')(SyntheticSubscriberCommand.explicit.__func__)
     _dates=field_validator('expected_expires_on','expires_on',mode='before')(ExpiryChange.calendar_date_only.__func__)
+
+class RouterSubscriberList(SubscriberWorkspaceList):
+    is_demo:bool
+    total:int|None
+    source:Literal['PERSISTENT_WORKSPACE','LEGACY_DEMO','REGISTERED']
+    availability:Literal['AVAILABLE','PREPARING']='AVAILABLE'

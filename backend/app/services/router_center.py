@@ -5,7 +5,7 @@ SECTIONS=('overview','interfaces','wan','pppoe','hotspot','events','security')
 
 def center(source,item,events=()):
     return RouterCenterData(item=item,source=source,is_demo=source!='REGISTERED',
-        sections={key:('AVAILABLE' if key in ('overview','events','security') else 'PREPARING' if source=='REGISTERED' else 'UNMEASURED') for key in SECTIONS},events=list(events))
+        sections={key:('AVAILABLE' if key in ('overview','events','security') or source!='REGISTERED' and key in ('pppoe','hotspot') else 'PREPARING' if source=='REGISTERED' else 'UNMEASURED') for key in SECTIONS},events=list(events))
 
 def persistent_demo(row,events=()):
     if row['kind']!='DEMO_ROUTER' or row['is_demo'] is not True:raise ValueError('Demo source mismatch')
