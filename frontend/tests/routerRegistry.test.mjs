@@ -22,3 +22,15 @@ test('ambiguous auth, explicit permission, TLS errors and stale checks stay hone
  assert.equal(registryStatus('STALE'),'Kontrol eskimiş');assert.equal(registryStatus('ONLINE'),'Bilinmiyor');
  assert.doesNotMatch(connectionError('SYNTHETIC_PASSWORD_CANARY'),/CANARY/);
 });
+
+test('invalid text and oversized pasted inputs fail locally with field-specific messages',()=>{
+ for(const [update,message] of [[{name:'A'.repeat(121)},/Router adı/],[{name:'Lab\nrouter'},/kontrol karakteri/],[{expected_identity:'X'.repeat(121)},/cihaz kimliği/],[{expected_version:'7'.repeat(41)},/RouterOS/],[{username:'a'.repeat(129)},/kullanıcı adı/],[{ca_pem:'A'.repeat(262145)},/Public CA/]]){
+  assert.throws(()=>candidatePayload({...form,...update},'fixture'),message);
+ }
+});
+test('missing records and validation responses give actionable safe messages',()=>{
+ assert.match(connectionError('ROUTER_NOT_FOUND'),/Listeyi yenileyip/);
+ assert.match(connectionError('VERIFICATION_NOT_FOUND'),/Formu kapatıp/);
+ assert.match(connectionError('VERIFICATION_IN_PROGRESS'),/iptal edilemez/);
+ assert.match(connectionError('İstek alanları doğrulanamadı.'),/Alan biçimlerini/);
+});

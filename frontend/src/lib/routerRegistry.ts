@@ -12,6 +12,12 @@ export const emptyRouterForm:RouterForm={name:'',management_address:'',port:'872
 export function routerForm(item?:RegisteredRouter):RouterForm{return item?{...emptyRouterForm,name:item.name,management_address:item.management_address,port:String(item.port),expected_identity:item.identity,expected_version:item.expected_version,leaf_sha256:item.leaf_sha256}:{...emptyRouterForm};}
 export function candidatePayload(form:RouterForm,requestId:string,item?:RegisteredRouter){
   if(!form.name.trim())throw new Error('Router adı gerekli.');
+  for(const [value,label,max] of [[form.name,'Router adı',120],[form.expected_identity,'Beklenen cihaz kimliği',120],[form.expected_version,'Beklenen RouterOS sürümü',40]] as const){
+    if(value.length>max)throw new Error(`${label} en fazla ${max} karakter olabilir.`);
+    if(/[\x00-\x1f]/.test(value))throw new Error(`${label} kontrol karakteri içeremez.`);
+  }
+  if(form.username.length>128)throw new Error('API kullanıcı adı en fazla 128 karakter olabilir.');
+  if(form.ca_pem.length>262144)throw new Error('Public CA PEM en fazla 262144 karakter olabilir.');
   const octets=form.management_address.split('.');
   if(octets.length!==4||octets.some(value=>!/^\d{1,3}$/.test(value)||Number(value)>255||String(Number(value))!==value))throw new Error('Geçerli IPv4 yönetim adresi girin.');
   const port=Number(form.port);
@@ -23,6 +29,10 @@ export function candidatePayload(form:RouterForm,requestId:string,item?:Register
     username:form.username,password:form.password||null,ca_pem:form.ca_pem,leaf_sha256:form.leaf_sha256,router_id:item?.id??null,expected_revision:item?.revision??0,confirmed_read_only:true};
 }
 const errors:Record<string,string>={
+ ROUTER_NOT_FOUND:'Router kaydı bulunamadı. Listeyi yenileyip güncel bir kayıt seçin.',
+ VERIFICATION_NOT_FOUND:'Doğrulama kaydı bulunamadı veya bu oturuma ait değil. Formu kapatıp yeniden açın.',
+ VERIFICATION_IN_PROGRESS:'Doğrulama sürüyor; işlem tamamlanmadan iptal edilemez.',
+ 'İstek alanları doğrulanamadı.':'Form alanları sunucu tarafından kabul edilmedi. Alan biçimlerini ve uzunluklarını kontrol edin.',
  SECURE_PANEL_TRANSPORT_REQUIRED:'Gizli bilgi girişi için HTTPS veya localhost gerekli.',
  SENSITIVE_METADATA_REJECTED:'Cihaz güvenli olmayan metadata döndürdü; sonuç kaydedilmedi.',
  ONBOARDING_CONNECTION_DISABLED:'Canlı onboarding sunucu yapılandırmasında kapalı. Hiçbir cihaz bağlantısı başlatılmadı.',
