@@ -12,4 +12,6 @@ socket_permission()
 PY
 ./dev-db.sh
 .venv/bin/python -m app.local_router_registry --apply
+.venv/bin/python -m app.local_router_workspace --apply
 V2_RUN_REGISTRY_PG_TESTS=1 .venv/bin/python -m unittest discover -s backend/tests -p 'test_router_registry_postgres.py' -v
+V2_RUN_WORKSPACE_PG_TESTS=1 .venv/bin/python -m unittest discover -s backend/tests -p 'test_router_workspace_postgres.py' -v

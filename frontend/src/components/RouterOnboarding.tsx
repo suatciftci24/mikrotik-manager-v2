@@ -1,3 +1,4 @@
+import {applyTrustProfile,type TrustProfile} from '../lib/routerTrustProfiles';
 import {connectionProfile,routerConnectionProfiles} from '../lib/routerConnectionProfiles';
 import {offlineRouterPreview,syntheticRouterPreview} from '../lib/routerOnboardingPreview';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
@@ -11,6 +12,8 @@ const actionHeaders={'X-V2-Demo-Action':'router-onboarding'};
 export function RouterOnboarding({item,onClose,onSaved}:{item?:RegisteredRouter;onClose:()=>void;onSaved:(id:string)=>void}){
  const dialog=useRef<HTMLDialogElement>(null),sending=useRef(false),requestId=useRef(crypto.randomUUID());
  const options=useResource<RegistryOptions>('/router-registry/options');
+ const profiles=useResource<{items:TrustProfile[];total:number}>('/router-workspace/profiles');
+ const [profileName,setProfileName]=useState('');
  const [form,setForm]=useState(()=>routerForm(item));const [consent,setConsent]=useState(false),[confirm,setConfirm]=useState(false);
  const [proof,setProof]=useState<Verification|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[phase,setPhase]=useState<'FORM'|'REVIEW'>('FORM');
  const [profileId,setProfileId]=useState('api-ssl-auto');
@@ -48,6 +51,18 @@ export function RouterOnboarding({item,onClose,onSaved}:{item?:RegisteredRouter;
   catch{if(active.current)setError('Public CA dosyası okunamadı.');}
  }
 
+ async function saveTrustProfile(){
+  if(sending.current)return;setError('');
+  try{
+   if(!form.management_address)throw new Error('Sertifika profili için hedef IPv4 adresi gerekli.');
+   if(!/^[a-f0-9]{64}$/.test(form.leaf_sha256))throw new Error('Profil için 64 hexadecimal karakterli SHA-256 pin gerekli.');
+   if(!form.ca_pem)throw new Error('Profil için public CA metni gerekli; kayıtlı gizli materyal okunmaz.');
+   if(!profileName.trim())throw new Error('Sertifika profiline bir ad verin.');
+   sending.current=true;setBusy(true);
+   await api('/router-workspace/profiles',{method:'POST',headers:{'X-V2-Demo-Action':'router-workspace'},body:JSON.stringify({request_id:crypto.randomUUID(),fields:{name:profileName,management_address:form.management_address,port:Number(form.port),ca_pem:form.ca_pem,leaf_sha256:form.leaf_sha256},expected_revision:0,confirmed:true})});
+   profiles.retry();setCaSource('Sertifika profili yerel V2 veritabanına kaydedildi. Cihaz bağlantısı kurulmadı.');
+  }catch(e){setError(e instanceof Error?e.message:'Profil kaydedilemedi.');}finally{sending.current=false;setBusy(false);}
+ }
  function previewForm(){
   setError('');setPreview(null);
   try{setPreview(offlineRouterPreview(form,item));}catch(e){setError(e instanceof Error?e.message:'Form doğrulanamadı.');}
@@ -60,6 +75,7 @@ export function RouterOnboarding({item,onClose,onSaved}:{item?:RegisteredRouter;
   <ResourceState {...options} error={options.error?connectionError(options.error):undefined}/>
   {options.data&&!ready&&<p role="alert" className="form-error">{connectionError(options.data.connection_enabled?'ONBOARDING_OPERATOR_NOT_AUTHORIZED':'ONBOARDING_CONNECTION_DISABLED')}</p>}
   {phase==='FORM'&&<>
+   <section aria-label="Yeniden kullanılabilir sertifika profilleri"><h3>Sertifika profilleri · Cihaza özel</h3><ResourceState {...profiles}/><label className="form-label">Kayıtlı public CA ve pin<select defaultValue="" disabled={busy} onChange={e=>{const profile=profiles.data?.items.find(p=>p.id===e.target.value);if(!profile)return;try{setForm(applyTrustProfile(form,profile));requestId.current=crypto.randomUUID();setConsent(false);setPreview(null);setError('');setCaSource('Profil yüklendi. IP SAN ve pin gerçek bağlantıda tekrar doğrulanır.');}catch(error){setError(error instanceof Error?error.message:'Profil uygulanamadı.');}e.target.value='';}}><option value="">Profil seçin</option>{profiles.data?.items.map(profile=><option key={profile.id} value={profile.id}>{profile.fields.name} · {profile.fields.management_address}:{profile.fields.port}</option>)}</select></label><p>Public CA ve pin yalnız kayıtlı hedef IP/port ile kullanılır. Hesap/parola saklanmaz; cihaz doğrulanmış sayılmaz.</p><label className="form-label">Yeni sertifika profili adı<input maxLength={120} disabled={busy} value={profileName} onChange={e=>setProfileName(e.target.value)}/></label><button type="button" className="button-secondary" disabled={busy} onClick={()=>void saveTrustProfile()}>Public CA ve pini profil olarak sakla</button></section>
    <p><strong>Zorunlu:</strong> Router adı, yönetim IPv4 adresi, API-SSL portu ve SHA-256 pin. {item?'Kullanıcı adı, parola ve CA boş bırakılırsa kayıtlı değerler korunur.':'İlk kayıtta API kullanıcı adı, parola ve public CA da gereklidir.'} <strong>İsteğe bağlı:</strong> Beklenen RouterOS sürümü ve ilk kayıtta cihaz kimliği.</p>
    <label className="form-label">Bağlantı profili<select value={profileId} disabled={busy} onChange={e=>{const profile=connectionProfile(e.target.value);setProfileId(profile.id);update('port',profile.port);setConsent(false);}}>{routerConnectionProfiles.map(profile=><option key={profile.id} value={profile.id}>{profile.label}</option>)}</select></label>
    <p>{connectionProfile(profileId).versionHint} Profiller yalnız güvenli port varsayılanını doldurur; sertifika, pin, hedef adresi ve hesap bilgileri cihaza özeldir.</p>
@@ -83,8 +99,8 @@ export function RouterOnboarding({item,onClose,onSaved}:{item?:RegisteredRouter;
    <div className="heading-actions"><button type="button" className="button-secondary" disabled={busy} onClick={previewForm}>Formu bağlantısız kontrol et</button><button type="button" className="button-secondary" disabled={busy} onClick={()=>{setError('');setPreview(syntheticRouterPreview());}}>Sentetik örneği önizle</button></div>
    <p>Bağlantısız kontrol form biçimini inceler. Cihazla bağlantı kurmaz, sertifika güvenini kanıtlamaz ve kayıt oluşturmaz.</p>
    <p>Yönetim kaynağı: <strong>{options.data?.source_ip??'Yapılandırılmamış'}</strong> · İzinli portlar: {options.data?.allowed_ports.join(', ')??'Bilinmiyor'}</p>
-   <label className="registry-consent"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} disabled={busy}/>Bu hedefte tek seferlik, salt-okunur API-SSL bağlantısını yapmaya yetkiliyim ve onaylıyorum.</label>
-   <button className="button-primary" disabled={!ready||!consent||busy}>{busy?'Güvenli bağlantı doğrulanıyor…':attempted?'Aynı isteğin sonucunu getir':'Bağlantıyı doğrula'}</button>
+   {ready&&<label className="registry-consent"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} disabled={busy}/>Bu hedefte tek seferlik, salt-okunur API-SSL bağlantısını yapmaya yetkiliyim ve onaylıyorum.</label>}
+   <button className="button-primary" disabled={!ready||!consent||busy}>{!ready?'Gerçek bağlantı kapalı · Yalnız form kontrolü ve önizleme':busy?'Güvenli bağlantı doğrulanıyor…':attempted?'Aynı isteğin sonucunu getir':'Bağlantıyı doğrula'}</button>
    {attempted&&<p>Sonuç kaybolduysa aynı istek ikinci bağlantı açmaz. Başarısız doğrulamayı tekrar denemek için alanları bilinçli olarak düzenleyin; otomatik tekrar yoktur.</p>}
   </form>:proof?.preview&&<section className="onboarding-review" aria-label="Doğrulanmış cihaz önizlemesi">
    <h3>Cihaz doğrulandı · {proof.state==='SAVED'?'Kayıt zaten oluşturulmuş':'Kayıt onayı bekleniyor'}</h3>

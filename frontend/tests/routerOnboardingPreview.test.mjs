@@ -50,7 +50,7 @@ test('closed policy UI permits local preview without verification, save or netwo
   assert.match(html,/Zorunlu/);assert.match(html,/İsteğe bağlı/);assert.match(html,/PEM dosyası yükleyin/);assert.match(html,/Canlı onboarding sunucu yapılandırmasında kapalı/);
   const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.children).flatMap(nodes)]:[];
   const buttons=nodes(element).filter(e=>e.type==='button');
-  assert.equal(buttons.find(e=>e.props.children==='Bağlantıyı doğrula').props.disabled,true);
+  assert.equal(buttons.find(e=>e.props.children==='Gerçek bağlantı kapalı · Yalnız form kontrolü ve önizleme').props.disabled,true);
   const synthetic=buttons.find(e=>e.props.children==='Sentetik örneği önizle');assert.equal(synthetic.props.type,'button');synthetic.props.onClick();
   assert.equal(states.at(-1).is_demo,true);assert.equal(states.at(-1).device_connected,false);
   buttons.find(e=>e.props.children==='Formu bağlantısız kontrol et').props.onClick();

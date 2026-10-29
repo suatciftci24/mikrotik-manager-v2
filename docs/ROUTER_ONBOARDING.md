@@ -166,3 +166,42 @@ bunlar canlı cihaz/TLS kabulü sayılmaz. Gerçek API'de silme endpoint'i yoktu
 bu kabul yeni bir silme yetkisi veya güvenlik atlatma modu eklemez.
 
 Soket engelinde komut ilk kontrolde durur; başarılı PostgreSQL kabulü raporlanmaz.
+
+## Kalıcı sentetik router yönetimi ve public sertifika profilleri
+
+Router Merkezi tasarımı korunur. **Sentetik router ekle**, **Kalıcı sentetik
+routerlar** alanına gider: ad, örnek IPv4 adresi, model ve isteğe bağlı konum
+ile kayıt eklenir; arama, detay, revizyon kontrollü düzenleme ve açık onaylı
+silme sağlanır. Parola/sertifika istenmez. Yalnız RFC5737 örnek ağları
+192.0.2.0/24, 198.51.100.0/24 ve 203.0.113.0/24 kabul edilir. Durum her zaman
+“Ölçülmedi · Sentetik”tir; cihaz bağlantısı veya ONLINE sonucu üretilmez.
+
+Bu kayıtlar ayrı `v2_router_workspace.records` tablosunda DEMO_ROUTER türündedir.
+Eski sentetik envanter/grant/abone kayıtlarına veya public gerçek cihaz registry'sine
+eklenmez. Silme yalnız bu çalışma alanındaki sentetik kaydı etkiler; audit aynı
+transaction'da kalır. API `/api/v1/router-workspace/routers` altındadır; merkezi
+ADMIN ve mutasyonlarda `X-V2-Demo-Action: router-workspace` gerekir. Rol/izin
+kontrolleri mevcut merkezi kimlik doğrulamasına bağlıdır. Kaynak/credential
+belirsizliğinde canlı endpoint'e veya belleğe fallback yapılmaz.
+
+Gerçek cihazlar ayrı **Kayıtlı cihazlar · API-SSL** alanındadır. Gerçek bağlantı
+kapalıysa sihirbaz yalnız form kontrolü/sentetik önizleme sunar; cihaz erişim
+onayı göstermez. Public sertifika profili kaydetmek ayrı bir yerel DB işlemidir.
+Bu, gerçek router kaydı veya başarılı bağlantı anlamına gelmez.
+
+Sihirbazda **Sertifika profilleri** public CA zinciri ve SHA-256 pinini hedef
+IPv4/port ile birlikte tekrar kullanır. Profil kaydında mevcut katı public-CA
+parser'ı kullanılır; özel anahtar/credential kabul edilmez. Profil seçimi farklı
+bir dolu hedef IP'yi sessizce değiştirmez. Profil yalnız eşleşen hedef IP'ye
+uygulanır ve portunu da doldurur; gerçek bağlantıda TLS chain/IP SAN/leaf pin
+kontrollerinin tamamı yeniden uygulanır. Kullanıcı adı/parola profil payload'ına,
+audit'e veya tarayıcı depolamasına yazılmaz. Pilot dosyaları paylaşılmaz.
+Profiller aynı ayrı şemada TRUST_PROFILE türündedir; sentetik listeye katılmaz.
+
+Açık yerel hazırlık **007 migration** gerektirir. `./accept-router-postgres.sh`
+artık 006 ve 007'yi repo sahibi V2 kümesinde doğrular/uygular; ardından gerçek
+PostgreSQL registry ve workspace testlerini ayrı UUID şemalarında çalıştırır.
+Eski demo ve public registry baseline'ları kontrol edilir, business tablolarına
+örnek router eklenmez. Normal başlangıç migration çalıştırmaz. Yalnız 007 için:
+`PYTHONPATH=backend .venv/bin/python -m app.local_router_workspace --apply`.
+Sandbox loopback engelinde gerçek migration/PG kabulü tamamlanmış sayılmaz.

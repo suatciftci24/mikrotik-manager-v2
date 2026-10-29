@@ -21,6 +21,7 @@ await context.route('**/*',async route=>{
   const pathname=url.pathname.replace('/api/v1','');
   if(pathname==='/auth/me')body={id:'fixture-operator',name:'Sentetik UI Operatörü',email:'fixture@local.test',role:'Sistem Yöneticisi',role_code:'ADMIN',is_demo:true,can_manage_users:true,permissions:{},active:true,revision:0};
   else if(pathname==='/preferences')body={values:{app_name:'MikroTik Manager V2',timezone:'Europe/Istanbul',page_size:25,theme:'light',notifications_enabled:true,notification_levels:['P1','P2','P3','P4']},is_demo:true};
+  else if(pathname==='/router-workspace/profiles')body={items:[],total:0,page:1,page_size:100};
   else if(pathname==='/router-registry/options')body={connection_enabled:connectionEnabled,operator_authorized:true,source_ip:'10.77.0.1',allowed_networks:['10.77.0.0/24'],allowed_ports:[8729],tls_required:true,pin_required:true,read_only:true,automatic_polling:false,is_demo:false};
   else if(pathname==='/router-registry')body={items,total:items.length,is_demo:false};
   else if(pathname==='/router-registry/verify'){
@@ -40,7 +41,7 @@ try{
  await page.goto('https://v2-onboarding.test/#module=routers&source=REGISTERED');
  await page.getByRole('heading',{name:'Kayıtlı cihazlar',exact:true}).waitFor();
  await page.getByText('Henüz kayıtlı cihaz yok.',{exact:false}).waitFor();ok('Boş durum ve DEMO ayrımı');
- await page.getByRole('button',{name:'Router ekle',exact:true}).click();
+ await page.getByRole('button',{name:'Gerçek router formu',exact:true}).click();
  let dialog=page.getByRole('dialog',{name:'Router ekle',exact:true});await dialog.waitFor();
  assert.equal(await dialog.getByRole('button',{name:'Bağlantıyı doğrula',exact:true}).isDisabled(),true);ok('Onay olmadan doğrulama kapalı');
  for(const [label,value] of [['Router adı',item.name],['Yönetim IPv4 adresi',item.management_address],['API kullanıcı adı','fixture-ro'],['API parolası','SYNTHETIC_UI_PASSWORD'],['Public CA PEM','-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----'],['Sunucu leaf SHA-256 pini',item.leaf_sha256]])await dialog.getByLabel(label,{exact:true}).fill(value);
@@ -55,7 +56,7 @@ try{
  assert.equal(await dialog.getByLabel('API parolası',{exact:true}).inputValue(),'');assert.equal(await dialog.getByLabel('API kullanıcı adı',{exact:true}).inputValue(),'');ok('Düzenlemede secret gösterilmez');
  await dialog.getByRole('button',{name:'Kapat',exact:true}).click();await page.getByRole('button',{name:/Router listesine dön/}).click();await page.getByRole('button',{name:item.name,exact:true}).waitFor();ok('Liste başarılı kaydı gösterir');
  for(const width of [1440,390,320]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);await page.screenshot({path:path.join(output,`router-registry-${width}.png`)});}ok('1440/390/320px sayfa taşması yok');
- connectionEnabled=false;await page.getByRole('button',{name:'Router ekle',exact:true}).click();dialog=page.getByRole('dialog',{name:'Router ekle',exact:true});await dialog.waitFor();await dialog.getByText(/Canlı onboarding sunucu yapılandırmasında kapalı/).waitFor();assert.equal(await dialog.getByRole('button',{name:'Bağlantıyı doğrula',exact:true}).isDisabled(),true);ok('Kapalı politikada bağlantı yok');
+ connectionEnabled=false;await page.getByRole('button',{name:'Gerçek router formu',exact:true}).click();dialog=page.getByRole('dialog',{name:'Router ekle',exact:true});await dialog.waitFor();await dialog.getByText(/Canlı onboarding sunucu yapılandırmasında kapalı/).waitFor();assert.equal(await dialog.getByRole('button',{name:'Gerçek bağlantı kapalı · Yalnız form kontrolü ve önizleme',exact:true}).isDisabled(),true);ok('Kapalı politikada bağlantı yok');
  console.log(`MOCKED UI PASS: ${checks.length} controls. Real HTTP/DB/device acceptance not claimed.`);
 }catch(error){console.error('MOCKED UI FAIL:',error.message);process.exitCode=1;}
 finally{await context.close();await browser.close();}
