@@ -53,6 +53,13 @@ class Target:
 
 class RouterApiSslClient:
     def probe(self,target:Target,credentials:tuple[str,str],policy:ConnectionPolicy):
+        return self._read(target,credentials,policy,False)
+
+    def read_snapshot(self,target:Target,credentials:tuple[str,str],policy:ConnectionPolicy):
+        if (target.address,target.port,target.expected_identity,target.expected_model,target.expected_version,credentials[0],policy.source_ip)!=('10.250.0.19',8729,'CEBECI_TOWERS','RB3011UiAS','6.49.19','v2-cebeci-ro','10.250.0.1'):raise ApiSslStop('PILOT_SCOPE_MISMATCH')
+        return self._read(target,credentials,policy,True)
+
+    def _read(self,target,credentials,policy,details):
         policy.validate(target.address,target.port)
         if not re.fullmatch('[a-f0-9]{64}',target.leaf_sha256):raise ApiSslStop('CERTIFICATE_PIN_REQUIRED')
         try:context=verified_tls_context(target.ca_pem)
@@ -72,11 +79,12 @@ class RouterApiSslClient:
             der=secure.getpeercert(binary_form=True)
             if not der or not hmac.compare_digest(hashlib.sha256(der).hexdigest(),target.leaf_sha256):raise ApiSslStop('CERTIFICATE_PIN_MISMATCH')
             if ('IP Address',target.address) not in secure.getpeercert().get('subjectAltName',()):raise ApiSslStop('CERTIFICATE_SAN_MISMATCH')
-            wire=_Wire(secure,deadline,2);wire.login(credentials=credentials)
+            from app.adapters.router_readonly import RegistryReadWire
+            wire=(RegistryReadWire if details else _Wire)(secure,deadline,2);wire.login(credentials=credentials)
             identity=wire.read(ReadIntent(menu='/system/identity',properties=('name',)))
             if len(identity)!=1 or not identity[0]['name'].strip() or len(identity[0]['name'])>120:raise ApiSslStop('ROUTER_IDENTITY_REJECTED')
             if target.expected_identity and identity[0]['name']!=target.expected_identity:raise ApiSslStop('ROUTER_IDENTITY_MISMATCH')
-            resource=wire.read(ReadIntent(menu='/system/resource',properties=('board-name','version')))
+            resource=wire.read(ReadIntent(menu='/system/resource',properties=('board-name','version','cpu-load','total-memory','free-memory','uptime') if details else ('board-name','version')))
             if len(resource)!=1 or not resource[0]['board-name'].strip() or len(resource[0]['board-name'])>80:raise ApiSslStop('ROUTER_MODEL_REJECTED')
             if target.expected_model and resource[0]['board-name']!=target.expected_model:raise ApiSslStop('ROUTER_MODEL_MISMATCH')
             version=resource[0]['version']
@@ -84,7 +92,11 @@ class RouterApiSslClient:
             if target.expected_version and version.removesuffix(' (stable)')!=target.expected_version.removesuffix(' (stable)'):raise ApiSslStop('ROUTEROS_VERSION_MISMATCH')
             if any(credentials[1] in value for row in (identity[0],resource[0]) for value in row.values()):raise ApiSslStop('SENSITIVE_METADATA_REJECTED')
             wire.timeout()
-            return dict(identity=identity[0]['name'],model=resource[0]['board-name'],routeros_version=version)
+            metadata=dict(identity=identity[0]['name'],model=resource[0]['board-name'],routeros_version=version)
+            if details:
+                from app.adapters.router_readonly import snapshot
+                return snapshot(wire,metadata,resource[0],credentials[1])
+            return metadata
         except ApiSslStop:raise
         except ssl.SSLError:raise ApiSslStop('TLS_VERIFICATION_FAILED') from None
         except TimeoutError:raise ApiSslStop('CONNECTION_TIMEOUT') from None

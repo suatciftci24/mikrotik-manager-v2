@@ -1,5 +1,5 @@
 export type RegisteredRouter={
-  id:string;name:string;management_address:string;port:number;identity:string;model:string;routeros_version:string;
+  pilot_kind?:'CEBECI_TOWERS'|null;id:string;name:string;management_address:string;port:number;identity:string;model:string;routeros_version:string;
   revision:number;last_checked_at:string;last_success_at:string;last_error:string|null;
   status:'VERIFIED'|'STALE'|'CHECK_FAILED';leaf_sha256:string;source_ip:string;
   expected_identity:string;expected_version:string;credentials_configured:boolean;is_demo:false;continuous_monitoring:false;
@@ -29,6 +29,12 @@ export function candidatePayload(form:RouterForm,requestId:string,item?:Register
     username:form.username,password:form.password||null,ca_pem:form.ca_pem,leaf_sha256:form.leaf_sha256,router_id:item?.id??null,expected_revision:item?.revision??0,confirmed_read_only:true};
 }
 const errors:Record<string,string>={
+ PILOT_SCOPE_MISMATCH:'Pilot hedefi, kaynak IP veya kayıtlı kimlik CEBECI_TOWERS kapsamıyla eşleşmiyor.',
+ PILOT_ACCOUNT_MISMATCH:'Güvenli pilot referansı v2-cebeci-ro hesabına ait değil.',
+ READ_SCOPE_REJECTED:'İstenen okuma salt okunur pilot kapsamı dışında.',
+ ROW_LIMIT:'Okuma kayıt sınırı aşıldı; kısmi veri veya eksik sayım kaydedilmedi.',
+ READ_ONLY_RESPONSE_REJECTED:'Cihazdan beklenen güvenli alanlar alınamadı; snapshot kaydedilmedi.',
+ RESOURCE_METRICS_REJECTED:'CPU/RAM/uptime alanları geçersiz; ölçüm uydurulmadı.',
  ROUTER_NOT_FOUND:'Router kaydı bulunamadı. Listeyi yenileyip güncel bir kayıt seçin.',
  VERIFICATION_NOT_FOUND:'Doğrulama kaydı bulunamadı veya bu oturuma ait değil. Formu kapatıp yeniden açın.',
  VERIFICATION_IN_PROGRESS:'Doğrulama sürüyor; işlem tamamlanmadan iptal edilemez.',
@@ -51,6 +57,7 @@ const errors:Record<string,string>={
  CREDENTIAL_FORMAT_REJECTED:'API kullanıcı adı veya parola biçimi geçersiz.',
 };
 export function connectionError(code:string):string{
+ if(code.startsWith('PILOT_RUNTIME_FILE_REJECTED'))return 'Güvenli V2 pilot kimlik bilgisi veya public CA dosyası bulunamadı/izinleri uygun değil. Referansı sunucu tarafında hazırlayın; parola gönderilmedi.';
  if(code.startsWith('AUTHENTICATION_REJECTED:'))return code.includes('PERMISSION_DENIED')?'Cihaz API girişine izin vermedi. Yetkili operatör hesap durumunu ve API yetkisini kontrol etmeli.':'Cihaz hesabı veya parolayı reddetti. Disabled hesap, kaynak kısıtı ve API yetkisi de aynı sonucu verebilir; otomatik parola değişikliği yapılmaz.';
  if(code.startsWith('AUTHENTICATION_PROTOCOL_ERROR:'))return 'Cihazın login yanıtı desteklenen API protokolüyle eşleşmedi.';
  if(code.startsWith('DEVICE_READ_REJECTED:'))return 'API girişi sonrasında salt-okunur metadata sorgusu reddedildi.';

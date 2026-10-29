@@ -1,0 +1,9 @@
+import {useRef,useState} from 'react';
+import {api} from '../lib/api';
+import {invalidateResources} from '../lib/resourceEvents';
+import {connectionError} from '../lib/routerRegistry';
+export function RouterPilotRead({id,revision,enabled}:{id:string;revision:number;enabled:boolean}){
+ const request=useRef(crypto.randomUUID()),sending=useRef(false);const [consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[used,setUsed]=useState(false),[error,setError]=useState('');
+ async function read(){if(!consent||!enabled||sending.current)return;setBusy(true);sending.current=true;setError('');try{const result=await api<{error_code:string|null;state:string}>('/router-registry/'+encodeURIComponent(id)+'/read-only',{method:'POST',headers:{'X-V2-Demo-Action':'router-onboarding'},signal:AbortSignal.timeout(25000),body:JSON.stringify({request_id:request.current,expected_revision:revision,confirmed_read_only:true})});setUsed(true);if(result.error_code)setError(connectionError(result.error_code));invalidateResources(['/router-registry','/router-center']);}catch(e){setError(connectionError(e instanceof Error?e.message:''));}finally{sending.current=false;setBusy(false);}}
+ return <section><h3>Pilot detaylarını salt okunur getir</h3><p>Tek bağlantıda izinli kimlik/resource, arayüz, default route ve PPPoE/Hotspot sayımları alınır. Otomatik polling veya tekrar yoktur; hesap yazma işlemleri kapalıdır.</p><label className="registry-consent"><input type="checkbox" checked={consent} disabled={busy||used} onChange={e=>setConsent(e.target.checked)}/>Bu gerçek cihaz için sınırlı salt okunur detay okumasını onaylıyorum.</label><button className="button-secondary" disabled={!enabled||!consent||busy||used} onClick={()=>void read()}>{busy?'Okunuyor…':used?'Bu okuma tamamlandı':'Salt okunur detayları oku'}</button>{error&&<p role="alert" className="form-error">{error}</p>}</section>;
+}

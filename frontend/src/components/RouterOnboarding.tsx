@@ -1,3 +1,4 @@
+import {RouterPilotRead} from './RouterPilotRead';
 import {RouterDeviceCenter} from './RouterDeviceCenter';
 import {applyTrustProfile,type TrustProfile} from '../lib/routerTrustProfiles';
 import {connectionProfile,routerConnectionProfiles} from '../lib/routerConnectionProfiles';
@@ -10,7 +11,7 @@ import {dateTime,ResourceState} from './Resource';
 import {candidatePayload,connectionError,routerForm,registryStatus,type RegisteredRouter,type RegistryOptions,type Verification} from '../lib/routerRegistry';
 
 const actionHeaders={'X-V2-Demo-Action':'router-onboarding'};
-export function RouterOnboarding({item,onClose,onSaved}:{item?:RegisteredRouter;onClose:()=>void;onSaved:(id:string)=>void}){
+export function RouterOnboarding({item,onClose,onSaved,onPilot}:{item?:RegisteredRouter;onClose:()=>void;onSaved:(id:string)=>void;onPilot?:()=>void}){
  const dialog=useRef<HTMLDialogElement>(null),sending=useRef(false),requestId=useRef(crypto.randomUUID());
  const options=useResource<RegistryOptions>('/router-registry/options');
  const profiles=useResource<{items:TrustProfile[];total:number}>('/router-workspace/profiles');
@@ -71,6 +72,7 @@ export function RouterOnboarding({item,onClose,onSaved}:{item?:RegisteredRouter;
  const ready=options.data?.connection_enabled&&options.data.operator_authorized&&window.isSecureContext;
  return <dialog ref={dialog} className="expiry-dialog router-onboarding" aria-labelledby="router-onboarding-title" onCancel={event=>{event.preventDefault();close();}}>
   <div className="onboarding-heading"><span className="eyebrow">GÜVENLİ ROUTER ONBOARDING</span><h2 id="router-onboarding-title">{item?'Router bağlantısını düzenle':'Router ekle'}</h2><p>1. Güvenli bağlantı → 2. Cihazı doğrula → 3. Kaydı onayla</p></div>
+  {!item&&onPilot&&!proof&&<button type="button" disabled={busy} onClick={onPilot}>Gerçek Router / Salt Okunur Pilot — CEBECI_TOWERS</button>}
   <p className="registry-security-note">TLS CA zinciri, IP SAN ve leaf SHA-256 pin zorunludur. Yalnız kimlik ve sistem kaynak bilgisi okunur; cihaz ayarı değiştirilmez ve polling başlatılmaz.</p>
   {!window.isSecureContext&&<p role="alert" className="form-error">Parola girişi için HTTPS veya localhost gerekir. Bu sayfadan credential gönderilemez.</p>}
   <ResourceState {...options} error={options.error?connectionError(options.error):undefined}/>
@@ -138,5 +140,6 @@ export function RegisteredRouterDetail({id,onBack,onEdit,embedded=false}:{id:str
 
 export function RegisteredRouterCenter({id,onBack,onEdit}:{id:string;onBack:()=>void;onEdit:(item:RegisteredRouter)=>void}){
  const detail=useResource<{item:RegisteredRouter}>('/router-registry/'+encodeURIComponent(id));
- return <RouterDeviceCenter id={id} onBack={onBack} actions={detail.data&&<button className="button-secondary" onClick={()=>onEdit(detail.data!.item)}>Bağlantıyı düzenle</button>} security={<RegisteredRouterDetail id={id} onBack={onBack} onEdit={onEdit} embedded/>}/>;
+ const options=useResource<RegistryOptions>('/router-registry/options');
+ return <RouterDeviceCenter id={id} onBack={onBack} actions={detail.data&&<button className="button-secondary" onClick={()=>onEdit(detail.data!.item)}>Bağlantıyı düzenle</button>} security={<>{detail.data?.item.pilot_kind==='CEBECI_TOWERS'&&<RouterPilotRead id={id} revision={detail.data.item.revision} enabled={!!options.data?.connection_enabled&&!!options.data.operator_authorized}/>}<RegisteredRouterDetail id={id} onBack={onBack} onEdit={onEdit} embedded/></>}/>;
 }

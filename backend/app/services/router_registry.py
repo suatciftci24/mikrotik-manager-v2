@@ -40,7 +40,7 @@ def public_router(row):
         last_success_at=row.last_success_at,last_error=row.last_error,status=state,
         leaf_sha256=row.configuration['leaf_sha256'],source_ip=row.configuration['source_ip'],
         expected_identity=row.configuration['expected_identity'],expected_version=row.configuration['expected_version'],
-        credentials_configured=True,is_demo=False,continuous_monitoring=False)
+        credentials_configured=True,pilot_kind=row.configuration.get('pilot_kind'),is_demo=False,continuous_monitoring=False)
 
 
 class RouterRegistry:
@@ -63,6 +63,54 @@ class RouterRegistry:
         if row.state in ('VERIFIED','SAVED'):
             snapshot=row.snapshot
             result['preview']={key:snapshot[key] for key in ('name','management_address','port','metadata','source_ip','checked_at','expected_revision')}
+        return result
+
+    @storage_boundary
+    def verify_pilot(self,payload,actor):
+        with self.sessions() as session:
+            prior=session.get(RouterVerification,str(payload.request_id))
+            if prior:
+                if prior.actor_id!=actor or prior.snapshot.get('kind')=='DETAIL_READ' or prior.snapshot.get('management_address')!='10.250.0.19' or prior.snapshot.get('configuration',{}).get('pilot_kind')!='CEBECI_TOWERS':raise RegistryError(409,'VERIFICATION_REQUEST_CONFLICT')
+                return self.proof(prior)
+            if session.scalar(select(RegisteredRouter.id).where(RegisteredRouter.management_address=='10.250.0.19',RegisteredRouter.port==8729)):raise RegistryError(409,'ROUTER_ENDPOINT_EXISTS')
+        from app.services.cebeci_registry import candidate
+        command=candidate(payload,self.policy())
+        return self.verify(command,actor)
+
+    @storage_boundary
+    def read_details(self,id,payload,actor):
+        key=str(payload.request_id)
+        with self.sessions() as session:
+            prior=session.get(RouterVerification,key)
+            if prior:
+                if prior.actor_id!=actor or prior.target_router_id!=id or prior.snapshot.get('kind')!='DETAIL_READ':raise RegistryError(409,'VERIFICATION_REQUEST_CONFLICT')
+                return prior.snapshot.get('result',dict(state='RUNNING',error_code='VERIFICATION_IN_PROGRESS',is_demo=False))
+            row=session.get(RegisteredRouter,id)
+            if not row:raise RegistryError(404,'ROUTER_NOT_FOUND')
+            if row.revision!=payload.expected_revision:raise RegistryError(409,'ROUTER_REVISION_CONFLICT')
+            if row.configuration.get('pilot_kind')!='CEBECI_TOWERS':raise RegistryError(403,'PILOT_SCOPE_MISMATCH')
+            policy=self.policy();policy.validate(row.management_address,row.port)
+            config=row.configuration;reference=row.credential_ref
+            target=Target(row.management_address,row.port,config['ca_pem'],config['leaf_sha256'],config['expected_identity'],config['expected_version'],config['expected_model'])
+        with self.sessions.begin() as session:
+            session.add(RouterVerification(id=key,actor_id=actor,state='RUNNING',target_router_id=id,expected_revision=payload.expected_revision,snapshot={'kind':'DETAIL_READ'},credential_ref=reference,created_at=stamp(),expires_at=(now()+timedelta(minutes=5)).isoformat()))
+            self.audit(session,actor,key,'READ_ONLY_REQUESTED',id)
+        error=None;snapshot=None
+        try:
+            from app.schemas.router_readonly import ReadOnlySnapshot
+            snapshot=ReadOnlySnapshot.model_validate(self.client.read_snapshot(target,self.vault.read(reference),policy)).model_dump(mode='json',by_alias=True)
+        except ApiSslStop as failure:error=str(failure)
+        except Exception:error='API_SSL_STOP'
+        with self.sessions.begin() as session:
+            row=session.get(RegisteredRouter,id,with_for_update=True);proof=session.get(RouterVerification,key,with_for_update=True)
+            if not row or row.revision!=payload.expected_revision:error='ROUTER_REVISION_CONFLICT'
+            if row and row.revision==payload.expected_revision:
+                row.last_checked_at=stamp();row.last_error=error;row.revision+=1
+                if not error:row.metadata_snapshot={**row.metadata_snapshot,'read_snapshot':snapshot};row.last_success_at=snapshot['captured_at']
+            proof.state='FAILED' if error else 'SAVED';proof.error_code=error;proof.saved_router_id=id if not error else None
+            result=dict(state=proof.state,error_code=error,item=public_router(row) if row else None,is_demo=False)
+            proof.snapshot={'kind':'DETAIL_READ','result':result}
+            self.audit(session,actor,key,'READ_ONLY_FAILED' if error else 'READ_ONLY_SAVED',id,error_code=error)
         return result
 
     @storage_boundary
@@ -94,6 +142,7 @@ class RouterRegistry:
         with self.sessions() as session:
             prior=session.get(RouterVerification,request_id)
             if prior:
+                if prior.snapshot.get('kind')=='DETAIL_READ':raise RegistryError(409,'VERIFICATION_REQUEST_CONFLICT')
                 if prior.actor_id!=actor:raise RegistryError(409,'VERIFICATION_REQUEST_CONFLICT')
                 return self.proof(prior)
             old=session.get(RegisteredRouter,payload.router_id) if payload.router_id else None
@@ -113,7 +162,8 @@ class RouterRegistry:
             self.vault.valid(username,password)
             config=dict(ca_pem=ca,leaf_sha256=payload.leaf_sha256,source_ip=policy.source_ip,
                 expected_identity=payload.expected_identity or (old.metadata_snapshot['identity'] if old else ''),
-                expected_version=payload.expected_version,expected_model=old.metadata_snapshot['model'] if old else '')
+                expected_version=payload.expected_version,expected_model=old.metadata_snapshot['model'] if old else payload.expected_model)
+            if (str(payload.management_address),payload.port,username,config['expected_identity'],config['expected_model'],config['expected_version'],policy.source_ip)==('10.250.0.19',8729,'v2-cebeci-ro','CEBECI_TOWERS','RB3011UiAS','6.49.19','10.250.0.1'):config['pilot_kind']='CEBECI_TOWERS'
             snapshot=dict(name=payload.name,management_address=str(payload.management_address),port=payload.port,
                 configuration=config,source_ip=policy.source_ip,expected_revision=payload.expected_revision)
         reference=self.vault.put(username,password)
@@ -157,6 +207,7 @@ class RouterRegistry:
         with self.sessions.begin() as session:
             proof=session.get(RouterVerification,str(payload.verification_id),with_for_update=True)
             if not proof or proof.actor_id!=actor:raise RegistryError(404,'VERIFICATION_NOT_FOUND')
+            if proof.snapshot.get('kind')=='DETAIL_READ':raise RegistryError(409,'VERIFICATION_REQUEST_CONFLICT')
             if proof.state=='SAVED':
                 row=session.get(RegisteredRouter,proof.saved_router_id)
                 return dict(item=public_router(row),replayed=True,is_demo=False)
@@ -197,6 +248,7 @@ class RouterRegistry:
         with self.sessions() as session:
             prior=session.get(RouterVerification,str(payload.request_id))
             if prior:
+                if prior.snapshot.get('kind')=='DETAIL_READ':raise RegistryError(409,'VERIFICATION_REQUEST_CONFLICT')
                 if prior.actor_id!=actor or prior.target_router_id!=id:raise RegistryError(409,'VERIFICATION_REQUEST_CONFLICT')
                 result=self.proof(prior)
             else:result=None

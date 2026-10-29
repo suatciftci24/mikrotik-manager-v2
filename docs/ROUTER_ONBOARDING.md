@@ -267,3 +267,48 @@ ve ilişkili aboneler Genel Bakış'taki açılır bölümde erişilebilir kalı
 Bu paket yeni migration, seed, production işlemi veya mevcut kayıt güncellemesi
 gerektirmez. Model/görünüm/sekme ve değişen CRUD bağlantıları hedefli test edilir;
 SSR kontrolleri tarayıcı veya gerçek PostgreSQL kabulü olarak sunulmaz.
+
+### CEBECI_TOWERS salt okunur pilot
+
+Yeni Router Ekle içindeki **Gerçek Router / Salt Okunur Pilot** seçeneği,
+10.250.0.19:8729, v2-cebeci-ro, RB3011UiAS / 6.49.19 hedefini sabitler.
+Tarayıcı yalnız `CEBECI_TOWERS_RO` genel alias'ını gönderir. Mevcut özel V2
+`.local/cebeci-pilot/secrets/username`, `secrets/password`, `trust/ca.pem`
+dosyaları mevcut güvenli okuyucu ile kullanılır; dosyalar değiştirilmez.
+İncelenmiş pilot leaf SHA-256 pini kullanılır; public CA zinciri, IP SAN,
+TLS 1.2+ ve kaynak IP 10.250.0.1 zorunludur. Parola/CA içeriği istemciye dönmez.
+Kimlik bilgileri mevcut registry vault'una ayrı opaque referansla alınır.
+
+Mevcut bağlantı kapısı varsayılan kapalı kalır; yetkili gerçek ADMIN operatör,
+mevcut operatör allowlist'i, hedef CIDR/port politikası ve güvenli panel gerekir.
+Bootstrap demo-user yetkilendirilemez. Bu geliştirme güvenlik duvarı açmaz,
+operatör oluşturmaz ve bağlantı ayarlarını otomatik etkinleştirmez.
+
+Bağlantıyı Test Et yalnız identity/resource okur. Başarılı, aktöre bağlı,
+süreli doğrulama ve ayrıca kayıt onayı olmadan kayıt oluşturulmaz.
+Aynı IP/port ikinci kez kaydedilemez. Sentetik akış ayrı kalır.
+
+Güvenli Bağlantı sekmesindeki ayrı onaylı detay okuması tek oturumda:
+- identity/name ve resource/board-name,version,cpu-load,total-memory,free-memory,uptime;
+- interface/.id,name,type,disabled,running;
+- ip/route/dst-address,gateway,active,disabled (yalnız default route saklanır);
+- ppp/secret/.id,service,disabled ve ip/hotspot/user/.id,disabled okur.
+
+Abone kullanıcı adları, parolalar ve secret alanları istenmez/saklanmaz.
+Sabit okuma descriptor'ları dışındaki komutlar kullanılamaz. Satır, byte,
+sentence ve süre limitlerinde eksik başarı yerine işlem reddedilir.
+PPPoE sayımı service=any varsa belirsiz gösterilir; hesap sayısı oturum sayısı
+olarak sunulmaz. WAN IP/internet durumu ölçülmemiş kalır.
+
+GET/liste/detay açılışı bağlantı başlatmaz; polling/otomatik tekrar yoktur.
+Kaydedilmiş örnek ve zamanı gösterilir; VERIFIED geçmiş kontrol anlamındadır,
+ONLINE iddiası değildir. Başarısız okumada eski örnek korunur, hata durumu
+ve son kontrol zamanı güncellenir. Request UUID tekrarları yeni socket açmaz.
+Okuma sonucu/audit mevcut V2 transaction'ında saklanır; yeni tablo veya migration yok.
+Gerçek hesaplarda düzenleme/silme/uzatma/toplu işlem kontrolleri bulunmaz.
+Sentetik API'ler registered ID kabul etmez.
+
+Bu geliştirme ortamında bağlantı kapısı kapalı ve özel pilot materyali yoktur.
+Mock transport/izole SQLite testleri gerçek pilot/yerel PostgreSQL kabulü değildir.
+Gerçek kabul için mevcut güvenli pilot ortamında yetkili operatörün panelden
+bir kez Test Et → Kaydet → ayrı onaylı detay okuması akışını tamamlaması gerekir.

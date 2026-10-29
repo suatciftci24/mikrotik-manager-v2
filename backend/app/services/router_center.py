@@ -15,8 +15,15 @@ def persistent_demo(row,events=()):
 def registered(row,events=()):
     if row['is_demo'] is not False:raise ValueError('Registered source mismatch')
     # Only saved, verified metadata. Last probe is historical, never current ONLINE.
-    return center('REGISTERED',{key:row.get(key) for key in ('id','name','identity','model','routeros_version','management_address','status','last_success_at')},
-        [dict(action=e['action'],occurred_at=e['occurred_at'],actor_id=e['actor_id']) for e in events])
+    item={key:row.get(key) for key in ('id','name','identity','model','routeros_version','management_address','status','last_success_at')}
+    result=center('REGISTERED',item,[dict(action=e['action'],occurred_at=e['occurred_at'],actor_id=e['actor_id']) for e in events])
+    if row.get('read_snapshot'):
+        from app.schemas.router_readonly import ReadOnlySnapshot
+        snapshot=ReadOnlySnapshot.model_validate(row['read_snapshot'])
+        result.read_snapshot=snapshot
+        result.item.cpu_percent=snapshot.cpu_percent;result.item.memory_percent=snapshot.memory_percent;result.item.uptime=snapshot.uptime;result.item.last_seen_at=snapshot.captured_at.isoformat()
+        for section in ('interfaces','wan','pppoe','hotspot'):result.sections[section]='AVAILABLE'
+    return result
 
 def static_demo(row):
     if row['is_demo'] is not True:raise ValueError('Static source mismatch')

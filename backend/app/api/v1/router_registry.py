@@ -2,7 +2,7 @@
 import os
 from fastapi import APIRouter,Depends,Header,HTTPException,Query,Request
 from app.core.security import current_admin
-from app.schemas.router_registry import RouterCandidate,RegisterVerified,RecheckRouter
+from app.schemas.router_registry import RouterCandidate,RegisterVerified,RecheckRouter,CebeciPilotCandidate
 from app.services.router_registry import registry,RegistryError
 from app.adapters.router_api_ssl import ConnectionPolicy
 from app.adapters.cebeci_api_ssl import ApiSslStop
@@ -78,3 +78,11 @@ def detail(id:str,user:dict=Depends(reader)):
 @router.post('/{id}/check')
 def check(id:str,payload:RecheckRouter,user:dict=Depends(mutator)):
     return execute(registry.recheck,id,payload,user['id'])
+
+@router.post('/pilot/cebeci/verify')
+def verify_cebeci(payload:CebeciPilotCandidate,user:dict=Depends(mutator)):
+    return execute(registry.verify_pilot,payload,user['id'])
+
+@router.post('/{id}/read-only')
+def read_only(id:str,payload:RecheckRouter,user:dict=Depends(mutator)):
+    return execute(registry.read_details,id,payload,user['id'])

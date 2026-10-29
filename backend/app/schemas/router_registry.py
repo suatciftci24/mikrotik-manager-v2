@@ -13,6 +13,7 @@ class RouterCandidate(BaseModel):
     port: int=Field(default=8729,ge=1024,le=65535)
     expected_identity: str=Field(default='',max_length=120)
     expected_version: str=Field(default='',max_length=40)
+    expected_model: str=Field(default='',max_length=80)
     username: str=Field(default='',max_length=128,repr=False,exclude=True)
     password: SecretStr|None=Field(default=None,repr=False,exclude=True)
     ca_pem: str=Field(default='',max_length=262144,repr=False,exclude=True)
@@ -21,7 +22,7 @@ class RouterCandidate(BaseModel):
     expected_revision: int=Field(default=0,ge=0)
     confirmed_read_only: Literal[True]
 
-    @field_validator('name','expected_identity','expected_version')
+    @field_validator('name','expected_identity','expected_version','expected_model')
     @classmethod
     def text(cls,value):
         if any(ord(c)<32 for c in value):raise ValueError('INVALID_TEXT')
@@ -52,4 +53,17 @@ class RecheckRouter(BaseModel):
     request_id: UUID
     expected_revision: int=Field(ge=0)
     confirmed_read_only: Literal[True]
+    _explicit=field_validator('confirmed_read_only',mode='before')(RouterCandidate.explicit.__func__)
+
+class CebeciPilotCandidate(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    request_id:UUID
+    name:str=Field(default='CEBECI_TOWERS',min_length=1,max_length=120)
+    _text=field_validator('name')(RouterCandidate.text.__func__)
+    _nonempty=field_validator('name')(RouterCandidate.nonempty.__func__)
+    management_address:Literal['10.250.0.19']='10.250.0.19'
+    port:Literal[8729]=8729
+    username:Literal['v2-cebeci-ro']='v2-cebeci-ro'
+    credential_alias:Literal['CEBECI_TOWERS_RO']='CEBECI_TOWERS_RO'
+    confirmed_read_only:Literal[True]
     _explicit=field_validator('confirmed_read_only',mode='before')(RouterCandidate.explicit.__func__)

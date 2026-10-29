@@ -1,5 +1,6 @@
 """Read-only normalized router center. No credentials, endpoints to execute, or raw payloads."""
 from typing import Literal
+from app.schemas.router_readonly import ReadOnlySnapshot
 from pydantic import BaseModel,ConfigDict
 
 class RouterCenterSummary(BaseModel):
@@ -31,3 +32,4 @@ class RouterCenterData(BaseModel):
     device_connection_started:Literal[False]=False
     sections:dict[str,Literal['AVAILABLE','UNMEASURED','PREPARING']]
     events:list[RouterCenterEvent]
+    read_snapshot:ReadOnlySnapshot|None=None
