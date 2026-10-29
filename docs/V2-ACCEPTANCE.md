@@ -264,3 +264,26 @@ cd ~/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh
 ```
 
 Sıra: API READY → DB READY (read-only) → UI READY → gerçek tarayıcı. Hazır mevcut servisler kapanmaz; yalnız komutun kendi başlattığı süreçler temizlenir. UI/DB/browser önkoşul hatası veya araç/Chromium yokluğu BLOCKED kalır; HTTP/projeksiyon sonucu browser PASS diye raporlanmaz. Gerçek `.local/browser-acceptance/<run-id>/result.json` ve ekran görüntüleri alınmadan tarayıcı kabulü tamamlanmış sayılmaz. Üretim servisleri, gerçek cihazlar/RADIUS/veriler ve migration kapsam dışıdır.
+
+
+## Aşama 22 — kapalı CEBECI erişim sözleşmesi — 2026-10-29
+
+| Kapsam | Sonuç / kanıt |
+| --- | --- |
+| Kimlik/model/sürüm/adres/kaynak, yetki/TLS/sertifika/minimum yetki, stale/unknown ve V1 izolasyonu | PASS — fail-closed offline sözleşme; eksik/olumsuz kanıt NO_GO |
+| Yazma/credential/canlı SA/adapter erişimi | PASS — dar print allowlist, alan reddi, adapter'a dokunmadan backend 403; execution endpoint'i yok |
+| Hedefli backend/frontend | PASS — 37 backend (17 yeni + 20 etkilenen); 26 frontend (4 yeni + 22 systemCenter) benzersiz test |
+| TypeScript/Vite build, browser JS syntax | PASS |
+| Gerçek browser 320/390/1440 | BLOCKED — tek Aşama 22 çağrısı loopback sandbox engelinde durdu; browser PASS kanıtı yok |
+| Veri ve canlı erişim | Ağ/DB yazması yok; 14 abone/audit korunur; NOT CONNECTED / APPROVAL REQUIRED / SECURITY NOT VERIFIED |
+
+Ayrı Aşama 22 salt okunur senaryosu önceki kabul paketlerini çalıştırmaz; kapalı
+bayrakları, kanıt/STOP görünümünü, üç genişliği ve eski kayıt baseline eşitliğini
+kontrol eder; hesap/fixture oluşturmaz. Normal WSL terminalinde tek komut:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_SECURITY_ONLY=1 ./browser-accept-demo.sh
+```
+
+Gerçek pilot onayı/cihaz bağlantısı kapsam dışıdır. Güvenlik koşulları ve eksik
+kanıtlar için [pilot sözleşmesi](CEBECI_TOWERS_PILOT.md) esas alınır.

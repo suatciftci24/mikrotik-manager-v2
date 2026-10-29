@@ -73,6 +73,12 @@ Gelecekte kaynak kısıtlama prosedürü (bu aşamada uygulanmadı):
 
 ## Gelecekteki alan listesi ve V1/V2 karşılaştırma sözleşmesi
 
+**Aşama 22 ayrımı:** Aşağıdaki sekiz menü Aşama 21'in yalnız sentetik karşılaştırma
+tanımlarıdır; gerçek erişim allowlist'i değildir. Aşama 22 aşağıda tanımlanan beş
+metadata menüsüne daralır. `/ppp/secret` ve **tüm IPsec SA/peer kaynakları** gelecekteki
+pilot erişim sözleşmesinden çıkarılmıştır. Geçmiş tablo hiçbir credential/SA
+okumasını veya cihaz bağlantısını yetkilendirmez.
+
 Aşağıdaki menüler yalnız metadata descriptor'dır; hiçbir RouterOS komutu çalışmadı.
 Tam 6.49.19 build için alan kullanılabilirliği ROS6_LAB_VERIFICATION_REQUIRED'dır;
 güncel v7 belgelerindeki alanlar otomatik devralınmaz. İzinli alan listesi boş veya
@@ -142,3 +148,161 @@ ve abone/audit baseline'ı korunur. Gerçek browser çalışmazsa PASS değildir
 Kaynak notu: resmi help/manual sayfaları farklı güncel sürümlere ait olabilir;
 yalnız yukarıdaki sınırlı protokol/policy bilgileri kullanıldı. CEBECI'nin gerçek
 6.49.19 davranışı, sertifikası, alanları ve erişimi bu belgelerden doğrulanmış sayılmaz.
+
+
+## Aşama 22 — kapalı güvenli erişim sözleşmesi
+
+**NOT CONNECTED / APPROVAL REQUIRED / SECURITY NOT VERIFIED / NO_GO.**
+`CEBECI_CLOSED_ACCESS_V1`, yalnız offline hazırlık sözleşmesidir. Planın teknik olarak
+tanımlı olması ile gerçek bağlantı yetkisi ayrıdır. Herhangi bir gerçek bağlantı,
+ping, TLS handshake, API login, lab cihaz sorgusu, SA toplama veya polling yapılmadı.
+Aşama 22 gerçek pilotu onaylayamaz veya başlatamaz; ayrı açık kullanıcı onayı zorunludur.
+
+### Resmi gereksinim ve doğrulama sınırı
+
+Resmi [API belgesi](https://help.mikrotik.com/docs/spaces/ROS/pages/47579160/API),
+varsayılan API/API-SSL portlarını 8728/8729 ve 6.43 sonrası ilk login mesajındaki
+parola alanını açıklar. Bu nedenle bizim sözleşmemiz login'den **önce** doğrulanmış
+TLS ister; düz API, REST, otomatik port/cihaz arama veya protokol fallback'i yoktur.
+Aynı belge `.proplist` dışında alan dönebileceğini belirtir: alan isteği, güvenli
+cevap veya yetki garantisi değildir. Bu faz transport uygulaması sağlamaz.
+
+[Eski API-SSL belgesi](https://wiki.mikrotik.com/Manual:API-SSL) sertifikasız anonymous
+DH seçeneğini de tanımlar. Biz bunu reddederiz; `api-ssl` adı/portu veya IPsec yolu
+sunucu kimliğini/güvenliğini kanıtlamaz. Modern istemciyle minimum TLS 1.2, güvenli
+şifre takımı, handshake ve tam 6.49.19 build uyumu ayrıca kanıtlanmalıdır. TLS 1.3
+desteği varsayılmaz. Uyumsuzlukta eski cipher/anonymous DH açılmaz: STOP/NO_GO.
+
+[Resmi sertifika belgesi](https://help.mikrotik.com/docs/spaces/ROS/pages/2555969/Certificates)
+SAN, kullanım, güven ve geçerlilik özelliklerini açıklar. Bizim istemci gereksinimi:
+gözden geçirilmiş CA trust store + eksiksiz zincir + hedef SAN/IP eşleşmesi + zaman/
+server-auth kullanım/iptal incelemesi. Hostname veya certificate verification
+kapatılamaz. Public SHA-256 pin ek kontrol olabilir, zincir/SAN incelemesinin yerine
+geçmez. Private key/PEM/PKCS12 alınmaz. Bu repoda CA yükleme, TLS context/client,
+credential veya secret resolver yoktur; default public pin de null'dır.
+
+Bu sayfalar güncel/frozen genel dokümantasyondur; CEBECI'nin mevcut RouterOS 6.49.19
+TLS sertifikası, alan uyumu veya grup etkisini doğrulamaz. Kaynaklar 2026-10-29'da
+public web üzerinden incelendi; gerçek cihaz, V1 veya VDS incelenmedi.
+
+### Minimum hesap ve kaynak tasarımı — oluşturulmadı
+
+[Resmi kullanıcı/policy belgesi](https://help.mikrotik.com/docs/spaces/ROS/pages/8978504/User)
+yetkilerin gruplarla belirlendiğini, `api` ile giriş ve `read` ile geniş okuma
+haklarını ayırır. Varsayılan `read` grubu ek güçlü yetkiler içerir; dosya işlemleri
+ayrıca dikkate alınmalıdır. Bu nedenle **özel `read,api` yalnız başlangıç adayıdır**;
+per-menu/per-field ACL veya sıfır yan etki garantisi değildir. Tam v6 build üzerinde
+minimum yetki/dosya/alan davranışının ayrı lab kanıtı olmadan MINIMUM_PRIVILEGE UNKNOWN
+kalır. `sensitive`, `test`, `write`, `policy`, `reboot`, file/script/export/monitor
+ve başka erişim policy'leri eklenmez. Erişim yetersizse yetki artırmak yerine STOP.
+
+Gelecekteki hesap V1/admin'den ayrı, tek cihaz ve yalnız onaylanmış kaynak için
+olmalıdır. Bu faz kullanıcı/grup adı, parola, PSK, credential reference veya özel
+anahtar toplamaz/saklamaz ve hesap oluşturma komutu vermez. Kimlik doğrulama planı
+ayrı hesap ve auth incelemesi boolean kanıtlarına bağlıdır; gerçek resolver yoktur.
+
+İzinli kaynak cihazın NAT/routing/IPsec sonrasında **gördüğü adres** olmalıdır.
+Geçmiş IPsec merkez adresi otomatik allowlist değildir. Tek unicast IPv4 /32,
+hesap adres sınırı + API-SSL servis kaynak sınırı + input firewall incelemesi birlikte
+kanıtlanmalıdır; /0, geniş CIDR, loopback/multicast/unspecified kabul edilmez. Bu
+belge firewall/service/IPsec veya V1 ayarını değiştirmez. Gerekli bir canlı değişiklik
+ayrıca kapsamlı açık onay ister. Source/network yolu belirsizse NO_GO.
+
+### Tipli, tek router ve kapalı varsayılanlar
+
+`backend/app/integrations/cebeci_access.py`:
+
+- `AccessPlan`: frozen/extra-forbid; aday/identity CEBECI_TOWERS, model RB3011UiAS,
+  incelenecek exact sürüm 6.49.19. Yönetim pini **null**, kaynak /32 **null**, public
+  sertifika pini **null**. Geçmiş 10.250.0.19 ancak ayrı incelenmiş pin olarak
+  tanımlanabilir; endpoint/connect_host oluşmaz. Diğer aday/model/sürüm/adres veya
+  API/8728, verification bypass, network/poll/retry enable girişleri reddedilir.
+- `OfflineEvidence`: yalnız OFFLINE_UNVERIFIED veya SYNTHETIC_FIXTURE. Credential,
+  ham cevap/certificate/SA veya arbitrary evidence dictionary alanı yoktur. Kaynak
+  zamanı timezone-aware olmalı; epoch/naive/gelecek kanıt doğrulanmış güncellik olmaz.
+  Yapısal hata sabit/redacted koddur; hata input'u veya ham payload döndürülmez.
+- Identity/model/version/yönetim/kaynak eşleşmesi, cihaz can_view/can_view_reports,
+  TLS/chain/SAN/pin/geçerlilik, minimum hesap/ROS6 lab, freshness, V1 izolasyonu,
+  audit ve STOP owner/bütçe checklist'e bağlıdır. Yanlış değer BLOCKED, eksik UNKNOWN,
+  beş dakikadan eski STALE olur. UNKNOWN/BLOCKED/STALE gerçek pilot için NO_GO'dur.
+- Tüm offline/sentetik kontroller PASS olsa bile EXPLICIT_EXECUTION_APPROVAL BLOCKED,
+  security_status SECURITY NOT VERIFIED, live_observation_verified false,
+  execution_authorized/connection_allowed false ve decision NO_GO kalır. Tam paket
+  yalnız offline review tamamlığıdır; gerçek onay kaydı değildir.
+- `dispatch_pilot_read` adapter'a dokunmadan mevcut backend aday yetki kontrolünü
+  uygular. Mevcut full ADMIN bile DEVICE_READ/EXECUTE/APPROVE yetkisi alamaz. Gelecekte
+  yetki denetimi genişlese de bu fazın dispatcher'ı ayrıca koşulsuz 403 üretir.
+  CEBECI demo envanterine/grant'lerine eklenmez. Plan getter'ı execution API değildir.
+
+### Dar salt okunur capability
+
+`ReadIntent` yalnız exact menü + `print` + açık, boş olmayan, tekrarsız alan tuple'ı
+kabul eder. Yol prefix'i, arbitrary command/query, listen/streaming, wildcard veya
+broad detail/getall yoktur. İmmutable allowlist:
+
+| Menü | Gelecekte ayrıca incelenebilecek metadata |
+| --- | --- |
+| /system/identity | name |
+| /system/resource | board-name, version, uptime, cpu-load, total-memory, free-memory |
+| /interface | .id, name, type, disabled, running |
+| /ip/route | .id, dst-address, gateway, distance, active, disabled |
+| /ppp/active | .id, service, uptime; auth username/name yok |
+
+**Bu menülerin hiçbiri bu aşamada sorgulanamaz.** `/ppp/secret`, tüm IPsec installed-sa/
+active-peers, certificate/user/file/export/script/firewall/NAT/config ve restart
+kaynak/eylemleri dışlanır. PPPoE yazma/silme/değiştirme veya RADIUS erişimi yoktur.
+`PilotReadAdapter` yalnız dar `read_metadata` protocol'üdür; genel RouterOSAdapter
+ve onun yazma fonksiyonları bu pilot capability'si değildir. Transport/future gerçek
+adapter henüz uygulanmadı; geniş adapter enjekte edilse bile mevcut dispatcher hiçbir
+attribute/metot erişimi yapmaz.
+
+`project_synthetic_metadata` canlı kaynak satırına bakmadan LIVE kaynağını reddeder;
+yalnız sentetik test satırında önce sensitive/ek alan kontrolü, sonra mevcut allowlist
+projection ve istenen alan alt kümesi uygulanır. Hassas/öngörülmeyen alan STOP'tur,
+ham değer veya exception input'u çıkarılmaz. Alan adı filtresi tek başına gizli bir
+değerin güvenli olduğunu ispatlamaz; gerçek alıcı ancak ayrıca gözden geçirilmiş
+transport, bu boundary ve veri incelemesiyle gelecek ayrı aşamada tasarlanabilir.
+Canlı IPsec SA veya credential hiçbir collector/storage/model'e eklenmedi.
+
+### STOP, redacted audit ve eksik kanıt
+
+STOP: kimlik/model/build uyuşmazlığı; hedef veya görünen kaynak mismatch; eksik/yanlış
+yetki; TLS/sertifika bilinmeyen/mismatch; stale/unknown zaman; beklenmeyen write;
+canlı SA/credential alma talebi; V1 etkisi; audit/süre/STOP sorumlusu belirsizliği.
+İlk STOP'ta yeni okumayı başlatma; başka adres/hesap/port deneme; privilege artırma;
+retry/polling çalıştırma. Gelecekte açılmış yalnız yeni okuyucu/kanal için durdurma ve
+aday namespace karantinası planlanır. V1/admin/abone/audit geri alınmaz veya silinmez;
+gerçek rollback/change de ayrıca onay ister.
+
+İzinli kanıt/audit metadata'sı candidate_id, policy_version, packet_digest,
+criterion, fixed_reason_code ve review_time'dır. Secret/raw response/SA/credential
+loglanmaz. Packet digest yalnız offline paketin değişimini izler; kriptografik
+attestation veya gerçek erişim onayı değildir. Bu faz kalıcı audit yazmaz.
+
+Eksikler varsayılan kontrol listesinde açıktır: gerçek identity/model/build/yönetim
+binding'i, can_view/can_view_reports scope'u, onaylı güncel /32 ve yol, TLS/client/CA/
+SAN/validity/pin, ayrı hesap ve v6 minimum yetki/alan lab kanıtı, güncel kaynak,
+V1 baseline, redacted audit, STOP owner/timebox ve ayrı açık yürütme onayı. Bu listede
+eski sentetik eşleşme veya ADMIN olmak canlı kanıt yerine kullanılamaz.
+
+### Aşama 22 UI ve ayrı kabul
+
+Mevcut full-scope ADMIN `GET /api/v1/system/cebeci-pilot` yanıtı additive
+`access_preparation` taşır. Yeni config yazma/credential/start/test/connect/approve/
+deploy endpoint'i yoktur. VIEWER/sınırlı ADMIN mevcut backend'de 403 alır. Ekran
+NO_GO / NOT CONNECTED / APPROVAL REQUIRED / SECURITY NOT VERIFIED, eksik kanıt,
+engelleyici kod, kapalı ayarlar, dar read scope ve STOP/audit planını gösterir.
+Önceki sekiz menü yalnız sentetik karşılaştırma açıklamasıyla korunur.
+
+Ayrı salt okunur Playwright senaryosu (önceki aşama kabulünü çalıştırmaz):
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_SECURITY_ONLY=1 ./browser-accept-demo.sh
+```
+
+Bu yalnız V2 loopback planını okur; CEBECI'ye bağlanmaz. 320/390/1440px, async
+veri-ready güvenlik checklist'i, NO_GO/kapalı bayraklar, credential/SA kapsam dışı,
+UI'da mutator olmaması, sayfa write isteği olmaması, profil/envanter/admin/ayar/tercih
+ve bütün eski abone/audit baseline eşitliği denetlenir. Seed/fixture/account yazması
+yoktur. Gerçek browser çalışmazsa sonuç BLOCKED; birim test/build/sentetik proof
+browser veya gerçek pilot PASS değildir.
