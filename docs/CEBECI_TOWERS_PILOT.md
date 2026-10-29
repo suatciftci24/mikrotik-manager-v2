@@ -582,3 +582,13 @@ exact read,api adayını, yirmi bağımsız kanıt alanını ve sekiz ADMIN duru
 Mevcut Aşama 22–24 modülleri korunur: manuel raporlar doğrulanmış kanıt yapılmaz,
 API/8728 mevcut TLS kontratında kapalıdır, ayrı hesap oluşturulmadı ve gerçek
 onay kaydedilmedi. NO_GO / NOT CONNECTED / APPROVAL REQUIRED devam eder.
+
+## Aşama 26 — tek operasyonel karar görünümü
+
+Kullanıcı Aşama 25 için 12/12 gerçek tarayıcı PASS bildirdi; yerel UI kabulüdür,
+gerçek pilot onayı değildir. [Birleşik karar paketi](CEBECI_TOWERS_DECISION_PACKET.md)
+Aşama 21–25 kaynaklarını ID referanslarıyla birleştirir; dokuz matris başlığı, sekiz
+hazırlık ve yirmi alan için yeni kanıt modeli/deposu kurmaz. ADMIN ekranında
+özet/engeller/UNKNOWN ve manuel-stale-verified ayrımı, A/B tablo ve güvenli operatör
+adımları başta gösterilir. Gerçek doğrulanmış kanıt 0, onay NOT_RECORDED, yürütme
+DENIED; TLS sözleşmesi ve NO_GO korunur. Canlı erişim veya değişiklik yapılmaz.

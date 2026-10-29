@@ -161,3 +161,5 @@ input::placeholder{color:var(--muted);opacity:1}
 .cebeci-pilot{min-width:0;overflow-wrap:anywhere}.cebeci-pilot details{margin-block:12px}.cebeci-pilot li>p{margin-top:4px}
 
 .cebeci-access-security{min-width:0;overflow-wrap:anywhere;border-top:1px solid var(--line);margin-top:18px;padding-top:16px}.cebeci-access-security li{padding-block:8px}.cebeci-access-security li p{margin:6px 0}.cebeci-access-security details{margin-block:12px}.cebeci-access-security .settings-policy dd{min-width:0;overflow-wrap:anywhere}@media(max-width:650px){.cebeci-access-security ul{padding-left:18px}}
+
+.cebeci-decision-table{max-width:100%;overflow-x:auto}.cebeci-decision-table table{width:100%;min-width:640px;table-layout:fixed;border-collapse:collapse}.cebeci-decision-table th,.cebeci-decision-table td{text-align:left;vertical-align:top;padding:10px;border:1px solid var(--line);overflow-wrap:anywhere}.cebeci-decision-table caption{text-align:left;padding-block:8px;font-weight:600}

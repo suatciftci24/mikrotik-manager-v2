@@ -1,3 +1,4 @@
+import {checkCebeciDecisionPacket} from './cebeciDecisionPacketAcceptance.mjs';
 import {checkCebeciAccountPreparation} from './cebeciAccountPreparationAcceptance.mjs';
 import {checkCebeciManualFindings} from './cebeciManualFindingsAcceptance.mjs';
 import {checkCebeciPrerequisites} from './cebeciPrerequisitesAcceptance.mjs';
@@ -47,7 +48,8 @@ try{
  await api('/v1/auth/login',{username:'demo',password:'demo-only'});logged=true;
  const original=(await api('/v1/subscribers')).items;
  for(const s of original)baseline.set(s.id,await api('/v1/subscribers/'+s.id));
- if(process.env.V2_BROWSER_CEBECI_ACCOUNT_ONLY==='1')await checkCebeciAccountPreparation(page,ok,api,output);
+ if(process.env.V2_BROWSER_CEBECI_PACKET_ONLY==='1')await checkCebeciDecisionPacket(page,ok,api,output);
+ else if(process.env.V2_BROWSER_CEBECI_ACCOUNT_ONLY==='1')await checkCebeciAccountPreparation(page,ok,api,output);
  else if(process.env.V2_BROWSER_CEBECI_MANUAL_ONLY==='1')await checkCebeciManualFindings(page,ok,api,output);
  else if(process.env.V2_BROWSER_CEBECI_PREREQUISITES_ONLY==='1')await checkCebeciPrerequisites(page,ok,api,output);
  else if(process.env.V2_BROWSER_CEBECI_SECURITY_ONLY==='1')await checkCebeciAccessSecurity(page,ok,api,output);

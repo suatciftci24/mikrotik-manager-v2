@@ -147,3 +147,10 @@ oluşturmaz. Normal ofis WSL'de tek komut:
 ```bash
 cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_ACCOUNT_ONLY=1 ./browser-accept-demo.sh
 ```
+
+## Aşama 26 görünüm bağlantısı
+
+[Operasyonel karar paketi](CEBECI_TOWERS_DECISION_PACKET.md) bu belgedeki sekiz
+hazırlık ve yirmi alanın durumlarını aynen kaynaklarından okur, Aşama 23 matrisine
+bağlar. Hesap/kanıt modeli, policy, TLS/NO_GO veya yetki sınırı değiştirilmez.
+Referans özeti teknik doğrulama, operatör onayı veya yürütme yetkisi değildir.

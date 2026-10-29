@@ -313,3 +313,12 @@ kanıtlar için [pilot sözleşmesi](CEBECI_TOWERS_PILOT.md) esas alınır.
 - Browser BLOCKED: tek Aşama 25 çağrısı ilk loopback sandbox engelinde durdu; gerçek 320/390/1440px browser sonucu yok. Önceki kabul dalları çalıştırılmadı.
 - Canlı erişim/değişiklik veya demo/audit veri yazması yok. Uygulama/iptal/geri dönüş planı yalnız dokümandır; gerçek müdahale ayrı açık operatör onayı gerektirir.
 - Normal ofis WSL tek komut: `cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_ACCOUNT_ONLY=1 ./browser-accept-demo.sh`.
+
+## Aşama 26 — birleşik pilot karar paketi — 2026-10-29
+
+- Kullanıcı Aşama 25 için 12/12 gerçek tarayıcı PASS bildirdi; bu tarihsel yerel UI kabulü, gerçek pilot yetkisi değildir.
+- PASS: yalnız Aşama 26'nın 9 backend + 5 frontend kontrolü, TypeScript/Vite build ve browser JS syntax/diff. Sync fixture loader'ın EPERM hatası async loader ile düzeltildi; yalnız başarısız yeni frontend dosyası tekrarlandı.
+- Referansla birleştirilen 9/8/20 kaynak; eksik/manual/verified/expired/UNKNOWN ayrımı; gerçek verified=0. Kaynak/kategori/kapalı yetki uyuşmazlığı NO_GO. A/B tablosunda TLS şartı ve B için BLOCKED korunur; teknik/onay/execution ayrı.
+- Browser BLOCKED: tek yeni V2_BROWSER_CEBECI_PACKET_ONLY çağrısı ilk loopback sandbox engelinde durdu; önceki kabul paketleri çalıştırılmadı. Bu ortamda 320/390/1440px gerçek browser doğrulanmadı.
+- Veri/credential/hesap/connection/deploy mutator'ı veya demo/audit yazması yok; NO_GO / NOT CONNECTED / APPROVAL REQUIRED.
+- Normal ofis WSL tek komut: `cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_PACKET_ONLY=1 ./browser-accept-demo.sh`.

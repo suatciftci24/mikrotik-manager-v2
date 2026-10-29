@@ -118,6 +118,8 @@ def profile(user,candidate=CANDIDATE):
     access_preparation["manual_review"]=manual_review(user)
     from app.integrations.cebeci_account_preparation import prepare
     access_preparation["account_preparation"]=prepare(user)
+    from app.integrations.cebeci_decision_packet import decision_packet
+    access_preparation["decision_packet"]=decision_packet(user,access_preparation)
     at=datetime(2026,10,28,12,tzinfo=timezone.utc)
     # Deliberately incomplete synthetic rows: no real device observation or current health claim.
     fixture=Snapshot(identity=CANDIDATE,model='RB3011UiAS',version='6.49.19',observed_at=at,captured_at=at,rows={'/system/identity':[{'name':CANDIDATE}],'/system/resource':[{'board-name':'RB3011UiAS','version':'6.49.19'}],'/ppp/secret':[{'name':'synthetic-user-cebeci','service':'pppoe','profile':'fixture-profile-basic','disabled':False}]})
