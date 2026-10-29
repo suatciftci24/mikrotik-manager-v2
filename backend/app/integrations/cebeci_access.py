@@ -231,6 +231,11 @@ def prepare_offline_tls_context(user,plan:AccessPlan|None=None,*,public_ca_pem:s
     except (ValueError,AttributeError):raise ValueError('PILOT_CONTRACT_REJECTED') from None
     if any(value is None for value in (plan.reviewed_management_pin,plan.reviewed_source_cidr,plan.public_certificate_sha256)):
         raise ValueError('REVIEWED_TARGET_SOURCE_AND_PUBLIC_PIN_REQUIRED')
+    return verified_tls_context(public_ca_pem)
+
+
+def verified_tls_context(public_ca_pem):
+    """Shared strict public-CA verifier; no IO, default trust, key logs or bypass."""
     import re
     import ssl
     if not isinstance(public_ca_pem,str) or not 1<=len(public_ca_pem)<=262144:

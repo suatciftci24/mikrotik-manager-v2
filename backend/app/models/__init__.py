@@ -7,3 +7,6 @@ from app.models.subscriptions import AuthoritativeSource, Customer, SubscriberAc
 
 __all__ = ['AuditLog', 'AuthoritativeSource', 'Customer', 'PanelUser', 'Permission',
            'Role', 'Router', 'SubscriberAccount', 'SubscriberEvent', 'SubscriptionPlan', 'role_permissions']
+
+from app.models.router_registry import RegisteredRouter, RouterVerification, RouterRegistryAudit
+__all__ += ['RegisteredRouter', 'RouterVerification', 'RouterRegistryAudit']

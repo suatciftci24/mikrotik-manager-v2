@@ -217,13 +217,17 @@ class _Wire:
             except UnicodeError:raise ApiSslStop('INVALID_TEXT') from None
     def send(self,words):
         self.timeout();self.stream.sendall(b''.join(_encoded_word(word) for word in words)+b'\x00')
-    def login(self):
+    def login(self,*,credentials=None):
         # Resolve only AFTER verified TLS, SAN, pin and source checks; don't retain credentials.
         self.timeout()
-        name=_runtime_material('USERNAME',128)
-        password=_runtime_material('PASSWORD',1024)
         import re
-        if not re.fullmatch(r'v2-[A-Za-z0-9_-]{1,56}',name) or not 1<=len(password.encode('utf8'))<=1024:
+        if credentials is None:
+            name=_runtime_material('USERNAME',128)
+            password=_runtime_material('PASSWORD',1024)
+            if not re.fullmatch(r'v2-[A-Za-z0-9_-]{1,56}',name):raise ApiSslStop('DEDICATED_CREDENTIAL_REQUIRED')
+        else:
+            name,password=credentials
+        if not isinstance(name,str) or not 1<=len(name.encode('utf8'))<=128 or any(ord(c)<32 for c in name) or not isinstance(password,str) or not 1<=len(password.encode('utf8'))<=1024 or any(c in password for c in ('\x00','\r','\n')):
             raise ApiSslStop('DEDICATED_CREDENTIAL_REQUIRED')
         self.send(('/login','=name='+name,'=password='+password))
         words=self.sentence()

@@ -836,3 +836,12 @@ ve üç yeni sentetik test hesabıyla izolasyon/revocation/audit/mobil kontrolle
 çalıştırır. Eski demo yönetici ve abone/audit kayıtları değiştirilmez. Yeni test
 hesapları silinmez; kabul/cleanup sonunda pasifleştirilir. Gerçek tarayıcı sonucu
 olmadan bu senaryo PASS sayılmaz.
+
+Router Merkezi artık ADMIN için **Kayıtlı cihazlar · API-SSL** alanını ve güvenli
+router ekleme/düzenleme sihirbazını içerir. Kimlik/model/sürüm salt-okunur tek
+bağlantıda doğrulanır; ayrı onayla kayıt oluşturulur. Public CA, IP SAN ve leaf
+SHA-256 pin zorunludur. Parolalar V2'ye özel owner-only dosyalarda tutulur;
+API/audit/DB'ye credential değeri yazılmaz. Sentetik envanter korunur.
+
+Canlı onboarding varsayılan kapalıdır. Bir kez yapılan V2 şema/policy/operator
+hazırlığı, güvenlik sınırları ve hedefli kabul: [Router onboarding](docs/ROUTER_ONBOARDING.md).

@@ -163,3 +163,22 @@ input::placeholder{color:var(--muted);opacity:1}
 .cebeci-access-security{min-width:0;overflow-wrap:anywhere;border-top:1px solid var(--line);margin-top:18px;padding-top:16px}.cebeci-access-security li{padding-block:8px}.cebeci-access-security li p{margin:6px 0}.cebeci-access-security details{margin-block:12px}.cebeci-access-security .settings-policy dd{min-width:0;overflow-wrap:anywhere}@media(max-width:650px){.cebeci-access-security ul{padding-left:18px}}
 
 .cebeci-decision-table{max-width:100%;overflow-x:auto}.cebeci-decision-table table{width:100%;min-width:640px;table-layout:fixed;border-collapse:collapse}.cebeci-decision-table th,.cebeci-decision-table td{text-align:left;vertical-align:top;padding:10px;border:1px solid var(--line);overflow-wrap:anywhere}.cebeci-decision-table caption{text-align:left;padding-block:8px;font-weight:600}
+
+/* Shared Router Centre onboarding. No separate navigation surface. */
+.router-onboarding{width:min(760px,calc(100vw - 24px));max-width:760px;box-sizing:border-box}
+.onboarding-heading h2{margin:8px 0}.onboarding-heading p,.registry-security-note{color:var(--text-secondary);line-height:1.6}
+.registry-security-note{padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.onboarding-fields{border:0;padding:0;margin:18px 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;min-width:0}
+.onboarding-fields legend{font-weight:650;margin-bottom:14px}.onboarding-fields .form-label{margin:0;min-width:0}
+.onboarding-fields input,.onboarding-fields textarea,.onboarding-fields select{width:100%;box-sizing:border-box;min-width:0}
+.onboarding-fields textarea{resize:vertical;min-height:110px;font:12px/1.5 ui-monospace,monospace;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:10px}
+.onboarding-wide{grid-column:1/-1}.registry-consent{display:flex;gap:10px;align-items:flex-start;line-height:1.6;margin:18px 0;font-size:13px}.registry-consent input{flex:0 0 auto;width:17px;height:17px;margin-top:3px}
+.registry-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px;margin:14px 0}.registry-facts>div{min-width:0;padding:12px 0;border-bottom:1px solid var(--line)}.registry-facts dt{font-size:12px;color:var(--text-secondary);margin-bottom:6px}.registry-facts dd{margin:0;overflow-wrap:anywhere;font-size:14px}
+.registry-section-title{display:flex;align-items:flex-start;gap:12px;padding:20px}.registry-section-title h2{font-size:18px;margin:0 0 6px}.registry-section-title p{font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0}
+.registry-detail,.registry-message{padding:20px}.registry-detail h2{font-size:18px}.registry-source-tabs{max-width:100%;overflow-x:auto}.registry-source-tabs button{white-space:nowrap}
+.registry-status{font-size:12px;display:inline-block;border-radius:8px;padding:6px 9px;background:var(--surface-2);color:var(--text)}.registry-status.verified{background:var(--green-soft);color:var(--green)}.registry-status.check_failed{background:var(--red-soft);color:var(--red)}
+.registry-error-code{display:block;overflow-wrap:anywhere;font:11px/1.5 ui-monospace,monospace;color:var(--text-secondary);margin:8px 0}.registry-table-error{display:block;font-size:11px;max-width:280px;margin-top:8px;line-height:1.5;white-space:normal}
+.registry-history{padding-left:20px}.registry-history li{padding:10px 0}.registry-history li span{display:block;font-size:12px;margin-top:5px;color:var(--text-secondary)}
+.registry-inventory .inventory-toolbar{flex-wrap:wrap}.registry-inventory .inventory-toolbar .form-label{margin:0}.registry-inventory .table-search{flex:1;min-width:180px}
+@media(max-width:600px){.onboarding-fields,.registry-facts{grid-template-columns:minmax(0,1fr)}.router-onboarding{padding:18px;max-height:calc(100dvh - 24px)}.registry-section-title,.registry-detail,.registry-message{padding:14px}.registry-inventory .inventory-toolbar{align-items:stretch;flex-direction:column}.registry-inventory .table-search{width:100%;min-width:0;box-sizing:border-box}.registry-inventory .inventory-toolbar select{width:100%}.registry-source-tabs{flex-wrap:wrap}.registry-source-tabs button{white-space:normal}.registry-inventory .table-footer{gap:12px;flex-wrap:wrap}}
+.onboarding-fields textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}

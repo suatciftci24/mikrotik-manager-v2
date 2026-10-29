@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-from app.api.v1 import auth, dashboard, modules, routers, subscribers, router_events, mikajani, reports, alarms, users, system
+from app.api.v1 import auth, dashboard, modules, routers, subscribers, router_events, mikajani, reports, alarms, users, system, router_registry
 
 api_router = APIRouter()
-for feature in (auth.router, dashboard.router, routers.router, subscribers.router, modules.router, router_events.router, mikajani.router, reports.router, alarms.router, users.router, system.router):
+for feature in (auth.router, dashboard.router, routers.router, subscribers.router, modules.router, router_events.router, mikajani.router, reports.router, alarms.router, users.router, system.router, router_registry.router):
     api_router.include_router(feature)
