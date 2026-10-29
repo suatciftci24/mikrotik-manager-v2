@@ -254,6 +254,26 @@ class CebeciApiSslAdapter:
             self._lock.release()
 
 
+
+def _prepare_secret_directory():
+    """Explicit secret setup only: create missing V2 dirs; tighten only owned pilot dirs."""
+    try:
+        for directory in (PILOT_RUNTIME_ROOT.parent,PILOT_RUNTIME_ROOT,PILOT_RUNTIME_ROOT/'secrets'):
+            try:directory.mkdir(mode=0o700)
+            except FileExistsError:pass
+            fd=os.open(directory,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+            try:
+                info=os.fstat(fd)
+                if info.st_uid!=os.getuid():raise ApiSslStop('PILOT_SECRET_DIRECTORY_OWNER_MISMATCH')
+                # Existing .local may contain other V2 artifacts; don't chmod its permissions.
+                if directory!=PILOT_RUNTIME_ROOT.parent:os.fchmod(fd,0o700)
+            finally:os.close(fd)
+        _private_directory(PILOT_RUNTIME_ROOT)
+        _private_directory(PILOT_RUNTIME_ROOT/'secrets')
+    except ApiSslStop:raise
+    except (OSError,ValueError):raise ApiSslStop('PILOT_SECRET_DIRECTORY_REJECTED') from None
+
+
 def store_password_interactively():
     """Explicit operator-only local secret provisioning, never called by the API or startup."""
     import getpass
@@ -261,6 +281,7 @@ def store_password_interactively():
     import warnings
     if not sys.stdin.isatty():raise ApiSslStop('INTERACTIVE_TTY_REQUIRED')
     try:
+        _prepare_secret_directory()
         path=_checked_pilot_path(PILOT_RUNTIME_ROOT/'secrets'/'password')
         # Refuse to replace an existing secret or symlink; do not ask for credentials unnecessarily.
         if path.exists() or path.is_symlink():raise ApiSslStop('PILOT_SECRET_ALREADY_EXISTS')
@@ -285,4 +306,5 @@ if __name__=='__main__':
     import sys
     if sys.argv[1:]!=['--store-password']:raise SystemExit('ONLY_LOCAL_STORE_PASSWORD_SUPPORTED')
     try:print(store_password_interactively())
-    except (ApiSslStop,KeyboardInterrupt):raise SystemExit('PILOT_SECRET_NOT_STORED') from None
+    except ApiSslStop as error:raise SystemExit('PILOT_SECRET_NOT_STORED:'+str(error)) from None
+    except KeyboardInterrupt:raise SystemExit('PILOT_SECRET_NOT_STORED:CANCELLED') from None

@@ -696,3 +696,54 @@ Bu WSL runtime'ının ileride izinli 10.250.0.1 kaynaklı ayrı V2 yürütme ort
 uygulanması/yüklenmesi henüz yapılmadı; bu görev VDS deploy/service değişikliği kapsamaz.
 Gerçek TLS/IPsec/source/account davranışı canlı bağlantı yapılmadığı için doğrulanmadı.
 Demo/audit/abone/RADIUS verisine ve router ayarlarına dokunulmadı. Pilot NO_GO.
+
+## Aşama 34 — VDS secret kurulumu hatası düzeltmesi
+
+Temiz Linux/VDS checkout düzeninde mevcut `--store-password` akışındaki hata
+parola istenmeden yeniden üretildi: komut Git dışında kalan
+`app/.local/cebeci-pilot/secrets` dizinini önceden var kabul ediyordu. Aşama 32'de
+WSL'de manuel hazırlanan bu dizinler Git ile VDS'ye taşınmaz. `_checked_pilot_path`
+missing/private dizin kontrolünde duruyor, CLI ise farklı tüm nedenleri
+PILOT_SECRET_NOT_STORED mesajına indiriyordu. Bu, TTY varlığından bağımsız bir
+filesystem hazırlık kusurudur; ssh -tt tek başına çözmez. VDS'nin gerçek dosya
+durumu bu oturumda incelenmedi; başka bir koşul varsa yeni sabit reason code bunu
+secret veya path sızdırmadan ayıracaktır.
+
+Yalnız açık `--store-password` işleminde eksik V2 .local/pilot/secrets dizinleri
+0700 oluşturulur. Var olan pilot/secrets dizinleri önce owner ve symlink kontrolünden
+geçer; yalnız mevcut kullanıcıya aitse 0700'a daraltılır. Mevcut .local izinleri,
+trust/CA dosyaları ve secret içeriği değiştirilmez. Başka owner/symlink durumunda
+STOP; sudo/chown veya chmod 777 fallback yoktur. Secret yalnız yeni 0600 regular
+file olarak atomik ve overwrite olmadan yayınlanır. Parola TTY/getpass ile iki
+kez gizli alınır; echo fallback, mevcut secret üzerine yazma ve gerçek bağlantı yok.
+
+CLI artık örneğin PILOT_SECRET_NOT_STORED:INTERACTIVE_TTY_REQUIRED,
+PILOT_SECRET_DIRECTORY_OWNER_MISMATCH, PILOT_SECRET_DIRECTORY_REJECTED veya
+PILOT_SECRET_ALREADY_EXISTS sabit nedenini gösterir. Gizli değer ve dosya içeriği
+çıktıya girmez. Başarı kodu PILOT_PASSWORD_STORED_CONNECTION_DISABLED'dır.
+
+8 hedefli yerel kontrol PASS: 6 yeni temiz checkout/dizin/owner/symlink/TTY/mevcut
+secret/gizli hata regresyonu ve yalnız etkilenen 2 önceki atomik/gizli giriş kontrolü.
+Gerçek VDS/router bağlantısı, polling, V1/IPsec/RADIUS/servis/DB işlemi yapılmadı.
+Frontend/build/geniş test paketleri değişiklikle ilgisiz olduğundan tekrarlanmadı.
+
+VDS'de `mikadmin` kullanıcısının **açık etkileşimli SSH terminalinde**, mevcut Git
+V2 kurulumuna tek uygulama işlemi (V2 Python yalnız izole V2 dizinlerinden seçilir):
+
+```bash
+cd "$HOME/mikrotik-v2-pilot/app" && GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -o BatchMode=yes -o StrictHostKeyChecking=yes" git pull --ff-only && (
+  for v2_python in "$PWD/.venv/bin/python" "$PWD/venv/bin/python" "$HOME/mikrotik-v2-pilot/.venv/bin/python" "$HOME/mikrotik-v2-pilot/venv/bin/python"; do
+    if [ -x "$v2_python" ] && "$v2_python" -c 'import sys,pydantic; assert sys.version_info >= (3,10)' >/dev/null 2>&1; then
+      exec env PYTHONPATH="$PWD/backend" "$v2_python" -m app.adapters.cebeci_api_ssl --store-password
+    fi
+  done
+  printf '%s\n' 'V2_PYTHON_ENV_NOT_FOUND' >&2
+  exit 1
+)
+```
+
+Komut mevcut yerel Git değişikliği/uzak branch uyuşmazlığında zorlayarak ilerlemez.
+Python heredoc veya stdin pipe kullanmaz; bu nedenle terminal gizli girişine stdin
+bırakılır. Parolayı komuta, shell history'ye veya chat'e eklemeyin. V1 Python ortamı
+aranmaz/kullanılmaz, paket kurulmaz ve servis başlatılmaz. Git clone olmayan bir
+VDS snapshot'ında bu güncelleme adımı uygulanmış sayılmaz; komut STOP olur.
