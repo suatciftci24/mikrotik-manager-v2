@@ -531,3 +531,67 @@ SAN/kullanım alanlarını; [API](https://help.mikrotik.com/docs/spaces/ROS/page
 sertifikasız API-SSL'in anonymous DH davranışını açıklar. Güncel belgelerdeki bütün
 özellikler 6.49.19 için kanıt sayılmaz; operatör build'deki uyumu doğrulayamıyorsa
 STOP. Bu referanslar canlı uygulama sonucunun yerine geçmez.
+
+## Aşama 31 — bildirilen public pinin yerel pilot yapılandırmasına bağlanması
+
+Görev referansı `b917d78`; mevcut branch HEAD'i `9a2f624` olduğundan Aşama 30 belge
+commit'i korunarak bu HEAD üzerinden devam edildi. Kullanıcı Aşama 30'un tamamlandığını,
+sertifika doğrulamasının OK olduğunu, 8729/source kısıtını ve V1'in çalıştığını
+bildirdi. Bu, operatörün harici doğrulama bildirimidir; Codex tarafından canlı
+handshake/hesap/grup testi yapıldığı veya yeni gözlem tarihi oluştuğu anlamına gelmez.
+Önceki Aşama 30 BLOCKED kaydı o oturumun tarihsel sonucu olarak korunur.
+
+Kullanıcının verdiği **public leaf DER SHA-256**:
+
+```text
+896addde343bf45b429aa354605ee1930d91c30c024c71fe182b94243937acb6
+```
+
+Bu değer credential değildir. Mevcut adapter'da `REVIEWED_LEAF_SHA256` olarak ve
+kapalı `.env.example` profilinde yapılandırıldı. Runtime environment loader'ı pin
+verilmezse bu değeri kullanır; açıkça boş, farklı, uppercase/bozuk veya yeni bir pin
+verilirse CONFIGURATION_REJECTED ile durur. Sertifika rotasyonu ayrı inceleme ve
+bu bildirilen pin bağının güncellenmesini gerektirir; otomatik öğrenme/TOFU yoktur.
+Düşük seviyeli config nesnesinin sentetik testlerdeki kontrollü pin enjeksiyonu
+production environment loader'ını veya kapalı authorization gate'ini değiştirmez.
+
+**CA yerine pin kullanılmaz.** Ortamda public CA PEM/CRT dosyası bulunmadı; ayrıca
+bu oturuma aktarılmış `V2_CEBECI_API_SSL_CA_PEM`, USERNAME veya PASSWORD runtime
+değişkenleri yok. Yalnız var/yok kontrol edildi; credential içeriği aranmadı/yazılmadı.
+Fingerprint'ten CA/leaf sertifikası geri üretilemez. Başka CA ile sahte trust dosyası
+oluşturulmadı; gerçek public trust yüklemesi burada tamamlandı diye raporlanamaz.
+
+Public CA PEM gelecekte yalnız V2'nin korunan runtime ortamında mevcut CA_PEM
+alanına sağlanmalı. Aşama 28'in explicit CA, TLS 1.2+, CERT_REQUIRED, strict X509,
+SAN ve AEAD koşulları ile Aşama 29'un verified TLS sonrası exact IP SAN ve
+constant-time leaf DER pin kontrolü korunur. Aktif yapılandırma tek CEBECI_TOWERS /
+10.250.0.19:8729 / source 10.250.0.1 ile sınırlıdır. Timeout, deadline, STOP latch,
+no retry ve exact beş print menüsü/alanı değişmedi. read/api grubu güvenli kabul
+edilmedi; mutasyon/script/scheduler/firewall/secret/RADIUS işlemleri engelli kalır.
+
+6 yeni hedefli yerel kontrol PASS: bildirilen pin/default kapalı scope ve timeout;
+yanlış/boş pin reddi; CA olmadan aktivasyon reddi ve production auth 403; mocked
+chain/SAN/pin hatasında auth öncesi durma; write/scope ve timeout STOP; başka hedef/
+source/8728 reddi. Yalnız mevcut sentetik test yardımcıları kullanıldı; eski test
+paketi çalıştırılmadı. Mocked TLS sertifikaları gerçek sertifika değildir; bu sonuç
+bildirilen leaf'in DER/chain doğrulamasını kanıtlamaz. Frontend değişmedi; build/
+browser/regresyon tekrarı yapılmadı. V1/VDS/router/abone/RADIUS erişimi, deploy,
+restart/polling veya demo/audit yazması yok.
+
+### Gerçek bağlantı için kalan engeller
+
+1. Bu yerel çalışma ortamında **doğru public CA PEM** yok. Public trust root/zinciri
+   ve gerekirse public leaf ile mevcut strict profile uygun offline inceleme gerekir;
+   özel anahtar/parola/PSK gönderilmez veya Git'e yazılmaz.
+2. Dedicated V2 runtime username/password korunan süreç ortamından sağlanmalı;
+   mevcut V1 credential'ı okunmaz/devralınmaz. Burada değer girilmedi.
+3. Gerçek pilot bağlantısı için **ayrı açık kullanıcı onayı/yürütme yetkisi** yok.
+   DEVICE_READ backend gate'i hâlâ 403, adaptör default disabled ve canlı provider
+   kaydı yoktur. Environment enable isteği tek başına bu kapıları açmaz. Bu görev
+   bunları değiştirmez; gelecekte ayrıca incelenecek dar yürütme entegrasyonu gerekir.
+4. Gerçek hedef/source bind, canlı peer zinciri/SAN/pin, 6.49.19 TLS/cipher ve minimal
+   policy davranışı bu oturumda denenmedi. Bunların doğrulanması onaylı gelecekteki
+   kontrollü pilot kapsamında olmalı; kullanıcı Aşama 30 bildiriminden otomatik
+   canlı doğrulama/GO üretilmez.
+
+**Yerel pin/koruma hazırlığı tamamlandı; gerçek bağlantı kapalı, pilot NO_GO.**

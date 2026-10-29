@@ -16,6 +16,11 @@ from app.integrations.cebeci_access import AccessPlan,ClosedContract,ReadIntent,
 from app.integrations.cebeci_preparation import authorize,project_fixture_row
 
 
+# Public leaf DER SHA-256 reported by the operator after Stage 30, not a credential.
+# Rotation requires explicit review/update; environment may not silently select another pin.
+REVIEWED_LEAF_SHA256='896addde343bf45b429aa354605ee1930d91c30c024c71fe182b94243937acb6'
+
+
 class ApiSslStop(RuntimeError):
     """Only fixed codes, never device messages, credentials, packets or underlying exceptions."""
 
@@ -43,12 +48,14 @@ def configuration_from_environment():
     try:
         requested=os.environ.get('V2_CEBECI_API_SSL_ENABLED','false')
         if requested not in ('true','false'):raise ValueError('INVALID_ENABLE_FLAG')
+        pin=os.environ.get('V2_CEBECI_API_SSL_LEAF_SHA256',REVIEWED_LEAF_SHA256)
+        if pin!=REVIEWED_LEAF_SHA256:raise ValueError('CERTIFICATE_PIN_REVIEW_REQUIRED')
         return ApiSslConfiguration(enabled=requested=='true',
             host=os.environ.get('V2_CEBECI_API_SSL_HOST','10.250.0.19'),
             source_ip=os.environ.get('V2_CEBECI_API_SSL_SOURCE_IP','10.250.0.1'),
             port=int(os.environ.get('V2_CEBECI_API_SSL_PORT','8729')),
             public_ca_pem=os.environ.get('V2_CEBECI_API_SSL_CA_PEM',''),
-            public_leaf_sha256=os.environ.get('V2_CEBECI_API_SSL_LEAF_SHA256',''),
+            public_leaf_sha256=pin,
             connect_timeout=float(os.environ.get('V2_CEBECI_API_SSL_CONNECT_TIMEOUT','2')),
             io_timeout=float(os.environ.get('V2_CEBECI_API_SSL_IO_TIMEOUT','2')),
             total_timeout=float(os.environ.get('V2_CEBECI_API_SSL_TOTAL_TIMEOUT','10')))
