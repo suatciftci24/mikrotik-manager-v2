@@ -786,3 +786,33 @@ karşılaştırılır. Bu görevde remote metadata görülmediğinden kesin remo
 neden bilinmiyor; geniş izinli chmod/chown, parola yeniden yazma veya CA
 fallback uygulanmadı. Mevcut tek --run-once çağrısı hatayı güvenli olarak
 ayrıştırır; ön koşullar sağlanmadıysa soket açılmadan STOP kalır.
+
+### Login ret tanılaması: sınırlar ve güvenli yorum
+
+Kaynaklar: [MikroTik API](https://help.mikrotik.com/docs/spaces/ROS/pages/47579160/API),
+[MikroTik User](https://help.mikrotik.com/docs/spaces/ROS/pages/8978504/User),
+[güncel API login açıklaması](https://manual.mikrotik.com/docs/developer-guides/api/).
+Post-v6.43 login doğrudan username/password gönderir; V2 bunu yalnız doğrulanmış
+TLS üstünde kullanır. Eski MD5 challenge'a fallback veya ikinci login yoktur.
+api API erişimine, read konfigürasyon okumasına ilişkindir; bu bulgu hesap/source/
+disabled durumunu ya da ROS6 gerçek minimum yetki davranışını doğrulanmış saymaz.
+Ek write/policy/sensitive yetkileri çözüm olarak verilmez.
+
+- AUTHENTICATION_REJECTED:TRAP:CREDENTIAL_OR_ACCOUNT_POLICY:MESSAGE_CODE_6:CATEGORY_NONE:
+  Router invalid user name or password (6) bildirdi. Yanlış parola, API erişimi
+  olmayan veya erişim kısıtlı hesap ayrımı bu mesajla kesin yapılamaz.
+- AUTHENTICATION_REJECTED:TRAP:PERMISSION_DENIED:MESSAGE_CODE_9:CATEGORY_NONE:
+  Router açık not enough permissions (9) bildirdi; bu bir raporlanan izin reddidir,
+  hangi ayarın neden olduğunun canlı kanıtı değildir.
+- CATEGORY_0..7 yalnız açık =category alanından gelir; mesajın (6) son eki TTY
+  kategorisi anlamına gelmez. Bilinmeyen category UNKNOWN, eksik alan NONE'dır.
+- AUTHENTICATION_PROTOCOL_ERROR:LEGACY_CHALLENGE_UNSUPPORTED veya UNEXPECTED_REPLY:
+  desteklenen başarılı login yanıtı alınmadı. Kimlik bilgisi/protokol fallback yoktur.
+- DEVICE_READ_REJECTED:... login sonrasındaki okuma reddidir; login reddinden ayrıdır.
+- FATAL/UNCLASSIFIED güvenli kapanış nedenidir; router mesajı/log/ham paket dışarı
+  verilmez. Serbest mesajlar, kullanıcı/parola, challenge ve keyfi hata kodları basılmaz.
+
+Yeni tanılama geçmiş generic hatanın gerçek nedenini geriye dönük çözemez.
+Operatör yalnız mevcut VDS V2 kodunu ff-only güncelleyip --run-once'ı bir kez
+çalıştırır; sadece sabit STOP kodu paylaşılır. Tekrarlı giriş/parola yenileme veya
+router konfigürasyon değişikliği bu geliştirmede yapılmaz.

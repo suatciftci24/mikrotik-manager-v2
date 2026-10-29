@@ -146,6 +146,38 @@ def _encoded_word(word):
     return prefix+data
 
 
+def _rejection_code(words,phase):
+    """Classify bounded replies without exporting router messages or arbitrary codes.
+
+    An invalid-credentials message also covers account/API access restrictions;
+    its parenthesized number is NOT the API trap category.
+    """
+    if not words or words[0] not in ('!trap','!fatal'):
+        return phase+'_PROTOCOL_ERROR:UNEXPECTED_REPLY'
+    kind='TRAP' if words[0]=='!trap' else 'FATAL'
+    fields={}
+    for word in words[1:]:
+        parts=word.split('=',2)
+        if len(parts)!=3 or parts[0] or parts[1] not in ('message','category') or parts[1] in fields:
+            # !fatal may carry a bare reason: never echo or guess its meaning.
+            return phase+'_REJECTED:'+kind+':UNCLASSIFIED'
+        fields[parts[1]]=parts[2]
+    message=fields.get('message','').strip().lower()
+    reasons={
+        'invalid user name or password':'CREDENTIAL_OR_ACCOUNT_POLICY',
+        'invalid user name or password (6)':'CREDENTIAL_OR_ACCOUNT_POLICY:MESSAGE_CODE_6',
+        'not enough permissions':'PERMISSION_DENIED',
+        'not enough permissions (9)':'PERMISSION_DENIED:MESSAGE_CODE_9',
+        'permission denied':'PERMISSION_DENIED',
+        'cannot log in':'ACCOUNT_ACCESS_REJECTED',
+        'cannot log in (9)':'ACCOUNT_ACCESS_REJECTED:MESSAGE_CODE_9',
+    }
+    reason=reasons.get(message,'UNCLASSIFIED')
+    category=fields.get('category')
+    safe_category=category if category in tuple(str(n) for n in range(8)) else ('NONE' if category is None else 'UNKNOWN')
+    return phase+'_REJECTED:'+kind+':'+reason+':CATEGORY_'+safe_category
+
+
 class _Wire:
     """RouterOS framing, exact print queries only. Shared total budget across auth and reads."""
     def __init__(self,stream,deadline,io_timeout):
@@ -194,13 +226,18 @@ class _Wire:
         if not re.fullmatch(r'v2-[A-Za-z0-9_-]{1,56}',name) or not 1<=len(password.encode('utf8'))<=1024:
             raise ApiSslStop('DEDICATED_CREDENTIAL_REQUIRED')
         self.send(('/login','=name='+name,'=password='+password))
-        if self.sentence()!=['!done']:raise ApiSslStop('AUTHENTICATION_REJECTED')
+        words=self.sentence()
+        if words==['!done']:return
+        if words and words[0]=='!done' and any(word.startswith('=ret=') for word in words[1:]):
+            raise ApiSslStop('AUTHENTICATION_PROTOCOL_ERROR:LEGACY_CHALLENGE_UNSUPPORTED')
+        raise ApiSslStop(_rejection_code(words,'AUTHENTICATION'))
     def read(self,intent):
         self.send((intent.menu+'/print','=.proplist='+','.join(intent.properties)))
         rows=[]
         while True:
             words=self.sentence()
             if words==['!done']:return tuple(rows)
+            if words and words[0] in ('!trap','!fatal'):raise ApiSslStop(_rejection_code(words,'DEVICE_READ'))
             if not words or words[0]!='!re':raise ApiSslStop('DEVICE_REPLY_REJECTED')
             row={}
             for word in words[1:]:
