@@ -426,3 +426,108 @@ Teknik uygulama referansları:
 [RouterOS API framing/login/proplist](https://help.mikrotik.com/docs/spaces/ROS/pages/47579160/API),
 [Python SSL client chain/hostname doğrulaması](https://docs.python.org/3.12/library/ssl.html).
 Bunlar gerçek cihazın mevcut sertifikası/yetki davranışı kanıtı değildir.
+
+## Aşama 30 — canlı hazırlık onayı ve uygulanmamış operatör işi
+
+Başlangıç `b917d78`. Kullanıcı yalnız CEBECI_TOWERS üzerinde API-SSL sertifika
+kurulumu, 8729'un doğrulanmış 10.250.0.1/32 kaynağına kısıtlı açılması ve mevcut
+ayrı V2 hesabının uygunluğu doğrulanarak etkinleştirilmesini onayladı. Bu dar onay,
+Aşama 28–29'un bu üç hazırlık değişikliğine ilişkin önceki sınırını günceller;
+**V2 gerçek bağlantısı, API login/polling/veri toplama henüz onaylı değildir.**
+V1/webpanel/API8728/IPsec veya başka router/üretim servisi değişikliği kapsam dışıdır.
+
+### Gerçek uygulama sonucu: BLOCKED / UYGULANMADI
+
+Bu oturumda CEBECI_TOWERS için doğrulanmış güvenli yönetim oturumu/credential
+sağlanmadı. Kullanılabilir araçlarda router yönetim oturumu yok; repo transport'u
+ise salt okunur ve mevcut DEVICE_READ yetkisi kapalıdır. Bu durum bir router
+bağlantı testi sonucu değildir: router/VDS/V1'e bağlanma, ping/port keşfi veya V2
+adapter çağrısı denenmedi. V1 credential/SSH anahtarı aranmadı veya kullanılmadı.
+
+| Başlık | Son kullanıcı bildirimi | Bu görevde uygulama/doğrulama |
+| --- | --- | --- |
+| Kimlik/sürüm | CEBECI_TOWERS / RB3011UiAS / 6.49.19 | Canlı doğrulanmadı |
+| Sertifika | Cihazda sertifika yok | Oluşturulmadı/yüklenmedi; güncel durum doğrulanmadı |
+| API-SSL 8729 | Kapalı | Açılmadı/bağlanmadı; güncel durum doğrulanmadı |
+| Ayrı V2 hesabı | Disabled; read/api aday grubu, 10.250.0.1/32 | Policy/source sorgulanmadı, etkinleştirilmedi |
+| V1/webpanel/API8728/IPsec | Çalışan mevcut erişim | Müdahale edilmedi; kesintisiz çalışması uzaktan doğrulanamadı |
+| V2 gerçek bağlantısı | Onaysız / NO_GO | Başlatılmadı, env-enable veya execution gate değiştirilmedi |
+
+Canlı başarı iddiası veya yeni gözlem zamanı üretilmedi. Kod uyumluluk düzeltmesi
+saptanmadığından kod/env/ekran/matris değiştirilmedi; yeni veya eski test/build/
+browser aşaması çalıştırılmadı. Yalnız belge ve ilerleme kaydı güncellendi.
+
+### Tek güvenli operatör işlemi
+
+**Yetkili operatör, yalnız CEBECI_TOWERS'ın kimliği doğrulanmış güvenli yönetim
+konsolunda aşağıdaki API-SSL hazırlık işini tek kontrollü işlem olarak uygulasın;
+V2 uygulamasını veya gerçek V2 API istemcisini başlatmasın.** Credential, parola,
+PSK veya private key Codex'e, Git'e ya da VDS servis dosyasına aktarılmasın.
+
+1. Değişiklikten önce hedef identity/model/6.49.19'u doğrula. Mevcut güvenli yönetim
+   ve V1 oturumunun çalıştığını, API 8728/webpanel/IPsec durumunu ve 8729/ayrı V2
+   hesabının önceki ayarlarını gizli olmayan baseline olarak kaydet. Kurtarma
+   sorumlusu ve güvenli yerel erişim yolu hazır değilse STOP; global backup export,
+   V1 ayar geri yüklemesi veya restart yapma.
+2. **Hiçbir şeyi değiştirmeden** mevcut `v2-cebeci-ro` hesabının yalnız
+   `v2-cebeci-pilot-ro` özel grubunda, grubun exact read,api aday setinde ve hesabın
+   address alanının exact 10.250.0.1/32 olduğunu doğrula. Ek/eksik policy, geniş/boş
+   source veya belirsizlikte STOP; grubu, başka hesabı veya parolayı düzeltmeye
+   çalışma. read,api davranışı ayrıca lab kanıtı olmadan güvenli kabul edilmez.
+3. Cihaza özel yeni sunucu private key'i **cihazın güvenli anahtar alanında** tutan,
+   daha önce incelenmiş 6.49.19 uyumlu PKI yöntemini kullan. Gerekirse yalnız public
+   CSR/certificate/CA verisiyle imzalama sürecini tamamla; private key'i dışarı
+   aktaran yöntemi kullanma. Hedef IP SAN **10.250.0.19**, uygun server-auth kullanım,
+   geçerli zaman aralığı, CA basicConstraints/keyCertSign ve eksiksiz incelenmiş
+   zincir gerekir. SHA-256 ve uygun güçlü anahtar/TLS istemci uyumu önceden
+   incelenmeli; desteklenmeyen GUI/PKI/extension durumunda tahmin ederek ilerleme.
+   Yalnız bu iş için yeni isimli sertifika nesneleri kullanılmalı; isim çakışmasında
+   mevcut sertifika/servise dokunmadan STOP. Sadece public leaf/CA üzerinden offline
+   zincir ve IP SAN incelemesini ve leaf DER SHA-256 pinini doğrula; CN veya pin tek
+   başına zincir/SAN yerine geçmez. Public fingerprint sır değildir; private key/
+   parola/PKCS12/raw sensitive export veya secret hash alınmaz.
+4. Sertifika/anahtar eşleşmesi ve public inceleme başarılıysa **yalnız api-ssl**
+   servisinde sertifikayı bağla, portu 8729 ve address listesini exact
+   10.250.0.1/32 yap. Gerçek 6.49.19 oturumunda desteklendiği doğrulanmış TLS 1.2
+   kısıtını kullan; anonymous/certificate=none veya eski protokol/verification bypass
+   ile açma. Gerekli uyumluluk doğrulanamıyorsa STOP. **api (8728)** servisine,
+   firewall/IPsec veya V1/webpanel ayarlarına dokunma. Service address sınırı network
+   firewall drop değildir; mevcut yol/kural incelemesi gerekli güvenceyi vermiyorsa
+   bu görev adına firewall kuralı eklemek yerine STOP. Sertifikasız aralık bırakmadan
+   api-ssl'i ancak bu kısıtlar yerinde olduğunda etkinleştir.
+5. Grup/source ön kontrolü hâlâ uygunsa yalnız mevcut `v2-cebeci-ro` hesabını
+   etkinleştir. Başka hesabı/grubu/parolayı değiştirme. Güvenli yönetim konsolundan
+   sertifika bağlamasını, 8729/source/TLS ve hesabın enabled/policy/source durumunu
+   yeniden oku; mevcut V1/webpanel/API8728/IPsec baseline'ının değişmediğini ve
+   mevcut V1 oturumunun kesilmediğini kontrol et. V2 ile API login veya metadata
+   okuma yapma; V2 env-enable/grant verme, polling başlatma. Sadece gizli olmayan
+   önce/sonra sonuçları, public sertifika/pin inceleme sonucu, gerçek UTC/ofset zaman
+   ve sorumlu rolünü kaydet. Bunlar V2 uçtan uca bağlantı başarısı sayılmaz.
+
+Bu akış **burada çalıştırılmadı** ve sertifika/API-SSL/hesap başarısı olarak raporlanamaz.
+Yeni gerçek V2 bağlantısı için ayrıca açık kullanıcı onayı gerekir; uygulama NO_GO kalır.
+
+### STOP ve sınırlı geri dönüş
+
+Yanlış kimlik/build, uygun olmayan read/api/source, güvenilmez zincir/SAN/pin/TLS,
+erişim kaybı veya herhangi bir V1 etkisinde ilk hatada dur; alternatif router/hesap/
+port deneme, policy artırma veya V1 restart yapma. Kullanıcının geri dönüş sınırı
+yalnız **bu aşamada oluşturulan yeni nesnelerdir**. Mevcut V1 kullanıcısı, API8728,
+IPsec politikası veya firewall silinemez/geri alınamaz. Önceden var olan API-SSL
+servisi veya V2 hesabı için kapsam dışı otomatik geri dönüş varsayma; böyle bir
+müdahale gerekecekse sorumlu operatör kapsamı netleştirmeden sonraki adıma geçmesin.
+
+Yeni sertifika nesnesi ancak bu aşamada oluşturulduğu ve **hiçbir etkin servis
+veya başka sertifika tarafından kullanılmadığı** kesinleşirse kaldırılabilir.
+Etkin 8729'a bağlı sertifikayı silerek certificate=none/anonymous TLS durumu
+oluşturma. Güvenli geri dönüş yalnız yeni nesne sınırında sağlanamıyorsa STOP ve
+kurtarma sorumlusuna eskalasyon; toplu restore, mevcut servis/grup/hesap temizliği
+veya otomatik yeniden deneme yoktur. Audit/baseline/aboneler korunur.
+
+Teknik dayanaklar: [Services](https://help.mikrotik.com/docs/spaces/ROS/pages/103841820/Services)
+address/certificate/tls-version servis özelliklerini ve address kısıtının firewall
+olmadığını; [Certificates](https://help.mikrotik.com/docs/spaces/ROS/pages/2555969/Certificates)
+SAN/kullanım alanlarını; [API](https://help.mikrotik.com/docs/spaces/ROS/pages/47579160/API)
+sertifikasız API-SSL'in anonymous DH davranışını açıklar. Güncel belgelerdeki bütün
+özellikler 6.49.19 için kanıt sayılmaz; operatör build'deki uyumu doğrulayamıyorsa
+STOP. Bu referanslar canlı uygulama sonucunun yerine geçmez.
