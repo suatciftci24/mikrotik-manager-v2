@@ -306,3 +306,128 @@ UI'da mutator olmaması, sayfa write isteği olmaması, profil/envanter/admin/ay
 ve bütün eski abone/audit baseline eşitliği denetlenir. Seed/fixture/account yazması
 yoktur. Gerçek browser çalışmazsa sonuç BLOCKED; birim test/build/sentetik proof
 browser veya gerçek pilot PASS değildir.
+
+## Aşama 23 — gerçek pilot ön koşulları ve kanıt matrisi
+
+Başlangıç `93b9501`. Kullanıcı Aşama 22 için **13/13 BROWSER PASS** bildirdi;
+bu yalnız yerel plan/UI kabulüdür, gerçek CEBECI erişimi/TLS/yetki kanıtı değildir.
+Bu aşama üretim cihazında hiçbir komut, ping, handshake, API sorgusu, hesap/servis/
+firewall/IPsec değişikliği veya veri toplama yapmaz. Aşağıdaki süreler **inceleme
+politikası üst sınırıdır**, RouterOS ürün garantisi değildir.
+
+### Kanıt matrisi
+
+| Başlık | Kabul edilebilir kanıt türü / doğrulama yöntemi | En fazla geçerlilik | Sorumlu rol | STOP |
+| --- | --- | --- | --- | --- |
+| IDENTITY | Ayrı envanter kaydı ve tam build lab raporu; identity/model/RouterOS eşleşmesini iki kayıt üzerinden karşılaştır | 5 dakika | NETWORK_OWNER | Kimlik/model/build farklı, eksik veya çelişkili |
+| ADDRESS | Güncel yönetim hedefi, NAT sonrası cihazın gördüğü merkezi kaynak /32 ve yol incelemesi; iki sorumlu eşleştirir | 5 dakika | NETWORK_OWNER | Hedef/kaynak/yol belirsiz veya farklı |
+| ISOLATION | Maskeli IPsec yönetim topolojisi ve V1 etki/baseline inceleme özeti; ayrı V2 yetki/kaynak sınırını incele | 5 dakika | ISOLATION_OWNER | V1 etkisi/ortak credential/belirsiz izolasyon |
+| CERTIFICATE | Public SHA-256 fingerprint, CA zinciri/SAN-IP/zaman/kullanım/iptal inceleme sonucu ve tam ROS6 build TLS lab raporu | 5 dakika; ayrıca sertifika süresi üst sınır | SECURITY_REVIEWER | TLS/zincir/isim/pin uyuşmazlığı veya kanıtlanmamış uyumluluk |
+| PRIVILEGE | Ayrı hesap/policy tasarım ve tam build lab negatif test özeti; read,api/dosya/yan etki sınırlarını incele | 24 saat; politika/build değişirse hemen geçersiz | SECURITY_REVIEWER | Ek policy, ortak hesap veya lab kanıtı eksik |
+| READ_SCOPE | Aşama 22 exact beş menü/alan/print sözleşmesi revision hash ve lab kapsamı | 24 saat; kapsam/build değişirse hemen geçersiz | SECURITY_REVIEWER | Ek kaynak/alan, write/getall/listen gereksinimi |
+| SECRET_PROTECTION | Redaction/retention ve ayrı credential yönetimi tasarım sonucu; raw yanıt depolanmadığını incele | 24 saat | SECURITY_REVIEWER | Parola/PSK/private key/SA talebi veya sızıntı |
+| AUDIT | UTC-aware kaynak zamanı, redacted inceleme kaydı ve korunmuş baseline hash özeti | 5 dakika | AUDIT_OWNER | Eksik audit, gelecek/stale/çelişkili zaman veya veri |
+| STOP | Sorumlu rol, süre bütçesi, durdurma ve ayrıca onay gerektiren erişim iptal runbook incelemesi | 24 saat | INCIDENT_OWNER | Sorumlu/bütçe/iptal prosedürü eksik |
+
+API matrisi aynı sabit politika satırlarından üretilir. Her satır kanıt türü, yöntem,
+süre, sorumlu rol, STOP ve mevcut MISSING/INVALID/STALE/CONFLICT/BLOCKED gerekçesini
+gösterir. Güncel kanıt yok: default dokuz satır **MISSING**, zamanlar UNKNOWN.
+**Geçmiş 10.250.0.19 adresi güncel hedef veya erişim kanıtı değildir.** Eski IPsec
+merkez adresi de güncel/NAT sonrası izinli kaynak değildir. Gerçek adreslerin
+atanması bu aşamada yapılmaz; eski AccessPlan null varsayılanları korunur.
+
+Her ilgili değişiklik, süre dolmasa bile kanıtı geçersizleştirir. İnceleme kaydı
+Stage 22 politika/config/offline kanıt paketinin SHA-256 özetiyle bağlıdır; farklı
+paket CONFLICT olur. Genel değişikliklerin (yol/topoloji/build/policy/CA/audit-owner)
+takibi gelecekte yetkili sorumlunun görevidir; bu kod otomatik değişiklik izleme
+veya gerçek kanıt doğrulayıcı değildir. Tüm Stage 22 güvenlik kapılarının geçerliliği
+ayrıca zorunludur; dolayısıyla 24 saatlik lab raporu tek başına 5 dakikalık güncel
+kaynak kapısını karşılamaz. Sertifika süresi/iptal incelemesi boolean attestation'dır,
+otomatik PKI doğrulaması değildir; eksikse NO_GO.
+
+### İleride yetkili operatörün salt okunur doğrulama prosedürü
+
+Bu runbook **şimdi çalıştırılmayacak**, hiçbir üretim komutu içermeyen inceleme
+planıdır. V1 veya CEBECI'de mevcut kayıtlara bakmak dahi bu görevde yapılmaz.
+
+1. Önce ayrı kapsam ve kanıt toplama yetkisini belgele; onaylı mevcut offline
+   envanter/topoloji/public metadata/lab raporlarını kullan. Henüz onaylanmamış
+   gerçek cihaz sorgusuyla eksik kanıtı tamamlamaya çalışma. Harici kanıtı yoksa UNKNOWN.
+2. Envanterdeki identity/model/tam RouterOS sürümünü bağımsız kayıtla eşleştir.
+   Zamanı ve inceleyen rolü kaydet; eski planı mevcut cihaz durumu diye işaretleme.
+3. Yetkili ağ sorumluları yönetim hedefini, cihazın göreceği NAT sonrası /32'yi,
+   IPsec yönetim yolunu ve V1 izolasyonunu mevcut onaylı diyagram/baseline üzerinde
+   incelesin. SA/PSK/config export alma; V1 sorgulama, tunnel açma veya trafik üretme.
+   Yol/hesap/firewall değişikliği gerekirse bu inceleme STOP; ayrı değişiklik onayı gerekir.
+4. Güvenlik sorumlusu public sertifika metadata'sının CA/zincir/SAN-IP/validity/
+   kullanım/iptal inceleme sonucunu ve lab TLS 1.2+ raporunu karşılaştırsın. API-SSL
+   adı/portu güvenlik kanıtı değildir. Hostname/chain kontrolü kapatılamaz; anonymous
+   DH/plain API/legacy cipher fallback yok. Gerçek handshake bu fazda yapılmaz.
+5. Tam aynı RouterOS 6 build için önceden hazırlanmış izole lab negatif test
+   raporunu incele: ayrı özel read,api aday hesabının geniş read/dosya etkileri,
+   ek alan dönüşü ve yalnız izinli metadata'nın alınabilirliği. Güncel resmi
+   doküman eski build'in davranışını kanıtlamaz. Ek yetki gerekiyorsa artırma: STOP.
+   Gerçek hesap adı/parola veya credential reference bu repoya verilmez.
+6. Beş exact metadata menü/alan listesini karşılaştır. PPP secret, authentication
+   name, IPsec SA/peer, user/certificate/file/export/firewall/NAT/script ve bütün
+   mutasyonlar dışarıda kalır. Alan filtreleme tek başına sır koruma garantisi değil;
+   beklenmeyen alanın redacted STOP sonucu gerekir. Üretimde negatif write testi yapma.
+7. Kaynak zamanı UTC-aware, gelecekte değil ve 5 dakika içinde olsun. Aynı başlıkta
+   iki kayıt varsa sonuncuyu seçme: CONFLICT. Süre/rol/paket binding'ini kontrol et.
+   Veri kaynağı veya kanıt belirsizse boş başarı yerine NO_GO raporla.
+8. İki bağımsız sorumlunun incelemesi ve STOP timebox/irtibat/iptal runbook'u masa
+   başında doğrulansın. V2 okuyucu açılmışsa gelecekte ilk STOP'ta sadece o okuyucu
+   durdurulmalı; retry/alternatif hesap/port/yol denenmemeli. Hesap/servis/firewall
+   iptali canlı değişikliktir, ayrı açık yetkili operatör onayı ve sorumlusu olmadan
+   yapılmaz. V1, aboneler ve audit geçmişi geri alınmaz/silinmez.
+
+### Maskeleme, sorumluluk ve kanıt kaydı sınırı
+
+- Parola, PSK, özel anahtar, cookie/token, raw export/cevap, canlı SA bilgisi veya
+  private certificate dosyası **istenmez/alınmaz/saklanmaz**. Bunların ekran görüntüsü
+  veya hash'i de kanıt diye alınmaz. Gizli veri görülürse kopyalamadan STOP ve yalnız
+  sabit olay koduyla sorumluya bildirim prosedürü uygulanır; otomatik bildirim yoktur.
+- Yerel public/offline raporu paylaşmadan önce hesap/abone isimleri, seri numarası,
+  MAC, kullanıcı bilgisi, diğer router IP/rotaları ve ilgisiz altyapı bilgileri çıkarılır.
+  Topolojiye rol etiketleri verilir; kaynak/hedef eşleşmesi yetkili sorumlu tarafından
+  yerinde incelenir, uygulamaya raw topoloji aktarılmaz. Public sertifika metadata'sı
+  da gereksiz SAN/organizasyon alanları ayıklanarak inceleme özeti haline getirilir.
+- `EvidenceReceipt` sadece dokuz sabit başlık, sonuç kodu, izinli reviewer rolü,
+  maskelenmiş **gizli olmayan raporun** hash'i, politika paketi hash'i, zaman aralığı
+  ve SYNTHETIC_FIXTURE/OFFLINE_UNVERIFIED kaynağı içerir. Hash rapor içeriğinin
+  doğruluğu veya imza/kimlik doğrulaması değildir. Rol adı da sorumlu kişinin gerçekten
+  inceleme yaptığına ilişkin kanıt değildir. Kişi ataması ayrıca yönetilen dış süreçte
+  yapılmalı; mevcut sorumlular henüz atanmış sayılmaz.
+- Bu aşama receipt alım/yükleme/düzenleme API'si, onay deposu veya persistent audit
+  yazması eklemez. Typed receipt sadece offline domain testlerinde kullanılır; ADMIN
+  GET varsayılan eksik matrisi üretir. Yeni sır depolama veya gerçek collector yoktur.
+
+### Teknik uygunluk, operatör kararı ve yürütme yetkisi
+
+1. `technical_suitability`: NOT_VERIFIED veya yalnız OFFLINE_REVIEW_READY. Her receipt
+   ve bağlı Stage 22 kapısı geçerli olmadan hazır olmaz. Yanlış kimlik, TLS mismatch,
+   geniş policy veya V1 riski BLOCKED; değişen paket/çift kanıt CONFLICT; eksik MISSING;
+   yanlış rol/zaman INVALID; süresi geçmiş STALE. Hepsi fail-closed NO_GO.
+2. `operator_approval`: NOT_RECORDED. Teknik uygunluk insan onayı değildir; bu aşama
+   onay almaz/vermez/saklamaz. Sentetik/offline PASS gerçek güvenlik doğrulaması değil.
+3. `execution_authority`: DENIED. `decision=NO_GO`, `automatic_go=false`,
+   `connection_allowed=false`; NOT CONNECTED / APPROVAL REQUIRED korunur.
+
+Gelecekte insan tarafından GO değerlendirilebilmesi için **birlikte** gerekenler:
+güncel bağımsız doğrulanmış bütün teknik kanıtlar, tam build lab uyumu, gizlilik ve
+V1 izolasyonu, atanmış sorumlular ve süre/bütçe/STOP/iptal planı, aynı aday/kapsam/
+paket/süreye bağlı ayrı açık kullanıcı pilot onayı ve ayrıca gözden geçirilmiş dar
+execution capability/yetki sınırı. Bu şartların listelenmesi GO veya execution
+vermez. Mevcut dispatcher adapter'a dokunmadan 403 vermeye devam eder. Bu fazda GO
+üreten yol, bağlantı/başlat/test/credential/deploy butonu veya endpoint yoktur.
+
+### Aşama 23 kabulü
+
+Yalnız yeni salt okunur Playwright kapsamı; önceki aşamaların kabulünü çalıştırmaz.
+Dokuz kanıt/TTL/sorumlu/STOP, karar ayrımı, kapalı kontroller ve 320/390/1440px,
+reload ve yönetim/abone/audit baseline eşitliğini denetler. Seed veya fixture yazmaz.
+Normal **ofis WSL** terminalinde tek komut:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_PREREQUISITES_ONLY=1 ./browser-accept-demo.sh
+```

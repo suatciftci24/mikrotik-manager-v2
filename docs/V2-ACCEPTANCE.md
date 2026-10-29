@@ -287,3 +287,11 @@ cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_SECURITY_ONLY=1 ./b
 
 Gerçek pilot onayı/cihaz bağlantısı kapsam dışıdır. Güvenlik koşulları ve eksik
 kanıtlar için [pilot sözleşmesi](CEBECI_TOWERS_PILOT.md) esas alınır.
+
+## Aşama 23 — ön koşul matrisi — 2026-10-29
+
+- Aşama 22: kullanıcı normal WSL için 13/13 BROWSER PASS bildirdi; tarihsel UI kabulü, gerçek pilot güvenliği kanıtı değildir.
+- PASS: 7 yeni backend + aynı hedefli yüklemede 17 etkilenen Stage 22 testi; 3 yeni frontend matris + 4 etkilenen güvenlik render kontrolü; TypeScript/Vite build, JS syntax ve diff kontrolü.
+- NO_GO: dokuz kanıt varsayılan MISSING; receipt validasyonunda eksik/duplicate/uyuşmazlık/stale/yanlış rol/paket değişimi ve identity/TLS/policy/V1 kapıları kapalıdır. Teknik uygunluk/operatör onayı/yürütme ayrı; otomatik GO ve execution yok.
+- Aşama 23 Browser BLOCKED: tek yeni salt okunur senaryo çağrısı ilk loopback sandbox engelinde durdu; eski browser kabulü çalıştırılmadı. 320/390/1440px gerçek browser sonucu henüz yok. Mevcut abone/audit verisine yazılmadı.
+- Normal ofis WSL tek komut: `cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_PREREQUISITES_ONLY=1 ./browser-accept-demo.sh`.

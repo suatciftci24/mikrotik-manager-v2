@@ -112,6 +112,8 @@ def profile(user,candidate=CANDIDATE):
     authorize(user,candidate)
     from app.integrations.cebeci_access import assess
     access_preparation=assess(user)
+    from app.integrations.cebeci_prerequisites import review
+    access_preparation["prerequisites"]=review(user)
     at=datetime(2026,10,28,12,tzinfo=timezone.utc)
     # Deliberately incomplete synthetic rows: no real device observation or current health claim.
     fixture=Snapshot(identity=CANDIDATE,model='RB3011UiAS',version='6.49.19',observed_at=at,captured_at=at,rows={'/system/identity':[{'name':CANDIDATE}],'/system/resource':[{'board-name':'RB3011UiAS','version':'6.49.19'}],'/ppp/secret':[{'name':'synthetic-user-cebeci','service':'pppoe','profile':'fixture-profile-basic','disabled':False}]})
