@@ -304,3 +304,12 @@ kanıtlar için [pilot sözleşmesi](CEBECI_TOWERS_PILOT.md) esas alınır.
 - Aşama 24 Browser BLOCKED: tek yeni salt okunur kabul çağrısı ilk loopback sandbox engelinde durdu. Önceki browser senaryoları çalıştırılmadı; 320/390/1440px sonucu bu ortamda doğrulanmadı.
 - Gerçek router/V1 erişimi veya veri yazması yok; mevcut demo aboneleri/audit korunur. Plan doküman, NO_GO / NOT CONNECTED / APPROVAL REQUIRED; yeni execution/credential/onay endpoint'i yok.
 - Normal ofis WSL tek komut: `cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_MANUAL_ONLY=1 ./browser-accept-demo.sh`.
+
+## Aşama 25 — hesap ve bağlantı hazırlığı — 2026-10-29
+
+- Aşama 24: kullanıcı 13/13 BROWSER PASS bildirdi; tarihsel yerel kabul, gerçek erişim onayı değildir.
+- PASS: yalnız Aşama 25'in 9 backend ve 5 frontend kontrolü, TypeScript/Vite build, browser JS syntax/diff. Son packet hash değişikliği yalnız ilgili conflict kontrolüyle doğrulandı; eski aşama paketleri tekrarlanmadı.
+- Sekiz durum/yirmi bağımsız kanıt; exact read,api aday sözleşmesi ve forbidden policy/credential alan reddi. Manuel PASS UNVERIFIED; tüm sentetik kanıtlar bile NO_GO / NOT_RECORDED / DENIED. API 8728 B seçeneği mevcut TLS sözleşmesinde BLOCKED, A ayrıca doğrulama/onay bekler. Hesap oluşturma/bağlantı false.
+- Browser BLOCKED: tek Aşama 25 çağrısı ilk loopback sandbox engelinde durdu; gerçek 320/390/1440px browser sonucu yok. Önceki kabul dalları çalıştırılmadı.
+- Canlı erişim/değişiklik veya demo/audit veri yazması yok. Uygulama/iptal/geri dönüş planı yalnız dokümandır; gerçek müdahale ayrı açık operatör onayı gerektirir.
+- Normal ofis WSL tek komut: `cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_ACCOUNT_ONLY=1 ./browser-accept-demo.sh`.

@@ -573,3 +573,12 @@ kontrol edilir. Yeni hesap/fixture/veri oluşturulmaz. Normal ofis WSL tek komut
 ```bash
 cd ~/Codex-Projects/mikrotik-manager-v2 && V2_BROWSER_CEBECI_MANUAL_ONLY=1 ./browser-accept-demo.sh
 ```
+
+## Aşama 25 — ayrı servis hesabı ve bağlantı hazırlığı
+
+Kullanıcı Aşama 24 için 13/13 BROWSER PASS bildirdi; tarihsel yerel kabul,
+gerçek bağlantı/uygunluk onayı değildir. Yeni [hesap hazırlık sözleşmesi](CEBECI_TOWERS_ACCOUNT_PREPARATION.md)
+exact read,api adayını, yirmi bağımsız kanıt alanını ve sekiz ADMIN durumunu tanımlar.
+Mevcut Aşama 22–24 modülleri korunur: manuel raporlar doğrulanmış kanıt yapılmaz,
+API/8728 mevcut TLS kontratında kapalıdır, ayrı hesap oluşturulmadı ve gerçek
+onay kaydedilmedi. NO_GO / NOT CONNECTED / APPROVAL REQUIRED devam eder.
