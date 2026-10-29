@@ -140,3 +140,29 @@ Paylaşımlı credential deposu, profil DB migration'ı veya pilot dosyası impo
 oluşturulmadı. Mevcut backend'in pilotla ortak katı TLS doğrulayıcısı korunur.
 
 Hedefli test: `node frontend/tests/routerOnboardingPreview.test.mjs`.
+
+## İzole yerel PostgreSQL hazırlığı ve kabulü
+
+Normal ev WSL terminalinde repo kökünden `./accept-router-postgres.sh` kullanılır.
+Komut önce loopback iznini ve V2 hedefini kontrol eder; yalnız repo sahibi PG16
+kümesini `dev-db.sh` ile hazırlar. Canlı onboarding flag'i açılmaz, router erişimi
+veya credential değişikliği yapılmaz.
+
+`app.local_router_registry --apply` yalnız loopback:55432 / mikrotik_manager_v2 /
+v2_local ve repo altındaki data_directory ile, mevcut sentetik V2 marker'ı ve
+izinleri doğrulandıktan sonra 006 SQL migration'ını transaction içinde uygular.
+Üç tablonun hiçbiri yoksa oluşturulur. Üçü de varsa sütun/tip/null/primary key,
+indeks, endpoint unique ve güvenli port CHECK doğrulanır. Kısmi veya farklı şema
+otomatik düzeltilmez; transaction geri alınır. Demo abone/event/request digest'i
+değişmemelidir. Başlangıçta veya normal HTTP isteğinde migration yoktur.
+
+Ardından `V2_RUN_REGISTRY_PG_TESTS=1` ile 14 hedefli gerçek PostgreSQL transaction
+testi çalışır. Her test ayrı `v2_registry_test_<UUID>` şemasında aynı SQL migration'ı
+kullanır; yalnız kendi test şemasını temizler. Ekleme, yeniden okuma, düzenleme,
+detay, arama/filtre/sayfalama, duplicate/revision, idempotency, audit/rollback ve
+kapalı policy kontrolleri yapılır. Public registry ve demo kayıtlarına test verisi
+eklenmez. Testlerde cihaz/TLS yanıtları sentetiktir; ağ adaptörü çağrılmaz ve
+bunlar canlı cihaz/TLS kabulü sayılmaz. Gerçek API'de silme endpoint'i yoktur;
+bu kabul yeni bir silme yetkisi veya güvenlik atlatma modu eklemez.
+
+Soket engelinde komut ilk kontrolde durur; başarılı PostgreSQL kabulü raporlanmaz.
