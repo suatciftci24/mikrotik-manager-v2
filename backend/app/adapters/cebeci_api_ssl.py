@@ -6,6 +6,8 @@ Only mocked tests exercise the wire path in this phase. No polling, writes or re
 import hashlib
 import hmac
 import os
+import stat
+from pathlib import Path
 import socket
 import ssl
 import time
@@ -23,6 +25,52 @@ REVIEWED_LEAF_SHA256='896addde343bf45b429aa354605ee1930d91c30c024c71fe182b942439
 
 class ApiSslStop(RuntimeError):
     """Only fixed codes, never device messages, credentials, packets or underlying exceptions."""
+
+
+# Dedicated local V2 namespace. Readers never search generic .env, V1 or user stores.
+PILOT_RUNTIME_ROOT=Path(__file__).resolve().parents[3]/'.local'/'cebeci-pilot'
+
+def _private_directory(path):
+    info=path.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077:
+        raise ValueError('PRIVATE_DIRECTORY_REQUIRED')
+
+def _checked_pilot_path(value):
+    path=Path(value)
+    if not path.is_absolute() or '..' in path.parts:raise ValueError('ISOLATED_PATH_REQUIRED')
+    relative=path.relative_to(PILOT_RUNTIME_ROOT)
+    if not relative.parts:raise ValueError('REGULAR_FILE_REQUIRED')
+    # Reject symlinked .local as well as every path component inside the private root.
+    parent=PILOT_RUNTIME_ROOT.parent.lstat()
+    if not stat.S_ISDIR(parent.st_mode) or parent.st_uid!=os.getuid():raise ValueError('ISOLATED_PARENT_REQUIRED')
+    current=PILOT_RUNTIME_ROOT;_private_directory(current)
+    for part in relative.parts[:-1]:
+        current=current/part;_private_directory(current)
+    return path
+
+def _read_pilot_file(value,limit):
+    try:
+        path=_checked_pilot_path(value);before=path.lstat()
+        fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
+        with os.fdopen(fd,'rb') as stream:
+            info=os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077 or info.st_nlink!=1 or info.st_size>limit or (info.st_dev,info.st_ino)!=(before.st_dev,before.st_ino):
+                raise ValueError('PRIVATE_FILE_REQUIRED')
+            raw=stream.read(limit+1)
+        if not raw or len(raw)>limit:raise ValueError('MATERIAL_LIMIT')
+        return raw.decode('utf8',errors='strict')
+    except (OSError,ValueError,TypeError):raise ApiSslStop('PILOT_RUNTIME_FILE_REJECTED') from None
+
+def _runtime_material(kind,limit):
+    prefix='V2_CEBECI_API_SSL_'
+    direct=os.environ.get(prefix+kind,'')
+    file_key='CA_FILE' if kind=='CA_PEM' else kind+'_FILE'
+    location=os.environ.get(prefix+file_key,'')
+    if direct and location:raise ApiSslStop('AMBIGUOUS_V2_MATERIAL_SOURCE')
+    value=_read_pilot_file(location,limit) if location else direct
+    if len(value.encode('utf8'))>limit:raise ApiSslStop('V2_MATERIAL_LIMIT')
+    if kind!='CA_PEM' and any(char in value for char in ('\x00','\r','\n')):raise ApiSslStop('V2_CREDENTIAL_FORMAT_REJECTED')
+    return value
 
 
 class ApiSslConfiguration(ClosedContract):
@@ -44,7 +92,7 @@ class ApiSslConfiguration(ClosedContract):
 
 
 def configuration_from_environment():
-    """V2-only keys. Never opens .env, V1 config, files, databases or a secret store."""
+    """V2-only keys and explicitly named private pilot files; never .env, V1 or databases."""
     try:
         requested=os.environ.get('V2_CEBECI_API_SSL_ENABLED','false')
         if requested not in ('true','false'):raise ValueError('INVALID_ENABLE_FLAG')
@@ -54,7 +102,7 @@ def configuration_from_environment():
             host=os.environ.get('V2_CEBECI_API_SSL_HOST','10.250.0.19'),
             source_ip=os.environ.get('V2_CEBECI_API_SSL_SOURCE_IP','10.250.0.1'),
             port=int(os.environ.get('V2_CEBECI_API_SSL_PORT','8729')),
-            public_ca_pem=os.environ.get('V2_CEBECI_API_SSL_CA_PEM',''),
+            public_ca_pem=_runtime_material('CA_PEM',262144),
             public_leaf_sha256=pin,
             connect_timeout=float(os.environ.get('V2_CEBECI_API_SSL_CONNECT_TIMEOUT','2')),
             io_timeout=float(os.environ.get('V2_CEBECI_API_SSL_IO_TIMEOUT','2')),
@@ -119,8 +167,8 @@ class _Wire:
     def login(self):
         # Resolve only AFTER verified TLS, SAN, pin and source checks; don't retain credentials.
         self.timeout()
-        name=os.environ.get('V2_CEBECI_API_SSL_USERNAME','')
-        password=os.environ.get('V2_CEBECI_API_SSL_PASSWORD','')
+        name=_runtime_material('USERNAME',128)
+        password=_runtime_material('PASSWORD',1024)
         import re
         if not re.fullmatch(r'v2-[A-Za-z0-9_-]{1,56}',name) or not 1<=len(password.encode('utf8'))<=1024:
             raise ApiSslStop('DEDICATED_CREDENTIAL_REQUIRED')
@@ -204,3 +252,37 @@ class CebeciApiSslAdapter:
                     try:stream.close()
                     except Exception:pass
             self._lock.release()
+
+
+def store_password_interactively():
+    """Explicit operator-only local secret provisioning, never called by the API or startup."""
+    import getpass
+    import sys
+    import warnings
+    if not sys.stdin.isatty():raise ApiSslStop('INTERACTIVE_TTY_REQUIRED')
+    try:
+        path=_checked_pilot_path(PILOT_RUNTIME_ROOT/'secrets'/'password')
+        # Refuse to replace an existing secret or symlink; do not ask for credentials unnecessarily.
+        if path.exists() or path.is_symlink():raise ApiSslStop('PILOT_SECRET_ALREADY_EXISTS')
+        with warnings.catch_warnings():
+            warnings.simplefilter('error',getpass.GetPassWarning)
+            first=getpass.getpass('V2 pilot password (hidden): ')
+            second=getpass.getpass('Confirm password (hidden): ')
+        raw=first.encode('utf8')
+        if not 1<=len(raw)<=1024 or any(char in first for char in ('\x00','\r','\n')) or not hmac.compare_digest(raw,second.encode('utf8')):
+            raise ApiSslStop('PILOT_PASSWORD_INPUT_REJECTED')
+        import tempfile
+        # Publish only a complete file, atomically without replacing an existing secret.
+        with tempfile.NamedTemporaryFile(dir=path.parent,prefix='.password-',delete=True) as stream:
+            stream.write(raw);stream.flush();os.fsync(stream.fileno())
+            os.link(stream.name,path,follow_symlinks=False)
+        return 'PILOT_PASSWORD_STORED_CONNECTION_DISABLED'
+    except ApiSslStop:raise
+    except (OSError,ValueError,EOFError,getpass.GetPassWarning):raise ApiSslStop('PILOT_SECRET_SETUP_REJECTED') from None
+
+
+if __name__=='__main__':
+    import sys
+    if sys.argv[1:]!=['--store-password']:raise SystemExit('ONLY_LOCAL_STORE_PASSWORD_SUPPORTED')
+    try:print(store_password_interactively())
+    except (ApiSslStop,KeyboardInterrupt):raise SystemExit('PILOT_SECRET_NOT_STORED') from None

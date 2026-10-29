@@ -595,3 +595,104 @@ restart/polling veya demo/audit yazması yok.
    canlı doğrulama/GO üretilmez.
 
 **Yerel pin/koruma hazırlığı tamamlandı; gerçek bağlantı kapalı, pilot NO_GO.**
+
+## Aşama 32 — Windows public CA aktarımı ve izole yerel runtime
+
+Başlangıç `2afc8b0`. Yalnız yerel V2 hazırlığı yapıldı; router/VDS/V1 bağlantısı,
+servis değişimi veya polling başlatılmadı. Yeni ekran/matris/provider/grant yoktur.
+
+### Bu oturumda gerçekten tamamlananlar
+
+Windows kullanıcısının Desktop klasöründeki public CA ve leaf `.crt.crt` dosyaları
+bulundu; yalnız certificate PEM içerdikleri kontrol edildi. Private key/P12 dosyası
+aranmadı, okunmadı veya aktarılmadı. OpenSSL offline doğrulaması strict X509,
+auth-level 2, server-auth, IP SAN 10.250.0.19 ve açıkça seçilen CA ile PASS verdi;
+leaf DER SHA-256 Aşama 31'de bildirilen pinle eşleşti. Aktarılan Linux kopyaları
+üzerinde aynı zincir/IP/pin kontrolü tekrar PASS verdi; routera handshake yapılmadı.
+Bu local dosya doğrulaması gerçek bağlantı/yol veya güncel cihaz hesabı kanıtı değildir.
+
+Gerçek public dosyalar **Git'e eklenmeden** şu V2-only namespace'e aktarıldı:
+
+```text
+.local/cebeci-pilot/                  0700
+  trust/                            0700
+    ca.pem                          0600
+    leaf.pem                        0600
+  secrets/                          0700
+    username                        0600
+    password                        OLUŞTURULMADI / gerçek parola verilmedi
+  runtime.env                       0600
+```
+
+Mevcut .local Git ignore kuralı doğrulandı. Windows kaynakları değiştirilmedi.
+Username yalnız korunan dosyada, runtime.env içinde sadece dosya referansları var;
+parola veya private key/env secret değeri Git'e/çıktıya yazılmadı. runtime.env sadece
+V2-prefixed hedef/source/8729/public pin/CA_FILE/USERNAME_FILE/PASSWORD_FILE anahtarlarını
+ve **ENABLED=false** taşır. Bu dosya hiçbir çalışan sürece otomatik yüklenmedi.
+
+### Dosya tabanlı V2 secret yönetimi
+
+Mevcut adaptörde V2_CEBECI_API_SSL_CA_FILE, USERNAME_FILE ve PASSWORD_FILE desteği
+eklendi. Mevcut direct environment girdisi de desteklenir; direct ve file kaynak
+birlikte doluysa seçim yapmak yerine AMBIGUOUS_V2_MATERIAL_SOURCE ile durulur.
+Boş direct değer file referansını engellemez. V1/generic env/WinBox cache/OS parola
+kasası/SSH anahtarı aranmaz; V1 credential fallback'i yoktur.
+
+Reader sadece repo içindeki `.local/cebeci-pilot` altında absolute yol kabul eder.
+Root/alt dizinler owner'a özel, dosyalar regular/owner-only olmalı; symlink, traversal,
+hardlink, başka owner, geniş izin, eksik/boş/aşırı büyük/bozuk UTF-8 dosya reddedilir.
+Secret değerindeki CR/LF/NUL kabul edilmez. O_NOFOLLOW ve bounded read kullanılır;
+hatalar sadece sabit code döndürür, dosya yolu/içerik veya secret echo yoktur.
+Bu yerel OS izinleriyle korunan file-based secret yaklaşımıdır; şifreli vault veya
+VDS servis kurulumu yapıldığı iddia edilmez. İleride farklı V2 servis UID'si/konumuna
+geçiş ayrı deployment kapsamında yapılmalı; izinler genişletilerek çalıştırılmaz.
+
+Credential dosyaları yalnız mevcut zincir/SAN/pin/source doğrulamaları sonrasında
+login aşamasında çözülür. ADMIN status/GET secret dosyasını okumaz. CA public verisi
+ise offline configuration/TLS hazırlığında okunabilir. Pin, CERT_REQUIRED, TLS1.2+,
+SAN/strict, read-only scope, fixed hedef/source/8729, timeout ve STOP değişmedi.
+
+### Gerçek parola için tek kalan yerel giriş
+
+Bu çalışma ortamında doğru pilot parolası sunulmadığından **uydurulmadı**, boş veya
+sahte parola dosyası yazılmadı; mevcut router parolası değiştirilmedi. Parolayı
+sohbete, komut satırı argümanına, shell history'ye veya runtime.env'ye yazmayın.
+Operatör normal yerel WSL TTY terminalinde, V2 repo klasöründen yalnız şu komutu
+çalıştırarak mevcut doğru pilot parolasını gizli girişle iki kez verebilir:
+
+```bash
+PYTHONPATH=backend .venv/bin/python -m app.adapters.cebeci_api_ssl --store-password
+```
+
+Bu komut getpass ile echo kapalı giriş kullanır; güvenli TTY yoksa stdin/plaintext
+fallback yerine durur. Mevcut secret/symlink üzerine yazmaz. Önce tam içerikli 0600
+geçici dosya hazırlanır, eksiksiz dosya overwrite olmadan publish edilir; arızada
+geçici dosya temizlenir. Başarıda yalnız
+PILOT_PASSWORD_STORED_CONNECTION_DISABLED kodu basılır. Routera bağlanmaz,
+config-enable/grant/service start yapmaz. Bu oturumda gerçek parola giriş komutu
+çalıştırılmadı; doğru secret ancak operatörde olduğundan parola eksikliği sürüyor.
+
+runtime.env korunan **bağımsız yerel V2 runtime manifestidir**; V1 environment'ı veya
+bir çalışan backend/service üzerine source edilmedi. Gelecekte onaylı V2 süreci bu
+referanslarla başlatılmadan önce secret tamamlanmalı. Bu görev hiçbir VDS servisini,
+V1 runtime'ını veya IPsec kaynağına bind edilmiş gerçek süreç başlatmadı.
+
+### Kontroller ve kalan engeller
+
+- PASS: gerçek public kopyaların strict CA chain/server-auth/IP SAN/pin kontrolü;
+  mevcut explicit-CA TLS context'i file referansından soketsiz hazırlanabildi.
+- PASS: Linux 0700/0600 sahiplik sınırları, Git ignore ve username file yapılandırması;
+  gerçek çağrı mevcut production DEVICE_READ gate'inde 403 ile durur, socket açılmaz.
+- PASS: 9 yeni hedefli secret/file testi; izin/symlink/hardlink/traversal/ambiguous
+  source, bozuk/eksik/limitli secret, mocked TLS sonrası file login, atomik getpass
+  kurulumu/echo-warning/overwrite/partial-file reddi ve auth/status kapalı sınırı.
+  Testlerde sadece sentetik secret ve FakeTls kullanıldı. Eski test paketleri,
+  frontend build/browser veya gerçek API denemesi yapılmadı.
+
+**Kalan somut engeller:** gerçek pilot parolasının korunan dosyaya operatör tarafından
+girilmesi; gerçek pilot bağlantısı için ayrıca açık kullanıcı onayı ve dar execution
+entegrasyonu. ENABLED=false, DEVICE_READ=403 ve live provider kaydı olmaması korunur.
+Bu WSL runtime'ının ileride izinli 10.250.0.1 kaynaklı ayrı V2 yürütme ortamına
+uygulanması/yüklenmesi henüz yapılmadı; bu görev VDS deploy/service değişikliği kapsamaz.
+Gerçek TLS/IPsec/source/account davranışı canlı bağlantı yapılmadığı için doğrulanmadı.
+Demo/audit/abone/RADIUS verisine ve router ayarlarına dokunulmadı. Pilot NO_GO.
