@@ -1,5 +1,28 @@
 # MikroTik Manager V2 — İlerleme
 
+## Mevcut LOCAL ADMIN aktarımı / izole panel tamamlama — 2026-10-30
+
+- Başlangıç 8d72a14 ve temiz çalışma ağacı. Kullanıcı VDS izole PG16.15/55432,
+  mikrotik_manager_v2/v2_local ve 002–009 tamamlandığını bildirdi; migration tekrarlanmadı.
+- Repo config/dev-db ve mevcut postmaster.pid ile ofis V2 hedefi ve ayrı küme yolu
+  tespit edildi. Süreç görünümünde çalışan PostgreSQL/API yok; PID dosyası stopping.
+  Tek salt okunur export denemesi başarısız: gerçek ADMIN/hash/seal aktarılmadı.
+- VDS SSH tek denemede socket Operation not permitted verdi; tekrar denenmedi.
+  VDS erişimi, kurulum, import, servis ve gerçek HTTP/DB kabulü BLOCKED.
+- Eksik verify-admin.psql ve identity-access.psql eklendi. Tek ofis komutu için
+  complete-office.py + root-only complete-vds.py hazırlandı: private pgpass/export,
+  strict host key/SFTP, exact küme/HBA/owner guard'ları, tek hesap import veya
+  doğrulanmış resume, özgün hesap/hash/seal eşitliği, dar DB izinleri, SCRAM,
+  ayrı venv/npm build, nologin API hesabı ve private dosyalar, ADMIN doğrulanmadan
+  başlatmama, yalnız 127.0.0.1:18080 panel ve hedefli kabul. İki gate false kalır.
+- PASS: üç soketsiz sentetik dosya güvenliği/export cleanup/yabancı DB reddi testi;
+  iki Python betiği ve gömülü identity probe syntax kontrolü. SQL execution/VDS
+  deployment veya gerçek ADMIN parola login'i bu kontrollerle doğrulanmış sayılmaz.
+- Kaynak ADMIN oluşturulmadı/resetlenmedi; demo seed/first-admin, DB migration,
+  V1 servis işlemi, router/RADIUS/IPsec erişimi yapılmadı. Secret/hash çıktısı yok.
+  Kullanıcıdan gereken tek eylem: normal ofis terminalinde belgelenmiş tamamlama
+  komutunu çalıştırmak. Normal commit/push sonucu nihai raporda bildirilecek.
+
 Son güncelleme: 2026-10-27. Proje yolu: `/home/suatpc/Codex-Projects/mikrotik-manager-v2`.
 
 ## Kod ve Git geçmişinden doğrulanan durum

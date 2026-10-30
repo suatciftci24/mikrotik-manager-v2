@@ -1,5 +1,51 @@
 # CEBECI_TOWERS: kapalı VDS pilot kurulum paketi
 
+## Yetkili tamamlama komutu — 2026-10-30
+
+Kullanıcı VDS PG16.15 kümesinde 002–009'un tamamlandığını bildirdi; bunlar yeniden
+çalıştırılmayacak. Bu oturumda SSH socket EPERM nedeniyle engellendi ve tekrar
+denenmedi. Ofis salt okunur export denemesi de başarısız oldu. Gerçek export/import,
+bağımlılık kurulumu, servis ve HTTP kabulü **BLOCKED**; aşağıdakiler hazırlıktır.
+
+Ofis bilgisayarının normal terminalinde tek komut:
+
+```bash
+cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && python3 deploy/cebeci-v2-pilot/complete-office.py
+```
+
+`complete-office.py` temiz commit'in kaynak arşivini kullanır. Bağlantıyı yalnız V2
+env/repo yapılandırması ve repo altında çalışan süreçlerden seçer. Mevcut owner-only
+PGPASSFILE/.pgpass tercih edilir; yoksa mevcut config parolası geçici 0600
+PGPASSFILE'a yazılır ve dosya sonunda kaldırılır. Export guard'ları değişmedi.
+Kaynak PostgreSQL zaten çalışıyor olmalıdır; ofis servisi başlatılmaz/değiştirilmez.
+Özel bundle yalnız 24 saatlik pencere içinde tekrar kullanılabilir; eski/güvensiz
+hedef otomatik ezilmez. SSH host key önceden doğrulanmış olmalı; VDS sudo parolası
+gerekirse yalnız gerçek TTY'de istenir. ADMIN parolası istenmez.
+
+SFTP yeni 0700 staging kullanır ve dosyaları 0600'a sabitler. `complete-vds.py`
+yalnız root olarak exact V2 kök/küme/sürüm/socket/HBA'yı kabul eder; DB init,
+migration, seed, first-admin veya DB restart içermez. App root-owned yeni dizine
+açılır; mevcut app yalnız arşivdeki her dosya birebir aynıysa benimsenir. Root-owned
+arşiv/build işaretleri aynı kaynak için kaldığı yerden devam etmeyi sağlar.
+
+Boş hedefte import bir kez çalışır. Tekrarda `verify-admin.psql` ve bundle ile
+hesap/hash/revision/grants/özgün seal eşitliği zorunludur; değişmiş kimlik ezilmez.
+`identity-access.psql` dar app izinlerini kurar; app rolünde sahiplik, yüksek yetki
+veya rol üyeliği varsa durur. DB parolası yalnız private API config yoksa üretilir,
+SCRAM verifier olarak yalnız v2_local'a atanır; mevcut config parolası korunur.
+ADMIN parolası/hash'i değiştirilmez. Ayrı root-owned venv ve npm ci/build kurulur.
+API nologin hesabı ve private config/log/.local dizinleriyle çalışır.
+
+İki gate false zorunludur. Son ADMIN kontrolü geçmeden API başlatılmaz. Yalnız
+yeni API unit'i başlatılır; ready, DB health, app rolüyle kimlik ve kapalı options,
+demo login 401, HTML ve yalnız 127.0.0.1:18080 listener kontrol edilir. Başarıdan
+sonra yalnız exact VDS handoff/staging kaldırılır; ofis bundle'ı private karantinada
+kalır. Hata aşama adıyla, sır/SQL/DSN/traceback dökmeden durur; otomatik retry/reset
+yoktur. Gerçek ADMIN parola login'i **UNTESTED** yazılır. Router/RADIUS/IPsec/V1'e
+erişim veya değişiklik yapılmaz. Aşağıdaki önceki hazırlık kaydı tarihsel bağlamdır.
+
+---
+
 **Hazırlık tamam; VDS'ye uygulanmadı. İki bağlantı kapısı kapalı.**
 Temel: main / 64eee0d (c9b36eb ADMIN altyapısını ve son güvenli giriş düzeltmesini içerir).
 Bu paket kurulum onayı değildir; servis/DB/SSH/cihaz bağlantısı, migration ve dağıtım çalıştırılmadı.

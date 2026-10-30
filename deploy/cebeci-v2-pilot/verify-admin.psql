@@ -1,0 +1,28 @@
+\set ON_ERROR_STOP on
+\set ECHO none
+\set VERBOSITY terse
+\set QUIET on
+BEGIN READ ONLY;
+DO $$ BEGIN
+ IF current_database()<>'mikrotik_manager_v2' OR current_user<>'v2_pilot_maint'
+ OR current_setting('port')<>'55432'
+ OR current_setting('data_directory')<>'/srv/mikrotik-manager-v2-pilot/postgres'
+ THEN RAISE EXCEPTION 'V2_TARGET_REJECTED'; END IF;
+ IF (SELECT count(*) FROM v2_demo.users)<>1 OR NOT EXISTS (
+ SELECT 1 FROM v2_demo.users WHERE id='v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92'
+ AND username='suatciftci' AND role='ADMIN' AND active AND account_origin='LOCAL'
+ AND password_hash ~ '^scrypt[$]131072[$]8[$]1[$][0-9a-f]{32}[$][0-9a-f]{64}$'
+ AND NOT EXISTS (SELECT 1 FROM (VALUES ('demo-router-001'),('demo-router-002'),('demo-router-003'),('demo-router-004')) r(id)
+ WHERE permissions #> ARRAY[r.id,'can_view'] IS DISTINCT FROM 'true'::jsonb))
+ OR NOT EXISTS (SELECT 1 FROM v2_demo.schema_state WHERE version=1
+ AND marker='mikrotik-manager-v2-synthetic-only' AND identity_initialized AND first_admin_initialized)
+ OR (SELECT count(*) FROM v2_demo.first_admin_setup)<>1
+ OR NOT EXISTS (SELECT 1 FROM v2_demo.first_admin_setup WHERE singleton=1
+ AND admin_id='v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92' AND local_operator_uid>0 AND completed_at IS NOT NULL)
+ OR (SELECT count(*) FROM v2_demo.user_audit WHERE operation='FIRST_ADMIN_IMPORT'
+ AND target_id='v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92' AND result='SUCCESS'
+ AND fingerprint='OFFICE_TO_ISOLATED_VDS_V1')<>1
+ THEN RAISE EXCEPTION 'V2_ADMIN_NOT_VERIFIED'; END IF;
+END $$;
+COMMIT;
+SELECT 'V2_ADMIN_VERIFIED_GATES_CLOSED' AS status;
