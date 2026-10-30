@@ -32,6 +32,15 @@ password argument, generated/default password, environment password or automatic
 account creation. Redirected input/output and getpass echo fallback are rejected.
 Do not use `sudo`, pipes or terminal recording.
 
+Public fields are checked before the hidden password prompt. Accidental surrounding
+ASCII spaces in the username/name/email are removed; controls remain forbidden.
+Passwords are never trimmed or normalized, and confirmation compares the exact
+UTF-8 bytes in constant time. `ACCOUNT_INPUT_INVALID` identifies the field and
+failed rule (for example `Parola: En az 14 karakter kullanın.`), without printing
+the value, its actual length, validation context or raw exception. Confirmation
+mismatch/invalid encoding and unavailable hidden TTY have separate STOP codes.
+Invalid input stops before account creation and does not trigger automatic retries.
+
 Before any write, setup checks the non-root local owner's UID, directory ownership,
 symlinks/write permissions, configured loopback PostgreSQL driver/role/DB/port,
 actual `data_directory` (`.local/postgres-v2-demo`), and the V2 schema marker.

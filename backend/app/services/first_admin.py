@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
+from pydantic_core import PydanticCustomError
 from sqlalchemy import text
 
 from app.adapters.demo_subscriptions import PostgresDemoStore, storage_errors
@@ -25,28 +26,51 @@ def require(condition, code):
         raise SetupBlocked(code)
 
 
-class FirstAdminInput(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+class FirstAdminIdentity(BaseModel):
+    """Validate public fields before collecting any secret. Never normalize a password."""
+    model_config = ConfigDict(extra='forbid', hide_input_in_errors=True)
     username: str = Field(pattern=r'^[a-zA-Z0-9_.-]{3,64}$')
     name: str = Field(min_length=1, max_length=120)
     email: str = Field(min_length=3, max_length=180, pattern=r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-    password: SecretStr = Field(repr=False, exclude=True)
+
+    @field_validator('username', 'name', 'email', mode='before')
+    @classmethod
+    def normalize_public_text(cls, value):
+        if isinstance(value, str):
+            if any(ord(c) < 32 or ord(c) == 127 for c in value):
+                raise PydanticCustomError('public_text_control', 'Kontrol karakteri kullanılamaz')
+            return value.strip(' ')
+        return value
 
     @field_validator('username', 'name', 'email')
     @classmethod
     def public_text(cls, value):
-        if value != value.strip() or any(ord(c) < 32 or ord(c) == 127 for c in value):
-            raise ValueError('Geçersiz hesap bilgisi')
+        if value != value.strip():
+            raise PydanticCustomError('public_text_whitespace', 'Alan başında veya sonunda boşluk kullanılamaz')
         if value.casefold() in ('demo', 'demo-user'):
-            raise ValueError('Demo kimliği kullanılamaz')
+            raise PydanticCustomError('reserved_demo_identity', 'Demo kimliği kullanılamaz')
         return value
+
+
+class FirstAdminInput(FirstAdminIdentity):
+    password: SecretStr = Field(repr=False, exclude=True)
 
     @field_validator('password')
     @classmethod
     def strong_password(cls, value):
         raw = value.get_secret_value()
+        try:
+            raw.encode('utf-8')
+        except UnicodeError:
+            raise PydanticCustomError('password_encoding', 'Parola geçerli UTF-8 olmalıdır') from None
         if not identity.local_password_valid(raw):
-            raise ValueError('Parola 14–128 karakter olmalı ve satır sonu içermemeli')
+            if len(raw) < 14:
+                raise PydanticCustomError('password_too_short', 'Parola en az 14 karakter olmalıdır')
+            if len(raw) > 128 or len(raw.encode('utf-8')) > 1024:
+                raise PydanticCustomError('password_too_long', 'Parola en çok 128 karakter / 1024 UTF-8 bayt olmalıdır')
+            if not raw.strip():
+                raise PydanticCustomError('password_blank', 'Parola yalnızca boşluklardan oluşamaz')
+            raise PydanticCustomError('password_control', 'Parolada satır sonu veya NUL kullanılamaz')
         return value
 
 
