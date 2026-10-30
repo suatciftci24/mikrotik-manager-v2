@@ -1,5 +1,29 @@
 # CEBECI_TOWERS: kapalı VDS pilot kurulum paketi
 
+## Yalnız V2 üst dizin sahibi düzeltmesi
+
+Gerçek `V2_PREFLIGHT_BASE_OWNER_MISMATCH` kodu yalnız base UID'nin root/0
+olmadığını kanıtlar; belirli bir eski UID veya izin değeri göstermez. Preflight
+base için root/0755 ister; grup koşulu yoktur. Kontrol gevşetilmez.
+
+Standalone `deploy/cebeci-v2-pilot/fix-base-owner.py` VDS'de
+`~/fix-base-owner.py` olarak kaydedildikten sonra tek komut:
+
+```bash
+sudo python3 ~/fix-base-owner.py
+```
+
+Betik eski UID/GID/mode'u güvenle gösterir, yalnız base inode sahibini gerektiğinde
+root yapar, grubu korur ve yalnız gerekirse 0755 uygular. /srv parent sahiplik/
+write kontrolü ve no-follow descriptor'ları path değiştirme/symlink riskini kapatır.
+Önce mevcut V2 DB OS hesabı, postgres/postgres-socket owner/0700 ve PG_VERSION=16
+doğrulanır; eksik/yanlış olduklarında STOP verir, bunları değiştirmez. PG metadata
+önce/sonra ve base inode tekrar doğrulanır. Recursive işlem veya alt dizin/file
+chown/chmod yoktur; database/user kayıtları okunmaz/değiştirilmez. SQL, migration,
+servis, SSH/router/RADIUS/IPsec çağrısı yapmaz. Yalnız public metadata ve sabit
+durum kodları yazılır. Başarılı sonuç base koşulunu doğrular; ADMIN veya panelin
+kurulduğu anlamına gelmez. Bu oturumda VDS uygulaması henüz yapılmadı.
+
 ## Preflight teşhisi — genel hata mesajının yerine güvenli kodlar
 
 58768e6 installer'ındaki `BLOCKED: preflight; existing identities never reset`

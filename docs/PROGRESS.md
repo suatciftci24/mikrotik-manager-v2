@@ -1,5 +1,31 @@
 # MikroTik Manager V2 — İlerleme
 
+## VDS base owner mismatch — yalnız üst dizin düzeltmesi — 2026-10-30
+
+- Başlangıç c1c8e45, temiz çalışma ağacı. Kullanıcının gerçek VDS kodu
+  V2_PREFLIGHT_BASE_OWNER_MISMATCH: /srv/mikrotik-manager-v2-pilot dizininin
+  UID'si preflight'ın beklediği 0/root değil. Mevcut UID ve mode henüz bu
+  ortamdan okunmadı; belirli bir kullanıcı/mode varsayılmadı. Beklenen koşul
+  root/0755; grup için preflight koşulu yok, mevcut grup korunmalıdır.
+- Yeni standalone fix-base-owner.py yalnız exact /srv altındaki V2 base inode'una
+  gerekirse fchown(fd,0,-1) ve fchmod(fd,0755) uygular. /srv root/no-write kontrolü,
+  O_DIRECTORY|O_NOFOLLOW + dir_fd ile parent/base/data/socket açılışı ve inode
+  postcheck vardır. Gerçek eski UID/GID/mode önce, doğrulanmış sonuç sonra yalnız
+  public metadata olarak yazılır. Path/symlink/sahiplik guard'ları kaldırılmadı.
+- Mevcut mikrotik-v2-db OS hesabı, owner-private postgres ve postgres-socket,
+  regular/no-link PG_VERSION=16 doğrulanmadan mutasyon yoktur. PG nesnelerinin
+  UID/GID/mode/inode metadata'sı önce/sonra aynı olmalıdır. Çocuklara chown/chmod,
+  recursive işlem, kimlik içeriği okuma/yazma, SQL, migration, servis veya ağ
+  işlemi yoktur. Hatalı PG sahipliği/izni varsa onarılmaz, ayrı STOP verir.
+- PASS: 5 hedefli sentetik test; yalnız base FD'ye owner değişikliği, grup
+  korunması, idempotence/minimal chmod, symlink reddi, PG owner/mode reddinde
+  mutasyon olmaması ve full fixture'da çocuk metadata/içerik korunması. Diff
+  kontrolü PASS. Gerçek VDS uygulaması BLOCKED / yapılmadı; bilinen SSH EPERM
+  yeniden denenmedi. Tek VDS komutu yeni standalone dosyanın sudo python3 ile
+  çalıştırılmasıdır; preflight/ADMIN/panel tamamlandı sayılmaz.
+- V1, canlı MikroTik/RADIUS/IPsec, diğer PG kümeleri, V2 DB/PG data/kimlik
+  sahipliği ve kayıtları değiştirilmedi. Yerel helper/test/belge commit'i üretildi.
+
 ## VDS ADMIN preflight teşhisi — 2026-10-30
 
 - Başlangıç 58768e6, temiz çalışma ağacı. Kullanıcı eski installer çıktısını
