@@ -1,5 +1,62 @@
 # CEBECI_TOWERS: kapalı VDS pilot kurulum paketi
 
+## İzole bağımlılık ve build onarımı
+
+Son kullanıcı kanıtı: ADMIN preflight PASS, sonra eski installer'da
+`isolated-dependencies-and-build` BLOCKED. Bu genel çıktı hangi alt komutun
+başarısız olduğunu göstermez; VDS'de pip/Node veya ağın kesin neden olduğu
+söylenemez. Başarılı PG/migration/preflight işlemleri tekrar yapılmaz.
+
+Standalone `deploy/cebeci-v2-pilot/isolated-build.py` VDS'de
+`~/isolated-build.py` olarak kaydedildikten sonra tek onarım komutu:
+
+```bash
+sudo python3 ~/isolated-build.py
+```
+
+Komut yalnız mevcut /srv/mikrotik-manager-v2-pilot/app, venv, toolchain,
+build-home/cache, frontend/node_modules/dist ve build marker'ı kapsamında
+çalışır. DB/kimlik/ADMIN, servis veya source-deployment işlemi yapmaz.
+Parola istenmez. Mevcut owner/type/link/write korumaları gevşetilmez; yalnız
+managed root-owned dependency ve build ağaçları servis için okunabilir yapılır.
+Private app/.local, config ve postgres yollarına dokunulmaz.
+
+Venv eksik/yarımsa `venv --without-pip`; pip eksikse [resmi PyPI pip wheel
+metadata'sı](https://pypi.org/pypi/pip/json) ve SHA-256 kontrolü kullanılır.
+Bu, Ubuntu ensurepip OS paketi olmadan da pip'i yalnız V2 venv'ine kurar.
+Global site-packages reddedilir; Python paketleri yalnız venv içine, resmi
+PyPI'dan binary wheel olarak kurulur. Zaten karşılanan bağımlılıklar zorla
+yükseltilmez. Standard venv modülü veya temel OS kütüphanesi yoksa global
+OS paketleri değiştirilmez; ayrı BLOCKED kodu verilir.
+
+Node/npm eksik veya mevcut Node uyumsuzsa [resmi Node dağıtımları](https://nodejs.org/en/download)
+içinden Node24 LTS, HTTPS + SHASUMS256 kontrolüyle yalnız V2 toolchain'ine
+alınır. Global Node/npm veya sistem PATH'i değiştirilmez. Mevcut uyumlu 22/24
+çifti veya daha önce hazırlanmış V2 toolchain'i yeniden indirilmez. npm lock
+metadata'sı + npm ls doğrulaması geçerse node_modules korunur; aksi halde yalnız
+bu frontend'de npm ci çalışır. Install/prebuild/postbuild lifecycle hook'ları
+kapalıdır; onaylı `tsc -b && vite build` komutu açıkça çalıştırılır. Başarı marker'ı
+ancak pip check ve tamamlanmış HTML build sonrasında yazılır; eski installer'ın
+başarılı build'i tanıdığı source hash korunur. Kimlik oluşturma veya panel start
+bu onarım komutunun parçası değildir.
+
+| Kod ailesi | Anlamı |
+| --- | --- |
+| `V2_BUILD_PY_VENV_*` | venv modülü/create veya izin hatası |
+| `V2_BUILD_PY_BOOTSTRAP_*` / `PIP_CHECKSUM_REJECTED` | pip wheel indirme/kurma/doğrulama |
+| `V2_BUILD_PY_INSTALL_*` / `PY_CHECK_*` / `PY_SCOPE_*` | Python paketleri, dependency check veya yanlış venv |
+| `V2_BUILD_NODE_DOWNLOAD_*` / `NODE_CHECK_*` / `NPM_CHECK_*` | Node/npm edinme, eksik executable, uyum veya sistem kütüphanesi |
+| `V2_BUILD_NPM_INSTALL_*` | İzole npm ci hatası |
+| `V2_BUILD_FRONTEND_TYPESCRIPT_FAILED` / `VITE_FAILED` / `PLATFORM_PACKAGE_MISSING` | Build/TypeScript veya platform binary paketi |
+| `*_NETWORK_DNS` / `NETWORK_TLS` / `NETWORK_TIMEOUT` / `NETWORK_UNREACHABLE` | Ayrı ağ nedenleri; otomatik retry/SSL bypass yok |
+| `*_PERMISSION_DENIED` / `*_OWNER_MISMATCH` / `*_WRITABLE_BY_OTHERS` / `*_SYMLINK_REJECTED` | İzin/sahiplik/link koruması; güvenlik gevşetilmez |
+| `*_DISK_FULL` / `*_PROCESS_KILLED` | Disk dolu veya sinyal ile biten işlem; OOM olduğu varsayılmaz |
+| `V2_ISOLATED_DEPENDENCIES_AND_BUILD_READY` | Yalnız dependency/build PASS; ADMIN/panel kurulduğu anlamına gelmez |
+
+Subprocess çıktıları yalnız bellekte sınıflanır; terminale sır/DSN/hash veya raw
+pip/npm error dump yazılmaz. Bilinmeyen hata aşamasıyla `*_FAILED` olarak durur.
+Bu görevde gerçek VDS onarımı çalıştırılmadı; kesin alt neden hâlâ doğrulanmadı.
+
 ## Yalnız V2 üst dizin sahibi düzeltmesi
 
 Gerçek `V2_PREFLIGHT_BASE_OWNER_MISMATCH` kodu yalnız base UID'nin root/0

@@ -1,5 +1,43 @@
 # MikroTik Manager V2 — İlerleme
 
+## İzole dependency/build onarımı — 2026-10-30
+
+- Başlangıç f49d443 ve temiz çalışma ağacı. Kullanıcı VDS preflight PASS,
+  ardından eski isolated-dependencies-and-build BLOCKED sonucunu doğruladı.
+  Eski çıktı Python venv/create/pip, venv owner/mode, npm ci veya npm build
+  alt komutlarından hangisinin durduğunu göstermiyor. Kesin VDS alt nedeni
+  bu çıktıdan belirlenemez; belirli bir paket/Node/ağ hatası varsayılmadı.
+- standalone isolated-build.py eklendi ve ana installer'ın build aşaması bunu
+  çağıracak şekilde değiştirildi. Sabit aşama/hata kodları Python venv/module/
+  pip/package, Node/npm uyumu/eksik executable, DNS/TLS/timeout/HTTP/socket,
+  dosya owner/link/write, disk, TypeScript/Vite/platform paketi ve killed süreci
+  ayırır. Raw stdout/stderr, URL credential veya exception raporlanmaz.
+- Yarım venv korunarak --without-pip ile tamamlanabilir; ensurepip OS paketine
+  bağımlı değildir. Pip eksikse resmi PyPI wheel SHA-256 ile doğrulanıp yalnız
+  venv'e kurulur. Mevcut Python gereksinimleri upgrade/force olmadan yalnız
+  venv'e kurulur/check edilir; global site-packages reddedilir. Binaries yoksa
+  OS paketleri/derleyici/global Python değiştirilmez, açık STOP kodu verilir.
+- Mevcut uyumlu Node22/24 + npm kullanılır; eksik/uyumsuzsa resmi Node24 LTS
+  archive'i HTTPS + SHASUMS256 doğrulamasıyla yalnız V2/toolchain/node altına
+  hazırlanır. OS Node/npm/apt/systemd değiştirilmez. Lockfile ile eşleşen ve
+  npm ls geçen ağaç yeniden kurulmaz; eksik/bozuk ağaçta yalnız V2 npm ci,
+  dev/optional dahil, lifecycle script'leri kapalı. Açık build komutu çalışır;
+  prebuild/postbuild hook'ları kapalı kalır. Permission normalizasyonu yalnız
+  root-owned venv/node_modules/dist üzerinde; symlink escape reddedilir.
+- HOME/cache/toolchain yalnız V2 altında; build ortamına PG/V2/PYTHONPATH/
+  NODE_OPTIONS/PIP_INDEX_URL gibi servis/başka kurulum ayarları aktarılmaz.
+  .completion-built ancak pip check + başarılı HTML build sonrası atomik yazılır.
+  Standalone onarım SQL/ADMIN/preflight değişikliği, servis, migration, seed,
+  router/RADIUS/IPsec veya V1 işlemi yapmaz. Kaynak app ve private .local/config
+  topluca chmod/chown edilmez. Ana installer mevcut PG/ADMIN kontrollerini korur.
+- PASS: 9 yeni dependency güvenlik/repair/redaction testi + 2 kritik preflight
+  early-stop kontrolü; toplam 11 farklı hedefli kontrol. Değişen sınırlara ilişkin
+  kontroller yalnız gerektiğinde tekrarlandı; diff/syntax PASS. Gerçek VDS
+  dependency download/build kabulü BLOCKED / uygulanmadı; testler sentetiktir.
+- Bilinen SSH EPERM yeniden denenmedi. Bu görevde tek git fetch, github.com DNS
+  hatası verdi; upstream alınamadı/push yapılmadı, force push yok. Tek VDS eylemi
+  yeni standalone isolated-build.py dosyasını sudo python3 ile çalıştırmaktır.
+
 ## VDS base owner mismatch — yalnız üst dizin düzeltmesi — 2026-10-30
 
 - Başlangıç c1c8e45, temiz çalışma ağacı. Kullanıcının gerçek VDS kodu

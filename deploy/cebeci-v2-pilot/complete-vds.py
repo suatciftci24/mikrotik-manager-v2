@@ -238,27 +238,17 @@ END $$;"""
         write_new(marker, digest.encode(), 0, 0)
     package = app / 'deploy/cebeci-v2-pilot'
     STEP = 'isolated-dependencies-and-build'
+    import importlib.util
+    build_source = package / 'isolated-build.py'
+    safe(build_source, 0, 0o644)
+    spec = importlib.util.spec_from_file_location('v2_isolated_build', build_source)
+    builder = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(builder)
+    try:
+        builder.build(BASE, source_digest=digest)
+    except builder.BuildBlocked as error:
+        raise Blocked(error.code) from None
     venv = BASE / 'venv'
-    if not venv.exists():
-        run(['python3', '-m', 'venv', str(venv)])
-        os.chmod(venv, 0o755)
-    safe(venv, 0, 0o755, True)
-    built = BASE / '.completion-built'
-    if not built.exists():
-        run([str(venv / 'bin/pip'), 'install', '-r', str(app / 'backend/requirements.txt')])
-        run(['npm', 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], cwd=app / 'frontend')
-        run(['npm', 'run', 'build'], cwd=app / 'frontend')
-        # umask 077 during install/build; API needs read/execute access to public code only.
-        for tree in (venv, app / 'frontend/node_modules', app / 'frontend/dist'):
-            for current, dirs, files in os.walk(tree):
-                os.chmod(current, 0o755)
-                for name in files:
-                    path = Path(current) / name
-                    if not path.is_symlink():
-                        os.chmod(path, 0o755 if path.stat().st_mode & 0o111 else 0o644)
-        write_new(built, digest.encode(), 0, 0)
-    safe(built, 0, 0o600)
-    assert built.read_text() == digest
     if native:
         verify = lambda: sql(file=package / 'verify-native-admin.psql')
     else:
