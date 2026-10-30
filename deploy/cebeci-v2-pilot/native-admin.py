@@ -27,11 +27,17 @@ END $$;"""
 EMPTY_GUARD = """DO $$ BEGIN
  IF EXISTS (SELECT 1 FROM v2_demo.users WHERE role='ADMIN')
  THEN RAISE EXCEPTION 'V2_NATIVE_EXISTING_ADMIN_STOP'; END IF;
+ IF EXISTS (SELECT 1 FROM v2_demo.users)
+ THEN RAISE EXCEPTION 'V2_NATIVE_OTHER_USERS_STOP'; END IF;
+ IF EXISTS (SELECT 1 FROM v2_demo.schema_state WHERE version=1 AND first_admin_initialized)
+ THEN RAISE EXCEPTION 'V2_NATIVE_SETUP_CLOSED_STOP'; END IF;
+ IF EXISTS (SELECT 1 FROM v2_demo.first_admin_setup)
+ THEN RAISE EXCEPTION 'V2_NATIVE_SEAL_PRESENT_STOP'; END IF;
+ IF EXISTS (SELECT 1 FROM v2_demo.user_audit)
+ THEN RAISE EXCEPTION 'V2_NATIVE_AUDIT_PRESENT_STOP'; END IF;
  IF NOT EXISTS (SELECT 1 FROM v2_demo.schema_state WHERE version=1
  AND marker='mikrotik-manager-v2-synthetic-only' AND identity_initialized AND NOT first_admin_initialized)
- OR EXISTS (SELECT 1 FROM v2_demo.users) OR EXISTS (SELECT 1 FROM v2_demo.first_admin_setup)
- OR EXISTS (SELECT 1 FROM v2_demo.user_audit)
- THEN RAISE EXCEPTION 'V2_NATIVE_SETUP_NOT_EMPTY_OR_CLOSED'; END IF;
+ THEN RAISE EXCEPTION 'V2_NATIVE_SETUP_STATE_REJECTED'; END IF;
 END $$;"""
 
 
@@ -39,7 +45,7 @@ def require_empty():
     deploy.STEP = 'native-admin-read-only-absence-check'
     if deploy.sql("BEGIN READ ONLY; " + TARGET_GUARD + " SELECT EXISTS(SELECT 1 FROM v2_demo.users WHERE role='ADMIN'); COMMIT;").stdout.strip() == b't':
         deploy.STEP = 'native-existing-admin-stop-no-changes'
-        raise RuntimeError('existing admin')
+        raise deploy.Blocked('V2_NATIVE_EXISTING_ADMIN_STOP')
     deploy.sql('BEGIN READ ONLY; ' + TARGET_GUARD + EMPTY_GUARD + ' COMMIT;')
 
 
@@ -140,9 +146,9 @@ def verify_login():
 
 if __name__ == '__main__':
     try:
-        if len(sys.argv) != 2 or sys.flags.optimize or os.geteuid() != 0:
-            raise RuntimeError('root stage required')
-        deploy.main(Path(sys.argv[1]), native=sys.modules[__name__])
-    except (Exception, KeyboardInterrupt):
-        print('BLOCKED: ' + deploy.STEP + '; existing identities never reset', file=sys.stderr)
+        if len(sys.argv) not in (2, 3) or (len(sys.argv) == 3 and sys.argv[2] != '--preflight-only'):
+            raise deploy.Blocked('V2_NATIVE_ARGUMENTS_REJECTED')
+        deploy.main(Path(sys.argv[1]), native=sys.modules[__name__], preflight_only=len(sys.argv) == 3)
+    except (Exception, KeyboardInterrupt) as error:
+        print('BLOCKED: ' + deploy.failure_code(error), file=sys.stderr)
         sys.exit(1)

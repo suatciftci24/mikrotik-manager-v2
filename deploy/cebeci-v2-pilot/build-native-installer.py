@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build an offline, self-contained VDS installer from a clean committed tree."""
 import base64
+import argparse
 import gzip
 from pathlib import Path
 import subprocess
@@ -10,10 +11,13 @@ LAUNCHER = '''#!/usr/bin/env bash
 set +x
 set -euo pipefail
 if [[ $EUID -ne 0 ]]; then exec sudo bash "$0"; fi
-python3 - "$0" <<'V2_PYTHON'
+python3 - "$0" "$@" <<'V2_PYTHON'
 import base64,gzip,io,os,pathlib,pwd,subprocess,sys,tarfile,tempfile
 stage=None
 try:
+ flags=sys.argv[2:]
+ if flags not in ([],['--preflight-only']):
+  print('BLOCKED: V2_NATIVE_ARGUMENTS_REJECTED',file=sys.stderr);sys.exit(1)
  operator=pwd.getpwnam('mikadmin')
  payload=pathlib.Path(sys.argv[1]).read_bytes().split(b'\\n# V2_SOURCE_PAYLOAD\\n',1)[1]
  archive=gzip.decompress(base64.b64decode(payload))
@@ -29,7 +33,7 @@ try:
    member=tar.getmember('deploy/cebeci-v2-pilot/'+name)
    if not member.isfile():raise RuntimeError('source rejected')
    write(name,tar.extractfile(member).read())
- result=subprocess.run(['python3',str(stage/'native-admin.py'),str(stage)])
+ result=subprocess.run(['python3',str(stage/'native-admin.py'),str(stage)]+flags)
  sys.exit(result.returncode)
 except Exception:
  print('BLOCKED: V2_NATIVE_INSTALLER_PREFLIGHT',file=sys.stderr);sys.exit(1)
@@ -40,10 +44,13 @@ exit $?
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--output', type=Path, default=ROOT / '.local/mikrotik-v2-native-admin.run')
+    args = parser.parse_args()
     if subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT).strip():
         raise RuntimeError('clean committed tree required')
     archive = subprocess.check_output(['git', 'archive', '--format=tar', 'HEAD'], cwd=ROOT)
-    output = ROOT / '.local/mikrotik-v2-native-admin.run'
+    output = args.output
     output.parent.mkdir(exist_ok=True)
     with output.open('x') as stream:
         stream.write(LAUNCHER)

@@ -1,5 +1,47 @@
 # CEBECI_TOWERS: kapalı VDS pilot kurulum paketi
 
+## Preflight teşhisi — genel hata mesajının yerine güvenli kodlar
+
+58768e6 installer'ındaki `BLOCKED: preflight; existing identities never reset`
+çıktısı DB bağlantısından önceki kontrollerden birinin durduğunu gösterir; mevcut
+ADMIN veya başka kullanıcı bulunduğunun kanıtı değildir. Root/optimize, staging
+yolu/dosyaları, OS hesapları, base/data/socket owner/mode kontrolleri eski sürümde
+aynı mesajı üretiyordu. Gerçek VDS metadata olmadan bunlardan biri seçilemez.
+
+Yeni standalone dosya `mikrotik-v2-native-admin-preflight.run` adıyla VDS'ye
+kaydedilince tek salt okunur teşhis komutu:
+
+```bash
+sudo bash ~/mikrotik-v2-native-admin-preflight.run --preflight-only
+```
+
+Bu seçenek kaynak arşivi için private staging dışında yönetilen dosya/DB/servis
+değiştirmez. Eksik hesabı/config'i otomatik yaratmaz veya izinleri gevşetmez;
+migration, seed, ADMIN oluşturma, parola isteme/reset, bağımlılık kurma veya API
+start yoktur. Normal kurulum seçeneği de var olan ADMIN/diğer kullanıcıda durur.
+
+| Güvenli kod | Kanıtlanan engel |
+| --- | --- |
+| `V2_PREFLIGHT_DB_OS_USER_MISSING` | mikrotik-v2-db OS hesabı yok; DB'ye henüz bağlanılmadı |
+| `V2_PREFLIGHT_BASE_*` | /srv/mikrotik-manager-v2-pilot eksik/type/owner/mode reddi; root/0755 beklenir |
+| `V2_PREFLIGHT_PGDATA_*` / `PGSOCKET_*` | postgres veya postgres-socket yolu reddi; DB OS sahibi/0700 beklenir |
+| `V2_PREFLIGHT_STAGE_*` / `ARCHIVE_*` / `NATIVE_SOURCE_*` / `COMPLETION_SOURCE_*` | Kaynak staging/dosya reddi; mikadmin, directory 0700/file 0600, no-link/nlink=1 |
+| `V2_DB_PSQL_BINARY_MISSING` / `RUNUSER_BINARY_MISSING` | İzole bakım bağlantısı için program eksik |
+| `V2_DB_SOCKET_UNAVAILABLE` / `CONNECTION_REFUSED` / `PEER_AUTH_FAILED` | Socket/bağlantı veya peer eşlemesi engeli |
+| `V2_DB_ROLE_MISSING` / `V2_DATABASE_MISSING` / `V2_DB_SCHEMA_MISSING` | Beklenen rol/DB/şema bulunamadı; onarılmaz |
+| `V2_DB_MAINTENANCE_PERMISSION_DENIED` / `PERMISSION_DENIED` | Bakım rolü gerekli işlemi yapamıyor; yetki otomatik genişletilmez |
+| `V2_NATIVE_EXISTING_ADMIN_STOP` | En az bir ADMIN var; değişiklik yok |
+| `V2_NATIVE_OTHER_USERS_STOP` | ADMIN yok fakat başka kullanıcı var; değişiklik yok |
+| `V2_NATIVE_SETUP_CLOSED_STOP` / `SEAL_PRESENT_STOP` / `AUDIT_PRESENT_STOP` | Daha önce kapanmış/boş olmayan kurulum; reset yok |
+| `V2_NATIVE_SETUP_STATE_REJECTED` | Beklenen açık modern şema marker'ı bulunamadı |
+| `V2_NATIVE_PREFLIGHT_READY_NO_USERS_SETUP_OPEN` | Salt okunur ön kontrol PASS; ADMIN oluşturulmuş veya panel kurulmuş sayılmaz |
+
+Suffix `MISSING`, `TYPE_REJECTED`, `OWNER_MISMATCH`, `MODE_MISMATCH`,
+`HARDLINK_REJECTED`, `PERMISSION_DENIED` yalnız neden kodlarıdır. Gerçek UID,
+parola/hash, bağlantı DSN'i, kayıt/SQL/exception içeriği yazılmaz. Bilinmeyen SQL
+hatası `V2_DB_SQL_FAILED` veya `V2_DB_CONNECTION_FAILED` olarak kalır; tahminle
+kimlik varlığına dönüştürülmez. Eski genel çıktıdan alt neden saptandı denemez.
+
 ## Güncel karar: ofis aktarımı iptal; VDS'de yeni LOCAL ADMIN
 
 Kullanıcı artık VDS'de yeni suatciftci LOCAL ADMIN oluşturulmasını istedi. Eski

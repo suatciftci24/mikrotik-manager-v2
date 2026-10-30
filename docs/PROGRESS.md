@@ -1,5 +1,36 @@
 # MikroTik Manager V2 — İlerleme
 
+## VDS ADMIN preflight teşhisi — 2026-10-30
+
+- Başlangıç 58768e6, temiz çalışma ağacı. Kullanıcı eski installer çıktısını
+  BLOCKED: preflight; existing identities never reset olarak bildirdi. Bu çıktı
+  native ana akışının existing-cluster-identity aşamasından ÖNCE durduğunu gösterir.
+  Eski root/optimize/path/OS-user/sahiplik/mode assert'leri tek genel mesaja
+  indirgeniyordu. Mesajdan belirli bir owner/mode veya eksik OS hesabı seçilemez;
+  VDS metadata alınmadan alt neden doğrulanmış sayılamaz. ADMIN/diğer kullanıcı
+  varlığı ve DB bağlantısı bu eski çıktıyla kontrol edilmiş sayılmaz.
+- Bilinen SSH EPERM tekrarlanmadı. Yeni Safe Blocked kodları stage/base/PG data/
+  socket/source için MISSING/TYPE/OWNER/MODE/HARDLINK/PERMISSION ayrımı ve DB OS
+  hesabı eksikliğini gösterir. Güvenlik eşikleri gevşetilmedi, chmod/chown ile
+  mevcut hedef otomatik düzeltilmez. SQL stderr yalnız bellekte sabit kodlara
+  sınıflanır: bağlantı/socket/peer/HBA, DB-role-schema eksikliği, bakım rolü
+  yetkisi, mevcut ADMIN, diğer kullanıcı, seal/audit, closed/bozuk state ayrıdır.
+  Ham SQL/stdout/stderr/exception/DSN/hash ve kayıt içerikleri yazılmaz.
+- --preflight-only launcher'dan native akışa iletilir: yalnız exact cluster ve
+  READ ONLY kimlik/state kontrolleri, sonra PASS/STOP. Yönetilen app/config,
+  bağımlılık, ADMIN/parola, servis veya migration değişikliği yoktur. Standalone
+  staging yalnız private kaynak dosyalarını içerir; hiçbir credential içermez.
+  Normal kurulum da mevcut herhangi bir kullanıcıda ayrı sabit kodla durur;
+  kimlikleri silme/reset/üzerine yazma veya şema onarma yolu yoktur.
+- PASS: 6 yeni preflight teşhis/redaction/side-effect sınır testi + 7 doğrudan
+  etkilenen native kontrol, toplam 13 soketsiz hedefli test; diff PASS.
+  VDS gerçek alt nedeni ve SQL execution hâlâ BLOCKED. Yeni bağımsız artifact
+  .local/mikrotik-v2-native-admin-preflight.run olarak üretilecek; tek VDS adımı
+  bu dosyayı --preflight-only ile çalıştırmaktır. Bilinen GitHub DNS/ileri upstream
+  engeli nedeniyle push/uzlaştırma doğrulanmadı; force push yapılmadı.
+- V1, RADIUS, IPsec, canlı router'lar, diğer PG kümeleri ve tamamlanmış VDS
+  migration'ları değiştirilmedi. ADMIN oluşturulmadı veya değiştirilmedi.
+
 ## Karar değişikliği: VDS üzerinde yeni LOCAL ADMIN — 2026-10-30
 
 - Kullanıcı ofis ADMIN export/transfer görevini iptal etti. Bu görevde ofis DB'si,

@@ -25,27 +25,100 @@ UNIT = 'mikrotik-v2-cebeci-pilot.service'
 STEP = 'preflight'
 
 
+class Blocked(RuntimeError):
+    """Fixed local code only; never constructed from subprocess/SQL exception text."""
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
+
+
+def failure_code(error):
+    if isinstance(error, Blocked):
+        return error.code
+    if isinstance(error, KeyboardInterrupt):
+        return 'V2_CANCELLED'
+    if isinstance(error, PermissionError):
+        return 'V2_FILESYSTEM_PERMISSION_DENIED'
+    if isinstance(error, FileNotFoundError):
+        return 'V2_REQUIRED_FILE_MISSING'
+    return 'V2_CHECK_FAILED'
+
+
+def classify_sql(result):
+    error = result.stderr.lower()
+    # Return only constants, never the matched message or captured server input.
+    for code in ('V2_CLUSTER_REJECTED', 'V2_HBA_REJECTED', 'V2_NATIVE_TARGET_REJECTED',
+                 'V2_NATIVE_EXISTING_ADMIN_STOP', 'V2_NATIVE_OTHER_USERS_STOP',
+                 'V2_NATIVE_SETUP_CLOSED_STOP', 'V2_NATIVE_SETUP_STATE_REJECTED',
+                 'V2_NATIVE_SEAL_PRESENT_STOP', 'V2_NATIVE_AUDIT_PRESENT_STOP'):
+        if ('error:  ' + code.lower()).encode() in error:
+            return code
+    for fragment, code in (
+        (b'operation not permitted', 'V2_DB_SOCKET_EPERM'),
+        (b'connection refused', 'V2_DB_CONNECTION_REFUSED'),
+        (b'no such file or directory', 'V2_DB_SOCKET_UNAVAILABLE'),
+        (b'timeout expired', 'V2_DB_CONNECTION_TIMEOUT'),
+        (b'peer authentication failed', 'V2_DB_PEER_AUTH_FAILED'),
+        (b'password authentication failed', 'V2_DB_AUTH_FAILED'),
+        (b'no pg_hba.conf entry', 'V2_DB_HBA_DENIED'),
+        (b'permission denied to set parameter', 'V2_DB_MAINTENANCE_PERMISSION_DENIED'),
+        (b'permission denied', 'V2_DB_PERMISSION_DENIED')):
+        if fragment in error:
+            return code
+    if b'does not exist' in error:
+        for fragment, code in ((b'role ', 'V2_DB_ROLE_MISSING'), (b'database ', 'V2_DATABASE_MISSING'),
+                               (b'relation ', 'V2_DB_SCHEMA_MISSING'), (b'column ', 'V2_DB_SCHEMA_MISSING')):
+            if fragment in error:
+                return code
+    return 'V2_DB_CONNECTION_FAILED' if result.returncode == 2 else 'V2_DB_SQL_FAILED'
+
+
 def run(args, data=None, check=True, **kwargs):
     result = subprocess.run(args, input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
     if check and result.returncode:
-        raise RuntimeError('command failed')
+        raise Blocked('V2_COMMAND_FAILED')
     return result
 
 
 def sql(query=None, file=None, check=True):
+    if not Path(PG).is_file():
+        raise Blocked('V2_DB_PSQL_BINARY_MISSING')
+    if shutil.which('runuser') is None:
+        raise Blocked('V2_DB_RUNUSER_BINARY_MISSING')
     args = ['runuser', '-u', DBUSER, '--', PG, '-X', '-q', '-w', '-A', '-t', '-v', 'ON_ERROR_STOP=1',
             '-h', str(BASE / 'postgres-socket'), '-p', '55432', '-U', 'v2_pilot_maint', '-d', 'mikrotik_manager_v2']
     env = {k: v for k, v in os.environ.items() if not k.startswith('PG')}
-    env.update(PGCONNECT_TIMEOUT='5', PGOPTIONS='-c standard_conforming_strings=on -c log_statement=none -c log_min_error_statement=panic -c log_error_verbosity=terse -c log_parameter_max_length=0 -c log_parameter_max_length_on_error=0')
+    env.update(LC_ALL='C', PGCONNECT_TIMEOUT='5', PGOPTIONS='-c standard_conforming_strings=on -c log_statement=none -c log_min_error_statement=panic -c log_error_verbosity=terse -c log_parameter_max_length=0 -c log_parameter_max_length_on_error=0')
     if file:
         args += ['-f', str(file)]
-    return run(args, data=query.encode() if query else None, check=check, env=env, cwd=BASE)
+    result = run(args, data=query.encode() if query else None, check=False, env=env, cwd=BASE)
+    if check and result.returncode:
+        raise Blocked(classify_sql(result))
+    return result
 
 
-def safe(path, uid, mode, directory=False):
-    s = path.lstat()
-    assert s.st_uid == uid and stat.S_IMODE(s.st_mode) == mode
-    assert stat.S_ISDIR(s.st_mode) if directory else stat.S_ISREG(s.st_mode) and s.st_nlink == 1
+def safe(path, uid, mode, directory=False, label='V2_FILE'):
+    try:
+        s = path.lstat()
+    except FileNotFoundError:
+        raise Blocked(label + '_MISSING') from None
+    except PermissionError:
+        raise Blocked(label + '_PERMISSION_DENIED') from None
+    if not (stat.S_ISDIR(s.st_mode) if directory else stat.S_ISREG(s.st_mode)):
+        raise Blocked(label + '_TYPE_REJECTED')
+    if s.st_uid != uid:
+        raise Blocked(label + '_OWNER_MISMATCH')
+    if stat.S_IMODE(s.st_mode) != mode:
+        raise Blocked(label + '_MODE_MISMATCH')
+    if not directory and s.st_nlink != 1:
+        raise Blocked(label + '_HARDLINK_REJECTED')
+
+
+def account(name, code):
+    try:
+        return pwd.getpwnam(name)
+    except KeyError:
+        raise Blocked(code) from None
 
 
 def directory(path, uid, gid, mode):
@@ -62,21 +135,27 @@ def write_new(path, data, uid, gid):
         os.fchown(stream.fileno(), uid, gid)
 
 
-def main(stage, native=None):
+def main(stage, native=None, preflight_only=False):
     global STEP
     if sys.flags.optimize:
-        raise RuntimeError('optimized execution forbidden')
-    assert os.geteuid() == 0 and BASE.resolve() == BASE
+        raise Blocked('V2_OPTIMIZED_EXECUTION_FORBIDDEN')
+    if os.geteuid() != 0:
+        raise Blocked('V2_PREFLIGHT_ROOT_REQUIRED')
+    if BASE.resolve() != BASE:
+        raise Blocked('V2_PREFLIGHT_BASE_SYMLINK_REJECTED')
     os.umask(0o077)
-    operator = pwd.getpwnam('mikadmin')
-    assert stage.parent == Path('/home/mikadmin') and stage.name.startswith('v2-complete.')
-    safe(stage, operator.pw_uid, 0o700, True)
+    operator = account('mikadmin', 'V2_PREFLIGHT_OPERATOR_OS_USER_MISSING')
+    if stage.parent != Path('/home/mikadmin') or not stage.name.startswith('v2-complete.'):
+        raise Blocked('V2_PREFLIGHT_STAGE_PATH_REJECTED')
+    safe(stage, operator.pw_uid, 0o700, True, label='V2_PREFLIGHT_STAGE')
     for name in (('app.tar', 'native-admin.py', 'complete-vds.py') if native else ('app.tar', 'admin-transfer.jsonl', 'complete-vds.py')):
-        safe(stage / name, operator.pw_uid, 0o600)
-    db = pwd.getpwnam(DBUSER)  # Existing migrated cluster owner; never create/init/restart DB.
-    safe(BASE, 0, 0o755, True)
-    safe(BASE / 'postgres', db.pw_uid, 0o700, True)
-    safe(BASE / 'postgres-socket', db.pw_uid, 0o700, True)
+        labels = {'app.tar': 'V2_PREFLIGHT_ARCHIVE', 'native-admin.py': 'V2_PREFLIGHT_NATIVE_SOURCE',
+                  'complete-vds.py': 'V2_PREFLIGHT_COMPLETION_SOURCE', 'admin-transfer.jsonl': 'V2_PREFLIGHT_HANDOFF'}
+        safe(stage / name, operator.pw_uid, 0o600, label=labels[name])
+    db = account(DBUSER, 'V2_PREFLIGHT_DB_OS_USER_MISSING')
+    safe(BASE, 0, 0o755, True, label='V2_PREFLIGHT_BASE')
+    safe(BASE / 'postgres', db.pw_uid, 0o700, True, label='V2_PREFLIGHT_PGDATA')
+    safe(BASE / 'postgres-socket', db.pw_uid, 0o700, True, label='V2_PREFLIGHT_PGSOCKET')
     STEP = 'existing-cluster-identity'
     guard = """DO $$ BEGIN
  IF current_database()<>'mikrotik_manager_v2' OR current_user<>'v2_pilot_maint'
@@ -96,6 +175,11 @@ END $$;"""
     sql(guard)
     if native:
         native.require_empty()  # READ ONLY: before dependency/config/identity changes.
+    if preflight_only:
+        if not native:
+            raise Blocked('V2_PREFLIGHT_NATIVE_REQUIRED')
+        print('PASS: V2_NATIVE_PREFLIGHT_READY_NO_USERS_SETUP_OPEN', flush=True)
+        return
     STEP = 'isolated-source'
     archive = stage / 'app.tar'
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
@@ -346,7 +430,7 @@ assert o['connection_enabled'] is False and o['operator_candidate']['id']==u['id
 if __name__ == '__main__':
     try:
         main(Path(sys.argv[1]))
-    except (Exception, KeyboardInterrupt):
+    except (Exception, KeyboardInterrupt) as error:
         # Do not emit SQL errors, DSNs, subprocess output, bundle content or traceback.
-        print(f'BLOCKED: {STEP}; private state preserved; no automatic retry', file=sys.stderr)
+        print('BLOCKED: ' + failure_code(error), file=sys.stderr)
         sys.exit(1)
