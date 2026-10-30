@@ -209,3 +209,4 @@ input::placeholder{color:var(--muted);opacity:1}
 .synthetic-subscriber-table td:first-child:has(input[type=checkbox]){width:46px}
 .synthetic-subscriber-table td:nth-child(2){max-width:210px;white-space:normal;overflow-wrap:anywhere}
 .synthetic-subscriber-table td:nth-child(2) small{display:block;color:var(--text-secondary)}
+.pilot-operator-status{padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface);min-width:0}.pilot-operator-status h3{font-size:14px;margin:0 0 8px}.pilot-operator-status p{font-size:13px;line-height:1.6;margin:6px 0;color:var(--text-secondary)}.pilot-operator-status code{overflow-wrap:anywhere;color:var(--text);font-size:12px}

@@ -1,10 +1,11 @@
+import type {PilotIdentity} from './pilotOperator';
 export type RegisteredRouter={
   pilot_kind?:'CEBECI_TOWERS'|null;id:string;name:string;management_address:string;port:number;identity:string;model:string;routeros_version:string;
   revision:number;last_checked_at:string;last_success_at:string;last_error:string|null;
   status:'VERIFIED'|'STALE'|'CHECK_FAILED';leaf_sha256:string;source_ip:string;
   expected_identity:string;expected_version:string;credentials_configured:boolean;is_demo:false;continuous_monitoring:false;
 };
-export type RegistryOptions={operator_candidate?:{id:string;revision:number;source:'V2_AUTHENTICATED_SESSION'}|null;connection_enabled:boolean;operator_authorized:boolean;source_ip:string|null;allowed_networks:string[];allowed_ports:number[];tls_required:true;pin_required:true;read_only:true;automatic_polling:false;is_demo:false};
+export type RegistryOptions={pilot_identity?:PilotIdentity|null;operator_candidate?:{id:string;revision:number;source:'V2_AUTHENTICATED_SESSION'}|null;connection_enabled:boolean;operator_authorized:boolean;source_ip:string|null;allowed_networks:string[];allowed_ports:number[];tls_required:true;pin_required:true;read_only:true;automatic_polling:false;is_demo:false};
 export type RouterForm={name:string;management_address:string;port:string;expected_identity:string;expected_version:string;username:string;password:string;ca_pem:string;leaf_sha256:string};
 export type Verification={verification_id:string;state:'RUNNING'|'VERIFIED'|'FAILED'|'SAVED'|'CANCELLED'|'EXPIRED';expires_at:string;error_code:string|null;saved_router_id:string|null;
   preview?:{name:string;management_address:string;port:number;metadata:{identity:string;model:string;routeros_version:string};source_ip:string;checked_at:string;expected_revision:number};is_demo:false};

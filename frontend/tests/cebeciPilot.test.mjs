@@ -7,8 +7,8 @@ import * as React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {pilotTestPayload} from '../src/lib/cebeciPilot.ts';
 const require=createRequire(import.meta.url);
-let optionsFixture=null;
-const react={...React,useEffect:()=>{},useCallback:fn=>fn,useRef:value=>({current:value}),useState:initial=>{const value=typeof initial==='function'?initial():initial;return [value?.path==='/router-registry/options'&&optionsFixture?{...value,loading:false,data:optionsFixture}:value,()=>{}];}};
+let optionsFixture=null;let consentFixture=false;let falseStateCount=0;
+const react={...React,useEffect:()=>{},useCallback:fn=>fn,useRef:value=>({current:value}),useState:initial=>{const value=typeof initial==='function'?initial():initial;if(value===false&&consentFixture&&falseStateCount++===0)return [true,()=>{}];return [value?.path==='/router-registry/options'&&optionsFixture?{...value,loading:false,data:optionsFixture}:value,()=>{}];}};
 function load(path){const code=buildSync({entryPoints:[fileURLToPath(new URL(path,import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?react:require(name),module,module.exports);return module.exports;}
 const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.children).flatMap(nodes)]:[];
 test('pilot payload fixed, public only and explicit consent required',()=>{
@@ -27,13 +27,28 @@ test('detail read requires its own consent and never runs during render',()=>{
  assert.ok(nodes(tree).find(n=>n.type==='button').props.disabled);assert.match(renderToStaticMarkup(tree),/Otomatik polling veya tekrar yoktur/);
 });
 
-test('authenticated operator ID is read-only metadata; closed gate stays closed',()=>{
+test('authenticated session ID is read-only and separate from a closed connection gate',()=>{
  globalThis.window={isSecureContext:true};
- optionsFixture={connection_enabled:false,operator_authorized:false,operator_candidate:{id:'fixture-existing-operator',revision:2,source:'V2_AUTHENTICATED_SESSION'},source_ip:'10.250.0.1',allowed_networks:['10.250.0.19/32'],allowed_ports:[8729]};
+ const pilotIdentity={state:'ELIGIBLE',candidate:{id:'fixture-existing-operator',revision:2,source:'V2_AUTHENTICATED_SESSION'}};
+ optionsFixture={connection_enabled:false,operator_authorized:false,operator_candidate:pilotIdentity.candidate,source_ip:'10.250.0.1',allowed_networks:['10.250.0.19/32'],allowed_ports:[8729]};
  try{
   const {CebeciPilotOnboarding}=load('../src/components/CebeciPilotOnboarding.tsx');
-  const tree=CebeciPilotOnboarding({onClose(){},onSaved(){}});const html=renderToStaticMarkup(tree);
-  assert.match(html,/fixture-existing-operator/);assert.match(html,/Bu bilgi yetki vermez/);assert.doesNotMatch(html,/type="password"/);
+  const tree=CebeciPilotOnboarding({onClose(){},onSaved(){},pilotIdentity});const html=renderToStaticMarkup(tree);
+  assert.match(html,/<code>fixture-existing-operator<\/code>/);assert.match(html,/Bu bilgi yetki vermez/);assert.doesNotMatch(html,/type="password"/);
   for(const button of nodes(tree).filter(node=>node.type==='button'&&['Bağlantıyı Test Et',"Router'ı Kaydet"].includes(node.props.children)))assert.ok(button.props.disabled);
  }finally{optionsFixture=null;}
+});
+test('demo or unknown session stays blocked despite consent and an options-only ID',()=>{
+ globalThis.window={isSecureContext:true};
+ optionsFixture={connection_enabled:true,operator_authorized:true,operator_candidate:{id:'fixture-existing-operator',revision:2,source:'V2_AUTHENTICATED_SESSION'}};
+ consentFixture=true;
+ try{
+  const {CebeciPilotOnboarding}=load('../src/components/CebeciPilotOnboarding.tsx');
+  for(const pilotIdentity of [{state:'BOOTSTRAP_DEMO',candidate:null},undefined]){
+   falseStateCount=0;const tree=CebeciPilotOnboarding({onClose(){},onSaved(){},pilotIdentity});
+   assert.ok(nodes(tree).find(node=>node.type==='button'&&node.props.children==='Bağlantıyı Test Et').props.disabled);
+   const html=renderToStaticMarkup(tree);assert.doesNotMatch(html,/fixture-existing-operator/);
+   assert.match(html,pilotIdentity?/varsayılan Demo Operatör/:/Doğrulanmış operatör durumu alınamadı/);
+  }
+ }finally{optionsFixture=null;consentFixture=false;}
 });

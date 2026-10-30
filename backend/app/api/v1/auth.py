@@ -1,3 +1,4 @@
+from app.core.pilot_operator import pilot_identity
 from fastapi import APIRouter, Depends, Response
 from fastapi import Cookie
 
@@ -13,12 +14,12 @@ def demo_login(payload: DemoLogin, response: Response):
     token = login_demo(payload.username, payload.password)
     response.set_cookie('v2_session', token, httponly=True, secure=settings.session_secure,
                         samesite='strict', max_age=SESSION_TIMEOUT_SECONDS, path='/api')
-    return current_demo_user(token)
+    return me(current_demo_user(token))
 
 
 @router.get('/me', response_model=UserResponse)
 def me(user: dict = Depends(current_demo_user)):
-    return user
+    return {**user,'pilot_identity':pilot_identity(user)}
 
 
 @router.post('/logout')

@@ -320,3 +320,39 @@ VDS'deki doğrulanmış 10.250.0.1 yönetim kaynağını panelle kullanmak için
 origin'de sunar; V1 reverse proxy/Vite servisini değiştirmez. Gerçek ADMIN
 oturumundan gelen operator_candidate ID pilot ekranında gösterilir; bu alan
 kimlik oluşturmaz veya yetki vermez. Kurulum ve canlı kapı açılması yapılmadı.
+
+## Oturum ve pilot operatör ID'si
+
+Görünen **Demo Operatör / Sistem Yöneticisi** metni pilot kimliği kanıtı değildir.
+Varsayılan bootstrap hesabının ID'si `demo-user` olduğundan pilot adayı bilerek
+üretilmez. Önceki UI bunu yalnız boş ID alanı ve kapalı gate mesajıyla gösteriyordu;
+artık Sistem ve Kullanıcı ile pilot dialogunda nedeni ayrı açıkça gösterilir.
+Aynı görünen adı kullanan başka kayıtlı hesap, adı nedeniyle demo sayılmaz.
+
+`is_demo=true` mevcut V2 oturum ortamı işaretidir ve kayıtlı hesaplarda da bulunur;
+`false` yaparak bir hesabı “gerçek ADMIN”e dönüştürmek veya yeni ID üretmek çözüm
+değildir. Uygun hesap mevcut V2 DB'sinden doğrulanan, aktif, merkezi yönetim
+kapsamı tam ADMIN ve bootstrap dışındaki hesaptır. Bu bir üretim kimlik sağlayıcısı
+veya insan kimliği doğrulaması iddiası değildir; mevcut V2 oturum yetkisi kontrolüdür.
+
+Login ve `/auth/me` artık ortak backend `pilot_identity` projeksiyonunu döndürür:
+ELIGIBLE, BOOTSTRAP_DEMO, NOT_ADMIN, INSUFFICIENT_SCOPE, INACTIVE veya UNVERIFIED.
+Yalnız ELIGIBLE durumunda `candidate.id/revision/source` vardır; aksi halde candidate
+null'dır. Genel oturumun mevcut `id` alanı uygulamanın kendi kimliği için korunur,
+fakat uygun olmayan oturumdan pilot ID'si gösterilmez. `/router-registry/options`
+aynı projeksiyonu ve geriye uyumlu operator_candidate alanını kullanır.
+
+Kimlik bilgisi artık yalnız bağlantı seçeneklerinden alınmaz: hatalı/kapalı ağ
+politikası `/auth/me` kimlik gösterimini gizlemez. Eski/eksik auth yanıtı, kaynak
+uyuşmazlığı, eksik alan veya demo oturumu frontend'de açık gerekçeyle kapalıdır;
+username, isim, çevrilmiş rol metni veya env allowlist'inden ID türetilmez.
+Pilot test/kayıt düğmeleri uygun oturum olmadan açılmaz. Backend de aynı uygunluk
+kararına ek olarak mevcut ADMIN, header, operator allowlist ve bağlantı policy
+kontrollerini sürdürür. Rol/grant/aktiflik her istekte DB'den yeniden okunur.
+
+Sonraki kimlik doğrulama adımı: mevcut kayıtlı tam kapsamlı V2 ADMIN hesabıyla
+normal panel oturumu açıp **Oturum ve pilot operatörü** alanını okumaktır. Bootstrap
+hesabı yeniden adlandırmak, ENV'ye demo ID'sini yazmak, cookie'den yetki kopyalamak
+veya bu görevde sahte hesap oluşturmak çözüm değildir. Yeni hesap/grant oluşturulmadı,
+allowlist/gate değiştirilmedi. Gerçek tarayıcı oturumu/ID'si bu geliştirme sırasında
+okunmadı; yalnız kullanıcı bildirilen görünen addan canlı kimlik sonucu çıkarılmadı.

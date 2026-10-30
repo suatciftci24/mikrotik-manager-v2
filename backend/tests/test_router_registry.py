@@ -155,7 +155,7 @@ class RegistryTests(TestCase):
 
 class RegistryAuthorizationTests(TestCase):
     def test_admin_csrf_operator_scope_and_bootstrap_deny(self):
-        user={'id':'operator','is_demo':True,'role_code':'ADMIN','can_manage_users':True}
+        user={'id':'operator','is_demo':True,'role_code':'ADMIN','can_manage_users':True,'active':True,'revision':0}
         with patch.dict(os.environ,{'V2_ROUTER_ONBOARDING_OPERATOR_IDS':'operator,demo-user'},clear=True):
             self.assertEqual(routes.mutator(user,'router-onboarding'),user)
             for identity,header in (({**user,'role_code':'VIEWER'},'router-onboarding'),({**user,'id':'demo-user'},'router-onboarding'),(user,'wrong'),({**user,'id':'other'},'router-onboarding')):
@@ -175,7 +175,7 @@ class RegistryAuthorizationTests(TestCase):
                 with self.assertRaises(HTTPException) as error:routes.secure_panel(request)
                 self.assertEqual(error.exception.status_code,403)
     def test_registry_reads_also_deny_bootstrap_viewer_and_unlisted_admin(self):
-        admin={'id':'operator','is_demo':True,'role_code':'ADMIN','can_manage_users':True}
+        admin={'id':'operator','is_demo':True,'role_code':'ADMIN','can_manage_users':True,'active':True,'revision':0}
         with patch.dict(os.environ,{'V2_ROUTER_ONBOARDING_OPERATOR_IDS':'operator,demo-user'},clear=True):
             self.assertEqual(routes.reader(admin),admin)
             for user in ({**admin,'id':'demo-user'},{**admin,'id':'other'},{**admin,'role_code':'VIEWER'}):

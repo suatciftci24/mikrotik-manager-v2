@@ -1,3 +1,4 @@
+from app.schemas.pilot_operator import PilotIdentity
 from pydantic import BaseModel, Field
 
 
@@ -7,6 +8,7 @@ class DemoLogin(BaseModel):
 
 
 class UserResponse(BaseModel):
+    pilot_identity: PilotIdentity | None = None
     id: str
     name: str
     email: str

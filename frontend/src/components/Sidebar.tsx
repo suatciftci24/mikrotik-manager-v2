@@ -1,3 +1,4 @@
+import type {PilotIdentity} from '../lib/pilotOperator';
 import {
   Activity, ArrowDownUp, ChevronDown, CircleHelp, Command, Gauge, LayoutDashboard,
   LogOut, Network, RadioTower, Router as RouterIcon, Settings2, ShieldCheck, Users,
@@ -5,7 +6,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 export type ScreenKey = 'dashboard' | 'routers' | 'subscribers' | 'radius' | 'operations' | 'mikajani' | 'system';
-export type User = { id: string; name: string; email: string; role: string; role_code?:'ADMIN'|'VIEWER';can_manage_users?:boolean;active?:boolean;revision?:number;username?:string;permissions?:Record<string,Record<string,boolean>>; is_demo: boolean };
+export type User = { pilot_identity?:PilotIdentity|null;id: string; name: string; email: string; role: string; role_code?:'ADMIN'|'VIEWER';can_manage_users?:boolean;active?:boolean;revision?:number;username?:string;permissions?:Record<string,Record<string,boolean>>; is_demo: boolean };
 
 const nav: { key: ScreenKey; label: string; icon: LucideIcon; group: string }[] = [
   { key: 'dashboard', label: 'Genel Bakış', icon: LayoutDashboard, group: 'WORKSPACE' },

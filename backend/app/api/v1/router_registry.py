@@ -1,4 +1,5 @@
 """ADMIN-only central onboarding; reads never connect to devices."""
+from app.core.pilot_operator import pilot_identity
 import os
 from fastapi import APIRouter,Depends,Header,HTTPException,Query,Request
 from app.core.security import current_admin
@@ -25,16 +26,12 @@ def mutator(user:dict=Depends(current_admin),x_v2_demo_action:str|None=Header(de
 
 def operator_allowed(user):
     ids={value.strip() for value in os.environ.get('V2_ROUTER_ONBOARDING_OPERATOR_IDS','').split(',') if value.strip()}
-    return user.get('id')!='demo-user' and user.get('id') in ids
+    identity=pilot_identity(user)
+    return identity['state']=='ELIGIBLE' and identity['candidate']['id'] in ids
 
 
 def operator_candidate(user):
-    # This is metadata from the existing fresh authenticated V2 session, never an env ID.
-    id=user.get('id')
-    if (not isinstance(id,str) or not id or id=='demo-user' or user.get('active') is not True
-            or user.get('role_code')!='ADMIN' or user.get('can_manage_users') is not True
-            or user.get('is_demo') is not True):return None
-    return {'id':id,'revision':user.get('revision',0),'source':'V2_AUTHENTICATED_SESSION'}
+    return pilot_identity(user)['candidate']
 
 
 def reader(user:dict=Depends(current_admin)):
@@ -52,7 +49,7 @@ def execute(call,*args):
 def options(user:dict=Depends(current_admin)):
     try:
         policy=ConnectionPolicy.environment()
-        return dict(connection_enabled=policy.enabled,operator_authorized=operator_allowed(user),operator_candidate=operator_candidate(user),source_ip=policy.source_ip or None,
+        return dict(connection_enabled=policy.enabled,operator_authorized=operator_allowed(user),operator_candidate=operator_candidate(user),pilot_identity=pilot_identity(user),source_ip=policy.source_ip or None,
             allowed_networks=list(policy.allowed_networks),allowed_ports=list(policy.allowed_ports),
             tls_required=True,pin_required=True,read_only=True,automatic_polling=False,is_demo=False)
     except ApiSslStop:raise HTTPException(503,'CONNECTION_POLICY_INVALID') from None
