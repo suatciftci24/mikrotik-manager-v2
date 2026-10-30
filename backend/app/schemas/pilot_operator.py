@@ -11,5 +11,5 @@ class OperatorCandidate(BaseModel):
 
 class PilotIdentity(BaseModel):
     model_config=ConfigDict(extra='forbid')
-    state:Literal['ELIGIBLE','BOOTSTRAP_DEMO','INACTIVE','UNVERIFIED','NOT_ADMIN','INSUFFICIENT_SCOPE']
+    state:Literal['ELIGIBLE','BOOTSTRAP_DEMO','DEMO_ACCOUNT','INACTIVE','UNVERIFIED','NOT_ADMIN','INSUFFICIENT_SCOPE']
     candidate:OperatorCandidate|None=None

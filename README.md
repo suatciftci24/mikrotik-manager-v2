@@ -10,11 +10,66 @@ cd /home/suatpc/Codex-Projects/mikrotik-manager-v2
 ./dev.sh
 ```
 
-Open `http://127.0.0.1:5173`. Sign in with the synthetic demo account `demo` / `demo-only` (profile email `demo@local.test`). Dashboard, Router Center, and Subscriber Center show synthetic data; the other four modules have planned-scope empty states. The browser API is served by FastAPI at loopback; `/api/health` reports local demo storage connectivity and device-adapter isolation.
+Open `http://127.0.0.1:5173`. Before first ADMIN setup, the synthetic demo account is `demo` / `demo-only` (profile email `demo@local.test`). After setup only LOCAL accounts can log in. The login form never pre-fills credentials. Dashboard, Router Center, and Subscriber Center retain their synthetic data. The browser API is served by FastAPI at loopback; `/api/health` reports local demo storage connectivity and device-adapter isolation.
 
 The first run prepares V2-specific Python/frontend dependencies. First-time dependency installation needs normal package-registry access. Demo persistence uses the existing SQLAlchemy/psycopg stack and locally installed PostgreSQL 16; no additional Python/npm package is introduced. The explicit `--prepare-demo` maintenance command starts only a repo-owned development PostgreSQL cluster and applies/seeds only the isolated demo schema. Normal `./dev.sh` startup neither connects to the DB nor runs migrations; API reads/writes connect on demand. The original `001_initial_v2.sql` domain design is not applied by demo setup.
 
 The optional V2 database URL is restricted to loopback and a non-default local port; it defaults to the separate database name `mikrotik_manager_v2` on port `55432`. Do not point it at V1 or production. See [AGENTS.md](AGENTS.md) for isolation and architecture rules.
+
+## First real V2 ADMIN (local, one time)
+
+In the **office WSL terminal**, as the OS user owning this repository and its
+already running isolated PostgreSQL cluster, run:
+
+```bash
+cd ~/Codex-Projects/mikrotik-manager-v2 && ./first-admin.sh
+```
+
+The command asks for a new username, display name and email, then a password
+twice using hidden TTY input. The operator chooses the password (14–128
+characters) and types `OLUSTUR` to confirm. There is no web bootstrap endpoint,
+password argument, generated/default password, environment password or automatic
+account creation. Redirected input/output and getpass echo fallback are rejected.
+Do not use `sudo`, pipes or terminal recording.
+
+Before any write, setup checks the non-root local owner's UID, directory ownership,
+symlinks/write permissions, configured loopback PostgreSQL driver/role/DB/port,
+actual `data_directory` (`.local/postgres-v2-demo`), and the V2 schema marker.
+Only `v2_local` / `mikrotik_manager_v2` / port `55432` is accepted. It does not
+start a DB/service, repair permissions, install dependencies or read pilot secrets.
+
+Setup explicitly applies versioned `004` (if users are absent) and `009` in the
+same PostgreSQL transaction as a new, independent `v2-user-…` LOCAL ADMIN, its
+`FIRST_ADMIN_CREATE` audit (local operator UID) and permanent singleton seal.
+It shares the user-management advisory lock and locks schema state, preventing
+two concurrent first ADMIN creations. A failure rolls back schema/account/audit/seal;
+commit success is reported only after the transaction exits. Existing demo
+accounts, routers, subscribers, settings and audit histories are preserved.
+The existing synthetic alarm actor constraint also accepts LOCAL account IDs.
+
+New LOCAL passwords use salted scrypt (`N=131072, r=8, p=1`, 16-byte random salt,
+32-byte result), following [OWASP's scrypt guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html).
+Only hashes reach PostgreSQL. Passwords/hashes and session tokens are absent from
+user responses and audits; login/setup model representations exclude passwords,
+and SQLAlchemy parameter diagnostics are hidden. Sessions retain opaque tokens
+only and re-read permissions from PostgreSQL on each request.
+
+After commit **all DEMO/BOOTSTRAP_DEMO logins and old demo sessions are rejected**.
+No demo account is promoted or deleted. The seal stays closed even if the first
+ADMIN is disabled; missing/inconsistent seal/table/origin fails closed and never
+recreates a default admin. `users-init` does not reopen setup. Recovery requires
+separately reviewed local maintenance, not a reset/re-bootstrap flag. Subsequent
+LOCAL users use the existing authenticated user-management flow; account origin
+cannot be supplied/edited by an HTTP payload. Last active LOCAL ADMIN protection
+counts LOCAL accounts separately from retained demo records.
+
+After login the matching, verified operator ID appears in the sidebar and existing
+System/Pilot status. `is_demo` still describes the **data environment**, while
+`account_origin` describes the **identity**. Only sealed LOCAL ADMIN accounts can
+be pilot candidates. ADMIN creation never changes onboarding flags or the operator
+allowlist: eligibility is separate from pilot authorization/connection consent.
+The pilot gate stays closed. V1, VDS, router, IPsec and RADIUS are not accessed.
+Old demo login/browser acceptance commands are not suitable after this seal closes.
 
 ## Detail centers and module extension
 

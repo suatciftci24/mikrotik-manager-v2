@@ -30,3 +30,10 @@ test('missing user setup, loading and failed request remain explicit',()=>{
  assert.match(render(admin,{loading:false,error:'Yetki gerekli',retry(){}}),/role="alert"/);
  assert.match(render(admin,{data:{items:[],routers:[],total:0,storage_ready:false},loading:false,retry(){}}),/users-init/);
 });
+test('local and legacy demo accounts show their independent origin and login state',()=>{
+ const local={...user,id:'v2-user-fixture',role_code:'ADMIN',can_manage_users:true,account_origin:'LOCAL',bootstrap_closed:true,login_enabled:true};
+ const demo={...user,id:'demo-user',account_origin:'BOOTSTRAP_DEMO',bootstrap_closed:true,login_enabled:false};
+ const html=render(local,{data:{items:[local,demo],routers:[],total:2,storage_ready:true},loading:false,retry(){}});
+ for(const label of ['YEREL HESAPLAR','Yerel hesap','Demo hesabı','Giriş kapalı','Kullanıcı ekle'])assert.ok(html.includes(label),label);
+ assert.doesNotMatch(html,/Sentetik kullanıcı ekle/);
+});

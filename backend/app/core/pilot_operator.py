@@ -14,6 +14,8 @@ def pilot_identity(user):
             or len(id)>80 or id!=id.strip() or any(ord(c)<32 or ord(c)==127 for c in id)):
         state='UNVERIFIED'
     elif id=='demo-user':state='BOOTSTRAP_DEMO'
+    elif user.get('account_origin') in ('DEMO','BOOTSTRAP_DEMO'):state='DEMO_ACCOUNT'
+    elif user.get('account_origin')!='LOCAL' or user.get('bootstrap_closed') is not True:state='UNVERIFIED'
     elif user.get('active') is False:state='INACTIVE'
     elif (user.get('active') is not True or type(revision) is not int or revision<0
             or user.get('role_code') not in ('ADMIN','VIEWER') or type(user.get('can_manage_users')) is not bool):

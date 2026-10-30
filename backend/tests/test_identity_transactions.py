@@ -25,7 +25,7 @@ class SQL:
         elif 'FROM v2_demo.user_audit WHERE id' in sql:value=self.audit.get(p['id'])
         elif 'SELECT password_hash' in sql:value=self.users[p['id']]['password_hash']
         elif 'SELECT * FROM v2_demo.users WHERE id' in sql:value=self.users.get(p['id'])
-        elif 'SELECT count(*) FROM v2_demo.users WHERE role' in sql:value=sum(u['active'] and u['role']=='ADMIN' for u in self.users.values())
+        elif 'SELECT count(*) FROM v2_demo.users WHERE role' in sql:value=sum(u['active'] and u['role']=='ADMIN' and ("account_origin='LOCAL'" not in sql or u.get('account_origin')=='LOCAL') for u in self.users.values())
         elif 'SELECT 1 FROM v2_demo.users WHERE username' in sql:value=1 if any(u['username']==p['name'] for u in self.users.values()) else None
         elif sql.startswith('INSERT INTO v2_demo.users'):
             self.users[p['id']]={**p,'permissions':json.loads(p['permissions'])}
@@ -40,6 +40,10 @@ class IdentityTransactions(TestCase):
     def setUp(self):
         self.db=SQL();self.adapter=SimpleNamespace(engine=self.db,_verify=Mock())
         self.patch=patch.object(identity,'adapter',return_value=self.adapter);self.patch.start();self.addCleanup(self.patch.stop)
+        from app.services.identity_setup import IdentitySetup
+        self.state=IdentitySetup(self.db.ready)
+        state=patch.object(identity,'inspect_setup',side_effect=lambda _:self.state)
+        state.start();self.addCleanup(state.stop)
     def create(self,**extra):
         return identity.UserCreate(request_id=extra.get('request_id',str(uuid4())),name='Synthetic New User',email='new@local.test',username='test.'+uuid4().hex[:10],password='private-test-password-123',role='VIEWER',active=True,permissions={},expected_revision=0,confirmed=True)
     def test_user_and_audit_commit_together_without_password_in_audit_or_fingerprint(self):
@@ -88,3 +92,32 @@ class IdentityTransactions(TestCase):
         with patch.object(identity,'adapter',return_value=SimpleNamespace(engine=engine,_verify=Mock())),patch('app.demo_repair.preflight'):
             identity.initialize_users()
         self.assertFalse(any('INSERT INTO v2_demo.users' in sql for sql in calls))
+
+    def close_setup(self):
+        from app.services.identity_setup import IdentitySetup
+        self.state=IdentitySetup(True,True,True,True)
+        self.db.users['v2-user-fixture']={**identity.bootstrap(),'id':'v2-user-fixture','username':'fixture.admin','account_origin':'LOCAL'}
+
+    def test_closed_setup_rechecks_demo_actor_and_never_promotes_it(self):
+        self.close_setup()
+        with self.assertRaises(DemoChangeError) as error:identity.save_user(self.create(),'demo-user')
+        self.assertEqual(error.exception.status_code,403)
+        self.assertEqual(len(self.db.users),2);self.assertEqual(self.db.audit,{})
+
+    def test_local_admin_creates_local_accounts_with_strong_hash_and_replay(self):
+        self.close_setup();command=self.create()
+        user=identity.save_user(command,'v2-user-fixture')
+        self.assertEqual(user['account_origin'],'LOCAL');self.assertTrue(user['bootstrap_closed'])
+        self.assertTrue(user['id'].startswith('v2-user-'))
+        self.assertTrue(self.db.users[user['id']]['password_hash'].startswith('scrypt$131072$8$1$'))
+        self.assertEqual(identity.save_user(command,'v2-user-fixture'),user)
+        self.assertEqual(len(self.db.audit),1)
+        weak=self.create().model_copy(update={'password':'twelve-chars'})
+        with self.assertRaises(DemoChangeError):identity.save_user(weak,'v2-user-fixture')
+
+    def test_http_payload_cannot_choose_local_origin_or_bootstrap_account_id(self):
+        from pydantic import ValidationError
+        command=self.create()
+        for update in ({'account_origin':'LOCAL'},{'bootstrap_closed':True},{'id':'v2-user-forged'}):
+            with self.assertRaises(ValidationError):
+                identity.UserCreate.model_validate({**command.model_dump(),'password':command.password,**update})

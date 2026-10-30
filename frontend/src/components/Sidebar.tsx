@@ -1,4 +1,4 @@
-import type {PilotIdentity} from '../lib/pilotOperator';
+import {pilotOperatorView,type PilotIdentity} from '../lib/pilotOperator';
 import {
   Activity, ArrowDownUp, ChevronDown, CircleHelp, Command, Gauge, LayoutDashboard,
   LogOut, Network, RadioTower, Router as RouterIcon, Settings2, ShieldCheck, Users,
@@ -6,7 +6,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 export type ScreenKey = 'dashboard' | 'routers' | 'subscribers' | 'radius' | 'operations' | 'mikajani' | 'system';
-export type User = { pilot_identity?:PilotIdentity|null;id: string; name: string; email: string; role: string; role_code?:'ADMIN'|'VIEWER';can_manage_users?:boolean;active?:boolean;revision?:number;username?:string;permissions?:Record<string,Record<string,boolean>>; is_demo: boolean };
+export type User = { pilot_identity?:PilotIdentity|null;account_origin?:'BOOTSTRAP_DEMO'|'DEMO'|'LOCAL';bootstrap_closed?:boolean;login_enabled?:boolean;id: string; name: string; email: string; role: string; role_code?:'ADMIN'|'VIEWER';can_manage_users?:boolean;active?:boolean;revision?:number;username?:string;permissions?:Record<string,Record<string,boolean>>; is_demo: boolean };
 
 const nav: { key: ScreenKey; label: string; icon: LucideIcon; group: string }[] = [
   { key: 'dashboard', label: 'Genel Bakış', icon: LayoutDashboard, group: 'WORKSPACE' },
@@ -21,6 +21,7 @@ const nav: { key: ScreenKey; label: string; icon: LucideIcon; group: string }[] 
 export function Sidebar({ active, onNavigate, user, onLogout }: {
   active: ScreenKey; onNavigate: (key: ScreenKey) => void; user: User; onLogout: () => void;
 }) {
+  const operator=pilotOperatorView(user.pilot_identity);
   let group = '';
   return <aside className="sidebar">
     <button className="brand" onClick={() => onNavigate('dashboard')} aria-label="V2 genel bakış">
@@ -51,6 +52,7 @@ export function Sidebar({ active, onNavigate, user, onLogout }: {
         <button className="icon-button profile-menu" title="Oturumu kapat" onClick={onLogout}><LogOut size={16} /></button>
       </div>
     </div>
+    {operator.eligible&&operator.id===user.id&&<p className="session-operator">Doğrulanmış operatör ID <code>{operator.id}</code></p>}
     <div className="sidebar-foot"><span>MIKROTIK MANAGER</span><span>0.1.0 · PHASE 01</span></div>
   </aside>;
 }

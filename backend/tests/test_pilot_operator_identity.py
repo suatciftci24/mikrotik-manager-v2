@@ -15,7 +15,7 @@ from app.schemas.auth import UserResponse
 class PilotOperatorIdentityTests(TestCase):
     def account(self):
         record=deepcopy(identity.bootstrap())
-        record.update(id='fixture-existing-v2-account',username='fixture-operator',name='Demo Operatör')
+        record.update(id='v2-user-fixture-existing-account',username='fixture-operator',name='Demo Operatör',account_origin='LOCAL',bootstrap_closed=True)
         return record
     def test_bootstrap_role_label_never_proves_pilot_eligibility(self):
         user=identity.public_user(identity.bootstrap())
@@ -39,6 +39,8 @@ class PilotOperatorIdentityTests(TestCase):
         self.assertIsNone(pilot_identity({'name':'Demo Operatör','role':'Sistem Yöneticisi'})['candidate'])
         self.assertEqual(pilot_identity(None),{'state':'UNVERIFIED','candidate':None})
         self.assertEqual(pilot_identity({**user,'id':'demo-user '})['state'],'UNVERIFIED')
+        self.assertEqual(pilot_identity({**user,'account_origin':'DEMO'})['state'],'DEMO_ACCOUNT')
+        self.assertEqual(pilot_identity({**user,'bootstrap_closed':False})['state'],'UNVERIFIED')
     def test_me_projection_is_independent_of_connection_policy_and_secret_values(self):
         user=identity.public_user(self.account())
         user.update(password='SYNTHETIC_PRIVATE_CANARY',password_hash='SYNTHETIC_HASH_CANARY')

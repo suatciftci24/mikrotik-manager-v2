@@ -1,4 +1,4 @@
-"""Local demo session. Phase 1 has no production identity provider or password store."""
+"""Opaque V2 sessions. Account origin and permissions are re-read from isolated PostgreSQL."""
 import secrets
 import time
 from app.services.identity import find_user,verify_password,BOOTSTRAP_HASH,public_user

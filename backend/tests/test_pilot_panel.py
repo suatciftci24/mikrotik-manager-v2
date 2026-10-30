@@ -42,7 +42,7 @@ class PilotPanelTests(TestCase):
         self.assertEqual(static.lookup_path('../../.local/secret'),('',None))
         self.assertEqual(static.lookup_path('linked-secret'),('',None))
     def test_current_operator_projection_never_grants_or_echoes_other_fields(self):
-        user={'id':'fixture-existing-operator','revision':4,'active':True,'role_code':'ADMIN','can_manage_users':True,'is_demo':True,'password':'SYNTHETIC_PRIVATE_CANARY','password_hash':'SYNTHETIC_HASH_CANARY','email':'private@local.test'}
+        user={'id':'fixture-existing-operator','account_origin':'LOCAL','bootstrap_closed':True,'revision':4,'active':True,'role_code':'ADMIN','can_manage_users':True,'is_demo':True,'password':'SYNTHETIC_PRIVATE_CANARY','password_hash':'SYNTHETIC_HASH_CANARY','email':'private@local.test'}
         with patch.dict(os.environ,{'V2_ROUTER_ONBOARDING_ENABLED':'false','V2_ROUTER_ONBOARDING_OPERATOR_IDS':''},clear=True):
             output=router_registry.options(user)
         self.assertEqual(output['operator_candidate'],{'id':user['id'],'revision':4,'source':'V2_AUTHENTICATED_SESSION'})

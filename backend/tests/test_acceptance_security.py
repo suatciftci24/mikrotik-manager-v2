@@ -45,7 +45,7 @@ class AcceptanceSecurity(TestCase):
         self.assertEqual(cookie['samesite'].lower(),'strict')
         self.assertEqual(cookie['path'],'/api')
         self.assertEqual(cookie['max-age'],'28800')
-        self.assertEqual(set(UserResponse.model_validate(user).model_dump()),{'id','name','email','role','is_demo','username','role_code','active','revision','permissions','can_manage_users'})
+        self.assertEqual(set(UserResponse.model_validate(user).model_dump()),{'id','name','email','role','is_demo','username','role_code','active','revision','permissions','can_manage_users','pilot_identity','account_origin','bootstrap_closed','login_enabled'})
         self.assertTrue(user['is_demo'])
         self.assertEqual(auth.me(current_demo_user(cookie.value)),user)
         auth.logout(Response(),cookie.value)
