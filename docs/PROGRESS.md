@@ -1180,3 +1180,12 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - PASS: mevcut doğrudan ilgili 10 soketsiz pilot runtime testi; yeni SQL tablo referansları/cluster guard/çıktı kontratı statik kontrolü ve diff kontrolü. İlk test çağrısının PYTHONPATH eksikliği giderildi; statik regex rakam desteği düzeltildi. SQL execution/gerçek PG yetki kabulü iddia edilmez.
 - BLOCKED/uygulanmadı: VDS kurulumu, gerçek ADMIN aktarımı ve PG/HTTP/login kabulü. İki gate false; TLS/pin/source/read-only korunur. V1/IPsec/RADIUS/servis/router veya secret erişimi yok. İzlenmeyen mevcut boş main dosyası korundu.
 - Tek sonraki işlem: ayrı açık onayla belgelenmiş izole kapalı VDS kurulum paketini uygulamak ve mevcut ADMIN aktarımıyla panel/DB kabulünü tamamlamak; pilot etkinleştirme bu kapsamda değildir. Commit/push sonucu teslimde.
+
+## Onaylı izole VDS kurulum denemesi — 2026-10-30
+
+- Başlangıç ab19cdc; kullanıcı yalnız yeni izole V2 kurulumu, ayrı PostgreSQL ve V2 servis başlangıcını onayladı. Onboarding/router erişimi yasak kalır. Plan ve önceki kanıtlar okundu; mevcut izlenmeyen main dosyası korundu.
+- Tek SSH erişim kontrolü BatchMode=yes, StrictHostKeyChecking=yes ve ConnectTimeout=10 ile mikadmin@185.139.5.51 için yapıldı. Yerel ortam socket açmayı `Operation not permitted` ile reddetti (exit 255); uzak komut çalışmadı. Bu sonuç VDS'nin kapalı veya SSH kimliğinin geçersiz olduğunu göstermez; erişim bu ortamdan doğrulanamadı. Güvenlik sınırları gevşetilmedi, tekrar teşhis yapılmadı.
+- BLOCKED: VDS'de dosya/hesap/DB/servis kurulmadı; migration, servis başlangıcı veya rollback yapılmadı. API/UI durumu ve VDS'deki V1 izolasyonu doğrulanamadı. Planlanan adres yalnız 127.0.0.1:18080, dış erişim yalnız doğrulanmış SSH tünelidir; çalışan adres olarak sunulmaz.
+- ADMIN aktarımı/girişi BLOCKED: ofis kaynağına erişilmedi, export/import veya yeni hesap oluşturma yapılmadı. Parola/hash/token/private key okunmadı. V1/IPsec/RADIUS/router kaynaklarına hiçbir uzak komut ulaşmadı; yerel kapalı gate taslakları değiştirilmedi.
+- Yalnız ilerleme belgesi değiştiğinden ürün testleri tekrarlanmadı; diff kontrolü yapıldı. Commit/push sonucu teslimde bildirilir.
+- Tek sonraki işlem: SSH socket erişimine izin verilen çalışma ortamından aynı onaylı kapalı V2 kurulum görevini sürdürmek. Mevcut kurulum onayı sürer; yeniden onay istenmez.
