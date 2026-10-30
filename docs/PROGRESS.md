@@ -21,7 +21,9 @@
 - Kaynak ADMIN oluşturulmadı/resetlenmedi; demo seed/first-admin, DB migration,
   V1 servis işlemi, router/RADIUS/IPsec erişimi yapılmadı. Secret/hash çıktısı yok.
   Kullanıcıdan gereken tek eylem: normal ofis terminalinde belgelenmiş tamamlama
-  komutunu çalıştırmak. Normal commit/push sonucu nihai raporda bildirilecek.
+  komutunu çalıştırmak. Yerel uygulama commit'i 4b3c706. Push uzak main ilerlediği
+  için reddedildi; tek fetch denemesi github.com DNS hatasıyla engellendi. Uzak
+  değişiklikler alınamadı/birleştirilemedi, force push yapılmadı; push BLOCKED.
 
 Son güncelleme: 2026-10-27. Proje yolu: `/home/suatpc/Codex-Projects/mikrotik-manager-v2`.
 
