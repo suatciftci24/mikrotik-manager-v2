@@ -21,7 +21,6 @@ def validate_scope(environment=None):
         'V2_ROUTER_ONBOARDING_SOURCE_IP': '10.250.0.1',
         'V2_ROUTER_ONBOARDING_ALLOWED_CIDRS': '10.250.0.19/32',
         'V2_ROUTER_ONBOARDING_ALLOWED_PORTS': '8729',
-        'V2_ROUTER_ONBOARDING_OPERATOR_IDS': VDS_OPERATOR_ID,
         'V2_CEBECI_API_SSL_HOST': '10.250.0.19',
         'V2_CEBECI_API_SSL_PORT': '8729',
         'V2_CEBECI_API_SSL_SOURCE_IP': '10.250.0.1',
@@ -32,12 +31,17 @@ def validate_scope(environment=None):
     flags = [values.get(key) for key in ('V2_ROUTER_ONBOARDING_ENABLED', 'V2_CEBECI_API_SSL_ENABLED')]
     if flags[0] not in ('false', 'true') or flags[1] != flags[0]:
         raise RuntimeError('V2_PILOT_GATE_CONFIGURATION_REJECTED')
+    # Native VDS setup grants no router operator. Empty list is valid only with both gates closed.
+    operators = values.get('V2_ROUTER_ONBOARDING_OPERATOR_IDS')
+    if operators != VDS_OPERATOR_ID and not (operators == '' and flags == ['false', 'false']):
+        raise RuntimeError('V2_PILOT_SCOPE_REJECTED')
 
 
 def operator_in_profile(user_id):
     if 'V2_DEPLOYMENT_PROFILE' not in os.environ:
         return True  # Existing non-VDS onboarding retains its own configured allowlist.
-    return os.environ['V2_DEPLOYMENT_PROFILE'] == VDS_PROFILE and user_id == VDS_OPERATOR_ID
+    return (os.environ['V2_DEPLOYMENT_PROFILE'] == VDS_PROFILE and user_id == VDS_OPERATOR_ID
+            and os.environ.get('V2_ROUTER_ONBOARDING_OPERATOR_IDS') == VDS_OPERATOR_ID)
 
 
 def validate_target(target, username):

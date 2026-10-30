@@ -1,5 +1,42 @@
 # MikroTik Manager V2 — İlerleme
 
+## Karar değişikliği: VDS üzerinde yeni LOCAL ADMIN — 2026-10-30
+
+- Kullanıcı ofis ADMIN export/transfer görevini iptal etti. Bu görevde ofis DB'si,
+  export veya transfer çalıştırılmadı. Yeni hedef yalnız VDS'de yeni suatciftci
+  LOCAL ADMIN; mevcut herhangi bir ADMIN varsa değişikliksiz STOP.
+- Bilinen SSH socket EPERM engeli tekrar denenmedi. VDS'ye erişilmedi; ADMIN
+  yokluğu/oluşturma ve panel gerçek kabulü BLOCKED, yapılmış sayılmıyor.
+- native-admin.py + verify-native-admin.psql eklendi. Tamamlama akışının native
+  yolu önce READ ONLY herhangi bir ADMIN kontrolü yapar. Yoksa yalnız boş/açık
+  modern kurulumu kabul eder. Bağımlılık/config hazırlığı sonrası, parola gerçek
+  TTY'den gizli iki kez alınır; mevcut FirstAdminIdentity/Input doğrulaması ve
+  güçlü scrypt kullanılır. Yeni rastgele UUID, hesap/audit/özgün VDS seal/closed
+  marker tek transaction'da shared advisory + schema row lock altında oluşturulur;
+  transaction içinde ADMIN/boşluk guard'ı tekrar edilir. ADMIN reset/promosyon,
+  migration, demo seed veya eski ofis ID'siyle yeni kimlik oluşturma yoktur.
+- Yeni hesap router operator allowlist'ine eklenmez. Boş allowlist yalnız iki
+  gate false iken kabul edilir; mevcut açık-scope korumaları korunur. SCRAM,
+  nologin servis hesabı, izole venv/npm build, private config/logs ve ADMIN
+  doğrulanmadan başlamayan 127.0.0.1:18080 panel yolu paylaşılır. Başarı kabulü
+  yeni parolayla gerçek HTTP login/me/options/logout ve kapalı router kapılarını
+  içerir; parola yalnız process belleğindedir, çıktı/dosya/argv/audit'e girmez.
+- build-native-installer.py temiz commit'in git archive kaynağını içeren bağımsız
+  .local/mikrotik-v2-native-admin.run üretir. VDS terminalinde sudo bash ile
+  çalışır; GitHub/ofis DB/SSH export bağımlılığı yoktur. Repo/artifact içinde sır
+  bulunmaz. API inactive iken önceki root-owned V2 app/işaretleri private backup'a
+  taşınarak korunabilir; owner-belirsiz app veya farklı config STOP nedenidir.
+  Yalnız exact kapalı eski env template'inden iptal edilmiş ofis operator ID'si
+  kaldırılır. Tekrar çalıştırmada mevcut ADMIN varsa panel dahil hiçbir değişiklik
+  yapılmaz; yarım kurulumdaki kimlik otomatik resetlenmez.
+- PASS: 7 native güvenlik testi + 11 doğrudan etkilenen runtime/profile testi,
+  toplam 18 soketsiz sentetik kontrol. Gerçek PostgreSQL SQL execution, TTY parola
+  girişi ve VDS HTTP kabulü bu testlerle yapılmış sayılmaz. Syntax/diff ve üretilen
+  bundle kontrolleri teslimde tamamlanır. Önceki geniş testler tekrarlanmadı.
+- VDS PG16.15/55432 ve 002–009 tekrarlanmadı; V1/RADIUS/IPsec/router bağlantısı
+  veya değişikliği yok. Bu görevde tek fetch denemesi GitHub DNS hatası verdi; ilerlemiş upstream
+  alınamadığı için force push yapılmaz; uzak uzlaştırma doğrulanmadan push yapılmış sayılmaz.
+
 ## Ofis V2 PostgreSQL connection-refused / mevcut küme start-export — 2026-10-30
 
 - Başlangıç 6166ad4, temiz çalışma ağacı. Export ve dev-db hedefleri aynı:

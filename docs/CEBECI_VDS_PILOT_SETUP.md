@@ -1,5 +1,48 @@
 # CEBECI_TOWERS: kapalı VDS pilot kurulum paketi
 
+## Güncel karar: ofis aktarımı iptal; VDS'de yeni LOCAL ADMIN
+
+Kullanıcı artık VDS'de yeni suatciftci LOCAL ADMIN oluşturulmasını istedi. Eski
+ofis export/transfer komutları bu görev için çalıştırılmaz; aşağıdaki eski kayıtlar
+tarihsel bağlamdır. Gerçek VDS ADMIN yokluğu ve kurulum bu oturumda SSH EPERM
+nedeniyle **BLOCKED / doğrulanmadı**. Hiçbir ADMIN oluşturulduğu varsayılmıyor.
+
+`build-native-installer.py`, temiz commit kaynak arşivini gömen bağımsız
+`.local/mikrotik-v2-native-admin.run` üretir. Bu dosya sır içermez; VDS'ye
+`~/mikrotik-v2-native-admin.run` olarak alındıktan sonra normal VDS terminalinde:
+
+```bash
+sudo bash ~/mikrotik-v2-native-admin.run
+```
+
+İlk işlem exact izole küme/PG16.15/SCRAM/peer kimliğini ve READ ONLY ADMIN
+varlığını kontrol etmektir. Aktif/pasif, LOCAL/DEMO fark etmeksizin herhangi bir
+ADMIN varsa uygulama/hesap/config/servis değişikliği yapmadan durur. Mevcut modern
+depo da boş ve first-admin kurulumu açık olmalıdır; aksi durumda STOP. Migration
+çalıştırılmaz, ofis hesabı/hash'i okunmaz veya aktarılmaz. İsim/e-posta ve yeni
+parola gerçek TTY'den alınır; parolanın iki girişi eşleşmeli ve mevcut 14–128
+karakter doğrulamasını geçmelidir. Getpass echo fallback reddedilir. OLUSTUR
+teyidi sonrası yeni rastgele UUID ile güçlü scrypt LOCAL ADMIN, FIRST_ADMIN_CREATE
+audit'i, VDS operatör UID'li seal ve closed marker atomik yazılır. Kilit altında
+ADMIN yokluğu tekrar kontrol edilir; eşzamanlı ADMIN varsa rollback olur.
+
+Router operator listesi boş, iki gate false kalır. Runtime yalnız iki kapı kapalıysa
+boş listeyi kabul eder; yeni hesabın router bağlantı yetkisi yoktur. Diğer scope,
+TLS/pin/source kontrolleri gevşetilmez. Bağımlılıklar ayrı venv/npm alanında;
+API nologin hesabı, SCRAM ve owner-private dosyalarla yalnız 127.0.0.1:18080'de
+çalışır. SQL ADMIN doğrulaması geçmeden başlatılmaz. Son kabul yeni parolayla
+HTTP login/me/options/logout, demo giriş reddi, DB sağlığı, built UI ve loopback
+listener kontrolüdür. Parola/hash hiçbir stdout, argv, audit veya config dosyasına
+yazılmaz; API DB rolü parolası ADMIN parolasından ayrıdır.
+
+Dosya/owner/config çakışmaları güvenli STOP üretir. API inactive iken önceki
+root-owned V2 app ve build işaretleri private native-preinstall-* backup'ına
+taşınarak korunur; üzerine yazılmaz. Owner-belirsiz app reddedilir. Yalnız exact
+kapalı eski env template'i yeni boş operator listesine atomik çevrilebilir;
+başka config değiştirilmez. Başarısız kurulumdan sonra ADMIN oluşmuşsa yeniden
+çalıştırmak da STOP verir; kullanıcı talebi gereği mevcut ADMIN'e dokunulmaz.
+Bu betik hiçbir V1, router, RADIUS veya IPsec servisine bağlanmaz/değiştirmez.
+
 ## Yetkili tamamlama komutu — 2026-10-30
 
 ### Ofis connection-refused düzeltmesi

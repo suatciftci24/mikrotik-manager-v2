@@ -62,7 +62,7 @@ def write_new(path, data, uid, gid):
         os.fchown(stream.fileno(), uid, gid)
 
 
-def main(stage):
+def main(stage, native=None):
     global STEP
     if sys.flags.optimize:
         raise RuntimeError('optimized execution forbidden')
@@ -71,7 +71,7 @@ def main(stage):
     operator = pwd.getpwnam('mikadmin')
     assert stage.parent == Path('/home/mikadmin') and stage.name.startswith('v2-complete.')
     safe(stage, operator.pw_uid, 0o700, True)
-    for name in ('app.tar', 'admin-transfer.jsonl', 'complete-vds.py'):
+    for name in (('app.tar', 'native-admin.py', 'complete-vds.py') if native else ('app.tar', 'admin-transfer.jsonl', 'complete-vds.py')):
         safe(stage / name, operator.pw_uid, 0o600)
     db = pwd.getpwnam(DBUSER)  # Existing migrated cluster owner; never create/init/restart DB.
     safe(BASE, 0, 0o755, True)
@@ -94,11 +94,29 @@ def main(stage):
  THEN RAISE EXCEPTION 'V2_HBA_REJECTED'; END IF;
 END $$;"""
     sql(guard)
+    if native:
+        native.require_empty()  # READ ONLY: before dependency/config/identity changes.
     STEP = 'isolated-source'
     archive = stage / 'app.tar'
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     app = BASE / 'app'
     marker = BASE / '.completion-source'
+    if native and app.exists():
+        safe(app, 0, 0o755, True)
+        if marker.exists():
+            safe(marker, 0, 0o600)
+        if not marker.exists() or marker.read_text() != digest:
+            # Preserve the isolated previous app intact, never overwrite it or restart a service.
+            active = run(['systemctl', 'is-active', '--quiet', UNIT], check=False).returncode
+            assert active in (3, 4)  # Inactive/not installed only; any active/unknown state stops.
+            backup = BASE / ('native-preinstall-' + secrets.token_hex(8))
+            backup.mkdir(mode=0o700)
+            app.rename(backup / 'app')
+            for name in ('.completion-source', '.completion-built'):
+                old = BASE / name
+                if old.exists():
+                    safe(old, 0, 0o600)
+                    old.rename(backup / name)
     if app.exists():
         safe(app, 0, 0o755, True)
         if marker.exists():
@@ -135,26 +153,52 @@ END $$;"""
                 os.chmod(path, 0o755 if path.stat().st_mode & 0o111 else 0o644)
         write_new(marker, digest.encode(), 0, 0)
     package = app / 'deploy/cebeci-v2-pilot'
-    STEP = 'admin-import-or-verified-resume'
-    directory(BASE / 'maintenance', db.pw_uid, db.pw_gid, 0o700)
-    handoff = BASE / 'maintenance/admin-transfer.jsonl'
-    if handoff.exists():
-        safe(handoff, db.pw_uid, 0o600)
-        assert hmac.compare_digest(handoff.read_bytes(), (stage / 'admin-transfer.jsonl').read_bytes())
+    STEP = 'isolated-dependencies-and-build'
+    venv = BASE / 'venv'
+    if not venv.exists():
+        run(['python3', '-m', 'venv', str(venv)])
+        os.chmod(venv, 0o755)
+    safe(venv, 0, 0o755, True)
+    built = BASE / '.completion-built'
+    if not built.exists():
+        run([str(venv / 'bin/pip'), 'install', '-r', str(app / 'backend/requirements.txt')])
+        run(['npm', 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], cwd=app / 'frontend')
+        run(['npm', 'run', 'build'], cwd=app / 'frontend')
+        # umask 077 during install/build; API needs read/execute access to public code only.
+        for tree in (venv, app / 'frontend/node_modules', app / 'frontend/dist'):
+            for current, dirs, files in os.walk(tree):
+                os.chmod(current, 0o755)
+                for name in files:
+                    path = Path(current) / name
+                    if not path.is_symlink():
+                        os.chmod(path, 0o755 if path.stat().st_mode & 0o111 else 0o644)
+        write_new(built, digest.encode(), 0, 0)
+    safe(built, 0, 0o600)
+    assert built.read_text() == digest
+    if native:
+        verify = lambda: sql(file=package / 'verify-native-admin.psql')
     else:
-        write_new(handoff, (stage / 'admin-transfer.jsonl').read_bytes(), db.pw_uid, db.pw_gid)
-    if sql(file=package / 'verify-admin.psql', check=False).returncode:
-        # import-admin rejects any nonempty/closed state; no reset or repair of identities.
-        sql(file=package / 'import-admin.psql')
-    sql(file=package / 'verify-admin.psql')
-    # Exact account (including hash/revision/grants) AND original office seal must match.
-    bundle = json.loads(handoff.read_text())
-    def literal(value):
-        return "'" + json.dumps(value, ensure_ascii=True).replace("'", "''") + "'::jsonb"
-    assert sql("SELECT EXISTS (SELECT 1 FROM v2_demo.users u WHERE to_jsonb(u)=" + literal(bundle['account'])
-        + ") AND EXISTS (SELECT 1 FROM v2_demo.first_admin_setup s WHERE to_jsonb(s)=" + literal(bundle['source_setup'])
-        + ");").stdout.strip() == b't'
-    print('PASS: exact existing ADMIN + original seal + closed setup + import audit', flush=True)
+        STEP = 'admin-import-or-verified-resume'
+        directory(BASE / 'maintenance', db.pw_uid, db.pw_gid, 0o700)
+        handoff = BASE / 'maintenance/admin-transfer.jsonl'
+        if handoff.exists():
+            safe(handoff, db.pw_uid, 0o600)
+            assert hmac.compare_digest(handoff.read_bytes(), (stage / 'admin-transfer.jsonl').read_bytes())
+        else:
+            write_new(handoff, (stage / 'admin-transfer.jsonl').read_bytes(), db.pw_uid, db.pw_gid)
+        if sql(file=package / 'verify-admin.psql', check=False).returncode:
+            # import-admin rejects any nonempty/closed state; no reset or repair of identities.
+            sql(file=package / 'import-admin.psql')
+        sql(file=package / 'verify-admin.psql')
+        # Exact account (including hash/revision/grants) AND original office seal must match.
+        bundle = json.loads(handoff.read_text())
+        def literal(value):
+            return "'" + json.dumps(value, ensure_ascii=True).replace("'", "''") + "'::jsonb"
+        assert sql("SELECT EXISTS (SELECT 1 FROM v2_demo.users u WHERE to_jsonb(u)=" + literal(bundle['account'])
+            + ") AND EXISTS (SELECT 1 FROM v2_demo.first_admin_setup s WHERE to_jsonb(s)=" + literal(bundle['source_setup'])
+            + ");").stdout.strip() == b't'
+        print('PASS: exact existing ADMIN + original seal + closed setup + import audit', flush=True)
+        verify = lambda: sql(file=package / 'verify-admin.psql')
     STEP = 'api-account-and-private-paths'
     try:
         api = pwd.getpwnam(APIUSER)
@@ -200,32 +244,20 @@ END $$;"""
     assert sql("SELECT rolpassword LIKE 'SCRAM-SHA-256$%' FROM pg_authid WHERE rolname='v2_local';").stdout.strip() == b't'
     onboarding = BASE / 'config/api/onboarding.env'
     expected = (package / 'onboarding.env.example').read_bytes()
+    if native:
+        expected = expected.replace(b'V2_ROUTER_ONBOARDING_OPERATOR_IDS=v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92', b'V2_ROUTER_ONBOARDING_OPERATOR_IDS=')
     if not onboarding.exists():
         write_new(onboarding, expected, api.pw_uid, api.pw_gid)
     safe(onboarding, api.pw_uid, 0o600)
+    if native and onboarding.read_bytes() == (package / 'onboarding.env.example').read_bytes():
+        # Only the exact closed old template is changed; remove its cancelled office operator ID.
+        replacement = onboarding.with_name('native-onboarding.env')
+        write_new(replacement, expected, api.pw_uid, api.pw_gid)
+        replacement.replace(onboarding)
     assert onboarding.read_bytes() == expected
-    STEP = 'isolated-dependencies-and-build'
-    venv = BASE / 'venv'
-    if not venv.exists():
-        run(['python3', '-m', 'venv', str(venv)])
-        os.chmod(venv, 0o755)
-    safe(venv, 0, 0o755, True)
-    built = BASE / '.completion-built'
-    if not built.exists():
-        run([str(venv / 'bin/pip'), 'install', '-r', str(app / 'backend/requirements.txt')])
-        run(['npm', 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], cwd=app / 'frontend')
-        run(['npm', 'run', 'build'], cwd=app / 'frontend')
-        # umask 077 during install/build; API needs read/execute access to public code only.
-        for tree in (venv, app / 'frontend/node_modules', app / 'frontend/dist'):
-            for current, dirs, files in os.walk(tree):
-                os.chmod(current, 0o755)
-                for name in files:
-                    path = Path(current) / name
-                    if not path.is_symlink():
-                        os.chmod(path, 0o755 if path.stat().st_mode & 0o111 else 0o644)
-        write_new(built, digest.encode(), 0, 0)
-    safe(built, 0, 0o600)
-    assert built.read_text() == digest
+    if native:
+        native.provision(operator.pw_uid)
+        verify()
     STEP = 'app-role-db-and-identity-check'
     # Run under actual service UID/config, no password/hash output; no credentials for ADMIN requested.
     probe = """import os
@@ -239,7 +271,7 @@ from app.core.pilot_runtime import validate_runtime
 validate_runtime(Path('/srv/mikrotik-manager-v2-pilot/app'))
 from app.services.identity import find_user,public_user
 u=find_user('suatciftci',by_username=True)
-assert u and u['id']=='v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92' and u['account_origin']=='LOCAL' and u['active'] and u['role']=='ADMIN'
+assert u and u['id'].startswith('v2-user-') and u['account_origin']=='LOCAL' and u['active'] and u['role']=='ADMIN'
 assert find_user('demo-user') is None
 from app.core.pilot_operator import pilot_identity
 p=pilot_identity(public_user(u))
@@ -251,7 +283,7 @@ assert o['connection_enabled'] is False and o['operator_candidate']['id']==u['id
     env = dict(os.environ, PYTHONPATH=str(app / 'backend'), PYTHONDONTWRITEBYTECODE='1')
     run(['runuser', '-u', APIUSER, '--', str(venv / 'bin/python'), '-c', probe], env=env, cwd=app)
     STEP = 'verified-api-start'
-    sql(file=package / 'verify-admin.psql')  # Mandatory final guard immediately before start.
+    verify()  # Mandatory final guard immediately before start.
     unit = Path('/etc/systemd/system') / UNIT
     content = (package / UNIT).read_bytes()
     if unit.exists():
@@ -295,15 +327,20 @@ assert o['connection_enabled'] is False and o['operator_candidate']['id']==u['id
         assert response.status == 200 and b'<html' in response.read().lower()
     listeners = run(['ss', '-H', '-ltn', 'sport = :18080']).stdout.decode().splitlines()
     assert len(listeners) == 1 and listeners[0].split()[3] == '127.0.0.1:18080'
+    if native:
+        STEP = 'native-admin-http-login'
+        native.verify_login()
     # Delete only the exact transfer artifacts after all checks; retain DB/audit/source/config.
-    safe(handoff, db.pw_uid, 0o600)
-    handoff.unlink()
-    for name in ('admin-transfer.jsonl', 'app.tar', 'complete-vds.py'):
+    if not native:
+        safe(handoff, db.pw_uid, 0o600)
+        handoff.unlink()
+    for name in (('native-admin.py', 'app.tar', 'complete-vds.py') if native else ('admin-transfer.jsonl', 'app.tar', 'complete-vds.py')):
         safe(stage / name, operator.pw_uid, 0o600)
         (stage / name).unlink()
     stage.rmdir()
     print('PASS: SCRAM app connection, verified ADMIN, UI/API 127.0.0.1:18080, both router gates false')
-    print('UNTESTED: actual ADMIN password login (password was neither requested nor reset)')
+    if not native:
+        print('UNTESTED: actual ADMIN password login (password was neither requested nor reset)')
 
 
 if __name__ == '__main__':
