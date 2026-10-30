@@ -1,5 +1,36 @@
 # MikroTik Manager V2 — İlerleme
 
+## npm sürüm kontrolü: config source çakışması — 2026-10-30
+
+- Başlangıç 0046518, temiz çalışma ağacı. Gerçek VDS sonucu NPM_CHECK_FAILED.
+  Bu kodu check=True ile üreten tek çağrı node_runtime içindeki npm --version;
+  npm ls check=False olduğundan rc hatası bu kodu yükseltmez. Node 22/24 sürüm
+  filtresi geçmiş, npm executable başlatılmış; frontend ci/build ve lock-tree
+  kontrolüne henüz ulaşılmamış. VDS'nin exact npm/Node minor sürümleri veya raw
+  stderr'i bu oturumda alınmadı; bunlar varsayılmadı.
+- Somut betik hatası bulundu: npm_config_userconfig ve globalconfig ikisi de
+  /dev/null idi. Resmi npm10.9.2 ve latest config loader aynı source dosyasını
+  iki seviyede yüklerken double-loading config hatası atıyor. Bu çakışma npm
+  sürüm sorgusunu bile durdurur; classifier eskiden bunu generic FAILED yapıyordu.
+  Yerel sanitized PATH'te Node/npm yok; gerçek npm CLI reprodüksiyonu yapılmış
+  sayılmadı. Kanıt kaynak kodu + belirlenmiş env + VDS aşama kodudur.
+- İki ayrı root-owned/0600/boş V2 build-home config dosyası kullanılır; mevcut
+  nonempty/yanlış mode/link dosya ezilmez veya izinleri gevşetilmez. Global/user
+  gerçek npmrc okunmaz. Sistem Node/npm, global PATH, V1 paketleri değiştirilmez.
+  npm --version private build-home cwd'sinde ve seçilen Node bin'i PATH başında
+  çalışır. Sayısal sürümler ve public executable yolları güvenli gösterilir.
+- NPM_VERSION ve NPM_TREE ayrıldı; config source collision, npm CLI module,
+  PATH node, runtime syntax/uyum ve lockfile uyum hataları ayrı sabit kodlar.
+  Frontend lock v3 ve package.json root dependency eşleşmesi READ ONLY doğrulandı;
+  lockfile yenilenmez. API unit'i Python uvicorn çalıştırır; servis kullanıcısı
+  PATH'i bu root build aşamasına katılmaz ve değiştirilmedi.
+- PASS: 6 yeni hedefli npm startup/config/lock testi + 2 doğrudan değişen mevcut
+  isolation/repeat-repair kontrolü; toplam 8 soketsiz test, diff PASS. VDS gerçek
+  npm/build kabulü BLOCKED / uygulanmadı. Bilinen SSH EPERM ve GitHub DNS/ileri
+  upstream engeli tekrar denenmedi; push/force push yapılmadı. Tek VDS eylemi
+  güncellenmiş isolated-build.py ile aynı izole onarım komutudur. PostgreSQL,
+  migration, kimlikler, V1/router/RADIUS/IPsec veya servis değişikliği yoktur.
+
 ## İzole dependency/build onarımı — 2026-10-30
 
 - Başlangıç f49d443 ve temiz çalışma ağacı. Kullanıcı VDS preflight PASS,

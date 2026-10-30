@@ -32,6 +32,9 @@ class BuildBlocked(RuntimeError):
 def classify(result, phase):
     error = (result.stdout + result.stderr).lower()
     for fragments, suffix in (
+        ((b'double-loading config', b'double-loading "user" configs', b'double-loading "global" configs'), 'CONFIG_SOURCE_COLLISION'),
+        ((b'npm ci can only install packages', b'package.json and package-lock.json are in sync', b'package.json and package-lock.json or npm-shrinkwrap.json are in sync'), 'LOCKFILE_OUT_OF_SYNC'),
+        ((b'npm does not support node.js',), 'RUNTIME_INCOMPATIBLE'),
         ((b'eai_again', b'enotfound', b'temporary failure in name resolution', b'name or service not known'), 'NETWORK_DNS'),
         ((b'certificate_verify_failed', b'certificate verify failed', b'unable_to_verify', b'self signed certificate', b'unable_to_get_issuer_cert', b'cert_has_expired'), 'NETWORK_TLS'),
         ((b'etimedout', b'read timed out', b'connecttimeout', b'connection timed out'), 'NETWORK_TIMEOUT'),
@@ -50,6 +53,13 @@ def classify(result, phase):
         ((b'glibc_', b'error while loading shared libraries'), 'SYSTEM_LIBRARY_MISSING')):
         if any(fragment in error for fragment in fragments):
             return 'V2_BUILD_' + phase + '_' + suffix
+    if phase == 'NPM_VERSION':
+        if b'cannot find module' in error or b'module_not_found' in error:
+            return 'V2_BUILD_NPM_VERSION_CLI_MODULE_MISSING'
+        if b'no such file or directory' in error and b'node' in error:
+            return 'V2_BUILD_NPM_VERSION_PATH_NODE_MISSING'
+        if b'syntaxerror:' in error:
+            return 'V2_BUILD_NPM_VERSION_RUNTIME_SYNTAX_ERROR'
     return 'V2_BUILD_' + phase + ('_PROCESS_KILLED' if result.returncode < 0 else '_FAILED')
 
 
@@ -93,14 +103,29 @@ def private_dir(path):
 def environment(base):
     env = {'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
            'HOME': str(base / 'build-home'), 'LC_ALL': 'C', 'PIP_CONFIG_FILE': '/dev/null',
-           'npm_config_userconfig': '/dev/null', 'npm_config_cache': str(base / 'build-home/npm-cache'),
-           'npm_config_globalconfig': '/dev/null', 'npm_config_global': 'false',
+           'npm_config_userconfig': str(base / 'build-home/npm-user.npmrc'),
+           'npm_config_cache': str(base / 'build-home/npm-cache'),
+           'npm_config_globalconfig': str(base / 'build-home/npm-global.npmrc'), 'npm_config_global': 'false',
            'npm_config_registry': 'https://registry.npmjs.org', 'npm_config_update_notifier': 'false'}
     env['npm_config_ignore_scripts'] = 'true'  # Explicit build runs; prebuild/postbuild hooks do not.
     for key in ('HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY', 'https_proxy', 'http_proxy', 'no_proxy'):
         if key in os.environ:
             env[key] = os.environ[key]
     return env
+
+
+def prepare_npm_configs(base):
+    """Separate config sources: npm rejects loading one file at two config levels."""
+    for name in ('npm-user.npmrc', 'npm-global.npmrc'):
+        path = base / 'build-home' / name
+        if not path.exists() and not path.is_symlink():
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            os.close(fd)
+        owned(path, label='NPM_CONFIG')
+        if path.stat().st_mode & 0o777 != 0o600:
+            raise BuildBlocked('V2_BUILD_NPM_CONFIG_MODE_REJECTED')
+        if path.read_bytes():
+            raise BuildBlocked('V2_BUILD_NPM_CONFIG_NONEMPTY_STOP')
 
 
 def download(url, phase, maximum=100 * 1024 * 1024):
@@ -166,7 +191,15 @@ def node_runtime(tools, env):
         if local.exists() and version.returncode:
             raise BuildBlocked(classify(version, 'NODE_CHECK'))
         if version.returncode == 0 and re.fullmatch(rb'v(?:22|24)\.[0-9]+\.[0-9]+\s*', version.stdout):
-            command([npm, '--version'], 'NPM_CHECK', candidate)
+            npm_version = command([npm, '--version'], 'NPM_VERSION', candidate, tools.parent / 'build-home')
+            if not re.fullmatch(rb'[0-9]+\.[0-9]+\.[0-9]+\s*', npm_version.stdout):
+                raise BuildBlocked('V2_BUILD_NPM_VERSION_OUTPUT_INVALID')
+            if int(npm_version.stdout.split(b'.')[0]) < 9:
+                raise BuildBlocked('V2_BUILD_NPM_VERSION_LOCKFILE_UNSUPPORTED')
+            print('PASS: V2_NODE_NPM_VERSION node=' + version.stdout.decode().strip()
+                  + ' npm=' + npm_version.stdout.decode().strip()
+                  + ' scope=' + ('V2_TOOLCHAIN' if local.exists() else 'SYSTEM_READ_ONLY')
+                  + ' node_executable=' + node + ' npm_executable=' + npm, flush=True)
             return node, npm, candidate
     if local.exists():
         raise BuildBlocked('V2_BUILD_ISOLATED_NODE_INVALID_NO_OVERWRITE')
@@ -249,7 +282,20 @@ def npm_ready(frontend, npm, env):
         for key in ('version', 'integrity'):
             if package.get(key) != installed[path].get(key):
                 return False
-    return command([npm, 'ls', '--all', '--json'], 'NPM_CHECK', env, frontend, check=False).returncode == 0
+    return command([npm, 'ls', '--all', '--json'], 'NPM_TREE', env, frontend, check=False).returncode == 0
+
+
+def validate_frontend_lock(frontend):
+    package = json.loads((frontend / 'package.json').read_text())
+    lock = json.loads((frontend / 'package-lock.json').read_text())
+    if lock.get('lockfileVersion') not in (2, 3):
+        raise BuildBlocked('V2_BUILD_NPM_LOCKFILE_VERSION_UNSUPPORTED')
+    root = lock.get('packages', {}).get('')
+    if not isinstance(root, dict):
+        raise BuildBlocked('V2_BUILD_NPM_LOCKFILE_ROOT_MISSING')
+    for key in ('dependencies', 'devDependencies', 'optionalDependencies'):
+        if package.get(key, {}) != root.get(key, {}):
+            raise BuildBlocked('V2_BUILD_NPM_LOCKFILE_MANIFEST_MISMATCH')
 
 
 def build(base=BASE, source_digest=None):
@@ -267,8 +313,10 @@ def build(base=BASE, source_digest=None):
         owned(path)
     if json.loads((frontend / 'package.json').read_text())['scripts']['build'] != 'tsc -b && vite build':
         raise BuildBlocked('V2_BUILD_SCRIPT_REJECTED')
+    validate_frontend_lock(frontend)
     for path in (base / 'toolchain', base / 'build-home'):
         private_dir(path)
+    prepare_npm_configs(base)
     env = environment(base)
     tools = base / 'toolchain'
     venv = base / 'venv'

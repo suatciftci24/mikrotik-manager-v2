@@ -1,5 +1,46 @@
 # CEBECI_TOWERS: kapalı VDS pilot kurulum paketi
 
+## NPM_CHECK_FAILED: npm config kaynağı çakışması
+
+0046518'de bu generic kod yalnız `npm --version` çağrısının başarısızlığıdır;
+`npm ls` check=False olduğundan aynı rc hatası terminale bu kodla çıkmaz.
+Dolayısıyla Node22/24 filtresi geçilmiş, henüz frontend npm ci/build yapılmamıştır.
+Exact VDS sürüm ve raw hata metni bu oturumda alınmadı. API servisinin PATH'i
+burada kullanılmaz: build root ve explicit PATH ile, API ise Python/uvicorn ile
+çalışır. Bu görev servis veya global PATH değiştirmez.
+
+Kesin betik kusuru: userconfig ve globalconfig aynı `/dev/null` kaynağıydı.
+[npm10 config loader](https://github.com/npm/cli/blob/v10.9.2/workspaces/config/lib/index.js)
+ve [güncel resmi kaynak](https://github.com/npm/cli/blob/latest/workspaces/config/lib/index.js)
+aynı dosyanın farklı seviyelerde ikinci kez yüklenmesini reddeder. Config
+yükleme npm --version için de yapılır. Çakışma eski sınıflandırmada generic
+NPM_CHECK_FAILED olarak gizleniyordu. Yerelde Node/npm bulunmadığından gerçek
+CLI reprodüksiyonu iddia edilmiyor; kaynak/env/aşama kanıtı ile kusur belirlendi.
+
+Güncellenmiş isolated-build.py iki ayrı boş dosyayı root/0600 olarak yalnız
+V2 build-home altında oluşturur: npm-user.npmrc ve npm-global.npmrc. Mevcut
+nonempty/config link/mode çakışması STOP verir; credential dosyaları ezilmez.
+Global npmrc veya sistem Node/npm değiştirilmez. npm sürüm sorgusu artık private
+build-home cwd'sinde yapılır; seçilen Node bin'i yalnız child PATH'inin başına
+eklenir. Sayısal Node/npm sürümleri ve seçilen public executable yolları yazılır;
+raw stdout/exception/env dump yoktur. Repo frontend lock v3/root manifest eşleşmesi
+salt okunur doğrulanmıştır; mevcut lockfile değiştirilmez.
+
+Yeni ayrımlar: `V2_BUILD_NPM_VERSION_CONFIG_SOURCE_COLLISION`,
+`CLI_MODULE_MISSING`, `PATH_NODE_MISSING`, `RUNTIME_SYNTAX_ERROR`,
+`RUNTIME_INCOMPATIBLE`, `OUTPUT_INVALID`, `LOCKFILE_UNSUPPORTED`;
+lock tarafında `V2_BUILD_NPM_LOCKFILE_VERSION_UNSUPPORTED`, `ROOT_MISSING`,
+`MANIFEST_MISMATCH` ve ci'de `V2_BUILD_NPM_INSTALL_LOCKFILE_OUT_OF_SYNC`.
+Diğer izin/ağ/disk kodları korunur. Eski NPM_CHECK evresi şimdi NPM_VERSION,
+tree denetimi NPM_TREE'dir. VDS'ye güncellenmiş helper kaydedilince tek uygulama:
+
+```bash
+sudo python3 ~/isolated-build.py
+```
+
+Bu oturumda VDS kabulü uygulanmadı; düzeltmenin gerçek VDS sonucu henüz BLOCKED.
+PostgreSQL, migration, kullanıcılar ve V1/router/RADIUS/IPsec kapsam dışıdır.
+
 ## İzole bağımlılık ve build onarımı
 
 Son kullanıcı kanıtı: ADMIN preflight PASS, sonra eski installer'da

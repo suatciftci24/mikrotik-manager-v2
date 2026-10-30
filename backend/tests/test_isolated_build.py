@@ -113,7 +113,8 @@ class IsolatedBuildTests(unittest.TestCase):
         self.assertNotIn('PYTHONPATH', env)
         self.assertNotIn('NODE_OPTIONS', env)
         self.assertEqual(env['npm_config_ignore_scripts'], 'true')
-        self.assertEqual(env['npm_config_globalconfig'], '/dev/null')
+        self.assertEqual(env['npm_config_globalconfig'], '/synthetic/v2/build-home/npm-global.npmrc')
+        self.assertNotEqual(env['npm_config_userconfig'], env['npm_config_globalconfig'])
         self.assertEqual(env['npm_config_global'], 'false')
 
     def test_output_symlink_is_not_followed_or_chmodded(self):
@@ -137,7 +138,7 @@ class IsolatedBuildTests(unittest.TestCase):
                 backend.mkdir()
                 (backend / 'requirements.txt').write_text('synthetic>=1\n')
                 (frontend / 'package.json').write_text(json.dumps({'scripts': {'build': 'tsc -b && vite build'}}))
-                lock = {'packages': {'': {}, 'node_modules/synthetic': {'version': '1.0', 'integrity': 'synthetic'}}}
+                lock = {'lockfileVersion': 3, 'packages': {'': {}, 'node_modules/synthetic': {'version': '1.0', 'integrity': 'synthetic'}}}
                 (frontend / 'package-lock.json').write_text(json.dumps(lock))
                 venv = base / 'venv'
                 (venv / 'bin').mkdir(parents=True)
