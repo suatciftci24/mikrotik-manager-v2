@@ -331,12 +331,13 @@ Aynı görünen adı kullanan başka kayıtlı hesap, adı nedeniyle demo sayıl
 
 `is_demo=true` mevcut V2 oturum ortamı işaretidir ve kayıtlı hesaplarda da bulunur;
 `false` yaparak bir hesabı “gerçek ADMIN”e dönüştürmek veya yeni ID üretmek çözüm
-değildir. Uygun hesap mevcut V2 DB'sinden doğrulanan, aktif, merkezi yönetim
-kapsamı tam ADMIN ve bootstrap dışındaki hesaptır. Bu bir üretim kimlik sağlayıcısı
+değildir. Uygun hesap mevcut V2 DB'sinden doğrulanan, kapalı ilk-kurulum kaydına
+bağlı LOCAL kökenli, aktif, merkezi yönetim kapsamı tam ADMIN'dir. Demo kökenli
+bir hesabın rolü/ismi değiştirilerek pilot yetkisi kazanılamaz. Bu bir üretim kimlik sağlayıcısı
 veya insan kimliği doğrulaması iddiası değildir; mevcut V2 oturum yetkisi kontrolüdür.
 
 Login ve `/auth/me` artık ortak backend `pilot_identity` projeksiyonunu döndürür:
-ELIGIBLE, BOOTSTRAP_DEMO, NOT_ADMIN, INSUFFICIENT_SCOPE, INACTIVE veya UNVERIFIED.
+ELIGIBLE, BOOTSTRAP_DEMO, DEMO_ACCOUNT, NOT_ADMIN, INSUFFICIENT_SCOPE, INACTIVE veya UNVERIFIED.
 Yalnız ELIGIBLE durumunda `candidate.id/revision/source` vardır; aksi halde candidate
 null'dır. Genel oturumun mevcut `id` alanı uygulamanın kendi kimliği için korunur,
 fakat uygun olmayan oturumdan pilot ID'si gösterilmez. `/router-registry/options`
@@ -356,3 +357,12 @@ hesabı yeniden adlandırmak, ENV'ye demo ID'sini yazmak, cookie'den yetki kopya
 veya bu görevde sahte hesap oluşturmak çözüm değildir. Yeni hesap/grant oluşturulmadı,
 allowlist/gate değiştirilmedi. Gerçek tarayıcı oturumu/ID'si bu geliştirme sırasında
 okunmadı; yalnız kullanıcı bildirilen görünen addan canlı kimlik sonucu çıkarılmadı.
+
+VDS hazırlık güncellemesi: kullanıcı ofisteki LOCAL ADMIN'in ID'sini
+`v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92` olarak doğruladı. Bu bilgi VDS'ye
+aktarılmış hesap kanıtı değildir. Mevcut hesap ve özgün kapanış kaydı için özel
+aktarımı, ayrı DB/servis/config/log izolasyonunu ve kapalı kurulum paketini
+[VDS planı](CEBECI_VDS_PILOT_SETUP.md) tanımlar. `cebeci-vds` profili yalnız bu ID
+ile taze uygun LOCAL oturumunu kabul eder; genel doğrulama/recheck yolu yerine
+sabit CEBECI akışı kullanılır. Yeni hazırlık env'inde ID vardır, iki flag false'dur;
+çalışan ofis/VDS env'i veya gerçek allowlist bu görevde değiştirilmedi.

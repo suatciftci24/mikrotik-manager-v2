@@ -52,3 +52,28 @@ test('demo or unknown session stays blocked despite consent and an options-only 
   }
  }finally{optionsFixture=null;consentFixture=false;}
 });
+
+test('VDS imported ADMIN identity and explicit consent do not open the closed pilot gate',()=>{
+ globalThis.window={isSecureContext:true};
+ const candidate={id:'v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92',revision:0,source:'V2_AUTHENTICATED_SESSION'};
+ optionsFixture={connection_enabled:false,operator_authorized:true,operator_candidate:candidate};consentFixture=true;falseStateCount=0;
+ try{
+  const {CebeciPilotOnboarding}=load('../src/components/CebeciPilotOnboarding.tsx');
+  const tree=CebeciPilotOnboarding({onClose(){},onSaved(){throw Error('No live save')},pilotIdentity:{state:'ELIGIBLE',candidate}});
+  const html=renderToStaticMarkup(tree);assert.ok(html.includes(candidate.id));assert.match(html,/kapalı/);
+  for(const button of nodes(tree).filter(node=>node.type==='button'&&['Bağlantıyı Test Et',"Router'ı Kaydet"].includes(node.props.children)))assert.ok(button.props.disabled);
+ }finally{optionsFixture=null;consentFixture=false;}
+});
+
+test('VDS candidate in options cannot replace a missing or different authenticated identity',()=>{
+ globalThis.window={isSecureContext:true};
+ const candidate={id:'v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92',revision:0,source:'V2_AUTHENTICATED_SESSION'};
+ optionsFixture={connection_enabled:true,operator_authorized:true,operator_candidate:candidate};consentFixture=true;
+ try{
+  const {CebeciPilotOnboarding}=load('../src/components/CebeciPilotOnboarding.tsx');
+  for(const pilotIdentity of [undefined,{state:'ELIGIBLE',candidate:{...candidate,id:'v2-user-other'}}]){
+   falseStateCount=0;const tree=CebeciPilotOnboarding({onClose(){},onSaved(){},pilotIdentity});
+   assert.ok(nodes(tree).find(node=>node.type==='button'&&node.props.children==='Bağlantıyı Test Et').props.disabled);
+  }
+ }finally{optionsFixture=null;consentFixture=false;}
+});

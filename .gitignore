@@ -14,3 +14,6 @@ coverage/
 
 # Isolated local V2 development database and synthetic import artifacts
 .local/
+
+# Private one-user identity handoff includes a credential hash, never an application fixture.
+admin-transfer.jsonl

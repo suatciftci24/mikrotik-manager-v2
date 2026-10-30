@@ -60,10 +60,11 @@ class PilotPanelTests(TestCase):
             self.assertTrue(unit['Service']['User'].startswith('mikrotik-v2-'));units.append(unit)
         self.assertIn('--host 127.0.0.1 --port 18080',units[0]['Service']['ExecStart'])
         self.assertIn('--no-access-log --no-proxy-headers',units[0]['Service']['ExecStart'])
-        self.assertIn('port=55432',units[1]['Service']['ExecStart'])
+        self.assertIn('config_file=/srv/mikrotik-manager-v2-pilot/config/postgres/postgresql.conf',units[1]['Service']['ExecStart'])
         env={line.split('=',1)[0]:line.split('=',1)[1] for line in (folder/'onboarding.env.example').read_text().splitlines() if line and not line.startswith('#')}
         self.assertEqual(env['V2_ROUTER_ONBOARDING_ENABLED'],'false');self.assertEqual(env['V2_CEBECI_API_SSL_ENABLED'],'false')
-        self.assertEqual(env['V2_ROUTER_ONBOARDING_OPERATOR_IDS'],'')
+        from app.core.pilot_runtime import VDS_OPERATOR_ID
+        self.assertEqual(env['V2_ROUTER_ONBOARDING_OPERATOR_IDS'],VDS_OPERATOR_ID)
         self.assertEqual(env['V2_ROUTER_ONBOARDING_ALLOWED_CIDRS'],'10.250.0.19/32')
         self.assertEqual(env['V2_ROUTER_ONBOARDING_ALLOWED_PORTS'],'8729')
         self.assertFalse(any(key.endswith('_PASSWORD') or key.endswith('_USERNAME') for key in env))

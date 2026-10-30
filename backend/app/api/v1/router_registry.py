@@ -25,9 +25,10 @@ def mutator(user:dict=Depends(current_admin),x_v2_demo_action:str|None=Header(de
 
 
 def operator_allowed(user):
+    from app.core.pilot_runtime import operator_in_profile
     ids={value.strip() for value in os.environ.get('V2_ROUTER_ONBOARDING_OPERATOR_IDS','').split(',') if value.strip()}
     identity=pilot_identity(user)
-    return identity['state']=='ELIGIBLE' and identity['candidate']['id'] in ids
+    return identity['state']=='ELIGIBLE' and identity['candidate']['id'] in ids and operator_in_profile(identity['candidate']['id'])
 
 
 def operator_candidate(user):
@@ -63,6 +64,7 @@ def list_routers(query:str=Query('',max_length=120),status:str=Query('ALL',patte
 
 @router.post('/verify')
 def verify(payload:RouterCandidate,user:dict=Depends(mutator)):
+    if 'V2_DEPLOYMENT_PROFILE' in os.environ:raise HTTPException(403,'DEDICATED_PILOT_FLOW_REQUIRED')
     return execute(registry.verify,payload,user['id'])
 
 
@@ -83,6 +85,7 @@ def detail(id:str,user:dict=Depends(reader)):
 
 @router.post('/{id}/check')
 def check(id:str,payload:RecheckRouter,user:dict=Depends(mutator)):
+    if 'V2_DEPLOYMENT_PROFILE' in os.environ:raise HTTPException(403,'DEDICATED_PILOT_FLOW_REQUIRED')
     return execute(registry.recheck,id,payload,user['id'])
 
 @router.post('/pilot/cebeci/verify')

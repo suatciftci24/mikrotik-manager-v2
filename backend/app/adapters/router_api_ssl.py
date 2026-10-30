@@ -22,12 +22,14 @@ class ConnectionPolicy:
     @classmethod
     def environment(cls):
         try:
+            from app.core.pilot_runtime import validate_scope
+            validate_scope()
             enabled=os.environ.get('V2_ROUTER_ONBOARDING_ENABLED','false')
             if enabled not in ('true','false'):raise ValueError()
             return cls(enabled=='true',os.environ.get('V2_ROUTER_ONBOARDING_SOURCE_IP',''),
                 tuple(filter(None,os.environ.get('V2_ROUTER_ONBOARDING_ALLOWED_CIDRS','').split(','))),
                 tuple(int(p) for p in os.environ.get('V2_ROUTER_ONBOARDING_ALLOWED_PORTS','8729').split(',')))
-        except (ValueError,TypeError):raise ApiSslStop('CONNECTION_POLICY_INVALID') from None
+        except (ValueError,TypeError,RuntimeError):raise ApiSslStop('CONNECTION_POLICY_INVALID') from None
 
     def validate(self,address,port):
         if not self.enabled:raise ApiSslStop('ONBOARDING_CONNECTION_DISABLED')
@@ -61,6 +63,9 @@ class RouterApiSslClient:
 
     def _read(self,target,credentials,policy,details):
         policy.validate(target.address,target.port)
+        from app.core.pilot_runtime import validate_target
+        try:validate_target(target,credentials[0])
+        except RuntimeError:raise ApiSslStop('PILOT_SCOPE_MISMATCH') from None
         if not re.fullmatch('[a-f0-9]{64}',target.leaf_sha256):raise ApiSslStop('CERTIFICATE_PIN_REQUIRED')
         try:context=verified_tls_context(target.ca_pem)
         except ValueError:raise ApiSslStop('CA_CERTIFICATE_REJECTED') from None

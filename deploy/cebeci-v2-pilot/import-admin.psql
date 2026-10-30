@@ -1,0 +1,80 @@
+-- REVIEW ONLY. Future, separately approved import of ONE existing identity into an EMPTY new V2 DB.
+-- psql -X; peer maintenance role only. CWD is a DB-owner-only directory, input is 0600/no links.
+\set ON_ERROR_STOP on
+\set ECHO none
+\set VERBOSITY terse
+\set QUIET on
+\cd /srv/mikrotik-manager-v2-pilot/maintenance
+BEGIN;
+DO $$ BEGIN
+ IF current_database() IS DISTINCT FROM 'mikrotik_manager_v2'
+    OR current_user IS DISTINCT FROM 'v2_pilot_maint'
+    OR current_setting('port') IS DISTINCT FROM '55432'
+    OR current_setting('data_directory') IS DISTINCT FROM '/srv/mikrotik-manager-v2-pilot/postgres'
+ THEN RAISE EXCEPTION 'V2_ADMIN_TARGET_CLUSTER_REJECTED'; END IF;
+ PERFORM pg_advisory_xact_lock(hashtext('v2-user-management'));
+ PERFORM version FROM v2_demo.schema_state WHERE version=1 FOR UPDATE;
+ IF NOT EXISTS (SELECT 1 FROM v2_demo.schema_state WHERE version=1
+     AND marker='mikrotik-manager-v2-synthetic-only' AND identity_initialized AND NOT first_admin_initialized)
+    OR EXISTS (SELECT 1 FROM v2_demo.users) OR EXISTS (SELECT 1 FROM v2_demo.user_audit)
+    OR EXISTS (SELECT 1 FROM v2_demo.first_admin_setup)
+ THEN RAISE EXCEPTION 'V2_ADMIN_TARGET_NOT_EMPTY_OR_SETUP_CLOSED'; END IF;
+END $$;
+-- Text staging avoids exposing JSON validation DETAILS during COPY. Nothing is echoed.
+CREATE TEMP TABLE v2_admin_handoff(payload text NOT NULL) ON COMMIT DROP;
+\copy v2_admin_handoff FROM '/srv/mikrotik-manager-v2-pilot/maintenance/admin-transfer.jsonl'
+DO $$ DECLARE bundle jsonb; account v2_demo.users%ROWTYPE; seal v2_demo.first_admin_setup%ROWTYPE;
+ exported_at timestamptz; transfer_id uuid; public_values jsonb;
+BEGIN
+ IF (SELECT count(*) FROM v2_admin_handoff)<>1 THEN RAISE EXCEPTION 'V2_ADMIN_BUNDLE_REJECTED'; END IF;
+ bundle := (SELECT payload FROM v2_admin_handoff)::jsonb;
+ IF jsonb_typeof(bundle) IS DISTINCT FROM 'object' OR bundle->>'format' IS DISTINCT FROM 'V2_ADMIN_TRANSFER_V1'
+    OR jsonb_typeof(bundle->'account') IS DISTINCT FROM 'object'
+    OR jsonb_typeof(bundle->'source_setup') IS DISTINCT FROM 'object'
+    OR bundle - ARRAY['format','transfer_id','exported_at','account','source_setup']::text[] <> '{}'::jsonb
+    OR (bundle->'account') - ARRAY['id','username','name','email','role','active','password_hash','permissions','revision','account_origin']::text[] <> '{}'::jsonb
+    OR (bundle->'source_setup') - ARRAY['singleton','admin_id','local_operator_uid','completed_at']::text[] <> '{}'::jsonb
+ THEN RAISE EXCEPTION 'V2_ADMIN_BUNDLE_REJECTED'; END IF;
+ exported_at := (bundle->>'exported_at')::timestamptz;
+ transfer_id := (bundle->>'transfer_id')::uuid;
+ IF exported_at IS NULL OR transfer_id IS NULL OR exported_at<clock_timestamp()-interval '24 hours'
+    OR exported_at>clock_timestamp()+interval '5 minutes'
+ THEN RAISE EXCEPTION 'V2_ADMIN_BUNDLE_STALE_OR_UNKNOWN'; END IF;
+ SELECT * INTO account FROM jsonb_populate_record(NULL::v2_demo.users,bundle->'account');
+ SELECT * INTO seal FROM jsonb_populate_record(NULL::v2_demo.first_admin_setup,bundle->'source_setup');
+ IF account.id IS DISTINCT FROM 'v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92'
+    OR account.username IS DISTINCT FROM 'suatciftci' OR account.role IS DISTINCT FROM 'ADMIN'
+    OR account.active IS DISTINCT FROM true OR account.account_origin IS DISTINCT FROM 'LOCAL'
+    OR account.revision IS NULL OR account.revision<0
+    OR jsonb_typeof(account.permissions) IS DISTINCT FROM 'object'
+ THEN RAISE EXCEPTION 'V2_ADMIN_IDENTITY_REJECTED'; END IF;
+ IF EXISTS (SELECT 1 FROM (VALUES ('demo-router-001'),('demo-router-002'),('demo-router-003'),('demo-router-004')) r(id)
+     WHERE account.permissions #> ARRAY[r.id,'can_view'] IS DISTINCT FROM 'true'::jsonb)
+ THEN RAISE EXCEPTION 'V2_ADMIN_SCOPE_REJECTED'; END IF;
+ IF (account.password_hash ~ '^scrypt[$]131072[$]8[$]1[$][0-9a-f]{32}[$][0-9a-f]{64}$') IS DISTINCT FROM true
+ THEN RAISE EXCEPTION 'V2_ADMIN_HASH_FORMAT_REJECTED'; END IF;
+ IF seal.singleton IS DISTINCT FROM 1 OR seal.admin_id IS DISTINCT FROM account.id
+    OR seal.local_operator_uid IS NULL OR seal.local_operator_uid<=0 OR seal.completed_at IS NULL
+    OR seal.completed_at>exported_at+interval '5 minutes'
+ THEN RAISE EXCEPTION 'V2_ADMIN_SEAL_REJECTED'; END IF;
+ -- Preserve this account's identity/hash/revision/grants, and the ORIGINAL office setup seal.
+ INSERT INTO v2_demo.users(id,username,name,email,role,active,password_hash,permissions,revision,account_origin)
+ VALUES (account.id,account.username,account.name,account.email,account.role,account.active,
+     account.password_hash,account.permissions,account.revision,account.account_origin);
+ INSERT INTO v2_demo.first_admin_setup(singleton,admin_id,local_operator_uid,completed_at)
+ VALUES (seal.singleton,seal.admin_id,seal.local_operator_uid,seal.completed_at);
+ public_values := (to_jsonb(account)-'password_hash') || jsonb_build_object(
+     'source','OFFICE_LOCAL_V2','source_setup_completed_at',seal.completed_at,
+     'source_setup_operator_uid',seal.local_operator_uid,'transfer_id',transfer_id);
+ INSERT INTO v2_demo.user_audit(id,actor_id,target_id,operation,previous_values,new_values,result,fingerprint,response)
+ VALUES (transfer_id,'local-maintenance:v2_pilot_maint',account.id,'FIRST_ADMIN_IMPORT',NULL,public_values,
+     'SUCCESS','OFFICE_TO_ISOLATED_VDS_V1',jsonb_build_object('id',account.id,'status','TRANSFERRED_SETUP_CLOSED'));
+ UPDATE v2_demo.schema_state SET identity_initialized=true,first_admin_initialized=true WHERE version=1;
+EXCEPTION WHEN OTHERS THEN
+ -- Do not expose SQL conversion/constraint messages or any portion of the staged secret hash.
+ IF SQLERRM IN ('V2_ADMIN_BUNDLE_REJECTED','V2_ADMIN_BUNDLE_STALE_OR_UNKNOWN','V2_ADMIN_IDENTITY_REJECTED',
+     'V2_ADMIN_SCOPE_REJECTED','V2_ADMIN_HASH_FORMAT_REJECTED','V2_ADMIN_SEAL_REJECTED') THEN RAISE; END IF;
+ RAISE EXCEPTION 'V2_ADMIN_IMPORT_REJECTED_TRANSACTION_ROLLED_BACK';
+END $$;
+COMMIT;
+SELECT 'V2_ADMIN_TRANSFERRED_SETUP_CLOSED_CONNECTION_DISABLED' AS status;

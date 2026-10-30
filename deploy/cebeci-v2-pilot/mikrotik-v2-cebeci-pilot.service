@@ -5,8 +5,8 @@ Description=MikroTik Manager V2 CEBECI read-only pilot panel
 After=network.target mikrotik-v2-cebeci-pilot-db.service
 Requires=mikrotik-v2-cebeci-pilot-db.service
 ConditionPathExists=/srv/mikrotik-manager-v2-pilot/app/frontend/dist/index.html
-ConditionPathExists=/srv/mikrotik-manager-v2-pilot/config/database.env
-ConditionPathExists=/srv/mikrotik-manager-v2-pilot/config/onboarding.env
+ConditionPathExists=/srv/mikrotik-manager-v2-pilot/config/api/database.env
+ConditionPathExists=/srv/mikrotik-manager-v2-pilot/config/api/onboarding.env
 
 [Service]
 Type=simple
@@ -16,10 +16,11 @@ WorkingDirectory=/srv/mikrotik-manager-v2-pilot/app
 Environment=PYTHONPATH=/srv/mikrotik-manager-v2-pilot/app/backend
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=V2_API_PORT=18080
+Environment=V2_DEPLOYMENT_PROFILE=cebeci-vds
 Environment=V2_ROUTER_ONBOARDING_ENABLED=false
 Environment=V2_CEBECI_API_SSL_ENABLED=false
-EnvironmentFile=/srv/mikrotik-manager-v2-pilot/config/database.env
-EnvironmentFile=/srv/mikrotik-manager-v2-pilot/config/onboarding.env
+EnvironmentFile=/srv/mikrotik-manager-v2-pilot/config/api/database.env
+EnvironmentFile=/srv/mikrotik-manager-v2-pilot/config/api/onboarding.env
 ExecStart=/srv/mikrotik-manager-v2-pilot/venv/bin/python -m uvicorn app.pilot_panel:create_app --factory --host 127.0.0.1 --port 18080 --no-access-log --no-proxy-headers
 Restart=no
 UMask=0077
@@ -27,8 +28,10 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/srv/mikrotik-manager-v2-pilot/app/.local
+ReadWritePaths=/srv/mikrotik-manager-v2-pilot/app/.local /srv/mikrotik-manager-v2-pilot/logs/api
 RestrictAddressFamilies=AF_INET AF_UNIX
+StandardOutput=append:/srv/mikrotik-manager-v2-pilot/logs/api/output.log
+StandardError=append:/srv/mikrotik-manager-v2-pilot/logs/api/error.log
 
 [Install]
 WantedBy=multi-user.target

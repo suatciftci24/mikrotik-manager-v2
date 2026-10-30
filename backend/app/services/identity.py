@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import secrets
 import json
+import os
 from uuid import uuid4
 from pathlib import Path
 from sqlalchemy import text
@@ -72,6 +73,8 @@ def find_user(key,by_username=False):
     with store.engine.connect() as connection:
         store._verify(connection)
         state=inspect_setup(connection)
+        # A fresh/partial VDS install must not authenticate the legacy default demo account.
+        if 'V2_DEPLOYMENT_PROFILE' in os.environ and not state.closed:raise DemoStorageUnavailable()
         if not state.users_ready:
             default=bootstrap();return default if key==default['username' if by_username else 'id'] else None
         row=connection.execute(text('SELECT * FROM v2_demo.users WHERE '+('username' if by_username else 'id')+'=:key'),{'key':key}).mappings().one_or_none()

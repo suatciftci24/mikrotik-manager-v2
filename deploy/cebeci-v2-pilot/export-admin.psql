@@ -1,0 +1,36 @@
+-- REVIEW ONLY. Explicit future office export, never run by the app/service.
+-- Precreate .local/admin-transfer as 0700 and its empty admin-transfer.jsonl as 0600 (no overwrite/links).
+-- No passwords on argv, no terminal recording/xtrace, no SQL echo, no COPY TO STDOUT.
+\set ON_ERROR_STOP on
+\set ECHO none
+\set VERBOSITY terse
+\set QUIET on
+BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+DO $$ BEGIN
+ IF current_database() IS DISTINCT FROM 'mikrotik_manager_v2'
+    OR current_user IS DISTINCT FROM 'v2_local'
+    OR current_setting('port') IS DISTINCT FROM '55432'
+    OR current_setting('data_directory') IS DISTINCT FROM '/home/suatpc/Codex-Projects/mikrotik-manager-v2/.local/postgres-v2-demo'
+ THEN RAISE EXCEPTION 'V2_ADMIN_SOURCE_CLUSTER_REJECTED'; END IF;
+END $$;
+DO $$ DECLARE account v2_demo.users%ROWTYPE; BEGIN
+ IF NOT EXISTS (SELECT 1 FROM v2_demo.schema_state WHERE version=1
+     AND marker='mikrotik-manager-v2-synthetic-only' AND identity_initialized AND first_admin_initialized)
+ THEN RAISE EXCEPTION 'V2_ADMIN_SOURCE_SETUP_NOT_CLOSED'; END IF;
+ SELECT * INTO STRICT account FROM v2_demo.users WHERE id='v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92';
+ IF account.username IS DISTINCT FROM 'suatciftci' OR account.role IS DISTINCT FROM 'ADMIN'
+    OR account.active IS DISTINCT FROM true OR account.account_origin IS DISTINCT FROM 'LOCAL'
+ THEN RAISE EXCEPTION 'V2_ADMIN_SOURCE_IDENTITY_REJECTED'; END IF;
+ IF NOT EXISTS (SELECT 1 FROM v2_demo.first_admin_setup WHERE singleton=1 AND admin_id=account.id
+     AND local_operator_uid>0 AND completed_at IS NOT NULL)
+ THEN RAISE EXCEPTION 'V2_ADMIN_SOURCE_SEAL_REJECTED'; END IF;
+ IF EXISTS (SELECT 1 FROM (VALUES ('demo-router-001'),('demo-router-002'),('demo-router-003'),('demo-router-004')) r(id)
+     WHERE account.permissions #> ARRAY[r.id,'can_view'] IS DISTINCT FROM 'true'::jsonb)
+ THEN RAISE EXCEPTION 'V2_ADMIN_SOURCE_SCOPE_REJECTED'; END IF;
+ IF (account.password_hash ~ '^scrypt[$]131072[$]8[$]1[$][0-9a-f]{32}[$][0-9a-f]{64}$') IS DISTINCT FROM true
+ THEN RAISE EXCEPTION 'V2_ADMIN_SOURCE_HASH_FORMAT_REJECTED'; END IF;
+END $$;
+-- The hash goes ONLY to the private client-side file. Existing users/audits/seal are read-only.
+\copy (SELECT jsonb_build_object('format','V2_ADMIN_TRANSFER_V1','transfer_id',gen_random_uuid(),'exported_at',clock_timestamp(),'account',to_jsonb(u),'source_setup',to_jsonb(s)) FROM v2_demo.users u JOIN v2_demo.first_admin_setup s ON s.admin_id=u.id AND s.singleton=1 WHERE u.id='v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92') TO '/home/suatpc/Codex-Projects/mikrotik-manager-v2/.local/admin-transfer/admin-transfer.jsonl'
+COMMIT;
+SELECT 'V2_ADMIN_EXPORT_READY_PRIVATE_FILE' AS status;

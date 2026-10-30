@@ -34,3 +34,8 @@ test('missing records and validation responses give actionable safe messages',()
  assert.match(connectionError('VERIFICATION_IN_PROGRESS'),/iptal edilemez/);
  assert.match(connectionError('İstek alanları doğrulanamadı.'),/Alan biçimlerini/);
 });
+
+test('VDS dedicated-flow denial directs the operator to the existing pilot screen',()=>{
+ assert.match(connectionError('DEDICATED_PILOT_FLOW_REQUIRED'),/CEBECI_TOWERS/);
+ assert.match(connectionError('DEDICATED_PILOT_FLOW_REQUIRED'),/Gerçek Router \/ Salt Okunur Pilot/);
+});

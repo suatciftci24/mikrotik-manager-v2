@@ -30,6 +30,7 @@ export function candidatePayload(form:RouterForm,requestId:string,item?:Register
     username:form.username,password:form.password||null,ca_pem:form.ca_pem,leaf_sha256:form.leaf_sha256,router_id:item?.id??null,expected_revision:item?.revision??0,confirmed_read_only:true};
 }
 const errors:Record<string,string>={
+ DEDICATED_PILOT_FLOW_REQUIRED:'Bu VDS profili yalnız CEBECI_TOWERS için Gerçek Router / Salt Okunur Pilot akışını kabul eder. Genel router ekleme veya bağlantı kontrolü kullanılamaz.',
  PILOT_SCOPE_MISMATCH:'Pilot hedefi, kaynak IP veya kayıtlı kimlik CEBECI_TOWERS kapsamıyla eşleşmiyor.',
  PILOT_ACCOUNT_MISMATCH:'Güvenli pilot referansı v2-cebeci-ro hesabına ait değil.',
  READ_SCOPE_REJECTED:'İstenen okuma salt okunur pilot kapsamı dışında.',

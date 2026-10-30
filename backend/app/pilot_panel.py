@@ -24,6 +24,8 @@ def mount_panel(application,root=ROOT):
 
 
 def create_app():
-    # Importing this factory does not load a backend, open sockets or read credentials.
+    # Check VDS scope/paths before loading the backend. No DB connection or secret file read.
+    from app.core.pilot_runtime import validate_runtime
+    validate_runtime(ROOT)
     from app.main import app
     return mount_panel(app)

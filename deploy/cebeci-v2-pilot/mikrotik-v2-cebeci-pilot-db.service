@@ -4,19 +4,23 @@ Description=Isolated PostgreSQL for MikroTik Manager V2 CEBECI pilot
 After=network.target
 ConditionPathExists=/usr/lib/postgresql/16/bin/postgres
 ConditionPathExists=/srv/mikrotik-manager-v2-pilot/postgres/PG_VERSION
+ConditionPathExists=/srv/mikrotik-manager-v2-pilot/config/postgres/postgresql.conf
 
 [Service]
 Type=simple
 User=mikrotik-v2-db
 Group=mikrotik-v2-db
-ExecStart=/usr/lib/postgresql/16/bin/postgres -D /srv/mikrotik-manager-v2-pilot/postgres -c listen_addresses=127.0.0.1 -c port=55432 -c unix_socket_directories=/srv/mikrotik-manager-v2-pilot/postgres-socket
+ExecStart=/usr/lib/postgresql/16/bin/postgres -D /srv/mikrotik-manager-v2-pilot/postgres -c config_file=/srv/mikrotik-manager-v2-pilot/config/postgres/postgresql.conf
 Restart=no
 UMask=0077
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/srv/mikrotik-manager-v2-pilot/postgres /srv/mikrotik-manager-v2-pilot/postgres-socket
+ReadWritePaths=/srv/mikrotik-manager-v2-pilot/postgres /srv/mikrotik-manager-v2-pilot/postgres-socket /srv/mikrotik-manager-v2-pilot/logs/postgres
+RestrictAddressFamilies=AF_INET AF_UNIX
+StandardOutput=append:/srv/mikrotik-manager-v2-pilot/logs/postgres/output.log
+StandardError=append:/srv/mikrotik-manager-v2-pilot/logs/postgres/error.log
 
 [Install]
 WantedBy=multi-user.target
