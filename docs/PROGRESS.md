@@ -1,5 +1,30 @@
 # MikroTik Manager V2 — İlerleme
 
+## Ofis V2 PostgreSQL connection-refused / mevcut küme start-export — 2026-10-30
+
+- Başlangıç 6166ad4, temiz çalışma ağacı. Export ve dev-db hedefleri aynı:
+  127.0.0.1:55432, mikrotik_manager_v2/v2_local, repo .local/postgres-v2-demo.
+  Postmaster options/PID de bu dizin/portu gösteriyor; VDS/V1 hedefi seçilmedi.
+- Son log kaydı 2026-10-30 18:39:16 +03 received smart shutdown request.
+  pg_ctl status=3, görünür PostgreSQL süreci yok; PID stopping, pg_control hâlâ
+  in production. Bu, temiz kapanış tamamlanmış demek değildir; isteğin aktörü
+  bilinmiyor. Kullanıcıdaki connection-refused listener yokluğuyla uyumlu.
+- Tek TCP socket capability kontrolü errno=1 EPERM verdi. Codex'te start/export
+  bağlantısı tekrarlanmadı; gerçek ADMIN DB satırı/export bu görevde doğrulanmadı.
+- Explicit --start-existing-v2 --export-only eklendi: yalnız mevcut owner-safe PG16
+  kümesi ve exact config/DB socket yolları, harici include/replication/archive/
+  preload reddi, socket/port güvenliği; çalışıyorsa restart yok, stopping ise STOP.
+  Kapalıysa bir pg_ctl start (30 sn), private ve secret-safe log; ardından mevcut
+  READ ONLY ADMIN export guard'ları. PID/socket elle silinmez; initdb/CREATE DB,
+  migration/seed/ADMIN/parola işlemi, systemctl veya SSH/VDS aşaması yoktur.
+- PASS: 6 yeni soketsiz startup güvenlik testi ve 7 doğrudan ilgili export testi;
+  toplam 13 hedefli kontrol. Diff kontrolü PASS. Gerçek start/SQL export BLOCKED
+  (EPERM); sentetik testler canlı PostgreSQL kabulü sayılmadı.
+- VDS PG16.15/55432/002–009, V1, router/RADIUS/IPsec değiştirilmedi. Bilinen DNS
+  engeli yeniden denenmedi; uzak dal uzlaştırılmadığı için push/force-push yok.
+  Tek kullanıcı eylemi normal ofis terminalinde belgelenen start-existing/export-only
+  komutunu çalıştırmak. Yerel değişiklikler bu görevin commit'inde korunacak.
+
 ## office-read-only-export güvenli hata düzeltmesi — 2026-10-30
 
 - Başlangıç 26ca2d7, temiz çalışma ağacı. Genel mesajın nedeni: complete-office.py

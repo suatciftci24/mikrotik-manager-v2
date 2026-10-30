@@ -2,6 +2,35 @@
 
 ## Yetkili tamamlama komutu — 2026-10-30
 
+### Ofis connection-refused düzeltmesi
+
+Hedef değişmiyor: 127.0.0.1:55432, mikrotik_manager_v2/v2_local ve repo altındaki
+`.local/postgres-v2-demo`. Son yerel logda 2026-10-30 18:39:16 +03 smart shutdown
+isteği bulunuyor; pg_ctl status=3 ve görünür postgres süreci yok. pg_control hâlâ
+in production durumunda; temiz kapanış tamamlandı denemez. İsteği gönderen bu
+kanıtlardan belirlenemez. Normal terminaldeki CONNECTION_REFUSED, hedefte kabul
+eden bir listener olmamasıyla uyumludur. Codex'te ayrıca socket EPERM doğrulandı;
+burada PostgreSQL başlatma veya bağlantı/export tekrar denemesi yapılmadı.
+
+Normal ofis WSL terminalinde **yalnız mevcut izole V2 kümesini başlatıp export**:
+
+```bash
+cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && python3 deploy/cebeci-v2-pilot/complete-office.py --start-existing-v2 --export-only
+```
+
+Yeni seçenek yalnız --export-only ile kullanılabilir; SSH/VDS aşamasına geçmez.
+Owner/mode/no-link/PG16/gerçek data ve HBA/ident yolları, harici include ve
+replication/archive/preload ayarları kontrol edilir. Socket yetkisi yoksa startup
+artefact oluşturmadan durur. Çalışan küme yeniden başlatılmaz; stopping ise durur.
+Kapalı kümede port boşluğu doğrulanıp yalnız exact dizin için pg_ctl start bir
+kez, 30 sn sınırıyla çalışır. Log owner-only ve SQL/parametre dökümü kapalıdır.
+PID/socket dosyası elle silinmez. Eski WAL için PostgreSQL'in normal crash recovery
+işlemi gerekebilir; initdb, CREATE DATABASE, seed, migration, role/password reset
+ve systemctl yoktur. Başlangıçtan sonra mevcut export SQL'i gerçek cluster ve
+mevcut ADMIN guard'larını READ ONLY transaction'da doğrular. Başarılı export
+görülmeden aktarım hazır/PASS sayılmaz; kaynak hesabın varlığı bu oturumda DB'den
+yeniden doğrulanamamıştır. Kullanıcı/şifre değişikliği yapılmaz.
+
 Export hata düzeltmesi: bu Codex ortamında bağımsız TCP socket oluşturma kontrolü
 `errno=1 / EPERM` verdi. Yeni betik bu durumda DB bağlantısı, passfile oluşturma
 veya SSH denemeden `BLOCKED: V2_EXPORT_SOCKET_EPERM` üretir. Önceki genel hata

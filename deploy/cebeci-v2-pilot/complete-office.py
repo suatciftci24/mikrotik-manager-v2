@@ -3,6 +3,7 @@
 import json
 import errno
 import os
+import re
 from pathlib import Path
 import stat
 import socket
@@ -10,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import shlex
 from urllib.parse import urlsplit, unquote
 
 ROOT = Path('/home/suatpc/Codex-Projects/mikrotik-manager-v2')
@@ -91,6 +93,82 @@ def private(path, directory=False, code='V2_PRIVATE_PATH_REJECTED'):
             or not (stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode))
             or (not directory and info.st_nlink != 1)):
         raise SafeFailure(code)
+
+
+def start_existing_v2():
+    """Explicit office-only start; never initdb, create DB, delete PID, stop or restart."""
+    global STEP
+    STEP = 'office-existing-v2-start'
+    if Path.cwd().resolve() != ROOT or os.getuid() == 0 or ROOT.resolve() != ROOT:
+        raise SafeFailure('V2_START_OPERATOR_REJECTED')
+    data = ROOT / '.local/postgres-v2-demo'
+    sock = ROOT / '.local/postgres-v2-socket'
+    for path in (ROOT / '.local', data, sock):
+        info = path.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o022:
+            raise SafeFailure('V2_START_PATH_UNSAFE')
+    private(data, True, code='V2_START_DATA_UNSAFE')
+    for name in ('PG_VERSION', 'global/pg_control', 'postgresql.conf', 'postgresql.auto.conf', 'pg_hba.conf', 'pg_ident.conf'):
+        path = data / name
+        info = path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1
+                or info.st_mode & 0o022 or path.resolve() != path):
+            raise SafeFailure('V2_START_CLUSTER_FILE_UNSAFE')
+    if (data / 'PG_VERSION').read_text().strip() != '16':
+        raise SafeFailure('V2_START_VERSION_REJECTED')
+    if any((data / name).exists() or (data / name).is_symlink() for name in ('standby.signal', 'recovery.signal')):
+        raise SafeFailure('V2_START_RECOVERY_CONFIG_REJECTED')
+    for name in ('postgresql.conf', 'postgresql.auto.conf'):
+        for line in (data / name).read_text().splitlines():
+            if re.match(r'^\s*include(?:_dir|_if_exists)?(?:\s|=)', line):
+                raise SafeFailure('V2_START_EXTERNAL_CONFIG_REJECTED')
+    # Fail before pg_ctl or any startup/log artifact when the sandbox denies sockets.
+    require_tcp_socket()
+    env = {k: v for k, v in os.environ.items() if not k.startswith('PG')}
+    env['LC_ALL'] = 'C'
+    pg = Path('/usr/lib/postgresql/16/bin')
+    expected = {'data_directory': str(data), 'hba_file': str(data / 'pg_hba.conf'),
+                'ident_file': str(data / 'pg_ident.conf'), 'primary_conninfo': '',
+                'restore_command': '', 'archive_command': '', 'archive_mode': 'off',
+                'shared_preload_libraries': ''}
+    for setting, value in expected.items():
+        actual = run([str(pg / 'postgres'), '-D', str(data), '-C', setting], env=env).decode().strip()
+        if actual != value:
+            raise SafeFailure('V2_START_CONFIG_REJECTED')
+    status = subprocess.run([str(pg / 'pg_ctl'), '-D', str(data), 'status'],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+    if status.returncode == 0:
+        # Export SQL verifies this running cluster's real identity; never restart it.
+        if (data / 'postmaster.pid').read_text().splitlines()[-1].strip() == 'stopping':
+            raise SafeFailure('V2_START_CLUSTER_STOPPING')
+        return
+    if status.returncode != 3:
+        raise SafeFailure('V2_START_STATUS_FAILED')
+    # Refuse an occupied target without connecting to or stopping its owner.
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind(('127.0.0.1', 55432))
+    except OSError as error:
+        code = 'V2_START_PORT_OCCUPIED' if error.errno == errno.EADDRINUSE else 'V2_START_SOCKET_FAILED'
+        raise SafeFailure(code) from None
+    logs = ROOT / '.local/admin-transfer'
+    if not logs.exists():
+        logs.mkdir(mode=0o700)
+    private(logs, True, code='V2_EXPORT_DIRECTORY_UNSAFE')
+    logfile = logs / 'postgres-start.log'
+    if not logfile.exists():
+        fd = os.open(logfile, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+        os.close(fd)
+    private(logfile, code='V2_START_LOG_UNSAFE')
+    options = shlex.join(['-h', '127.0.0.1', '-p', '55432', '-k', str(sock),
+        '-c', 'log_statement=none', '-c', 'log_min_error_statement=panic',
+        '-c', 'log_error_verbosity=terse', '-c', 'log_parameter_max_length=0',
+        '-c', 'log_parameter_max_length_on_error=0'])
+    result = subprocess.run([str(pg / 'pg_ctl'), '-D', str(data), '-l', str(logfile),
+        '-o', options, '-w', '-t', '30', 'start'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+    if result.returncode:
+        raise SafeFailure('V2_START_FAILED_PRIVATE_LOG')
+    print('PASS: existing office V2 PostgreSQL started on loopback', flush=True)
 
 
 def export():
@@ -201,16 +279,19 @@ def main():
     global STEP
     if sys.flags.optimize:
         raise SafeFailure('V2_OPTIMIZED_EXECUTION_FORBIDDEN')
-    if sys.argv[1:] not in ([], ['--export-only']):
+    if sys.argv[1:] not in ([], ['--export-only'], ['--start-existing-v2', '--export-only']):
         raise SafeFailure('V2_ARGUMENTS_REJECTED')
     os.umask(0o077)
     os.chdir(ROOT)
-    if sys.argv[1:] != ['--export-only']:
+    export_only = '--export-only' in sys.argv[1:]
+    if not export_only:
         if run(['git', 'status', '--porcelain'], cwd=ROOT).strip():
             raise SafeFailure('V2_WORKTREE_DIRTY')
+    if '--start-existing-v2' in sys.argv[1:]:
+        start_existing_v2()
     bundle = export()
     print('PASS: office ADMIN read-only export (private file)', flush=True)
-    if sys.argv[1:] == ['--export-only']:
+    if export_only:
         return
     assert not sys.argv[1:]
     STEP = 'ssh-private-staging'
@@ -249,6 +330,8 @@ def failure_code(error):
         return 'V2_FILE_ALREADY_EXISTS'
     if isinstance(error, FileNotFoundError):
         return 'V2_REQUIRED_FILE_MISSING'
+    if STEP == 'office-existing-v2-start':
+        return 'V2_START_PREFLIGHT_FAILED'
     return 'V2_EXPORT_CONFIG_INVALID' if STEP == 'office-read-only-export' else 'V2_COMPLETION_FAILED'
 
 
