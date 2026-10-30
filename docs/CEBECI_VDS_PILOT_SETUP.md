@@ -193,3 +193,25 @@ Yapılandırma dayanakları: [systemd dosyaya append log yönlendirmesi](https:/
 [PG16 log parametreleri](https://www.postgresql.org/docs/16/runtime-config-logging.html)
 ve [peer kullanıcı eşlemesi](https://www.postgresql.org/docs/16/auth-username-maps.html).
 Bu belgeler VDS'deki kurulu sürüm veya gerçek yetkilerin bu oturumda doğrulandığı anlamına gelmez.
+
+
+## Tamamlayıcı izin ve kabul dosyaları
+
+Migration konumu `migrations/versions/` altıdır; yalnız listelenmiş forward dosyalar
+uygulanır. ADMIN importundan sonra aynı private peer bakım bağlantısında
+`psql -X -q -f deploy/cebeci-v2-pilot/identity-access.psql` çalıştırılır.
+Yeni V2 DB PUBLIC bağlantı/TEMP izinleri kaldırılır, kimlik kolon izinleri ve
+mevcut V2 iş tablolarının çalışma izinleri verilir. İçindeki `verify-admin.psql`
+kimlik/seal/audit ve efektif rol/kolon/DDL izinlerini commit öncesi doğrular.
+Hata halinde bağlantı kapatılır; GRANT transaction'ı rollback olur. Beklenmeyen
+sahiplik, rol üyeliği veya kolon grant'inde otomatik onarım yerine STOP edilir.
+Bağımsız kabul aynı bakım rolüyle `PGOPTIONS='-c default_transaction_read_only=on'
+psql -X -q -f deploy/cebeci-v2-pilot/verify-admin.psql` kullanır. Yalnız sabit
+PASS kodu çıkar; hesap/hash çıktısı yoktur. API rolüyle mevcut ADMIN panel girişi,
+auth/me ve options kabulü ayrıca gerekir. Parola yalnız giriş formuna yazılır.
+
+Geri dönüş sırası: yalnız yeni API unit'ini, ardından yalnız yeni PG unit'ini
+durdur; kurulmuşsa yalnız bu iki unit'in enable durumunu kaldır. Yeni kökü ve
+private audit/transfer kanıtını karantinada koru. DROP/down migration, hesap reseti,
+V1/proxy/ağ değişikliği yoktur. Tekrar kurulum öncesi küme kimliği ve kapalı flag'ler
+kabul edilir; aynı import tekrarlanmaz. Burada bu işlemler uygulanmadı.

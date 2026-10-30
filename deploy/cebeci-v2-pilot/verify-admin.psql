@@ -1,0 +1,46 @@
+-- REVIEW ONLY. Read-only assertions; emits no account, password, hash or bundle.
+-- Standalone: psql -X -q with PGOPTIONS='-c default_transaction_read_only=on'.
+\set ON_ERROR_STOP on
+\set ECHO none
+\set VERBOSITY terse
+DO $$ DECLARE t text; c record; BEGIN
+ IF current_database()<>'mikrotik_manager_v2' OR current_user<>'v2_pilot_maint'
+ OR current_setting('port')<>'55432'
+ OR current_setting('data_directory')<>'/srv/mikrotik-manager-v2-pilot/postgres'
+ THEN RAISE EXCEPTION 'V2_ACCEPT_CLUSTER_REJECTED'; END IF;
+ IF (SELECT count(*) FROM v2_demo.users)<>1 OR NOT EXISTS (
+ SELECT 1 FROM v2_demo.users u WHERE id='v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92'
+ AND username='suatciftci' AND role='ADMIN' AND active AND account_origin='LOCAL'
+ AND NOT EXISTS (SELECT 1 FROM (VALUES ('demo-router-001'),('demo-router-002'),('demo-router-003'),('demo-router-004')) r(id)
+ WHERE u.permissions #> ARRAY[r.id,'can_view'] IS DISTINCT FROM 'true'::jsonb))
+ OR (SELECT count(*) FROM v2_demo.first_admin_setup)<>1
+ OR NOT EXISTS (SELECT 1 FROM v2_demo.first_admin_setup WHERE singleton=1
+ AND admin_id='v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92' AND local_operator_uid>0 AND completed_at IS NOT NULL)
+ OR NOT EXISTS (SELECT 1 FROM v2_demo.schema_state WHERE version=1
+ AND marker='mikrotik-manager-v2-synthetic-only' AND identity_initialized AND first_admin_initialized)
+ OR (SELECT count(*) FROM v2_demo.user_audit WHERE operation='FIRST_ADMIN_IMPORT'
+ AND target_id='v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92' AND result='SUCCESS')<>1
+ THEN RAISE EXCEPTION 'V2_ACCEPT_IDENTITY_REJECTED'; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='v2_local' AND rolcanlogin
+ AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+ OR EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname='v2_local')
+ OR has_database_privilege('v2_local',current_database(),'CREATE')
+ OR has_database_privilege('v2_local',current_database(),'TEMP')
+ THEN RAISE EXCEPTION 'V2_ACCEPT_ROLE_REJECTED'; END IF;
+ FOREACH t IN ARRAY ARRAY['public','v2_demo','v2_router_workspace','v2_subscriber_workspace'] LOOP
+ IF has_schema_privilege('v2_local',t,'CREATE') THEN RAISE EXCEPTION 'V2_ACCEPT_DDL_REJECTED'; END IF;
+ END LOOP;
+ FOREACH t IN ARRAY ARRAY['users','user_audit','schema_state','first_admin_setup'] LOOP
+ IF NOT has_table_privilege('v2_local','v2_demo.'||t,'SELECT')
+ OR has_table_privilege('v2_local','v2_demo.'||t,'DELETE,TRUNCATE,TRIGGER,REFERENCES')
+ THEN RAISE EXCEPTION 'V2_ACCEPT_TABLE_ACCESS_REJECTED'; END IF;
+ FOR c IN SELECT column_name FROM information_schema.columns WHERE table_schema='v2_demo' AND table_name=t LOOP
+ IF has_column_privilege('v2_local','v2_demo.'||t,c.column_name,'UPDATE')
+ IS DISTINCT FROM (t='users' AND c.column_name IN ('name','email','role','active','permissions','revision'))
+ OR has_column_privilege('v2_local','v2_demo.'||t,c.column_name,'INSERT')
+ IS DISTINCT FROM (t IN ('users','user_audit'))
+ THEN RAISE EXCEPTION 'V2_ACCEPT_COLUMN_ACCESS_REJECTED'; END IF;
+ END LOOP;
+ END LOOP;
+END $$;
+SELECT 'V2_ADMIN_IDENTITY_AND_ACCESS_PASS_GATES_MUST_REMAIN_FALSE' AS status;

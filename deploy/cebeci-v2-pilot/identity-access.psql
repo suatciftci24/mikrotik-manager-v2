@@ -1,0 +1,37 @@
+-- REVIEW ONLY. After import; explicit maintenance action, never application startup.
+\set ON_ERROR_STOP on
+\set ECHO none
+\set VERBOSITY terse
+BEGIN;
+DO $$ BEGIN
+ IF current_database()<>'mikrotik_manager_v2' OR current_user<>'v2_pilot_maint'
+ OR current_setting('port')<>'55432'
+ OR current_setting('data_directory')<>'/srv/mikrotik-manager-v2-pilot/postgres'
+ THEN RAISE EXCEPTION 'V2_ACCESS_CLUSTER_REJECTED'; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='v2_local' AND rolcanlogin
+ AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+ OR EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname='v2_local')
+ THEN RAISE EXCEPTION 'V2_ACCESS_ROLE_REJECTED'; END IF;
+END $$;
+REVOKE ALL ON DATABASE mikrotik_manager_v2 FROM PUBLIC, v2_local;
+GRANT CONNECT ON DATABASE mikrotik_manager_v2 TO v2_local;
+REVOKE CREATE ON SCHEMA public FROM PUBLIC, v2_local;
+REVOKE ALL ON SCHEMA v2_demo FROM PUBLIC, v2_local;
+GRANT USAGE ON SCHEMA v2_demo TO v2_local;
+REVOKE ALL ON v2_demo.users, v2_demo.user_audit, v2_demo.schema_state, v2_demo.first_admin_setup FROM PUBLIC, v2_local;
+-- Column grants must also be checked by verify-admin.psql: table REVOKE alone
+-- cannot remove a pre-existing column grant. Unexpected grants mean STOP.
+GRANT SELECT ON v2_demo.users, v2_demo.user_audit, v2_demo.schema_state, v2_demo.first_admin_setup TO v2_local;
+GRANT INSERT ON v2_demo.users, v2_demo.user_audit TO v2_local;
+GRANT UPDATE(name,email,role,active,permissions,revision) ON v2_demo.users TO v2_local;
+GRANT USAGE ON SCHEMA public, v2_router_workspace, v2_subscriber_workspace TO v2_local;
+GRANT SELECT, INSERT, UPDATE ON
+ v2_demo.subscribers, v2_demo.events, v2_demo.requests,
+ v2_demo.alarm_actions, v2_demo.alarm_requests,
+ v2_demo.settings_records, v2_demo.settings_audit,
+ public.v2_registered_routers, public.v2_router_verifications, public.v2_router_registry_audit,
+ v2_router_workspace.records, v2_router_workspace.audit,
+ v2_subscriber_workspace.subscribers, v2_subscriber_workspace.events TO v2_local;
+GRANT DELETE ON v2_router_workspace.records TO v2_local;
+\ir verify-admin.psql
+COMMIT;
