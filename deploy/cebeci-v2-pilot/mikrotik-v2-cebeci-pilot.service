@@ -1,0 +1,34 @@
+# REVIEW ONLY. Not installed/enabled/started by this repository.
+# A dedicated V2 OS user and isolated V2 database must be prepared after explicit approval.
+[Unit]
+Description=MikroTik Manager V2 CEBECI read-only pilot panel
+After=network.target mikrotik-v2-cebeci-pilot-db.service
+Requires=mikrotik-v2-cebeci-pilot-db.service
+ConditionPathExists=/srv/mikrotik-manager-v2-pilot/app/frontend/dist/index.html
+ConditionPathExists=/srv/mikrotik-manager-v2-pilot/config/database.env
+ConditionPathExists=/srv/mikrotik-manager-v2-pilot/config/onboarding.env
+
+[Service]
+Type=simple
+User=mikrotik-v2-pilot
+Group=mikrotik-v2-pilot
+WorkingDirectory=/srv/mikrotik-manager-v2-pilot/app
+Environment=PYTHONPATH=/srv/mikrotik-manager-v2-pilot/app/backend
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=V2_API_PORT=18080
+Environment=V2_ROUTER_ONBOARDING_ENABLED=false
+Environment=V2_CEBECI_API_SSL_ENABLED=false
+EnvironmentFile=/srv/mikrotik-manager-v2-pilot/config/database.env
+EnvironmentFile=/srv/mikrotik-manager-v2-pilot/config/onboarding.env
+ExecStart=/srv/mikrotik-manager-v2-pilot/venv/bin/python -m uvicorn app.pilot_panel:create_app --factory --host 127.0.0.1 --port 18080 --no-access-log --no-proxy-headers
+Restart=no
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/mikrotik-manager-v2-pilot/app/.local
+RestrictAddressFamilies=AF_INET AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+# REVIEW ONLY. This unit never uses a system/V1 PostgreSQL data directory.
+[Unit]
+Description=Isolated PostgreSQL for MikroTik Manager V2 CEBECI pilot
+After=network.target
+ConditionPathExists=/usr/lib/postgresql/16/bin/postgres
+ConditionPathExists=/srv/mikrotik-manager-v2-pilot/postgres/PG_VERSION
+
+[Service]
+Type=simple
+User=mikrotik-v2-db
+Group=mikrotik-v2-db
+ExecStart=/usr/lib/postgresql/16/bin/postgres -D /srv/mikrotik-manager-v2-pilot/postgres -c listen_addresses=127.0.0.1 -c port=55432 -c unix_socket_directories=/srv/mikrotik-manager-v2-pilot/postgres-socket
+Restart=no
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/mikrotik-manager-v2-pilot/postgres /srv/mikrotik-manager-v2-pilot/postgres-socket
+
+[Install]
+WantedBy=multi-user.target

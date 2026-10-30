@@ -312,3 +312,11 @@ Bu geliştirme ortamında bağlantı kapısı kapalı ve özel pilot materyali y
 Mock transport/izole SQLite testleri gerçek pilot/yerel PostgreSQL kabulü değildir.
 Gerçek kabul için mevcut güvenli pilot ortamında yetkili operatörün panelden
 bir kez Test Et → Kaydet → ayrı onaylı detay okuması akışını tamamlaması gerekir.
+
+VDS'deki doğrulanmış 10.250.0.1 yönetim kaynağını panelle kullanmak için
+[izole VDS pilot kurulum planı](CEBECI_VDS_PILOT_SETUP.md) ve
+`deploy/cebeci-v2-pilot/` kapalı servis/env taslakları hazırdır. Yeni
+`app.pilot_panel:create_app` factory'si mevcut API ile built UI'yi aynı loopback
+origin'de sunar; V1 reverse proxy/Vite servisini değiştirmez. Gerçek ADMIN
+oturumundan gelen operator_candidate ID pilot ekranında gösterilir; bu alan
+kimlik oluşturmaz veya yetki vermez. Kurulum ve canlı kapı açılması yapılmadı.
