@@ -1,5 +1,32 @@
 # MikroTik Manager V2 — İlerleme
 
+## office-read-only-export güvenli hata düzeltmesi — 2026-10-30
+
+- Başlangıç 26ca2d7, temiz çalışma ağacı. Genel mesajın nedeni: complete-office.py
+  psql return code/stderr ve tüm yerel hataları tek RuntimeError/aşama mesajına
+  indiriyordu. Kaynak bağlantı denemesinde psql exit=2 saptandı; sınıflandırılabilir
+  sunucu/auth mesajı yoktu. Bağımsız TCP socket oluşturma errno=1 EPERM verdi.
+  Bu ortamda gerçek yerel engel socket yetkisidir; kullanıcının geçmiş terminal
+  hatasının aynı neden olduğu genel eski çıktıdan kanıtlanamaz.
+- Socket capability preflight bağlantı/retry yapmadan sabit EPERM/DENIED kodu
+  üretir. Psql hataları yalnız sabit izinli kodlara sınıflandırılır; bilinmeyen
+  hata içeriği saklıdır. Config/path/bundle/CLI/dirty-worktree hataları ayrıdır.
+  LC_ALL=C, salt okunur PG session, connect/query/lock timeout sabitlendi.
+- PGPASSFILE varken URL parolası zorunluluğu kaldırıldı; mevcut credential aynen
+  korunur. Geçici passfile/başarısız export cleanup korundu. Kaynak SQL artık
+  eksik hesabı sabit ACCOUNT_NOT_FOUND ile ayırır; cluster/ADMIN/hash/seal
+  korumaları gevşetilmedi, kaynak DB'ye yazma yoktur.
+- PASS: yedi farklı soketsiz hedefli test (dosya/link/owner güvenliği, yabancı
+  DB reddi, geçici cleanup, mevcut passfile korunması, sabit hata/redaction,
+  EPERM sınıflandırması ve socket reddinde psql/secret artifact oluşmaması).
+  Değişen sınıflandırma ve yeni preflight testi ayrıca hedefli kontrol edildi;
+  diff kontrolü PASS. Gerçek SQL export/import doğrulanmadı: BLOCKED.
+- Git fetch tek denemede github.com DNS hatası verdi. Önceden ilerlemiş uzak dal
+  alınamadığı için uzlaştırma/push BLOCKED; force push veya SSH tekrarı yok.
+  VDS PG/migration/service, ADMIN/parola/hash, V1/router/RADIUS/IPsec değiştirilmedi.
+- Gereken tek kullanıcı eylemi: normal ofis terminalinde complete-office.py
+  --export-only çalıştırmak. VDS deployment bu hata düzeltme kapsamında çalıştırılmadı.
+
 ## Mevcut LOCAL ADMIN aktarımı / izole panel tamamlama — 2026-10-30
 
 - Başlangıç 8d72a14 ve temiz çalışma ağacı. Kullanıcı VDS izole PG16.15/55432,

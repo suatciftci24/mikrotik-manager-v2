@@ -2,6 +2,30 @@
 
 ## Yetkili tamamlama komutu — 2026-10-30
 
+Export hata düzeltmesi: bu Codex ortamında bağımsız TCP socket oluşturma kontrolü
+`errno=1 / EPERM` verdi. Yeni betik bu durumda DB bağlantısı, passfile oluşturma
+veya SSH denemeden `BLOCKED: V2_EXPORT_SOCKET_EPERM` üretir. Önceki genel hata
+mesajı kullanıcının terminalindeki nedeni tek başına kanıtlamaz. Normal ofis
+terminalinde yalnız export kontrolü için aynı komuta `--export-only` eklenir;
+bu seçenek VDS'ye bağlanmaz veya servis/DB kurulumu yapmaz.
+
+Hatalarda yalnız sabit kod yazılır; ham subprocess stderr/stdout, SQL hatası,
+exception/traceback, DSN, parola veya hash yazılmaz. Psql dili `LC_ALL=C`, bağlantı
+süresi 5 sn, salt okunur session varsayılanı ve sorgu/kilit süre sınırları sabittir.
+Mevcut PGPASSFILE kullanılırken URL içinde ayrıca parola bulunması gerekmez.
+Kaynak hesap bulunamazsa SQL sabit `ACCOUNT_NOT_FOUND` hatası verir.
+
+| Kod | Anlamı |
+| --- | --- |
+| `V2_EXPORT_SOCKET_EPERM` / `SOCKET_DENIED` | Yerel ortam socket oluşturmayı reddetti; retry yok |
+| `V2_EXPORT_CONNECTION_REFUSED` | V2 hedefi bağlantıyı reddetti; servis otomatik başlatılmaz |
+| `V2_EXPORT_DB_AUTH_FAILED` / `PGPASS_NO_MATCH` | Mevcut DB credential/passfile doğrulanamadı; parola değiştirilmez |
+| `V2_EXPORT_CONFIG_AMBIGUOUS` / `TARGET_REJECTED` | Belirsiz veya izin verilmeyen bağlantı seçimi |
+| `V2_EXPORT_*_UNSAFE` | Owner/mode/regular-file/link koruması reddetti |
+| `V2_EXPORT_SOURCE_*` | Kaynak cluster/şema/hesap/kurulum/seal/scope/hash guard'ı reddetti |
+| `V2_EXPORT_EXISTING_BUNDLE_*` | Mevcut artifact boş, bozuk veya süresi dolmuş; ezilmez |
+| `V2_EXPORT_CONNECTION_FAILED` / `SQL_FAILED` | Beyaz listede olmayan hata; içerik açıklanmaz |
+
 Kullanıcı VDS PG16.15 kümesinde 002–009'un tamamlandığını bildirdi; bunlar yeniden
 çalıştırılmayacak. Bu oturumda SSH socket EPERM nedeniyle engellendi ve tekrar
 denenmedi. Ofis salt okunur export denemesi de başarısız oldu. Gerçek export/import,

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Run on the office machine. Never print subprocess errors or secret values."""
 import json
+import errno
 import os
 from pathlib import Path
 import stat
+import socket
 import subprocess
 import sys
 import tempfile
@@ -18,29 +20,88 @@ HOST = 'mikadmin@185.139.5.51'
 STEP = 'preflight'
 
 
+class SafeFailure(RuntimeError):
+    """Only a locally chosen constant may reach the terminal."""
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
+
+
+def classify_psql(result):
+    # Inspect in memory only. Never return raw stderr, SQL, paths or server values.
+    error = result.stderr.lower()
+    patterns = (
+        (b'operation not permitted', 'V2_EXPORT_SOCKET_EPERM'),
+        (b'permission denied to create socket', 'V2_EXPORT_SOCKET_DENIED'),
+        (b'connection refused', 'V2_EXPORT_CONNECTION_REFUSED'),
+        (b'timeout expired', 'V2_EXPORT_CONNECTION_TIMEOUT'),
+        (b'canceling statement due to statement timeout', 'V2_EXPORT_QUERY_TIMEOUT'),
+        (b'canceling statement due to lock timeout', 'V2_EXPORT_LOCK_TIMEOUT'),
+        (b'password authentication failed', 'V2_EXPORT_DB_AUTH_FAILED'),
+        (b'no password supplied', 'V2_EXPORT_PGPASS_NO_MATCH'),
+        (b'no pg_hba.conf entry', 'V2_EXPORT_HBA_REJECTED'),
+        (b'permission denied to examine', 'V2_EXPORT_CLUSTER_INSPECTION_DENIED'),
+        (b'permission denied for', 'V2_EXPORT_DB_PRIVILEGE_DENIED'),
+        (b'query returned no rows', 'V2_EXPORT_ADMIN_NOT_FOUND'),
+    )
+    for fragment, code in patterns:
+        if fragment in error:
+            return code
+    if b'does not exist' in error:
+        for fragment, code in ((b'relation ', 'V2_EXPORT_SOURCE_SCHEMA_MISSING'),
+                               (b'column ', 'V2_EXPORT_SOURCE_SCHEMA_MISSING'),
+                               (b'database ', 'V2_EXPORT_DATABASE_MISSING'),
+                               (b'role ', 'V2_EXPORT_ROLE_MISSING')):
+            if fragment in error:
+                return code
+    # SQL guards have fixed messages; whitelist rather than echoing extracted text.
+    for suffix in ('CLUSTER_REJECTED', 'SETUP_NOT_CLOSED', 'ACCOUNT_NOT_FOUND', 'IDENTITY_REJECTED',
+                   'SEAL_REJECTED', 'SCOPE_REJECTED', 'HASH_FORMAT_REJECTED'):
+        if ('error:  v2_admin_source_' + suffix.lower()).encode() in error:
+            return 'V2_EXPORT_SOURCE_' + suffix
+    return 'V2_EXPORT_CONNECTION_FAILED' if result.returncode == 2 else 'V2_EXPORT_SQL_FAILED'
+
+
+def require_tcp_socket():
+    """No connection/retry: distinguish local sandbox denial from server failures."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM):
+            pass
+    except OSError as error:
+        code = {errno.EPERM: 'V2_EXPORT_SOCKET_EPERM', errno.EACCES: 'V2_EXPORT_SOCKET_DENIED'}.get(
+            error.errno, 'V2_EXPORT_SOCKET_UNAVAILABLE')
+        raise SafeFailure(code) from None
+
+
 def run(args, **kwargs):
-    result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
+    try:
+        result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
+    except FileNotFoundError:
+        raise SafeFailure('V2_EXPORT_PSQL_MISSING' if Path(args[0]).name == 'psql' else 'V2_COMMAND_MISSING') from None
     if result.returncode:
-        raise RuntimeError('command failed')
+        if Path(args[0]).name == 'psql':
+            raise SafeFailure(classify_psql(result))
+        raise SafeFailure('V2_COMMAND_FAILED')
     return result.stdout
 
 
-def private(path, directory=False):
+def private(path, directory=False, code='V2_PRIVATE_PATH_REJECTED'):
     info = path.lstat()
     if (info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != (0o700 if directory else 0o600)
             or not (stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode))
             or (not directory and info.st_nlink != 1)):
-        raise RuntimeError('private path rejected')
+        raise SafeFailure(code)
 
 
 def export():
     global STEP
     STEP = 'office-read-only-export'
-    assert Path.cwd().resolve() == ROOT and os.getuid() != 0
+    if Path.cwd().resolve() != ROOT or os.getuid() == 0:
+        raise SafeFailure('V2_EXPORT_OPERATOR_REJECTED')
     # Only this V2 repo's configuration and this repo's running processes are eligible.
     configured = os.environ.get('V2_DATABASE_URL')
     if configured is None and (ROOT / '.env').is_file():
-        private(ROOT / '.env')
+        private(ROOT / '.env', code='V2_EXPORT_CONFIG_FILE_UNSAFE')
         for line in (ROOT / '.env').read_text().splitlines():
             if line.startswith('V2_DATABASE_URL='):
                 configured = line.split('=', 1)[1].strip().strip('"\'')
@@ -55,7 +116,7 @@ def export():
                 urls = [v.split(b'=', 1)[1].decode() for v in values if v.startswith(b'V2_DATABASE_URL=')]
                 if urls:
                     if configured is not None and configured != urls[0]:
-                        raise RuntimeError('ambiguous config')
+                        raise SafeFailure('V2_EXPORT_CONFIG_AMBIGUOUS')
                     configured = urls[0]
             except (PermissionError, FileNotFoundError, ProcessLookupError):
                 continue
@@ -66,32 +127,40 @@ def export():
         configured = next(n.value for n in ast.walk(tree) if isinstance(n, ast.Constant)
                           and isinstance(n.value, str) and n.value.startswith('postgresql+psycopg://'))
     url = urlsplit(configured)
-    assert (url.scheme, url.hostname, url.port, url.path, url.username) == (
-        'postgresql+psycopg', '127.0.0.1', 55432, '/mikrotik_manager_v2', 'v2_local')
-    assert not url.query
+    if (url.scheme, url.hostname, url.port, url.path, url.username) != (
+        'postgresql+psycopg', '127.0.0.1', 55432, '/mikrotik_manager_v2', 'v2_local') or url.query:
+        raise SafeFailure('V2_EXPORT_TARGET_REJECTED')
     target = ROOT / '.local/admin-transfer'
     if not target.exists():
         target.mkdir(mode=0o700)
-    private(target, True)
+    private(target, True, code='V2_EXPORT_DIRECTORY_UNSAFE')
     bundle = target / 'admin-transfer.jsonl'
     if bundle.exists() or bundle.is_symlink():
-        private(bundle)
-        data = json.loads(bundle.read_text())
+        private(bundle, code='V2_EXPORT_BUNDLE_UNSAFE')
+        if not bundle.stat().st_size:
+            raise SafeFailure('V2_EXPORT_EXISTING_BUNDLE_EMPTY')
+        try:
+            data = json.loads(bundle.read_text())
+        except (ValueError, UnicodeError):
+            raise SafeFailure('V2_EXPORT_EXISTING_BUNDLE_INVALID') from None
         from datetime import datetime, timezone
         age = (datetime.now(timezone.utc) - datetime.fromisoformat(data['exported_at'])).total_seconds()
-        assert -300 <= age < 86400
+        if not -300 <= age < 86400:
+            raise SafeFailure('V2_EXPORT_EXISTING_BUNDLE_EXPIRED')
         return bundle
+    require_tcp_socket()
     password = unquote(url.password or '')
-    assert password and not any(c in password for c in '\r\n\0')
     existing_passfile = os.environ.get('PGPASSFILE')
     if existing_passfile is None and (Path.home() / '.pgpass').exists():
         existing_passfile = str(Path.home() / '.pgpass')
     temporary_passfile = existing_passfile is None
     if temporary_passfile:
+        if not password or any(c in password for c in '\r\n\0'):
+            raise SafeFailure('V2_EXPORT_CONFIG_PASSWORD_INVALID')
         fd, pgfile = tempfile.mkstemp(prefix='pgpass-', dir=target)
     else:
         pgfile = str(Path(existing_passfile).absolute())
-        private(Path(pgfile))
+        private(Path(pgfile), code='V2_EXPORT_PGPASS_UNSAFE')
     created_bundle = False
     try:
         if temporary_passfile:
@@ -104,30 +173,41 @@ def export():
         os.chmod(bundle, 0o600)
         private(bundle)
         env = {k: v for k, v in os.environ.items() if not k.startswith('PG')}
-        env.update(PGPASSFILE=pgfile, PGCONNECT_TIMEOUT='5')
+        env.update(PGPASSFILE=pgfile, PGCONNECT_TIMEOUT='5', LC_ALL='C',
+                   PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=15000 -c lock_timeout=5000')
         run(['/usr/lib/postgresql/16/bin/psql', '-X', '-q', '-w', '-h', '127.0.0.1', '-p', '55432',
              '-U', 'v2_local', '-d', 'mikrotik_manager_v2', '-f', str(PACKAGE / 'export-admin.psql')], env=env)
         private(bundle)
-        assert bundle.stat().st_size > 0
+        if not bundle.stat().st_size:
+            raise SafeFailure('V2_EXPORT_EMPTY_RESULT')
     except BaseException:
         # Only remove our own failed export artifact, never an existing handoff.
         if created_bundle:
-            bundle.unlink()
+            try:
+                bundle.unlink()
+            except OSError:
+                raise SafeFailure('V2_EXPORT_PARTIAL_FILE_CLEANUP_FAILED') from None
         raise
     finally:
         if temporary_passfile:
-            Path(pgfile).unlink()
+            try:
+                Path(pgfile).unlink()
+            except OSError:
+                raise SafeFailure('V2_EXPORT_PGPASS_CLEANUP_FAILED') from None
     return bundle
 
 
 def main():
     global STEP
     if sys.flags.optimize:
-        raise RuntimeError('optimized execution forbidden')
+        raise SafeFailure('V2_OPTIMIZED_EXECUTION_FORBIDDEN')
+    if sys.argv[1:] not in ([], ['--export-only']):
+        raise SafeFailure('V2_ARGUMENTS_REJECTED')
     os.umask(0o077)
     os.chdir(ROOT)
     if sys.argv[1:] != ['--export-only']:
-        assert not run(['git', 'status', '--porcelain'], cwd=ROOT).strip()
+        if run(['git', 'status', '--porcelain'], cwd=ROOT).strip():
+            raise SafeFailure('V2_WORKTREE_DIRTY')
     bundle = export()
     print('PASS: office ADMIN read-only export (private file)', flush=True)
     if sys.argv[1:] == ['--export-only']:
@@ -158,9 +238,23 @@ def main():
     print('PASS: transfer and isolated V2 completion; actual ADMIN password login remains untested')
 
 
+def failure_code(error):
+    if isinstance(error, SafeFailure):
+        return error.code
+    if isinstance(error, KeyboardInterrupt):
+        return 'V2_CANCELLED'
+    if isinstance(error, PermissionError):
+        return 'V2_FILESYSTEM_PERMISSION_DENIED'
+    if isinstance(error, FileExistsError):
+        return 'V2_FILE_ALREADY_EXISTS'
+    if isinstance(error, FileNotFoundError):
+        return 'V2_REQUIRED_FILE_MISSING'
+    return 'V2_EXPORT_CONFIG_INVALID' if STEP == 'office-read-only-export' else 'V2_COMPLETION_FAILED'
+
+
 if __name__ == '__main__':
     try:
         main()
-    except (Exception, KeyboardInterrupt):
-        print(f'BLOCKED: {STEP}; no secret diagnostics printed; no automatic retry', file=sys.stderr)
+    except (Exception, KeyboardInterrupt) as error:
+        print('BLOCKED: ' + failure_code(error), file=sys.stderr)
         sys.exit(1)
