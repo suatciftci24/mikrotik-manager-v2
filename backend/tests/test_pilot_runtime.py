@@ -40,6 +40,14 @@ def account(id=VDS_OPERATOR_ID, **change):
 
 
 class PilotRuntimeTests(TestCase):
+    def test_native_admin_empty_router_operator_list_requires_closed_gates(self):
+        values = {**runtime(), 'V2_ROUTER_ONBOARDING_OPERATOR_IDS': ''}
+        with patch.dict(os.environ, values, clear=True), patch('socket.socket', side_effect=AssertionError('No network')):
+            validate_runtime(VDS_ROOT / 'app')
+            self.assertFalse(router_registry.operator_allowed(account(id='v2-user-native-synthetic')))
+        with self.assertRaisesRegex(RuntimeError, 'SCOPE_REJECTED'):
+            validate_runtime(VDS_ROOT / 'app', {**values, 'V2_ROUTER_ONBOARDING_ENABLED': 'true', 'V2_CEBECI_API_SSL_ENABLED': 'true'})
+
     def test_reviewed_closed_profile_validates_without_any_io_and_disabled_probe_stops(self):
         values = runtime()
         with patch('socket.socket', side_effect=AssertionError('No network')), patch.object(Path, 'read_bytes', side_effect=AssertionError('No secret read')), patch.dict(os.environ, values, clear=True):

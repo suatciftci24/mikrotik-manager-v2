@@ -1,5 +1,311 @@
 # CEBECI_TOWERS: kapalı VDS pilot kurulum paketi
 
+## NPM_CHECK_FAILED: npm config kaynağı çakışması
+
+0046518'de bu generic kod yalnız `npm --version` çağrısının başarısızlığıdır;
+`npm ls` check=False olduğundan aynı rc hatası terminale bu kodla çıkmaz.
+Dolayısıyla Node22/24 filtresi geçilmiş, henüz frontend npm ci/build yapılmamıştır.
+Exact VDS sürüm ve raw hata metni bu oturumda alınmadı. API servisinin PATH'i
+burada kullanılmaz: build root ve explicit PATH ile, API ise Python/uvicorn ile
+çalışır. Bu görev servis veya global PATH değiştirmez.
+
+Kesin betik kusuru: userconfig ve globalconfig aynı `/dev/null` kaynağıydı.
+[npm10 config loader](https://github.com/npm/cli/blob/v10.9.2/workspaces/config/lib/index.js)
+ve [güncel resmi kaynak](https://github.com/npm/cli/blob/latest/workspaces/config/lib/index.js)
+aynı dosyanın farklı seviyelerde ikinci kez yüklenmesini reddeder. Config
+yükleme npm --version için de yapılır. Çakışma eski sınıflandırmada generic
+NPM_CHECK_FAILED olarak gizleniyordu. Yerelde Node/npm bulunmadığından gerçek
+CLI reprodüksiyonu iddia edilmiyor; kaynak/env/aşama kanıtı ile kusur belirlendi.
+
+Güncellenmiş isolated-build.py iki ayrı boş dosyayı root/0600 olarak yalnız
+V2 build-home altında oluşturur: npm-user.npmrc ve npm-global.npmrc. Mevcut
+nonempty/config link/mode çakışması STOP verir; credential dosyaları ezilmez.
+Global npmrc veya sistem Node/npm değiştirilmez. npm sürüm sorgusu artık private
+build-home cwd'sinde yapılır; seçilen Node bin'i yalnız child PATH'inin başına
+eklenir. Sayısal Node/npm sürümleri ve seçilen public executable yolları yazılır;
+raw stdout/exception/env dump yoktur. Repo frontend lock v3/root manifest eşleşmesi
+salt okunur doğrulanmıştır; mevcut lockfile değiştirilmez.
+
+Yeni ayrımlar: `V2_BUILD_NPM_VERSION_CONFIG_SOURCE_COLLISION`,
+`CLI_MODULE_MISSING`, `PATH_NODE_MISSING`, `RUNTIME_SYNTAX_ERROR`,
+`RUNTIME_INCOMPATIBLE`, `OUTPUT_INVALID`, `LOCKFILE_UNSUPPORTED`;
+lock tarafında `V2_BUILD_NPM_LOCKFILE_VERSION_UNSUPPORTED`, `ROOT_MISSING`,
+`MANIFEST_MISMATCH` ve ci'de `V2_BUILD_NPM_INSTALL_LOCKFILE_OUT_OF_SYNC`.
+Diğer izin/ağ/disk kodları korunur. Eski NPM_CHECK evresi şimdi NPM_VERSION,
+tree denetimi NPM_TREE'dir. VDS'ye güncellenmiş helper kaydedilince tek uygulama:
+
+```bash
+sudo python3 ~/isolated-build.py
+```
+
+Bu oturumda VDS kabulü uygulanmadı; düzeltmenin gerçek VDS sonucu henüz BLOCKED.
+PostgreSQL, migration, kullanıcılar ve V1/router/RADIUS/IPsec kapsam dışıdır.
+
+## İzole bağımlılık ve build onarımı
+
+Son kullanıcı kanıtı: ADMIN preflight PASS, sonra eski installer'da
+`isolated-dependencies-and-build` BLOCKED. Bu genel çıktı hangi alt komutun
+başarısız olduğunu göstermez; VDS'de pip/Node veya ağın kesin neden olduğu
+söylenemez. Başarılı PG/migration/preflight işlemleri tekrar yapılmaz.
+
+Standalone `deploy/cebeci-v2-pilot/isolated-build.py` VDS'de
+`~/isolated-build.py` olarak kaydedildikten sonra tek onarım komutu:
+
+```bash
+sudo python3 ~/isolated-build.py
+```
+
+Komut yalnız mevcut /srv/mikrotik-manager-v2-pilot/app, venv, toolchain,
+build-home/cache, frontend/node_modules/dist ve build marker'ı kapsamında
+çalışır. DB/kimlik/ADMIN, servis veya source-deployment işlemi yapmaz.
+Parola istenmez. Mevcut owner/type/link/write korumaları gevşetilmez; yalnız
+managed root-owned dependency ve build ağaçları servis için okunabilir yapılır.
+Private app/.local, config ve postgres yollarına dokunulmaz.
+
+Venv eksik/yarımsa `venv --without-pip`; pip eksikse [resmi PyPI pip wheel
+metadata'sı](https://pypi.org/pypi/pip/json) ve SHA-256 kontrolü kullanılır.
+Bu, Ubuntu ensurepip OS paketi olmadan da pip'i yalnız V2 venv'ine kurar.
+Global site-packages reddedilir; Python paketleri yalnız venv içine, resmi
+PyPI'dan binary wheel olarak kurulur. Zaten karşılanan bağımlılıklar zorla
+yükseltilmez. Standard venv modülü veya temel OS kütüphanesi yoksa global
+OS paketleri değiştirilmez; ayrı BLOCKED kodu verilir.
+
+Node/npm eksik veya mevcut Node uyumsuzsa [resmi Node dağıtımları](https://nodejs.org/en/download)
+içinden Node24 LTS, HTTPS + SHASUMS256 kontrolüyle yalnız V2 toolchain'ine
+alınır. Global Node/npm veya sistem PATH'i değiştirilmez. Mevcut uyumlu 22/24
+çifti veya daha önce hazırlanmış V2 toolchain'i yeniden indirilmez. npm lock
+metadata'sı + npm ls doğrulaması geçerse node_modules korunur; aksi halde yalnız
+bu frontend'de npm ci çalışır. Install/prebuild/postbuild lifecycle hook'ları
+kapalıdır; onaylı `tsc -b && vite build` komutu açıkça çalıştırılır. Başarı marker'ı
+ancak pip check ve tamamlanmış HTML build sonrasında yazılır; eski installer'ın
+başarılı build'i tanıdığı source hash korunur. Kimlik oluşturma veya panel start
+bu onarım komutunun parçası değildir.
+
+| Kod ailesi | Anlamı |
+| --- | --- |
+| `V2_BUILD_PY_VENV_*` | venv modülü/create veya izin hatası |
+| `V2_BUILD_PY_BOOTSTRAP_*` / `PIP_CHECKSUM_REJECTED` | pip wheel indirme/kurma/doğrulama |
+| `V2_BUILD_PY_INSTALL_*` / `PY_CHECK_*` / `PY_SCOPE_*` | Python paketleri, dependency check veya yanlış venv |
+| `V2_BUILD_NODE_DOWNLOAD_*` / `NODE_CHECK_*` / `NPM_CHECK_*` | Node/npm edinme, eksik executable, uyum veya sistem kütüphanesi |
+| `V2_BUILD_NPM_INSTALL_*` | İzole npm ci hatası |
+| `V2_BUILD_FRONTEND_TYPESCRIPT_FAILED` / `VITE_FAILED` / `PLATFORM_PACKAGE_MISSING` | Build/TypeScript veya platform binary paketi |
+| `*_NETWORK_DNS` / `NETWORK_TLS` / `NETWORK_TIMEOUT` / `NETWORK_UNREACHABLE` | Ayrı ağ nedenleri; otomatik retry/SSL bypass yok |
+| `*_PERMISSION_DENIED` / `*_OWNER_MISMATCH` / `*_WRITABLE_BY_OTHERS` / `*_SYMLINK_REJECTED` | İzin/sahiplik/link koruması; güvenlik gevşetilmez |
+| `*_DISK_FULL` / `*_PROCESS_KILLED` | Disk dolu veya sinyal ile biten işlem; OOM olduğu varsayılmaz |
+| `V2_ISOLATED_DEPENDENCIES_AND_BUILD_READY` | Yalnız dependency/build PASS; ADMIN/panel kurulduğu anlamına gelmez |
+
+Subprocess çıktıları yalnız bellekte sınıflanır; terminale sır/DSN/hash veya raw
+pip/npm error dump yazılmaz. Bilinmeyen hata aşamasıyla `*_FAILED` olarak durur.
+Bu görevde gerçek VDS onarımı çalıştırılmadı; kesin alt neden hâlâ doğrulanmadı.
+
+## Yalnız V2 üst dizin sahibi düzeltmesi
+
+Gerçek `V2_PREFLIGHT_BASE_OWNER_MISMATCH` kodu yalnız base UID'nin root/0
+olmadığını kanıtlar; belirli bir eski UID veya izin değeri göstermez. Preflight
+base için root/0755 ister; grup koşulu yoktur. Kontrol gevşetilmez.
+
+Standalone `deploy/cebeci-v2-pilot/fix-base-owner.py` VDS'de
+`~/fix-base-owner.py` olarak kaydedildikten sonra tek komut:
+
+```bash
+sudo python3 ~/fix-base-owner.py
+```
+
+Betik eski UID/GID/mode'u güvenle gösterir, yalnız base inode sahibini gerektiğinde
+root yapar, grubu korur ve yalnız gerekirse 0755 uygular. /srv parent sahiplik/
+write kontrolü ve no-follow descriptor'ları path değiştirme/symlink riskini kapatır.
+Önce mevcut V2 DB OS hesabı, postgres/postgres-socket owner/0700 ve PG_VERSION=16
+doğrulanır; eksik/yanlış olduklarında STOP verir, bunları değiştirmez. PG metadata
+önce/sonra ve base inode tekrar doğrulanır. Recursive işlem veya alt dizin/file
+chown/chmod yoktur; database/user kayıtları okunmaz/değiştirilmez. SQL, migration,
+servis, SSH/router/RADIUS/IPsec çağrısı yapmaz. Yalnız public metadata ve sabit
+durum kodları yazılır. Başarılı sonuç base koşulunu doğrular; ADMIN veya panelin
+kurulduğu anlamına gelmez. Bu oturumda VDS uygulaması henüz yapılmadı.
+
+## Preflight teşhisi — genel hata mesajının yerine güvenli kodlar
+
+58768e6 installer'ındaki `BLOCKED: preflight; existing identities never reset`
+çıktısı DB bağlantısından önceki kontrollerden birinin durduğunu gösterir; mevcut
+ADMIN veya başka kullanıcı bulunduğunun kanıtı değildir. Root/optimize, staging
+yolu/dosyaları, OS hesapları, base/data/socket owner/mode kontrolleri eski sürümde
+aynı mesajı üretiyordu. Gerçek VDS metadata olmadan bunlardan biri seçilemez.
+
+Yeni standalone dosya `mikrotik-v2-native-admin-preflight.run` adıyla VDS'ye
+kaydedilince tek salt okunur teşhis komutu:
+
+```bash
+sudo bash ~/mikrotik-v2-native-admin-preflight.run --preflight-only
+```
+
+Bu seçenek kaynak arşivi için private staging dışında yönetilen dosya/DB/servis
+değiştirmez. Eksik hesabı/config'i otomatik yaratmaz veya izinleri gevşetmez;
+migration, seed, ADMIN oluşturma, parola isteme/reset, bağımlılık kurma veya API
+start yoktur. Normal kurulum seçeneği de var olan ADMIN/diğer kullanıcıda durur.
+
+| Güvenli kod | Kanıtlanan engel |
+| --- | --- |
+| `V2_PREFLIGHT_DB_OS_USER_MISSING` | mikrotik-v2-db OS hesabı yok; DB'ye henüz bağlanılmadı |
+| `V2_PREFLIGHT_BASE_*` | /srv/mikrotik-manager-v2-pilot eksik/type/owner/mode reddi; root/0755 beklenir |
+| `V2_PREFLIGHT_PGDATA_*` / `PGSOCKET_*` | postgres veya postgres-socket yolu reddi; DB OS sahibi/0700 beklenir |
+| `V2_PREFLIGHT_STAGE_*` / `ARCHIVE_*` / `NATIVE_SOURCE_*` / `COMPLETION_SOURCE_*` | Kaynak staging/dosya reddi; mikadmin, directory 0700/file 0600, no-link/nlink=1 |
+| `V2_DB_PSQL_BINARY_MISSING` / `RUNUSER_BINARY_MISSING` | İzole bakım bağlantısı için program eksik |
+| `V2_DB_SOCKET_UNAVAILABLE` / `CONNECTION_REFUSED` / `PEER_AUTH_FAILED` | Socket/bağlantı veya peer eşlemesi engeli |
+| `V2_DB_ROLE_MISSING` / `V2_DATABASE_MISSING` / `V2_DB_SCHEMA_MISSING` | Beklenen rol/DB/şema bulunamadı; onarılmaz |
+| `V2_DB_MAINTENANCE_PERMISSION_DENIED` / `PERMISSION_DENIED` | Bakım rolü gerekli işlemi yapamıyor; yetki otomatik genişletilmez |
+| `V2_NATIVE_EXISTING_ADMIN_STOP` | En az bir ADMIN var; değişiklik yok |
+| `V2_NATIVE_OTHER_USERS_STOP` | ADMIN yok fakat başka kullanıcı var; değişiklik yok |
+| `V2_NATIVE_SETUP_CLOSED_STOP` / `SEAL_PRESENT_STOP` / `AUDIT_PRESENT_STOP` | Daha önce kapanmış/boş olmayan kurulum; reset yok |
+| `V2_NATIVE_SETUP_STATE_REJECTED` | Beklenen açık modern şema marker'ı bulunamadı |
+| `V2_NATIVE_PREFLIGHT_READY_NO_USERS_SETUP_OPEN` | Salt okunur ön kontrol PASS; ADMIN oluşturulmuş veya panel kurulmuş sayılmaz |
+
+Suffix `MISSING`, `TYPE_REJECTED`, `OWNER_MISMATCH`, `MODE_MISMATCH`,
+`HARDLINK_REJECTED`, `PERMISSION_DENIED` yalnız neden kodlarıdır. Gerçek UID,
+parola/hash, bağlantı DSN'i, kayıt/SQL/exception içeriği yazılmaz. Bilinmeyen SQL
+hatası `V2_DB_SQL_FAILED` veya `V2_DB_CONNECTION_FAILED` olarak kalır; tahminle
+kimlik varlığına dönüştürülmez. Eski genel çıktıdan alt neden saptandı denemez.
+
+## Güncel karar: ofis aktarımı iptal; VDS'de yeni LOCAL ADMIN
+
+Kullanıcı artık VDS'de yeni suatciftci LOCAL ADMIN oluşturulmasını istedi. Eski
+ofis export/transfer komutları bu görev için çalıştırılmaz; aşağıdaki eski kayıtlar
+tarihsel bağlamdır. Gerçek VDS ADMIN yokluğu ve kurulum bu oturumda SSH EPERM
+nedeniyle **BLOCKED / doğrulanmadı**. Hiçbir ADMIN oluşturulduğu varsayılmıyor.
+
+`build-native-installer.py`, temiz commit kaynak arşivini gömen bağımsız
+`.local/mikrotik-v2-native-admin.run` üretir. Bu dosya sır içermez; VDS'ye
+`~/mikrotik-v2-native-admin.run` olarak alındıktan sonra normal VDS terminalinde:
+
+```bash
+sudo bash ~/mikrotik-v2-native-admin.run
+```
+
+İlk işlem exact izole küme/PG16.15/SCRAM/peer kimliğini ve READ ONLY ADMIN
+varlığını kontrol etmektir. Aktif/pasif, LOCAL/DEMO fark etmeksizin herhangi bir
+ADMIN varsa uygulama/hesap/config/servis değişikliği yapmadan durur. Mevcut modern
+depo da boş ve first-admin kurulumu açık olmalıdır; aksi durumda STOP. Migration
+çalıştırılmaz, ofis hesabı/hash'i okunmaz veya aktarılmaz. İsim/e-posta ve yeni
+parola gerçek TTY'den alınır; parolanın iki girişi eşleşmeli ve mevcut 14–128
+karakter doğrulamasını geçmelidir. Getpass echo fallback reddedilir. OLUSTUR
+teyidi sonrası yeni rastgele UUID ile güçlü scrypt LOCAL ADMIN, FIRST_ADMIN_CREATE
+audit'i, VDS operatör UID'li seal ve closed marker atomik yazılır. Kilit altında
+ADMIN yokluğu tekrar kontrol edilir; eşzamanlı ADMIN varsa rollback olur.
+
+Router operator listesi boş, iki gate false kalır. Runtime yalnız iki kapı kapalıysa
+boş listeyi kabul eder; yeni hesabın router bağlantı yetkisi yoktur. Diğer scope,
+TLS/pin/source kontrolleri gevşetilmez. Bağımlılıklar ayrı venv/npm alanında;
+API nologin hesabı, SCRAM ve owner-private dosyalarla yalnız 127.0.0.1:18080'de
+çalışır. SQL ADMIN doğrulaması geçmeden başlatılmaz. Son kabul yeni parolayla
+HTTP login/me/options/logout, demo giriş reddi, DB sağlığı, built UI ve loopback
+listener kontrolüdür. Parola/hash hiçbir stdout, argv, audit veya config dosyasına
+yazılmaz; API DB rolü parolası ADMIN parolasından ayrıdır.
+
+Dosya/owner/config çakışmaları güvenli STOP üretir. API inactive iken önceki
+root-owned V2 app ve build işaretleri private native-preinstall-* backup'ına
+taşınarak korunur; üzerine yazılmaz. Owner-belirsiz app reddedilir. Yalnız exact
+kapalı eski env template'i yeni boş operator listesine atomik çevrilebilir;
+başka config değiştirilmez. Başarısız kurulumdan sonra ADMIN oluşmuşsa yeniden
+çalıştırmak da STOP verir; kullanıcı talebi gereği mevcut ADMIN'e dokunulmaz.
+Bu betik hiçbir V1, router, RADIUS veya IPsec servisine bağlanmaz/değiştirmez.
+
+## Yetkili tamamlama komutu — 2026-10-30
+
+### Ofis connection-refused düzeltmesi
+
+Hedef değişmiyor: 127.0.0.1:55432, mikrotik_manager_v2/v2_local ve repo altındaki
+`.local/postgres-v2-demo`. Son yerel logda 2026-10-30 18:39:16 +03 smart shutdown
+isteği bulunuyor; pg_ctl status=3 ve görünür postgres süreci yok. pg_control hâlâ
+in production durumunda; temiz kapanış tamamlandı denemez. İsteği gönderen bu
+kanıtlardan belirlenemez. Normal terminaldeki CONNECTION_REFUSED, hedefte kabul
+eden bir listener olmamasıyla uyumludur. Codex'te ayrıca socket EPERM doğrulandı;
+burada PostgreSQL başlatma veya bağlantı/export tekrar denemesi yapılmadı.
+
+Normal ofis WSL terminalinde **yalnız mevcut izole V2 kümesini başlatıp export**:
+
+```bash
+cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && python3 deploy/cebeci-v2-pilot/complete-office.py --start-existing-v2 --export-only
+```
+
+Yeni seçenek yalnız --export-only ile kullanılabilir; SSH/VDS aşamasına geçmez.
+Owner/mode/no-link/PG16/gerçek data ve HBA/ident yolları, harici include ve
+replication/archive/preload ayarları kontrol edilir. Socket yetkisi yoksa startup
+artefact oluşturmadan durur. Çalışan küme yeniden başlatılmaz; stopping ise durur.
+Kapalı kümede port boşluğu doğrulanıp yalnız exact dizin için pg_ctl start bir
+kez, 30 sn sınırıyla çalışır. Log owner-only ve SQL/parametre dökümü kapalıdır.
+PID/socket dosyası elle silinmez. Eski WAL için PostgreSQL'in normal crash recovery
+işlemi gerekebilir; initdb, CREATE DATABASE, seed, migration, role/password reset
+ve systemctl yoktur. Başlangıçtan sonra mevcut export SQL'i gerçek cluster ve
+mevcut ADMIN guard'larını READ ONLY transaction'da doğrular. Başarılı export
+görülmeden aktarım hazır/PASS sayılmaz; kaynak hesabın varlığı bu oturumda DB'den
+yeniden doğrulanamamıştır. Kullanıcı/şifre değişikliği yapılmaz.
+
+Export hata düzeltmesi: bu Codex ortamında bağımsız TCP socket oluşturma kontrolü
+`errno=1 / EPERM` verdi. Yeni betik bu durumda DB bağlantısı, passfile oluşturma
+veya SSH denemeden `BLOCKED: V2_EXPORT_SOCKET_EPERM` üretir. Önceki genel hata
+mesajı kullanıcının terminalindeki nedeni tek başına kanıtlamaz. Normal ofis
+terminalinde yalnız export kontrolü için aynı komuta `--export-only` eklenir;
+bu seçenek VDS'ye bağlanmaz veya servis/DB kurulumu yapmaz.
+
+Hatalarda yalnız sabit kod yazılır; ham subprocess stderr/stdout, SQL hatası,
+exception/traceback, DSN, parola veya hash yazılmaz. Psql dili `LC_ALL=C`, bağlantı
+süresi 5 sn, salt okunur session varsayılanı ve sorgu/kilit süre sınırları sabittir.
+Mevcut PGPASSFILE kullanılırken URL içinde ayrıca parola bulunması gerekmez.
+Kaynak hesap bulunamazsa SQL sabit `ACCOUNT_NOT_FOUND` hatası verir.
+
+| Kod | Anlamı |
+| --- | --- |
+| `V2_EXPORT_SOCKET_EPERM` / `SOCKET_DENIED` | Yerel ortam socket oluşturmayı reddetti; retry yok |
+| `V2_EXPORT_CONNECTION_REFUSED` | V2 hedefi bağlantıyı reddetti; servis otomatik başlatılmaz |
+| `V2_EXPORT_DB_AUTH_FAILED` / `PGPASS_NO_MATCH` | Mevcut DB credential/passfile doğrulanamadı; parola değiştirilmez |
+| `V2_EXPORT_CONFIG_AMBIGUOUS` / `TARGET_REJECTED` | Belirsiz veya izin verilmeyen bağlantı seçimi |
+| `V2_EXPORT_*_UNSAFE` | Owner/mode/regular-file/link koruması reddetti |
+| `V2_EXPORT_SOURCE_*` | Kaynak cluster/şema/hesap/kurulum/seal/scope/hash guard'ı reddetti |
+| `V2_EXPORT_EXISTING_BUNDLE_*` | Mevcut artifact boş, bozuk veya süresi dolmuş; ezilmez |
+| `V2_EXPORT_CONNECTION_FAILED` / `SQL_FAILED` | Beyaz listede olmayan hata; içerik açıklanmaz |
+
+Kullanıcı VDS PG16.15 kümesinde 002–009'un tamamlandığını bildirdi; bunlar yeniden
+çalıştırılmayacak. Bu oturumda SSH socket EPERM nedeniyle engellendi ve tekrar
+denenmedi. Ofis salt okunur export denemesi de başarısız oldu. Gerçek export/import,
+bağımlılık kurulumu, servis ve HTTP kabulü **BLOCKED**; aşağıdakiler hazırlıktır.
+
+Ofis bilgisayarının normal terminalinde tek komut:
+
+```bash
+cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && python3 deploy/cebeci-v2-pilot/complete-office.py
+```
+
+`complete-office.py` temiz commit'in kaynak arşivini kullanır. Bağlantıyı yalnız V2
+env/repo yapılandırması ve repo altında çalışan süreçlerden seçer. Mevcut owner-only
+PGPASSFILE/.pgpass tercih edilir; yoksa mevcut config parolası geçici 0600
+PGPASSFILE'a yazılır ve dosya sonunda kaldırılır. Export guard'ları değişmedi.
+Kaynak PostgreSQL zaten çalışıyor olmalıdır; ofis servisi başlatılmaz/değiştirilmez.
+Özel bundle yalnız 24 saatlik pencere içinde tekrar kullanılabilir; eski/güvensiz
+hedef otomatik ezilmez. SSH host key önceden doğrulanmış olmalı; VDS sudo parolası
+gerekirse yalnız gerçek TTY'de istenir. ADMIN parolası istenmez.
+
+SFTP yeni 0700 staging kullanır ve dosyaları 0600'a sabitler. `complete-vds.py`
+yalnız root olarak exact V2 kök/küme/sürüm/socket/HBA'yı kabul eder; DB init,
+migration, seed, first-admin veya DB restart içermez. App root-owned yeni dizine
+açılır; mevcut app yalnız arşivdeki her dosya birebir aynıysa benimsenir. Root-owned
+arşiv/build işaretleri aynı kaynak için kaldığı yerden devam etmeyi sağlar.
+
+Boş hedefte import bir kez çalışır. Tekrarda `verify-admin.psql` ve bundle ile
+hesap/hash/revision/grants/özgün seal eşitliği zorunludur; değişmiş kimlik ezilmez.
+`identity-access.psql` dar app izinlerini kurar; app rolünde sahiplik, yüksek yetki
+veya rol üyeliği varsa durur. DB parolası yalnız private API config yoksa üretilir,
+SCRAM verifier olarak yalnız v2_local'a atanır; mevcut config parolası korunur.
+ADMIN parolası/hash'i değiştirilmez. Ayrı root-owned venv ve npm ci/build kurulur.
+API nologin hesabı ve private config/log/.local dizinleriyle çalışır.
+
+İki gate false zorunludur. Son ADMIN kontrolü geçmeden API başlatılmaz. Yalnız
+yeni API unit'i başlatılır; ready, DB health, app rolüyle kimlik ve kapalı options,
+demo login 401, HTML ve yalnız 127.0.0.1:18080 listener kontrol edilir. Başarıdan
+sonra yalnız exact VDS handoff/staging kaldırılır; ofis bundle'ı private karantinada
+kalır. Hata aşama adıyla, sır/SQL/DSN/traceback dökmeden durur; otomatik retry/reset
+yoktur. Gerçek ADMIN parola login'i **UNTESTED** yazılır. Router/RADIUS/IPsec/V1'e
+erişim veya değişiklik yapılmaz. Aşağıdaki önceki hazırlık kaydı tarihsel bağlamdır.
+
+---
+
 **Hazırlık tamam; VDS'ye uygulanmadı. İki bağlantı kapısı kapalı.**
 Temel: main / 64eee0d (c9b36eb ADMIN altyapısını ve son güvenli giriş düzeltmesini içerir).
 Bu paket kurulum onayı değildir; servis/DB/SSH/cihaz bağlantısı, migration ve dağıtım çalıştırılmadı.

@@ -1,0 +1,27 @@
+\set ON_ERROR_STOP on
+\set ECHO none
+\set VERBOSITY terse
+\set QUIET on
+BEGIN READ ONLY;
+DO $$ DECLARE native_id text; BEGIN
+ IF current_database()<>'mikrotik_manager_v2' OR current_user<>'v2_pilot_maint'
+ OR current_setting('port')<>'55432'
+ OR current_setting('data_directory')<>'/srv/mikrotik-manager-v2-pilot/postgres'
+ THEN RAISE EXCEPTION 'V2_NATIVE_TARGET_REJECTED'; END IF;
+ SELECT id INTO STRICT native_id FROM v2_demo.users WHERE username='suatciftci'
+ AND role='ADMIN' AND active AND account_origin='LOCAL' AND id LIKE 'v2-user-%'
+ AND password_hash ~ '^scrypt[$]131072[$]8[$]1[$][0-9a-f]{32}[$][0-9a-f]{64}$';
+ IF (SELECT count(*) FROM v2_demo.users)<>1 OR NOT EXISTS (
+ SELECT 1 FROM v2_demo.schema_state WHERE version=1 AND identity_initialized AND first_admin_initialized
+ AND marker='mikrotik-manager-v2-synthetic-only')
+ OR (SELECT count(*) FROM v2_demo.first_admin_setup)<>1
+ OR NOT EXISTS (SELECT 1 FROM v2_demo.first_admin_setup WHERE singleton=1
+ AND v2_demo.first_admin_setup.admin_id=native_id AND local_operator_uid>0 AND completed_at IS NOT NULL)
+ OR (SELECT count(*) FROM v2_demo.user_audit WHERE operation='FIRST_ADMIN_CREATE'
+ AND target_id=native_id AND result='SUCCESS' AND fingerprint='VDS_LOCAL_TTY_BOOTSTRAP')<>1
+ OR EXISTS (SELECT 1 FROM v2_demo.users u CROSS JOIN (VALUES ('demo-router-001'),('demo-router-002'),('demo-router-003'),('demo-router-004')) r(id)
+ WHERE u.permissions #> ARRAY[r.id,'can_view'] IS DISTINCT FROM 'true'::jsonb)
+ THEN RAISE EXCEPTION 'V2_NATIVE_ADMIN_NOT_VERIFIED'; END IF;
+END $$;
+COMMIT;
+SELECT 'V2_NATIVE_ADMIN_VERIFIED_ROUTER_GATES_CLOSED';

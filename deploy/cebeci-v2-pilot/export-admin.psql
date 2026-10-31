@@ -17,7 +17,8 @@ DO $$ DECLARE account v2_demo.users%ROWTYPE; BEGIN
  IF NOT EXISTS (SELECT 1 FROM v2_demo.schema_state WHERE version=1
      AND marker='mikrotik-manager-v2-synthetic-only' AND identity_initialized AND first_admin_initialized)
  THEN RAISE EXCEPTION 'V2_ADMIN_SOURCE_SETUP_NOT_CLOSED'; END IF;
- SELECT * INTO STRICT account FROM v2_demo.users WHERE id='v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92';
+ SELECT * INTO account FROM v2_demo.users WHERE id='v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92';
+ IF NOT FOUND THEN RAISE EXCEPTION 'V2_ADMIN_SOURCE_ACCOUNT_NOT_FOUND'; END IF;
  IF account.username IS DISTINCT FROM 'suatciftci' OR account.role IS DISTINCT FROM 'ADMIN'
     OR account.active IS DISTINCT FROM true OR account.account_origin IS DISTINCT FROM 'LOCAL'
  THEN RAISE EXCEPTION 'V2_ADMIN_SOURCE_IDENTITY_REJECTED'; END IF;
