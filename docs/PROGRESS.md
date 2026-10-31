@@ -1,5 +1,27 @@
 # MikroTik Manager V2 — İlerleme
 
+## PPPoE Abone Yönetimi — liste ve mobil okunabilirlik — 2026-10-31
+
+- PASS: Mevcut arama, router/paket/LOCAL-RADIUS filtreleri, bitiş tarihi ve
+  kalan gün hesabı yeniden yazılmadan korundu. Bugün/3/7 gün kartlarının yanına
+  30 gün ve bilinmeyen tarih kartları taşındı; her kart mevcut liste filtresini
+  seçer. Türkiye takvim günü ve iç içe aralıklar korunur; eksik/geçersiz tarihten
+  kalan gün veya geçerlilik tahmin edilmez. Demo kayıtları değiştirilmedi.
+- Listeye açık Abone Detay düğmesi eklendi; mevcut URL filtre bağlamı ve geri
+  dönüş akışı kullanılır. Mobilde aynı tablo satırları alan etiketli kartlara
+  dönüşür; tablo/satır/hücre erişilebilirlik rolleri korunur. Seçim ve hızlı
+  işlemler aynı kontrolleri kullanır. Toplam kayıt etiketindeki belirsizlik giderildi.
+- PASS: expiry, subscriberFilters, subscriptionAlerts, subscriptionAlertsView,
+  detailCenter ve routerSubscriberLinks olmak üzere 6 hedefli frontend test
+  dosyası; TypeScript/Vite build ve diff kontrolü. Yeni render/etkileşim testi
+  altı uyarı kartının sayısını ve seçtiği listeyi doğrular. Mevcut 500 kB chunk
+  uyarısı sürüyor. Tarayıcı görsel kabulü BLOCKED / yapılmadı; bilinen Chromium
+  engeli kullanıcı talimatıyla yeniden araştırılmadı.
+- V1/VDS, migration, servis restartı, gerçek abone/router/RADIUS/DB işlemi yok.
+  Commit/push denenmedi. Sonraki somut adım: uygun tarayıcı ortamında mevcut
+  demo listesinin mobil/masaüstü görsel kabulünü yapmak.
+
+
 ## PPPoE yerel görsel kabul denemesi — 2026-10-31
 
 - BLOCKED: Bağlı görsel tarayıcı aracı yok. Mevcut yerel Playwright ve

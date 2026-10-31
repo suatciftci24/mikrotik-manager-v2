@@ -211,3 +211,24 @@ input::placeholder{color:var(--muted);opacity:1}
 .synthetic-subscriber-table td:nth-child(2) small{display:block;color:var(--text-secondary)}
 .pilot-operator-status{padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface);min-width:0}.pilot-operator-status h3{font-size:14px;margin:0 0 8px}.pilot-operator-status p{font-size:13px;line-height:1.6;margin:6px 0;color:var(--text-secondary)}.pilot-operator-status code{overflow-wrap:anywhere;color:var(--text);font-size:12px}
 .session-operator{margin:8px 6px;color:var(--text-secondary);font-size:var(--font-caption);min-width:0}.session-operator code{display:block;color:var(--text);overflow-wrap:anywhere}
+
+/* Keep the same subscriber rows and controls readable without horizontal scrolling on phones. */
+.subscription-alert-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.subscriber-detail-link{margin-right:6px}
+@media(max-width:1000px){.subscription-alert-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){
+  .subscription-alert-grid{grid-template-columns:minmax(0,1fr)}
+  .subscriber-table{display:block;min-width:0;width:100%}
+  .subscriber-table thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .subscriber-table tbody{display:grid;gap:12px;padding:12px}
+  .subscriber-table tbody tr{display:block;border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+  .subscriber-table tbody td,.subscriber-table tbody td:first-child{display:flex;align-items:center;flex-wrap:wrap;gap:8px;width:auto;min-width:0;padding:10px 12px;white-space:normal;overflow-wrap:anywhere}
+  .subscriber-table tbody td::before{content:attr(data-label);flex:0 0 100%;font-size:var(--font-caption);font-weight:600;color:var(--text-secondary)}
+  .subscriber-table .table-main,.subscriber-table .plan-cell,.subscriber-table .router-assignment{max-width:100%;min-width:0}
+  .subscriber-table .record-link{text-align:left;white-space:normal;overflow-wrap:anywhere}
+  .subscriber-table .subscription-state{flex-basis:100%}
+  .subscriber-table input[type=checkbox]{width:22px;height:22px}
+  .subscriber-panel .subscriber-filters>div{display:flex;flex-wrap:wrap;gap:6px}
+  .subscriber-toolbar .table-search{width:100%;min-width:0}
+  .subscriber-toolbar .table-search input{width:100%;min-width:0}
+}

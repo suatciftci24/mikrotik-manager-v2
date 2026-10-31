@@ -1,0 +1,36 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+import {buildSync} from 'esbuild';
+import * as React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {buildSubscriptionAlerts} from '../src/lib/subscriptionAlerts.ts';
+import {EMPTY_SUBSCRIBER_FILTERS,filterSubscribers} from '../src/lib/subscriberFilters.ts';
+const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/SubscriptionAlerts.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+const module={exports:{}};
+new Function('require','module','exports',code)(createRequire(import.meta.url),module,module.exports);
+const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.children).flatMap(nodes)]:[];
+const today='2026-10-31';
+const rows=['2026-10-30','2026-10-31','2026-11-03','2026-11-07','2026-11-30',null,'2026-02-30'].map((expires_on,i)=>({id:`demo-${i}`,is_demo:true,expires_on,username:`demo.${i}`,customer_name:'Demo',router_name:'Demo Router',plan:'Demo Paket',source:'LOCAL',status:'ACTIVE'}));
+test('warning cards select the matching saved rows, including 30 days and unknown dates',()=>{
+ const summary=buildSubscriptionAlerts(rows,today);
+ let selected;
+ const tree=module.exports.SubscriptionAlerts({summary,selected:'UNKNOWN',onSelect:value=>{selected=value;}});
+ const cards=nodes(tree).filter(n=>n.type==='button'&&n.props.className?.includes('subscription-alert-card'));
+ assert.equal(cards.length,6);
+ const expected=['EXPIRED','TODAY','WITHIN_3','WITHIN_7','WITHIN_30','UNKNOWN'];
+ const counts=[1,1,2,3,4,2];
+ cards.forEach((card,i)=>{
+  card.props.onClick();
+  assert.equal(selected,expected[i]);
+  assert.equal(filterSubscribers(rows,{...EMPTY_SUBSCRIBER_FILTERS,expiry:selected},today).length,counts[i]);
+  assert.match(renderToStaticMarkup(card),new RegExp(`<strong>${counts[i]}</strong>`));
+  assert.equal(card.props['aria-pressed'],selected==='UNKNOWN');
+ });
+ const html=renderToStaticMarkup(tree);
+ assert.match(html,/Türkiye takvim günü/);
+ assert.match(html,/kalan gün hesaplanmaz/);
+ assert.match(html,/kalan gün tahmin edilmez/);
+ assert.equal(rows[5].expires_on,null);
+});

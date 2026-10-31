@@ -7,6 +7,8 @@ export function SubscriptionAlerts({summary,selected,onSelect}:{summary:Subscrip
     {filter:'TODAY',label:'Bugün dolacak',count:summary.today,tone:'today',note:'Bugünün sonuna kadar geçerli'},
     {filter:'WITHIN_3',label:'3 gün içinde dolacak',count:summary.within_3,tone:'within_3',note:'Bugün dahil: 0–3 gün'},
     {filter:'WITHIN_7',label:'7 gün içinde dolacak',count:summary.within_7,tone:'within_7',note:'Bugün dahil: 0–7 gün'},
+    {filter:'WITHIN_30',label:'30 gün içinde dolacak',count:summary.within_30,tone:'within_30',note:'Bugün dahil: 0–30 gün'},
+    {filter:'UNKNOWN',label:'Bitiş tarihi bilinmiyor',count:summary.unknown,tone:'unknown',note:'Tarih yok veya geçersiz; kalan gün hesaplanmaz'},
   ] as const;
   return <section className="panel subscription-alerts" aria-labelledby="subscription-alert-title">
     <div className="panel-title"><h2 id="subscription-alert-title">Abonelik Takip ve Uyarı Merkezi</h2><span className="demo-chip">SENTETİK</span></div>
@@ -14,11 +16,9 @@ export function SubscriptionAlerts({summary,selected,onSelect}:{summary:Subscrip
     <div className="subscription-alert-grid">{cards.map(card=><button key={card.filter} className={`subscription-alert-card expiry-${card.tone}`} aria-pressed={selected===card.filter} onClick={()=>onSelect(card.filter)}>
       <span>{card.label}</span><strong>{card.count}</strong><small>{card.note}</small>
     </button>)}</div>
-    <p className="daily-description" role="status">Tekil uyarı toplamı: <strong>{summary.warning}</strong>. Süresi dolmuş veya en fazla 7 günü kalmış aboneler bir kez sayılır. Bugün, 3 gün ve 7 gün kartları iç içedir; sayıları toplanmaz.</p>
+    <p className="daily-description" role="status">Tekil uyarı toplamı: <strong>{summary.warning}</strong>. Süresi dolmuş veya en fazla 7 günü kalmış aboneler bir kez sayılır. Bugün, 3, 7 ve 30 gün kartları iç içedir; sayıları toplanmaz.</p>
     <div className="subscription-alert-links">
-      <button className="button-secondary" aria-pressed={selected==='WITHIN_30'} onClick={()=>onSelect('WITHIN_30')}>30 gün içinde (bugün dahil): {summary.within_30}</button>
       <button className="button-secondary" aria-pressed={selected==='VALID'} onClick={()=>onSelect('VALID')}>Süresi geçerli: {summary.valid}</button>
-      <button className="button-secondary" aria-pressed={selected==='UNKNOWN'} onClick={()=>onSelect('UNKNOWN')}>Bitiş tarihi yok / geçersiz: {summary.unknown}</button>
       <button className="button-secondary" aria-pressed={selected==='ALL'} onClick={()=>onSelect('ALL')}>Tüm bitiş durumları: {summary.total}</button>
     </div>
     {summary.total===0&&<p className="missing-data">Veri yok. Mevcut arama ve diğer filtrelerle eşleşen demo abone bulunmuyor.</p>}
