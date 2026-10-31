@@ -931,3 +931,30 @@ izleyin; HTTP hazır olması DB/migration kabulü değildir.
 seçmek çözüm değildir; normal WSL terminali gerekir. Başlatma öncesi kontrol
 `SO_REUSEADDR` ile kapanmış bağlantıların TIME_WAIT durumunu dinleyen başka
 servisle karıştırmaz. Başka servis durdurulmaz; Vite `strictPort` korunur.
+
+### Offline PPPoE salt okunur adaptör sınırı
+
+`app.adapters.pppoe_readonly.PppoeReadAdapter` yalnız enjekte edilen
+`PppoeReadTransport.read_pppoe` portunu kullanır; canlı taşıyıcı olarak kaydedilmez.
+Demo, Dashboard, Router Detay ve Abone Detay route'ları bu portu çağırmaz;
+mevcut API sözleşmeleri ve demo ADMIN girişi korunur. Kayıtlı router için eksik
+abone verisi demo envanterinden tamamlanmaz. Pilot Router API-SSL okumasının
+mevcut TLS, kaynak IP, izin listesi ve kapalı bağlantı kapısı korunur.
+
+Gelecekte ayrıca onaylanacak taşıyıcı için `RouterReadSettings.environment()`
+yalnız `V2_ROUTER_READ_ADDRESS`, `V2_ROUTER_READ_USERNAME`,
+`V2_ROUTER_READ_PASSWORD`, `V2_ROUTER_READ_CA_PEM`,
+`V2_ROUTER_READ_LEAF_SHA256` değerlerini okur. İsteğe bağlı port yalnız 8729,
+`V2_ROUTER_READ_TIMEOUT_SECONDS` ise 0.1–10 saniye aralığındadır (varsayılan 2).
+Bu değişkenler bağlantı izni vermez; dosya/DNS/socket açılmaz. Sırlar frontend'e
+aktarılmamalı, Git'e veya terminal çıktılarına yazılmamalıdır. Gerçek taşıyıcı
+bu süreyi tüm okuma boyunca uygulamalı, sertifika zinciri/hostname/pin ve mevcut
+hedef/kaynak politikalarını doğrulamalıdır. Bu görevde canlı PPPoE taşıyıcısı
+etkinleştirilmedi; RADIUS bağlantısı kurulmadı.
+
+Sonuç en fazla 128 açık kaynaklı (`LOCAL` veya `RADIUS`) hesap gözlemi taşır.
+Kaynak oturumdan tahmin edilmez; eksik oturum durumu `None` kalır. Eksik,
+çelişkili veya hassas alanlar bütün sonucu reddeder. Zaman aşımı ve bağlantı
+hatası sabit kod üretir; ham istisna, kısmi liste, otomatik tekrar veya demo
+fallback yoktur. Gerçek envanter/API yayını için ayrıca yetkilendirilmiş taşıyıcı
+ve kaynak hesap ID eşlemesi gereklidir.

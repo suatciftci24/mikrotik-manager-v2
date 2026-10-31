@@ -1429,3 +1429,13 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - ADMIN aktarımı/girişi BLOCKED: ofis kaynağına erişilmedi, export/import veya yeni hesap oluşturma yapılmadı. Parola/hash/token/private key okunmadı. V1/IPsec/RADIUS/router kaynaklarına hiçbir uzak komut ulaşmadı; yerel kapalı gate taslakları değiştirilmedi.
 - Yalnız ilerleme belgesi değiştiğinden ürün testleri tekrarlanmadı; diff kontrolü yapıldı. Commit/push sonucu teslimde bildirilir.
 - Tek sonraki işlem: SSH socket erişimine izin verilen çalışma ortamından aynı onaylı kapalı V2 kurulum görevini sürdürmek. Mevcut kurulum onayı sürer; yeniden onay istenmez.
+
+## Salt okunur PPPoE adaptör sınırı — 2026-10-31
+
+- Başlangıç d1c79dd; çalışma ağacı temizdi. Mevcut pilot Router API-SSL adaptörü, Router Merkezi ve abone sözleşmeleri incelendi; belirli pilotun TLS/izin/source kapıları değiştirilmedi.
+- Yeni PppoeReadAdapter yalnız enjekte edilen read_pppoe portunu çağırır. Ortamdan V2'ye özel hedef/kimlik/CA/pin/port/timeout yapılandırması IO olmadan okunur; credentials repr dışında tutulur. Canlı taşıyıcı veya route kaydı eklenmedi.
+- LOCAL/RADIUS kaynağı zorunlu; oturum yokluğu UNKNOWN/None kalır. Fazla satır, yinelenen ID, eksik/ek alan ve credential echo tüm sonucu reddeder. Timeout/bağlantı hataları sabit kodludur; raw exception, retry, kısmi başarı veya demo fallback yoktur.
+- PASS: 25 hedefli backend testi (yeni adaptör, Router Merkezi, router–abone izolasyonu ve API-SSL). Timeout testi tam env ile güçlendirildikten sonra yalnız o test tekrar geçti. Diff kontrolü PASS. UI/API değiştirilmedi; frontend build ve geniş regresyon tekrarlanmadı.
+- Demo ADMIN ve mevcut Dashboard/Router/Abone detay sözleşmeleri korundu. V1/VDS, migration, restart, gerçek router/RADIUS/DB/abone işlemi yapılmadı. Gerçek PPPoE taşıyıcısı ve API'ye gerçek envanter yayını uygulanmış değildir; sonraki somut adım açık onaylı bağlantı fazında mevcut TLS/policy sınırlarına bağlı taşıyıcı ve hesap ID eşlemesini tamamlamaktır.
+- Commit/push sonucu görev tesliminde bildirilir.
+- BLOCKED: git add/commit `.git/index.lock: Read-only file system` ile engellendi; commit oluşmadı. İstenen normal push tek denemede `Could not resolve host: github.com` ile durdu; uzak dal değişmedi. Güvenlik sınırları aşılmadı veya tekrar denenmedi. Değişiklikler çalışma ağacında hazırdır; yazılabilir Git metadata ve GitHub DNS erişimi olan ortamda commit/push tamamlanmalıdır.
