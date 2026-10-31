@@ -58,3 +58,36 @@ senkron adaptör takılmış taşıyıcıyı zorla durdurmaz. Adaptör süreyi a
 dönen sonucu TIMEOUT ile reddeder. TimeoutError ve diğer bağlantı hataları
 sabit kodlarla maskelenir; retry ve demo fallback yoktur.
 Varsayılan dependency hâlâ kapalıdır; canlı taşıyıcı kayıtlı değildir.
+
+## API-SSL gerçek cihaz kabul koşulları
+
+Hazırlık sentetik olarak doğrulandı; RouterOS 6.43+ modern login ve RouterOS 7
+protokol yanıtları mock ile sınanır. TLSv1.2/v1.3 testi bir RouterOS sürüm testi
+değildir. Gerçek zincir/imza/süre doğrulaması SSLContext'e devredilir; mock
+sertifika hatası bunun cihaz üzerinde başarılı olduğunu kanıtlamaz.
+
+Gerçek kabul için ayrı, açık bağlantı onayı ve aşağıdaki koşullar gerekir:
+
+- V2'ye ayrılmış salt okunur API hesabı; API-SSL 8729, izinli kaynak IP ve dar
+  hedef policy. RouterOS hesap yetkileri komut başına izolasyonu garanti etmez;
+  uygulamanın gönderim sınırı login dışında yalnız sabit `/ppp/active/print`
+  ve `name,service,address,radius` proplist'ine izin verir. Yazma/test mutasyonu yok.
+- Güvenilir kanaldan edinilmiş CA ve leaf SHA-256 pin; geçerli sertifika zinciri,
+  hedef IPv4 için IP SAN, TLS 1.2+ uyumu. TLS/CA/SAN/pin sorunu varsa parola
+  gönderilmemeli; sertifika değişimi yeni inceleme gerektirir.
+- Hedef sürümler ayrı kaydedilmeli: RouterOS 6.43+ ve 7; 7.18+ için `!empty`
+  yanıtı da gözlenmeli. Eski challenge login desteklenmez. Kimlik/sürüm kanıtı
+  bu PPPoE taşıyıcısına ek metadata komutu açmadan onaylı envanterden sağlanır.
+- Router/hesap ID, birebir kullanıcı adı ve tek LOCAL/RADIUS otoritesi içeren
+  doğrulanmış envanter. LOCAL ve RADIUS oturumları kendi hesaplarına eşlenmeli;
+  otorite uyuşmazlığı veya aynı hesapta çoklu oturum bütün sonucu kapatmalı.
+  Envanter dışı ve PPPoE dışı oturumlar yayınlanmamalı.
+- Başarılı/boş okuma, bağlantı ve okuma timeout, kesilmiş yanıt ve sertifika
+  reddi güvenli kabul ortamında doğrulanmalı. Toplam süre 0.1–10 saniye seçilen
+  bütçeyle sınırlı; hata halinde retry/kısmi sonuç/credential echo olmamalı.
+- Başarılı oturumun zamanı UTC olmalı; beş dakikayı aşan ölçüm STALE, zaman
+  yoksa UNKNOWN olmalı. Boş sonuç offline üretmemeli; boş/hata son başarıyı
+  ilerletmemeli ve eski oturumları yayınlamamalı. Demo ve varsayılan kapalı
+  dependency gerçek bağlantı açmamalı.
+
+Bu çalışma gerçek cihaz kabulü, deploy veya etkinleştirme değildir.

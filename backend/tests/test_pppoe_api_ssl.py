@@ -47,7 +47,7 @@ class PppoeApiSslTests(TestCase):
         binding = api_ssl_binding('router-1', self.settings, self.accounts, policy or self.policy)
         return snapshot(router, is_demo=False, binding=binding)
 
-    def test_routeros6_and7_fixed_read_authorities_and_freshness(self):
+    def test_modern_login_fixed_read_authorities_and_freshness(self):
         for version in ('TLSv1.2', 'TLSv1.3'):
             self.secure.version.return_value = version
             self.secure.sendall.reset_mock()
@@ -109,3 +109,93 @@ class PppoeApiSslTests(TestCase):
         self.secure.sendall.assert_not_called()
         self.response(('!done', '=ret=' + 'ab'*16))
         with self.assertRaises(ApiSslStop): wire.login(credentials=('fixture-reader', 'synthetic-password'))
+
+    def test_strict_tls_policy_before_network(self):
+        for attribute, value in (('verify_mode', ssl.CERT_NONE), ('check_hostname', False),
+                                 ('minimum_version', ssl.TLSVersion.TLSv1_1),
+                                 ('hostname_checks_common_name', True)):
+            with self.subTest(attribute=attribute), patch.object(self.context, attribute, value):
+                self.assertEqual(self.read().error, 'CONNECTION_FAILED')
+                self.raw.connect.assert_not_called()
+                self.secure.sendall.assert_not_called()
+
+    def test_handshake_certificate_failure_or_timeout_closes_raw(self):
+        for error, expected in ((ssl.SSLCertVerificationError('synthetic expired/untrusted'), 'CONNECTION_FAILED'),
+                                (TimeoutError('synthetic handshake'), 'TIMEOUT')):
+            self.context.wrap_socket.side_effect = error
+            result = self.read()
+            self.assertEqual(result.error, expected)
+            self.assertEqual(result.items, [])
+            self.secure.sendall.assert_not_called()
+            self.raw.close.assert_called()
+            self.context.wrap_socket.assert_called_with(self.raw, server_hostname=self.settings.address)
+
+    def test_san_endpoint_and_protocol_checked_before_login(self):
+        for method, value in ((self.secure.getpeername, ('192.0.2.99', 8729)),
+                              (self.secure.getsockname, ('192.0.2.99', 10000)),
+                              (self.secure.version, 'TLSv1.1')):
+            with patch.object(method, 'return_value', value):
+                self.assertEqual(self.read().error, 'CONNECTION_FAILED')
+                self.secure.sendall.assert_not_called()
+                self.secure.close.assert_called()
+        self.secure.getpeercert.side_effect = lambda binary_form=False: b'cert' if binary_form else {
+            'subjectAltName': (('DNS', '192.0.2.1'),)}
+        self.assertEqual(self.read().error, 'CONNECTION_FAILED')
+        self.secure.sendall.assert_not_called()
+
+    def test_allowlist_rejects_altered_print_commands(self):
+        wire = _PppoeWire(self.secure, float('inf'), 1)
+        for command in ((_QUERY[0],), _QUERY + ('?name=fixture-local',),
+                        ('/ppp/active/print', '=.proplist=name,password'),
+                        ('/system/resource/print',), ('/login',)):
+            with self.assertRaises(ApiSslStop):
+                wire.send(command)
+        self.secure.sendall.assert_not_called()
+
+    def test_exact_inventory_mapping_ignores_unknown_and_other_services(self):
+        self.response(('!done',),
+                      ('!re', '=name=unknown', '=service=pppoe', '=address=192.0.2.90', '=radius=false'),
+                      ('!re', '=name=fixture-local', '=service=pptp', '=address=192.0.2.91', '=radius=false'),
+                      ('!re', '=name=fixture-radius', '=service=pppoe', '=address=192.0.2.11', '=radius=yes'),
+                      ('!done',))
+        result = self.read()
+        self.assertEqual(result.availability, 'AVAILABLE')
+        self.assertEqual([(r.account_id, r.source) for r in result.items], [('a2', 'RADIUS')])
+        self.assertTrue(result.items[0].connected)
+        self.assertEqual(result.items[0].observed_at.utcoffset().total_seconds(), 0)
+
+    def test_invalid_inventory_rejected_before_network(self):
+        original = self.accounts
+        for accounts in ((original[0], original[0]),
+                         (original[0], PppoeAccount('a2', 'fixture-local', 'RADIUS')),
+                         (PppoeAccount('a1', 'fixture-local', 'UNKNOWN'),)):
+            self.accounts = accounts
+            self.assertEqual(self.read().availability, 'UNAVAILABLE')
+        self.raw.connect.assert_not_called()
+
+    def test_contradictory_empty_response_rejected(self):
+        row = ('!re', '=name=fixture-local', '=service=pppoe', '=address=192.0.2.10', '=radius=false')
+        for sentences in ((('!empty',), row), (row, ('!empty',)), (('!empty',), ('!empty',))):
+            self.response(('!done',), *sentences, ('!done',))
+            result = self.read()
+            self.assertEqual(result.error, 'INVALID_DATA')
+            self.assertEqual(result.items, [])
+            self.assertIsNone(result.last_successful_observed_at)
+
+    def test_empty_and_timeout_keep_timestamp_without_cached_sessions(self):
+        binding = api_ssl_binding('router-1', self.settings, self.accounts, self.policy)
+        self.response(('!done',),
+                      ('!re', '=name=fixture-local', '=service=pppoe', '=address=192.0.2.10', '=radius=no'),
+                      ('!done',))
+        first = snapshot('router-1', is_demo=False, binding=binding)
+        self.assertIsNotNone(first.last_successful_observed_at)
+        self.response(('!done',), ('!done',))
+        empty = snapshot('router-1', is_demo=False, binding=binding)
+        self.assertEqual(empty.availability, 'AVAILABLE')
+        self.assertEqual(empty.items, [])
+        self.assertEqual(empty.last_successful_observed_at, first.last_successful_observed_at)
+        self.secure.recv.side_effect = TimeoutError('synthetic read')
+        failure = snapshot('router-1', is_demo=False, binding=binding)
+        self.assertEqual(failure.error, 'TIMEOUT')
+        self.assertEqual(failure.items, [])
+        self.assertEqual(failure.last_successful_observed_at, first.last_successful_observed_at)

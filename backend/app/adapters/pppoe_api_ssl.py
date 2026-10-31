@@ -34,14 +34,18 @@ class _PppoeWire(_Wire):
     def active(self):
         self.send(_QUERY)
         rows = []
+        empty = False
         while True:
             words = self.sentence()
             if words == ['!done']:
                 return rows
             if words == ['!empty']:  # RouterOS 7.18+ still terminates with !done.
-                if rows:
+                if rows or empty:
                     raise ValueError('INVALID_DATA')
+                empty = True
                 continue
+            if empty:
+                raise ValueError('INVALID_DATA')
             if not words or words[0] != '!re':
                 raise ApiSslStop('READ_FAILED')
             row = {}
@@ -143,6 +147,10 @@ class RouterPppoeApiSslTransport:
                                    connected=True, ip_address=address, observed_at=observed))
             budget(secure)
             return result
+        except ssl.SSLError:
+            # SSLCertVerificationError also inherits ValueError; keep TLS
+            # failures out of the adapter's malformed-data classification.
+            raise ApiSslStop('PPPOE_CONNECTION_FAILED') from None
         except ApiSslStop as error:
             if str(error) == 'DEADLINE_EXCEEDED':
                 raise TimeoutError() from None

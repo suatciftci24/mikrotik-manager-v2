@@ -1,5 +1,26 @@
 # MikroTik Manager V2 — İlerleme
 
+## API-SSL RouterOS 6.43+ / 7 kabul hazırlığı — 2026-10-31
+
+- PASS: Mevcut 25 PPPoE sentetik test ve 8 yeni hedefli test geçti. TLS policy,
+  sertifika/handshake reddi, pin/IP SAN, kaynak/hedef, bağlantı/okuma timeout,
+  toplam deadline, sabit komut sınırı, LOCAL/RADIUS, kesin hesap eşlemesi,
+  boş sonuç ve UTC/FRESH/STALE/UNKNOWN/son-başarı davranışları doğrulandı.
+- İki düzeltme: SSLCertVerificationError aynı zamanda ValueError olduğundan
+  yanlış INVALID_DATA üretiyordu; TLS hataları artık CONNECTION_FAILED olur.
+  !empty ile satırın aynı yanıtta gelmesi veya tekrarlı !empty reddedilir.
+- Yeni sertifika hata testi ilk çalıştırmada sınıflandırma sorununu buldu;
+  düzeltmeden sonra yalnız bu başarısız test tekrar geçti. Başarılı testler
+  tekrarlanmadı. İlk dosya düzenleme komutu python bulunamadığından çalışmadı;
+  .venv/bin/python kullanıldı. Diff kontrolü PASS.
+- Tüm socket/TLS testleri mock; gerçek CA zinciri, geçerlilik ve RouterOS
+  sürüm kabulü yapılmış sayılmaz. Gerçek kabul koşulları PPPOE_READONLY_API.md
+  içinde. Varsayılan binding kapalı; gerçek bağlantı/DB/VDS/V1/migration/servis
+  işlemi veya commit/push yapılmadı.
+- Sonraki somut adım: ayrı açık bağlantı onayıyla, doğrulanmış V2 hedef ve
+  hesap envanterinde 6.43+ ve 7 sürümlerinin salt okunur cihaz kabulünü yapmak.
+
+
 
 ## Gerçek PPPoE API-SSL taşıyıcısı — 2026-10-31
 
