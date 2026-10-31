@@ -1,5 +1,34 @@
 # MikroTik Manager V2 — İlerleme
 
+
+## Gerçek PPPoE API-SSL taşıyıcısı — 2026-10-31
+
+- PASS: RouterPppoeApiSslTransport ve açık api_ssl_binding fabrikası eklendi.
+  Varsayılan policy kapalı; startup/dependency/env üzerinden etkinleştirme yok.
+  Router, hedef ayarları ve açık hesap/kullanıcı/LOCAL-RADIUS envanteri tek
+  binding kapsamında tutulur. Demo ve farklı router IO öncesinde reddedilir.
+- Yalnız TLS üzerindeki login ve sabit /ppp/active/print proplist komutu
+  gönderilir. Secret/password listesi okunmaz; genel komut/yazma arayüzü yok.
+  CA, IP SAN, leaf pin, kaynak IP ve endpoint doğrulanmadan parola gönderilmez.
+  Socket connect, TLS handshake, send/recv aynı azalan toplam timeout bütçesini
+  kullanır; hata/timeout sonunda soketler kapanır, retry/kısmi sonuç yoktur.
+- RouterOS 6.43+ ve 7 login/print protokolü; 7.18+ !empty desteği vardır.
+  Eski 6 challenge login desteklenmez ve kapalı hata verir; TLS downgrade yok.
+  Protokol referansı: https://manual.mikrotik.com/docs/developer-guides/api/
+- Oturum adı yalnız açık router envanterine eşlenir; radius işareti otoriteyle
+  uyuşmazsa veya aynı hesapta çoklu oturum varsa tüm sonuç reddedilir.
+  Envanter dışı/PPPoE dışı oturumlar yayınlanmaz. Başarılı tamamlanmış okumaya
+  UTC ölçüm zamanı verilir; boş/hata sonucunda zaman/çevrimdışı durumu üretilmez.
+  Mevcut son başarı ve FRESH/STALE/UNKNOWN servis kuralları korunur.
+- PASS: test_pppoe*.py kapsamında 25 sentetik test tek çalıştırmada geçti;
+  framing, TLS/pin, sabit komutlar, LOCAL/RADIUS, kapalı/demo/router izolasyonu,
+  timeout/deadline, cleanup, boş sonuç ve hata redaksiyonu kapsandı.
+  Gerçek RouterOS sürüm kabulü yapılmadı; tüm soket/TLS IO mock'tur.
+- Canlı router/RADIUS/DB, V1/VDS, migration ve restart yok. Chromium/PostgreSQL
+  engelleri araştırılmadı. Kullanıcı talimatıyla commit/push denenmedi.
+- Sonraki somut adım: açık onaylı ayrı bağlantı fazında doğrulanmış router
+  envanteri ve dar kaynak/hedef policy ile gerçek sürüm kabulünü yapmak.
+
 ## Gerçek PPPoE geçişi — kapalı API ilk aşama — 2026-10-31
 
 - PASS: Mevcut Router Merkezi gözlem API'sine router kapsamında LOCAL/RADIUS

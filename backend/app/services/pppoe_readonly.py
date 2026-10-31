@@ -77,3 +77,17 @@ def _read_snapshot(router_id, binding, authorities, source, account_id, key):
         binding.last_measurements[key] = max(previous, latest) if previous else latest
     return PppoeSnapshot(router_id=router_id, availability='AVAILABLE', items=items, selected_source=source,
         last_successful_observed_at=binding.last_measurements.get(key))
+
+
+def api_ssl_binding(router_id, settings, accounts, policy=None):
+    """Build an offline opt-in binding; callers still require central authorization.
+
+    Does not read environment, open sockets or register a dependency. The
+    transport defaults to a disabled connection policy even with credentials.
+    """
+    from app.adapters.pppoe_api_ssl import RouterPppoeApiSslTransport
+    from app.adapters.router_api_ssl import ConnectionPolicy
+    accounts = tuple(accounts)
+    transport = RouterPppoeApiSslTransport(settings, accounts, policy or ConnectionPolicy())
+    return PppoeReadBinding(router_id, PppoeReadAdapter(transport), settings,
+                           {account.account_id: account.source for account in accounts})

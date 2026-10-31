@@ -1,7 +1,7 @@
 """Offline-ready PPPoE read boundary. Never registered by demo/startup code.
 
-A future approved transport must enforce TLS, deadline and row bounds before
-returning. No generic command or mutation method is exposed to domain callers.
+The opt-in API-SSL transport enforces TLS, deadline and row bounds before
+returning; startup and demo code never install it. No generic command or mutation method is exposed to domain callers.
 """
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
