@@ -1,5 +1,31 @@
 # MikroTik Manager V2 — İlerleme
 
+## Abone Detay Merkezi — uzatma doğrulaması — 2026-10-31
+
+- PASS: Mevcut abone/paket/LOCAL-RADIUS ve geçmiş akışları korundu. Kalıcı
+  sentetik detayın üst özetine bitiş/kalan gün eklendi. Geçmişin Europe/Istanbul
+  gösterimi açıklandı; UTC saklama değişmedi. Uzatma onayında kaynak/saat dilimi
+  gösterilir. Özel tarih ile mevcut bitişi kısaltma veya aynı tarihi tekrar yazma
+  hem uzatma arayüzünde hem workspace servisinde engellendi.
+- Mevcut PostgreSQL workspace adaptörü kullanılır; bellek fallback, seed veya
+  yeni depo yok. Row lock, revizyon/kaynak kontrolü, istek kimliğiyle mükerrer
+  işlem önleme ve aynı transaction içinde audit korundu. Genel tarih düzenleme
+  ve mevcut diğer demo işlemleri değiştirilmedi.
+- PASS: 14 farklı backend kontrolü (subscriber_center ve subscriber_renewal),
+  4 frontend test dosyası (subscriberCenter, detailCenter, expiry,
+  subscriberRenewal), TypeScript/Vite build. Yeni test fixture tarihleri ISO
+  biçimine düzeltildi; yalnız başarısız yeni kapsam tekrar çalıştırıldı.
+  Yeni UI testi önizlemede yazma yapılmadığını, tarih reddini ve yanıt kaybında
+  aynı onayın yeniden gönderildiğini doğrular. Mevcut 500 kB chunk uyarısı sürer.
+- BLOCKED: Mevcut demo PostgreSQL üzerinde çalışma kabulü; yerel V2 bağlantısı
+  OperationalError verdi. Veriler değiştirilmedi; atomiklik/idempotence testleri
+  izole sentetik SQLite transaction testleridir, gerçek PostgreSQL kabulü değildir.
+  Tarayıcı kabulü yapılmadı; Chromium engeli tekrar araştırılmadı.
+- V1/VDS, migration, restart, gerçek aboneler ve canlı router/RADIUS işlemi yok.
+  Kullanıcı talimatıyla commit/push denenmedi. Sonraki somut adım: erişilebilir
+  mevcut yerel demo PostgreSQL ortamında uzatma ve tek audit kaydı kabulü.
+
+
 ## PPPoE Abone Yönetimi — liste ve mobil okunabilirlik — 2026-10-31
 
 - PASS: Mevcut arama, router/paket/LOCAL-RADIUS filtreleri, bitiş tarihi ve

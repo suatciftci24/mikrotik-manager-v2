@@ -84,7 +84,7 @@ class SubscriberWorkspace:
             if row.revision!=command.expected_revision or row.source!=command.expected_source or row.fields['expires_on']!=old:raise WorkspaceError(409,'Abone veya bitiş tarihi değişti. Güncel kaydı yeniden inceleyin.')
             today=datetime.now(ZoneInfo('Europe/Istanbul')).date()
             if command.days and (old is None or max(date.fromisoformat(old),today)+timedelta(days=command.days)!=command.expires_on):raise WorkspaceError(409,'Uzatma önizlemesi değişti veya eski tarih bilinmiyor; yeniden inceleyin.')
-            if command.expires_on<today or new==old:raise WorkspaceError(422,'Yeni tarih bugün veya sonrası ve eski tarihten farklı olmalı.')
+            if command.expires_on<today or (old is not None and new<=old):raise WorkspaceError(422,'Uzatma tarihi Türkiye bugününden önce olamaz ve mevcut bitişten ileri olmalı.')
             before=row.fields;row.fields={**row.fields,'expires_on':new};row.revision+=1
             self.audit(session,row,actor,before,str(command.request_id),'RENEWAL',{'days':command.days,'expected_source':command.expected_source,'expected_revision':command.expected_revision})
             return account_view(row,router)

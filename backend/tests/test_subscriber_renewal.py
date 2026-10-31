@@ -37,6 +37,18 @@ class RenewalTests(cases.SubscriberTransactions):
         item=self.workspace.save(self.command(expires_on=None),'actor')
         with self.assertRaises(WorkspaceError):self.workspace.renew(item.id,self.renewal(item),'actor')
         result=self.workspace.renew(item.id,self.renewal(item,days=None),'actor');self.assertIsNotNone(result.expires_on)
+    def test_custom_renewal_cannot_shorten_or_repeat_existing_expiry(self):
+        today=datetime.now(ZoneInfo('Europe/Istanbul')).date()
+        item=self.workspace.save(self.command(expires_on=(today+timedelta(days=60)).isoformat()),'actor')
+        baseline=self.workspace.detail(item.id)
+        for target in (today-timedelta(days=1),today,today+timedelta(days=30),item.expires_on):
+            with self.subTest(target=target),self.assertRaises(WorkspaceError):
+                self.workspace.renew(item.id,self.renewal(item,days=None,expires_on=target.isoformat()),'actor')
+        self.assertEqual(self.workspace.detail(item.id),baseline)
+        result=self.workspace.renew(item.id,self.renewal(item,days=None,expires_on=(today+timedelta(days=61)).isoformat()),'actor')
+        self.assertEqual(result.revision,item.revision+1)
+        self.assertEqual(len(self.workspace.detail(item.id).history),2)
+
     def test_history_date_projection_uses_only_explicit_audit_fields(self):
         base=dict(operation='RENEWAL',occurred_at='2026-10-29T12:00:00Z',actor_id='demo-user',previous_expires_on='2026-10-01',expires_on='2026-11-28',password='CANARY')
         event=legacy_event(base);self.assertEqual(event['previous_expires_on'],'2026-10-01');self.assertEqual(event['expires_on'],'2026-11-28');self.assertTrue(event['date_changed']);self.assertNotIn('password',event)
