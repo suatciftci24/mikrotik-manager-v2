@@ -4,10 +4,11 @@ A future approved transport must enforce TLS, deadline and row bounds before
 returning. No generic command or mutation method is exposed to domain callers.
 """
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from ipaddress import IPv4Address
 import os
 from typing import Literal, Protocol
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
 
 
 class ReadConfigurationError(ValueError):
@@ -52,6 +53,19 @@ class PppoeObservation(BaseModel):
     account_id: str = Field(min_length=1, max_length=80)
     # Authority comes from the account inventory, never inferred from a session.
     source: Literal['LOCAL', 'RADIUS']
+    observed_at: datetime | None = None
+
+    @field_validator('observed_at', mode='before')
+    @classmethod
+    def observation_time(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        if not isinstance(value, datetime) or value.utcoffset() is None or value > datetime.now(timezone.utc):
+            raise ValueError('Invalid observation time')
+        return value.astimezone(timezone.utc)
+
     connected: bool | None = None
     ip_address: str | None = None
 

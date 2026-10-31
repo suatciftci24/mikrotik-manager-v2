@@ -1488,3 +1488,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Sonraki somut adım: yazılabilir Git metadata olan ortamda hazır değişiklikleri
   commit etmek. Gerçek gözlem zamanını göstermek için ayrıca API timestamp
   sözleşmesi gerekir; bu görevde zaman uydurulmadı.
+
+## PPPoE güvenilir veri zamanı ve kaynak durumu — 2026-10-31
+
+- Salt okunur adaptör/API gözlemlerine nullable observed_at eklendi. Yalnız
+  saat dilimli ölçüm zamanı kabul edilir, UTC'ye çevrilir; eksik zaman None
+  kalır. Saat dilimsiz/geçersiz/gelecekteki zaman tüm sonucu INVALID_DATA ile
+  kapatır. HTTP alma zamanı veya router snapshot zamanı ölçüm yerine üretilmez.
+- API her gözlem için source_status yayınlar: zaman yoksa UNKNOWN, 5 dakikayı
+  aşmışsa STALE, diğerinde FRESH. LOCAL/RADIUS hesap otoritesi ayrı korunur.
+  Boş/kapalı/hatalı sonuçlarda gözlem veya ölçüm zamanı uydurulmaz.
+- Router Merkezi PPPoE ve Abone Detay ortak bileşeni veri zamanı ve kaynak
+  durumunu gösterir. Bilinmeyen zaman Bilinmiyor; bilinen zaman açık
+  Europe/Istanbul dilimindedir. Eski gözlem güncel oturum kanıtı sayılmaz;
+  API hatası/loading/kaynak uyuşmazlığında eski satırlar gösterilmez.
+- PASS: 19 sentetik backend testi (PPPoE API/adaptör ve Router Merkezi),
+  3 frontend test dosyası (PPPoE gözlemleri/Router Merkezi/Abone Detay),
+  TypeScript + Vite build ve diff kontrolü. Mevcut 500 kB chunk uyarısı sürer.
+  Gerçek cihaz/HTTP/DB kabulü yapılmadı; varsayılan binding kapalı, demo
+  request izolasyonu ve mevcut ADMIN/source-specific yetkilendirme korundu.
+- V1/VDS/migration/servis restartı, gerçek router/RADIUS bağlantısı yok.
+  Kullanıcı talimatıyla bilinen Git yazma engeli yeniden denenmedi;
+  commit/push yok. Sonraki somut adım: hazır değişiklikleri yazılabilir Git
+  ortamında commit etmek; canlı taşıyıcı bu kapsamda etkinleştirilmez.

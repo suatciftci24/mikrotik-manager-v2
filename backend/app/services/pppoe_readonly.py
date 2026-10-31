@@ -1,15 +1,20 @@
 """Explicit per-router read bindings; startup and environment never enable IO."""
 from dataclasses import dataclass, field
+from datetime import datetime, timezone, timedelta
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from app.adapters.pppoe_readonly import PppoeReadAdapter, PppoeObservation, RouterReadSettings
+
+
+class TimedPppoeObservation(PppoeObservation):
+    source_status: Literal['FRESH', 'STALE', 'UNKNOWN']
 
 
 class PppoeSnapshot(BaseModel):
     model_config = ConfigDict(extra='forbid')
     router_id: str
     availability: Literal['AVAILABLE', 'UNAVAILABLE']
-    items: list[PppoeObservation] = Field(default_factory=list)
+    items: list[TimedPppoeObservation] = Field(default_factory=list)
     error: Literal['DISABLED', 'DEMO_ISOLATED', 'INVALID_DATA', 'TIMEOUT', 'CONNECTION_FAILED', 'AUTHORITY_MISMATCH'] | None = None
     is_demo: bool = False
     read_only: Literal[True] = True
@@ -45,4 +50,8 @@ def snapshot(router_id: str, *, is_demo: bool, binding: PppoeReadBinding | None)
         return unavailable(result.error)
     if any(authorities.get(item.account_id) != item.source for item in result.items):
         return unavailable('AUTHORITY_MISMATCH')
-    return PppoeSnapshot(router_id=router_id, availability='AVAILABLE', items=list(result.items))
+    now = datetime.now(timezone.utc)
+    items = [TimedPppoeObservation(**item.model_dump(), source_status=(
+        'UNKNOWN' if item.observed_at is None else
+        'STALE' if now - item.observed_at > timedelta(minutes=5) else 'FRESH')) for item in result.items]
+    return PppoeSnapshot(router_id=router_id, availability='AVAILABLE', items=items)

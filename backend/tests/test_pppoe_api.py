@@ -62,3 +62,25 @@ class PppoeApiTests(TestCase):
         route = next(route for route in routes.router.routes if getattr(route, 'path', None) == '/router-center/{id}/pppoe-observations')
         calls = {dep.call for dep in route.dependant.dependencies}
         self.assertIn(current_demo_user, calls); self.assertIn(disabled_binding, calls)
+
+    def test_observation_time_unknown_fresh_stale_and_utc(self):
+        from datetime import datetime, timezone, timedelta
+        now = datetime.now(timezone.utc)
+        for stamp, state in ((None, 'UNKNOWN'), ((now-timedelta(seconds=10)).isoformat(), 'FRESH'),
+                             ((now-timedelta(minutes=6)).isoformat(), 'STALE'),
+                             ((now-timedelta(seconds=10)).astimezone(timezone(timedelta(hours=3))).isoformat(), 'FRESH')):
+            binding = self.binding([dict(account_id='account-local', source='LOCAL', observed_at=stamp)])
+            result = snapshot(binding.router_id, is_demo=False, binding=binding)
+            self.assertEqual(result.items[0].source_status, state)
+            if stamp is None:
+                self.assertIsNone(result.items[0].observed_at)
+            else:
+                self.assertEqual(result.items[0].observed_at.utcoffset(), timedelta(0))
+
+    def test_invalid_naive_future_time_rejects_entire_result(self):
+        for stamp in ('invalid', '2026-01-01T00:00:00', '2999-01-01T00:00:00Z', 123, True):
+            binding = self.binding([dict(account_id='account-radius', source='RADIUS'),
+                dict(account_id='account-local', source='LOCAL', observed_at=stamp)])
+            result = snapshot(binding.router_id, is_demo=False, binding=binding)
+            self.assertEqual(result.error, 'INVALID_DATA')
+            self.assertEqual(result.items, [])
