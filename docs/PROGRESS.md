@@ -1465,3 +1465,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Read-only file system ile reddedildi. Commit oluşmadı; kaynak değişiklikleri
   çalışma ağacında korunuyor. Gereken tek eylem Git metadata'sının yazılabilir
   olduğu ortamda bu hazır değişiklikleri commit etmektir. Push denenmedi.
+
+## PPPoE API — Router Merkezi ve Abone Detay UI — 2026-10-31
+
+- Router Merkezi PPPoE sekmesine ve Abone Detay'a ortak salt okunur gözlem
+  bileşeni eklendi. Router ID ve hesap ID ile eşleşir; kullanıcı adı/router adı
+  üzerinden gerçek hesap çıkarımı yapılmaz. LOCAL/RADIUS, nullable oturum ve IP
+  ayrı gösterilir; oturum yokluğu çevrimdışı kabul edilmez.
+- API gözlem zamanı sağlamadığından son veri zamanı açıkça Bilinmiyor olarak
+  gösterilir; HTTP alma zamanı veya eski router snapshot zamanı yerine konmaz.
+  Loading/boş/kapalı/izole/hata durumları ayrıdır. Kaynak/ID/read-only uyumsuzluğu
+  veri gösterimini kapatır; ham hata veya eski satırlar hata durumunda gösterilmez.
+- Demo bileşeni request lifecycle'ını bağlamaz, gerçek gözlem API'sini çağırmaz.
+  Mevcut sentetik aboneler ve ADMIN/auth akışı korunur. Varsayılan backend kapalı
+  kalır; transport, env, gerçek cihaz/RADIUS/DB bağlantısı eklenmedi.
+- PASS: yeni PPPoE durum/izolasyon/kaynak filtre test dosyası ve mevcut
+  routerCenter/detailCenter test dosyaları; TypeScript + Vite build PASS.
+  Son savunmacı filtre düzeltmesinden sonra yalnız PPPoE dosyası tekrar kontrol
+  edildi. Mevcut 500 kB chunk uyarısı sürer. git diff --check PASS.
+- V1/VDS/migration/servis restartı veya gerçek ADMIN hesabında işlem yapılmadı.
+  Bilinen read-only Git metadata engeli tekrar denenmedi; commit/push yapılmadı.
+- Sonraki somut adım: yazılabilir Git metadata olan ortamda hazır değişiklikleri
+  commit etmek. Gerçek gözlem zamanını göstermek için ayrıca API timestamp
+  sözleşmesi gerekir; bu görevde zaman uydurulmadı.

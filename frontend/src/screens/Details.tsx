@@ -1,3 +1,4 @@
+import {PppoeObservations} from '../components/PppoeObservations';
 import {detailOperationHash} from '../lib/operationReport';
 import { unknownDetail } from '../lib/detailCenter';
 import { QuickActions, type QuickAction } from '../components/QuickActions';
@@ -124,6 +125,7 @@ export function SubscriberDetails({detail, onQuick}: {detail: SubscriberDetail; 
       {unknownSource&&<p>Kaynak bilinmiyor; tarih değişikliği kapalı.</p>}
       {!persistent&&<p role="status">Kalıcı demo saklama etkin değil; geçici bellek değişikliği yapılmaz.</p>}
     </DetailSection>
+    <DetailSection title="PPPoE API gözlemleri"><PppoeObservations routerId={s.router_id} isDemo={s.is_demo} accountId={s.id} source={s.source}/></DetailSection>
     <SubscriberReports key={s.id} subscriber={s} today={today}/>
     <DetailSection title="İşlem geçmişi">
       <p>{persistent?'V2 yerel geliştirme veritabanındaki sentetik demo işlemleri.':'Bu eski API sürecinin geçmişi geçici bellektedir; kalıcı saklama etkin değil.'} Zamanlar Türkiye saatinde (Europe/Istanbul) gösterilir.</p>
