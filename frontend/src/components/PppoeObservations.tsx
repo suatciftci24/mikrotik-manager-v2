@@ -5,7 +5,7 @@ import {SourceBadge} from './Status';
 export type PppoeSnapshot={router_id:string;availability:'AVAILABLE'|'UNAVAILABLE';items:{account_id:string;source:'LOCAL'|'RADIUS';connected:boolean|null;ip_address:string|null;observed_at:string|null;source_status:'FRESH'|'STALE'|'UNKNOWN'}[];error:string|null;is_demo:boolean;read_only:true};
 type Props={routerId?:string|null;isDemo:boolean;accountId?:string;source?:'LOCAL'|'RADIUS'|null};
 const messages:Record<string,string>={DISABLED:'PPPoE veri kaynağı kapalı; bağlantı başlatılmadı.',DEMO_ISOLATED:'Demo izolasyonu etkin; gerçek PPPoE verisi sorgulanmaz.',INVALID_DATA:'PPPoE verisi doğrulanamadı.',TIMEOUT:'PPPoE verisi alınırken zaman aşımı oluştu.',CONNECTION_FAILED:'PPPoE verisi alınamadı.',AUTHORITY_MISMATCH:'Hesap kimliği veya LOCAL/RADIUS yetkili kaynağı eşleşmiyor; veri gösterilmedi.'};
-const sourceStates={FRESH:'Güncel',STALE:'Güncelliğini yitirmiş',UNKNOWN:'Bilinmiyor'};
+const sourceStates={FRESH:'Güncel',STALE:'Eski',UNKNOWN:'Bilinmiyor'};
 function validTime(i:PppoeSnapshot['items'][number]){
  return i.observed_at===null?i.source_status==='UNKNOWN':typeof i.observed_at==='string'&&/(Z|[+-]\d{2}:\d{2})$/.test(i.observed_at)&&Number.isFinite(Date.parse(i.observed_at))&&Date.parse(i.observed_at)<=Date.now()&&(i.source_status==='FRESH'||i.source_status==='STALE');
 }

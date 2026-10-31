@@ -41,7 +41,7 @@ test('wrong router, demo, write flag and invalid authority fail closed',()=>{
 });
 test('known times use Istanbul and stale data stays distinct from unknown time',()=>{
  const timed={...data,items:[{...data.items[0],observed_at:'2026-01-01T00:00:00Z',source_status:'STALE'}]};
- const html=view({data:timed});assert.match(html,/Europe\/Istanbul/);assert.match(html,/03:00:00/);assert.match(html,/Güncelliğini yitirmiş/);
+ const html=view({data:timed});assert.match(html,/Europe\/Istanbul/);assert.match(html,/03:00:00/);assert.match(html,/Eski/);
  const fresh={...timed,items:[{...timed.items[0],observed_at:new Date(Date.now()-1000).toISOString(),source_status:'FRESH'}]};
  assert.match(view({data:fresh}),/Güncel/);
  for(const patch of [{observed_at:null,source_status:'FRESH'},{observed_at:'broken',source_status:'STALE'},{observed_at:'2999-01-01T00:00:00Z',source_status:'FRESH'},{observed_at:'2026-01-01T00:00:00',source_status:'STALE'}]){

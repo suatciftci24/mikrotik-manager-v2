@@ -1511,3 +1511,25 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Kullanıcı talimatıyla bilinen Git yazma engeli yeniden denenmedi;
   commit/push yok. Sonraki somut adım: hazır değişiklikleri yazılabilir Git
   ortamında commit etmek; canlı taşıyıcı bu kapsamda etkinleştirilmez.
+
+## Merkezi Dashboard — PPPoE kaynak ve tazelik — 2026-10-31
+
+- Dashboard'a PPPoE veri kaynağı ve tazelik paneli eklendi. Mevcut günlük
+  özet yalnız sentetik envanteri desteklediği için LOCAL/RADIUS/bilinmeyen
+  kaynak sayıları hesap envanteri olarak etiketlenir; ölçüm sayılmaz.
+- Ortak PppoeObservations demo dalı kullanılır; gerçek gözlem API lifecycle'ı
+  bağlanmaz. Güvenilir ölçüm bulunmadığından tazelik ve son ölçüm Bilinmiyor
+  kalır. generated_at, last_seen veya istemci saati ölçüm tarihine dönüştürülmez.
+  Güncel/Eski/Bilinmiyor açıklaması ve 5 dakika eşiği gösterilir. Yenileme/hata
+  sırasında önceki panel gösterilmez; Router Merkezi ve Abone Detay'a geçiş vardır.
+- Ortak gözlem bileşeninin STALE etiketi Eski olarak hizalandı; mevcut iki
+  detay ekranı da aynı etiketi kullanır. API sözleşmeleri, ADMIN/merkezi yetki
+  akışı, backend ve kapalı bağlantı kapıları değiştirilmedi.
+- PASS: dashboardPppoe, pppoeObservations, centralDashboard, routerCenter ve
+  detailCenter olmak üzere 5 hedefli frontend test dosyası; TypeScript/Vite
+  build ve diff kontrolü. Mevcut 500 kB chunk uyarısı sürüyor. Testler sentetik
+  render/projeksiyon kontrolleridir; canlı HTTP/cihaz kabulü iddia edilmez.
+- V1/VDS, migration, servis restartı, gerçek router/RADIUS/DB bağlantısı yok.
+  Kullanıcı talimatıyla commit/push denenmedi. Sonraki somut adım: Dashboard
+  PPPoE panelini yerel demo UI'da görsel olarak incelemek; gerçek Dashboard
+  envanteri veya canlı taşıyıcı bu görev kapsamında eklenmedi.

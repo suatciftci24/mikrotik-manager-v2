@@ -1,6 +1,7 @@
 import { AlarmCenter } from '../components/AlarmCenter';
 import { OperationReport } from './OperationReport';
 import { DashboardHealth } from '../components/DashboardHealth';
+import { DashboardPppoe } from '../components/DashboardPppoe';
 import { invalidateResources } from '../lib/resourceEvents';
 import { InternetReport } from './InternetReport';
 import { useListFilter } from '../lib/useListFilter';
@@ -83,6 +84,7 @@ function DashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigat
           <button onClick={()=>goRouters({status:'DEGRADED'})}>Dikkat gerektiren <strong>{data.router_counts.degraded}</strong></button>
         <button onClick={()=>goRouters({status:'UNKNOWN'})}>Bilinmiyor <strong>{data.router_counts.unknown}</strong></button></div><p className="missing-data">Veri yok: canlı router bağlantısı, çevrimiçi abone oturumu, ölçülmüş trafik ve günlük tahsilat kaynağı bağlı değil.</p></section>
       </div>
+      {!resource.loading&&<DashboardPppoe data={data}/>}
       <AlarmCenter compact/>
       <DashboardHealth/>
       <AlarmEvents mode="cards" routers={data.routers}/>
