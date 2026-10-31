@@ -1,5 +1,24 @@
 # MikroTik Manager V2 — İlerleme
 
+## PPPoE yerel görsel kabul denemesi — 2026-10-31
+
+- BLOCKED: Bağlı görsel tarayıcı aracı yok. Mevcut yerel Playwright ve
+  önbellekteki Chromium ile tek başlatma denemesi yapıldı; Chromium sayfa
+  açılmadan `Target page, context or browser has been closed` ile durdu.
+  Ekran görüntüsü alınamadı; Dashboard, Router Merkezi ve Abone Detay için
+  masaüstü/mobil görünüm, okunabilirlik ve boş/hata ekranlarının görsel kabulü
+  tamamlanmış veya PASS sayılmaz. Güvenlik/izolasyon sınırları değiştirilmedi.
+- PASS (yalnız hedefli kod/render kontrolleri): dashboardPppoe,
+  pppoeObservations, routerCenter ve detailCenter olmak üzere 4 frontend test
+  dosyası geçti. LOCAL/RADIUS ayrımı, Güncel/Eski/Bilinmiyor, boş/yükleniyor/hata
+  dalları ve demo request izolasyonu kod düzeyinde kontrol edildi; bunlar
+  tarayıcıda görsel doğrulama değildir. Doğrulanmış yeni ürün hatası bulunmadı;
+  ürün kodu değiştirilmedi.
+- V2 servislerini başlatmaya gerek kalmadı. V1/VDS, canlı router/RADIUS,
+  veritabanı, migration ve üretim servislerine dokunulmadı. Commit/push
+  denenmedi. Sonraki somut adım: Chromium çalıştırabilen ortamda mevcut
+  yerel demo üzerinden üç ekranın masaüstü ve mobil görsel kabulünü yapmak.
+
 ## npm sürüm kontrolü: config source çakışması — 2026-10-30
 
 - Başlangıç 0046518, temiz çalışma ağacı. Gerçek VDS sonucu NPM_CHECK_FAILED.
