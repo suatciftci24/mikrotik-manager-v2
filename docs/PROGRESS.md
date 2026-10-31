@@ -1,5 +1,23 @@
 # MikroTik Manager V2 — İlerleme
 
+## Abonelik uzatma — yerel PostgreSQL kabulü — 2026-10-31
+
+- BLOCKED: Mevcut proje yapılandırmasıyla V2 demo hedefi, küme yolu/sahipliği
+  ve PostgreSQL 16 araçları için `preflight(engine)` geçti. Ardından tek
+  `socket_permission()` kontrolünde loopback soketi açılamadı. Bu çalışma
+  ortamında mevcut PostgreSQL bağlantısının çalışması doğrulanamadı;
+  SQL bağlantısı veya uzatma işlemi aşamasına geçilmedi. Tekrarlı teşhis yok.
+- Uzatma, tarih doğrulaması, mükerrer işlem önleme, atomik geçmiş ve işlem
+  sonrası PostgreSQL kalıcılığı kabulü tamamlanmadı. Önceki sentetik testler
+  PostgreSQL kabulü yerine sayılmadı; bağımsız başarılı testler tekrarlanmadı.
+- Demo kayıtlarına yazılmadı; test verisi oluşturulmadı veya silinmedi.
+  dev-db/şema kurulum betikleri çalıştırılmadı; migration, servis restartı,
+  V1/VDS, canlı router/RADIUS ve üretim işlemi yok. Ürün/yapılandırma değişmedi.
+  Kullanıcı talimatıyla Git commit/push denenmedi.
+- Sonraki somut adım: loopback soketine izin veren yerel WSL çalışma
+  ortamında mevcut V2 demo PostgreSQL üzerinden aynı uzatma kabulünü sürdürmek;
+  migration çalıştırmadan, yalnız göreve ait sentetik kayıtları yönetmek.
+
 ## Abone Detay Merkezi — uzatma doğrulaması — 2026-10-31
 
 - PASS: Mevcut abone/paket/LOCAL-RADIUS ve geçmiş akışları korundu. Kalıcı
