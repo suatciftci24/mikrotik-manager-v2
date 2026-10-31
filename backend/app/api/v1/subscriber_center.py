@@ -46,3 +46,15 @@ def manage(payload:SubscriberOperations,user:dict=Depends(mutator)):
 @router.get('/subscriber-workspace/management/history',response_model=OperationHistory)
 def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',pattern='^(ALL|EDIT|PLAN|STATUS|EXPIRE|EXTEND|ROUTER|CREATE|UPDATE|RENEWAL)$'),result:str=Query('ALL',pattern='^(ALL|SUCCESS|FAILED)$'),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_admin)):
     return execute(operations.history,item_id,operation,result,page,page_size)
+
+
+from typing import Literal
+from app.services.pppoe_readonly import PppoeSnapshot, disabled_binding, snapshot
+
+@router.get('/subscriber-observations/{router_id}/{account_id}', response_model=PppoeSnapshot)
+def pppoe_observations(router_id: str, account_id: str, source: Literal['LOCAL', 'RADIUS'],
+                       user: dict = Depends(current_demo_user), binding=Depends(disabled_binding)):
+    # Real IDs come only from the server-side binding, never the demo workspace.
+    from app.api.v1.router_center import detail as router_detail
+    data = router_detail(router_id, user)
+    return snapshot(router_id, is_demo=data.is_demo, binding=binding, source=source, account_id=account_id)

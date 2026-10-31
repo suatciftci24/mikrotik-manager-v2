@@ -1,5 +1,31 @@
 # MikroTik Manager V2 — İlerleme
 
+## Gerçek PPPoE geçişi — kapalı API ilk aşama — 2026-10-31
+
+- PASS: Mevcut Router Merkezi gözlem API'sine router kapsamında LOCAL/RADIUS
+  filtresi eklendi. Abone Yönetimi için router/hesap ID ve zorunlu kaynakla
+  salt okunur gözlem endpoint'i aynı servise bağlandı. Merkezi router yetkisi
+  IO öncesinde; hesap/kaynak envanter uyumu adaptör öncesinde doğrulanır.
+  Sentetik liste/detay akışları ve varsayılan DISABLED/DEMO_ISOLATED korunur.
+- Son başarılı gerçek ölçüm zamanı kaynak/hesap kapsamında, binding ömründe
+  kilit altında tutulur. Hata/boş/zamansız sonuç tarihi ilerletmez; eski ölçüm
+  geriye götürmez. Hata yanıtında eski oturum satırları yayınlanmaz. UTC,
+  nullable zaman ve mevcut 5 dakika FRESH/STALE/UNKNOWN hesabı korunur.
+- Timeout doğrudan ayarlarda da sonlu ve sınırlı doğrulanır; süre aşarak
+  dönen taşıyıcı sonucu TIMEOUT olur. Bağlantı/okuma deadline'ının taşıyıcıda
+  uygulanması zorunludur; senkron çağrı zorla iptal edildiği iddia edilmez.
+  Kalıcı metadata, gerçek hesap envanteri veya canlı taşıyıcı eklenmedi.
+- PASS: PPPoE API/adaptör, Router Merkezi ve router-abone entegrasyonunda
+  toplam 30 sentetik backend testi tek çalıştırmada geçti. Yeni kapsam kaynak
+  seçimi, hesap izolasyonu, son başarı/hata/geriye gitmeme, deadline ve yeni
+  endpoint yetki/OpenAPI kontrollerini kapsar. Frontend değişmedi.
+- Canlı router/RADIUS, kimlik bilgisi, V1/VDS, migration, servis restartı ve
+  üretim işlemi yok. Chromium/PostgreSQL engelleri yeniden araştırılmadı.
+  Kullanıcı talimatıyla commit/push denenmedi. Bu kapsamda engel yok.
+- Sonraki somut adım: ayrı açık onaylı bağlantı fazında deadline uygulayan
+  gerçek taşıyıcı ve yetkili gerçek hesap envanterini binding'e bağlamak.
+
+
 ## Abonelik uzatma — yerel PostgreSQL kabulü — 2026-10-31
 
 - BLOCKED: Mevcut proje yapılandırmasıyla V2 demo hedefi, küme yolu/sahipliği

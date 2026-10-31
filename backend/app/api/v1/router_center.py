@@ -1,4 +1,5 @@
 """One ID-based, read-only view; every source keeps its original authorization boundary."""
+from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
 from app.core.security import current_demo_user,current_admin
 from app.core.authorization import require_router
@@ -46,7 +47,7 @@ def subscribers(id:str,access_type:str=Query(...,pattern='^(PPPOE|HOTSPOT)$'),qu
 
 
 @router.get('/{id}/pppoe-observations', response_model=PppoeSnapshot)
-def pppoe_observations(id: str, user: dict = Depends(current_demo_user), binding=Depends(disabled_binding)):
+def pppoe_observations(id: str, user: dict = Depends(current_demo_user), binding=Depends(disabled_binding), source: Literal['LOCAL', 'RADIUS'] | None = None):
     # Reuse the center's source-specific authorization before any adapter dispatch.
     data = detail(id, user)
-    return snapshot(id, is_demo=data.is_demo, binding=binding)
+    return snapshot(id, is_demo=data.is_demo, binding=binding, source=source)

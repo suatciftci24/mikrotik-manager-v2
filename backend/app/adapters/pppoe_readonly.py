@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from ipaddress import IPv4Address
 import os
+import math
+from time import monotonic
 from typing import Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
 
@@ -89,7 +91,12 @@ class PppoeReadAdapter:
 
     def read(self, settings: RouterReadSettings) -> PppoeReadResult:
         try:
+            if not math.isfinite(settings.timeout_seconds) or not 0.1 <= settings.timeout_seconds <= 10:
+                return PppoeReadResult('UNAVAILABLE', error='INVALID_DATA')
+            started = monotonic()
             rows = self.transport.read_pppoe(settings)
+            if monotonic() - started >= settings.timeout_seconds:
+                return PppoeReadResult('UNAVAILABLE', error='TIMEOUT')
             if not isinstance(rows, list) or len(rows) > 128:
                 return PppoeReadResult('UNAVAILABLE', error='INVALID_DATA')
             items = tuple(PppoeObservation.model_validate(row) for row in rows)
