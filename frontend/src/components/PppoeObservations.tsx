@@ -1,3 +1,4 @@
+import {useEffect, useState} from 'react';
 import {useResource} from '../lib/useResource';
 import {ResourceState} from './Resource';
 import {SourceBadge} from './Status';
@@ -10,9 +11,11 @@ function validTime(i:PppoeSnapshot['items'][number]){
  return i.observed_at===null?i.source_status==='UNKNOWN':typeof i.observed_at==='string'&&/(Z|[+-]\d{2}:\d{2})$/.test(i.observed_at)&&Number.isFinite(Date.parse(i.observed_at))&&Date.parse(i.observed_at)<=Date.now()&&(i.source_status==='FRESH'||i.source_status==='STALE');
 }
 function observationTime(value:string|null){return value===null?'Bilinmiyor':new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium',timeStyle:'medium',timeZone:'Europe/Istanbul'}).format(new Date(value))+' (Europe/Istanbul)';}
-export function validPppoeSnapshot(data:PppoeSnapshot,id:string){
+export function validPppoeSnapshot(value:unknown,id:string):value is PppoeSnapshot{
+ if(!value||typeof value!=='object')return false;
+ const data=value as PppoeSnapshot;
  return data.router_id===id&&data.is_demo===false&&data.read_only===true&&Array.isArray(data.items)&&
- (data.availability==='AVAILABLE'?data.error===null&&new Set(data.items.map(i=>i.account_id)).size===data.items.length&&data.items.every(i=>validTime(i)&&typeof i.account_id==='string'&&!!i.account_id&&(i.source==='LOCAL'||i.source==='RADIUS')&&(i.connected===null||typeof i.connected==='boolean')&&(i.ip_address===null||typeof i.ip_address==='string')):data.availability==='UNAVAILABLE'&&data.items.length===0&&Object.hasOwn(messages,data.error??''));
+ (data.availability==='AVAILABLE'?data.error===null&&data.items.every(i=>i!==null&&typeof i==='object'&&validTime(i)&&typeof i.account_id==='string'&&!!i.account_id&&(i.source==='LOCAL'||i.source==='RADIUS')&&(i.connected===null||typeof i.connected==='boolean')&&(i.ip_address===null||typeof i.ip_address==='string'))&&new Set(data.items.map(i=>i.account_id)).size===data.items.length:data.availability==='UNAVAILABLE'&&data.items.length===0&&Object.hasOwn(messages,data.error??''));
 }
 export function PppoeObservations(props:Props){
  return <section aria-label="Salt okunur PPPoE gözlemleri"><h3>PPPoE · Salt okunur API</h3><p>Veri zamanı her gözlemde ayrı gösterilir; bilinmeyen zaman: Bilinmiyor. Hesap etkinliği çevrimiçi oturum kanıtı değildir. Güncellik eşiği 5 dakikadır.</p>
@@ -23,7 +26,18 @@ function PppoeResource(props:Props&{routerId:string}){
  return <PppoeObservationState {...props} {...resource}/>;
 }
 export function PppoeObservationState({routerId,accountId,source,data,loading,error,retry}:{routerId:string;accountId?:string;source?:'LOCAL'|'RADIUS'|null;data?:PppoeSnapshot;loading:boolean;error?:string;retry:()=>void}){
- const invalid=data&&!validPppoeSnapshot(data,routerId);
+ const [,setClock]=useState(0);
+ const invalid=data!==undefined&&!validPppoeSnapshot(data,routerId);
+ // Expire displayed freshness locally; never fetch or poll the API.
+ useEffect(()=>{
+  if(loading||error||invalid||!data)return;
+  const now=Date.now();
+  const deadlines=data.items.filter(i=>i.source_status==='FRESH'&&i.observed_at!==null)
+   .map(i=>Date.parse(i.observed_at!)+300001).filter(time=>time>now);
+  if(!deadlines.length)return;
+  const timer=setTimeout(()=>setClock(value=>value+1),Math.min(...deadlines)-now);
+  return()=>clearTimeout(timer);
+ });
  const items=data&&!invalid?data.items.filter(i=>!accountId||i.account_id===accountId):[];
  const mismatch=accountId&&items.some(i=>i.source!==source);
  const problem=error?'PPPoE API verisi alınamadı. Oturum ve yetkili kaynak doğrulanamadı.':invalid?'PPPoE API yanıtı doğrulanamadı; veri gösterilmedi.':mismatch?messages.AUTHORITY_MISMATCH:undefined;

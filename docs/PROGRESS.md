@@ -1533,3 +1533,25 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Kullanıcı talimatıyla commit/push denenmedi. Sonraki somut adım: Dashboard
   PPPoE panelini yerel demo UI'da görsel olarak incelemek; gerçek Dashboard
   envanteri veya canlı taşıyıcı bu görev kapsamında eklenmedi.
+
+## PPPoE üç ekran bütünleşik doğrulama — 2026-10-31
+
+- Dashboard, Router Merkezi ve Abone Detay veri yolları birlikte incelendi.
+  Dashboard sentetik hesap envanteridir; ölçüm zamanı/tazelik Bilinmiyor kalır.
+  İki detay ekranı ortak PPPoE bileşeninde router/hesap kimliği ve LOCAL/RADIUS
+  otoritesini doğrular. Hesap etkinliği veya boş gözlem çevrimiçi kanıtı değildir.
+- İki gerçek hata düzeltildi: null/bozuk API satırları render sırasında exception
+  yerine doğrulama hatasıyla kapatılır; Güncel gözlem ekran açıkken 5 dakika
+  eşiğini geçtiğinde yerel tek seferlik timer ile Eski olur. Timer temizlenir;
+  yeni API isteği, polling, transport veya bağlantı etkinleştirmesi yoktur.
+- PASS: PPPoE API/adaptör, Router Merkezi ve router–abone entegrasyonunda
+  25 sentetik backend testi; PPPoE, Dashboard PPPoE, centralDashboard,
+  routerCenter, detailCenter ve firstAdmin olmak üzere 6 frontend test dosyası.
+  İki hataya yönelik dar regresyon kontrolleri mevcut PPPoE dosyasına eklendi.
+  TypeScript/Vite build PASS; mevcut 500 kB chunk uyarısı sürer. Diff PASS.
+- Demo request izolasyonu ve ADMIN giriş kodu korundu. Kontroller sentetik
+  servis/render kontrolleridir; tarayıcıda veya gerçek ADMIN hesabıyla HTTP
+  giriş kabulü yapıldığı iddia edilmez. V1/VDS, migration, servis restartı,
+  gerçek DB/router/RADIUS bağlantısı ve commit/push işlemi yapılmadı.
+- Sonraki somut adım: yerel demo UI'da üç ekranın görsel kabulü; canlı
+  taşıyıcı ve gerçek Dashboard ölçüm entegrasyonu bu kapsamda açılmaz.

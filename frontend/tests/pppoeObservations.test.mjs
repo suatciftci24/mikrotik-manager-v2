@@ -7,7 +7,8 @@ import * as React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 const require=createRequire(import.meta.url);
 let effects=0;
-const hooks={...React,useEffect:()=>{effects++;},useCallback:f=>f,useState:v=>[typeof v==='function'?v():v,()=>{}]};
+let pendingEffect;
+const hooks={...React,useEffect:callback=>{effects++;pendingEffect=callback;},useCallback:f=>f,useState:v=>[typeof v==='function'?v():v,()=>{}]};
 const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/PppoeObservations.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
 const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
 const {PppoeObservations,PppoeObservationState,validPppoeSnapshot}=module.exports;
@@ -48,4 +49,28 @@ test('known times use Istanbul and stale data stays distinct from unknown time',
   assert.match(view({data:{...data,items:[{...data.items[0],...patch}]}}),/yanıtı doğrulanamadı/);
  }
  assert.doesNotMatch(view({data:timed,error:'private'}),/03:00:00|Europe\/Istanbul/);
+});
+
+test('malformed JSON fails closed without crashing either detail screen',()=>{
+ for(const malformed of [null,42,{}, {...data,items:[null]}, {...data,items:[{}]}]){
+  assert.equal(validPppoeSnapshot(malformed,data.router_id),false);
+  assert.match(view({data:malformed}),/yanıtı doğrulanamadı/);
+ }
+});
+test('fresh observation expires locally at the boundary without another API request',()=>{
+ const originalNow=Date.now,originalTimer=globalThis.setTimeout,originalClear=globalThis.clearTimeout;
+ const now=Date.parse('2026-01-01T00:00:00Z');
+ let scheduled,cleared=false;
+ try{
+  Date.now=()=>now;
+  globalThis.setTimeout=(callback,delay)=>{scheduled={callback,delay};return 7;};
+  globalThis.clearTimeout=id=>{cleared=id===7;};
+  const timed={...data,items:[{...data.items[0],observed_at:new Date(now-299000).toISOString(),source_status:'FRESH'}]};
+  assert.match(view({data:timed}),/Güncel/);
+  const cleanup=pendingEffect();assert.equal(scheduled.delay,1001);
+  Date.now=()=>now+1001;scheduled.callback();
+  assert.match(view({data:timed}),/Eski/);
+  cleanup();assert.equal(cleared,true);
+  scheduled=undefined;pendingEffect();assert.equal(scheduled,undefined);
+ }finally{Date.now=originalNow;globalThis.setTimeout=originalTimer;globalThis.clearTimeout=originalClear;}
 });
