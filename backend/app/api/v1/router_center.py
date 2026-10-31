@@ -10,6 +10,7 @@ from app.services.demo_data import ROUTERS
 from app.services.router_center import persistent_demo,registered,static_demo
 from app.schemas.router_center import RouterCenterData
 from app.schemas.subscriber_center import RouterSubscriberList
+from app.services.pppoe_readonly import PppoeSnapshot, disabled_binding, snapshot
 
 router=APIRouter(prefix='/router-center',tags=['router-center'])
 
@@ -42,3 +43,10 @@ def subscribers(id:str,access_type:str=Query(...,pattern='^(PPPOE|HOTSPOT)$'),qu
     from app.services import demo_subscriptions
     rows=[row for row in demo_subscriptions.store.list_items() if row.get('is_demo') is True and row.get('router_id')==id and row.get('access_type')==access_type and (status=='ALL' or row.get('status')==status) and (not query or query.casefold() in (row.get('username','')+' '+row.get('customer_name','')).casefold())]
     return dict(items=[legacy_center({'item':row}).item for row in rows[(page-1)*page_size:page*page_size]],total=len(rows),page=page,page_size=page_size,is_demo=True,source='LEGACY_DEMO',availability='AVAILABLE')
+
+
+@router.get('/{id}/pppoe-observations', response_model=PppoeSnapshot)
+def pppoe_observations(id: str, user: dict = Depends(current_demo_user), binding=Depends(disabled_binding)):
+    # Reuse the center's source-specific authorization before any adapter dispatch.
+    data = detail(id, user)
+    return snapshot(id, is_demo=data.is_demo, binding=binding)

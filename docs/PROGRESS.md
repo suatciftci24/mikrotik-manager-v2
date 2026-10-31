@@ -1439,3 +1439,29 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Demo ADMIN ve mevcut Dashboard/Router/Abone detay sözleşmeleri korundu. V1/VDS, migration, restart, gerçek router/RADIUS/DB/abone işlemi yapılmadı. Gerçek PPPoE taşıyıcısı ve API'ye gerçek envanter yayını uygulanmış değildir; sonraki somut adım açık onaylı bağlantı fazında mevcut TLS/policy sınırlarına bağlı taşıyıcı ve hesap ID eşlemesini tamamlamaktır.
 - Commit/push sonucu görev tesliminde bildirilir.
 - BLOCKED: git add/commit `.git/index.lock: Read-only file system` ile engellendi; commit oluşmadı. İstenen normal push tek denemede `Could not resolve host: github.com` ile durdu; uzak dal değişmedi. Güvenlik sınırları aşılmadı veya tekrar denenmedi. Değişiklikler çalışma ağacında hazırdır; yazılabilir Git metadata ve GitHub DNS erişimi olan ortamda commit/push tamamlanmalıdır.
+
+## PPPoE salt okunur API entegrasyonu — 2026-10-31
+
+- Router Merkezi altında GET /api/v1/router-center/{id}/pppoe-observations eklendi.
+  Mevcut source-specific merkezi yetkilendirme adaptör dispatch'inden önce çalışır.
+  Mevcut ekran, abone listesi/detayı ve RouterCenterData sözleşmeleri değişmedi.
+- Varsayılan dependency hiçbir yapılandırma/sır okumadan DISABLED döndürür;
+  env bayrağı, startup transport, polling veya canlı bağlantı etkinleştirme yoktur.
+  Demo kaynakları enjekte edilmiş adaptör olsa bile DEMO_ISOLATED döndürür.
+- Yalnız açık sunucu dependency enjeksiyonuyla sağlanan router-scoped binding,
+  mevcut salt okunur adaptöre ulaşır. Hesap ID/LOCAL-RADIUS otoritesi envanterle
+  eşleşmezse tüm sonuç reddedilir; oturum yokluğu None kalır. Hata durumunda
+  kısmi veri, demo fallback, kaynak dönüştürme veya yazma yapılmaz.
+- PASS: 5 yeni API/service testi, mevcut 5 adaptör, 7 Router Merkezi ve 6
+  router-abone izolasyon testi; toplam 23 farklı hedefli kontrol. OpenAPI testinin
+  route lookup'u düzeltildi; integration test import yolu backend/tests eklenerek
+  düzeltildi ve yalnız başarısız kapsamlar tekrar çalıştırıldı. Diff kontrolü PASS.
+  Kontroller sentetiktir; gerçek HTTP/socket/DB/router/RADIUS kabulü yapılmadı.
+- V1, VDS servisleri, migration ve canlı sistemlere dokunulmadı. Canlı taşıyıcı
+  kayıtlı değildir. Sonraki somut adım: API'nin kapalı/izole durumunu kullanarak
+  ayrı onaylı bir fazda gerçek taşıyıcı ve yetkili hesap envanteri eşlemesini
+  değerlendirmek. Yerel commit sonucu teslimde bildirilir; push istenmedi.
+- BLOCKED (yerel commit): git add ve commit, .git/index.lock oluşturulurken
+  Read-only file system ile reddedildi. Commit oluşmadı; kaynak değişiklikleri
+  çalışma ağacında korunuyor. Gereken tek eylem Git metadata'sının yazılabilir
+  olduğu ortamda bu hazır değişiklikleri commit etmektir. Push denenmedi.
