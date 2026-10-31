@@ -1,8 +1,8 @@
 import type {PilotIdentity} from './pilotOperator';
 export type RegisteredRouter={
   pilot_kind?:'CEBECI_TOWERS'|null;id:string;name:string;management_address:string;port:number;identity:string;model:string;routeros_version:string;
-  revision:number;last_checked_at:string;last_success_at:string;last_error:string|null;
-  status:'VERIFIED'|'STALE'|'CHECK_FAILED';leaf_sha256:string;source_ip:string;
+  revision:number;last_checked_at:string|null;last_success_at:string|null;last_error:string|null;
+  status:'PENDING_VERIFICATION'|'VERIFIED'|'STALE'|'CHECK_FAILED';leaf_sha256:string;source_ip:string;
   expected_identity:string;expected_version:string;credentials_configured:boolean;is_demo:false;continuous_monitoring:false;
 };
 export type RegistryOptions={pilot_identity?:PilotIdentity|null;operator_candidate?:{id:string;revision:number;source:'V2_AUTHENTICATED_SESSION'}|null;connection_enabled:boolean;operator_authorized:boolean;source_ip:string|null;allowed_networks:string[];allowed_ports:number[];tls_required:true;pin_required:true;read_only:true;automatic_polling:false;is_demo:false};
@@ -30,6 +30,9 @@ export function candidatePayload(form:RouterForm,requestId:string,item?:Register
     username:form.username,password:form.password||null,ca_pem:form.ca_pem,leaf_sha256:form.leaf_sha256,router_id:item?.id??null,expected_revision:item?.revision??0,confirmed_read_only:true};
 }
 const errors:Record<string,string>={
+ ROUTER_PENDING_VERIFICATION:'Bu envanter kaydı doğrulanmadı. Canlı probe ve gerçek veri okuması kapalıdır.',
+ INVENTORY_REQUEST_CONFLICT:'İstek kimliği başka bir envanter işlemine ait.',
+ INVENTORY_CONFLICT:'Envanter eşzamanlı başka bir işlemle kaydedildi. Listeyi yenileyin.',
  DEDICATED_PILOT_FLOW_REQUIRED:'Bu VDS profili yalnız CEBECI_TOWERS için Gerçek Router / Salt Okunur Pilot akışını kabul eder. Genel router ekleme veya bağlantı kontrolü kullanılamaz.',
  PILOT_SCOPE_MISMATCH:'Pilot hedefi, kaynak IP veya kayıtlı kimlik CEBECI_TOWERS kapsamıyla eşleşmiyor.',
  PILOT_ACCOUNT_MISMATCH:'Güvenli pilot referansı v2-cebeci-ro hesabına ait değil.',
@@ -65,4 +68,4 @@ export function connectionError(code:string):string{
  if(code.startsWith('DEVICE_READ_REJECTED:'))return 'API girişi sonrasında salt-okunur metadata sorgusu reddedildi.';
  return errors[code]??'İşlem tamamlanamadı. Güvenlik veya bağlantı ön koşullarını kontrol edin.';
 }
-export const registryStatus=(status:string)=>({VERIFIED:'Son kontrol başarılı',STALE:'Kontrol eskimiş',CHECK_FAILED:'Son kontrol başarısız'}[status]??'Bilinmiyor');
+export const registryStatus=(status:string)=>({PENDING_VERIFICATION:'Doğrulama bekliyor',VERIFIED:'Son kontrol başarılı',STALE:'Kontrol eskimiş',CHECK_FAILED:'Son kontrol başarısız'}[status]??'Bilinmiyor');

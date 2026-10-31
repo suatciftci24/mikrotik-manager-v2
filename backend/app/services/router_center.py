@@ -16,8 +16,11 @@ def registered(row,events=()):
     if row['is_demo'] is not False:raise ValueError('Registered source mismatch')
     # Only saved, verified metadata. Last probe is historical, never current ONLINE.
     item={key:row.get(key) for key in ('id','name','identity','model','routeros_version','management_address','status','last_success_at')}
+    if row['status']=='PENDING_VERIFICATION':
+        information=row.get('inventory_information',{})
+        item.update(site=information.get('site'),inventory_description=information.get('description'))
     result=center('REGISTERED',item,[dict(action=e['action'],occurred_at=e['occurred_at'],actor_id=e['actor_id']) for e in events])
-    if row.get('read_snapshot'):
+    if row['status']!='PENDING_VERIFICATION' and row.get('read_snapshot'):
         from app.schemas.router_readonly import ReadOnlySnapshot
         snapshot=ReadOnlySnapshot.model_validate(row['read_snapshot'])
         result.read_snapshot=snapshot

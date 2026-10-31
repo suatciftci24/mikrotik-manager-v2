@@ -67,3 +67,34 @@ class CebeciPilotCandidate(BaseModel):
     credential_alias:Literal['CEBECI_TOWERS_RO']='CEBECI_TOWERS_RO'
     confirmed_read_only:Literal[True]
     _explicit=field_validator('confirmed_read_only',mode='before')(RouterCandidate.explicit.__func__)
+
+
+class InventoryRouter(BaseModel):
+    """Operator supplied inventory only; never connection material or proof."""
+    model_config=ConfigDict(extra='forbid')
+    request_id: UUID
+    name: str=Field(min_length=1,max_length=120)
+    management_address: IPv4Address
+    port: int=Field(default=8729,ge=1024,le=65535,strict=True)
+    credential_ref: UUID
+    description: str=Field(default='',max_length=1000)
+    site: str=Field(default='',max_length=120)
+    model: str=Field(default='',max_length=80)
+    routeros_version: str=Field(default='',max_length=40)
+    confirmed: Literal[True]
+    _text=field_validator('name','description','site','model','routeros_version')(RouterCandidate.text.__func__)
+    _nonempty=field_validator('name')(RouterCandidate.nonempty.__func__)
+    _explicit=field_validator('confirmed',mode='before')(RouterCandidate.explicit.__func__)
+
+    @field_validator('management_address')
+    @classmethod
+    def unicast(cls,value):
+        if value.is_unspecified or value.is_multicast or value.is_loopback or value.is_reserved or value.is_link_local:
+            raise ValueError('UNICAST_MANAGEMENT_IP_REQUIRED')
+        return value
+
+    @field_validator('port')
+    @classmethod
+    def ssl_port(cls,value):
+        if value==8728:raise ValueError('API_SSL_PORT_REQUIRED')
+        return value

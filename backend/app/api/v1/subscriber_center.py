@@ -57,4 +57,5 @@ def pppoe_observations(router_id: str, account_id: str, source: Literal['LOCAL',
     # Real IDs come only from the server-side binding, never the demo workspace.
     from app.api.v1.router_center import detail as router_detail
     data = router_detail(router_id, user)
+    if data.item.status=='PENDING_VERIFICATION':binding=None
     return snapshot(router_id, is_demo=data.is_demo, binding=binding, source=source, account_id=account_id)

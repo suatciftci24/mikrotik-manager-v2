@@ -3,7 +3,7 @@ from app.core.pilot_operator import pilot_identity
 import os
 from fastapi import APIRouter,Depends,Header,HTTPException,Query,Request
 from app.core.security import current_admin
-from app.schemas.router_registry import RouterCandidate,RegisterVerified,RecheckRouter,CebeciPilotCandidate
+from app.schemas.router_registry import RouterCandidate,RegisterVerified,RecheckRouter,CebeciPilotCandidate,InventoryRouter
 from app.services.router_registry import registry,RegistryError
 from app.adapters.router_api_ssl import ConnectionPolicy
 from app.adapters.cebeci_api_ssl import ApiSslStop
@@ -57,9 +57,14 @@ def options(user:dict=Depends(current_admin)):
 
 
 @router.get('')
-def list_routers(query:str=Query('',max_length=120),status:str=Query('ALL',pattern='^(ALL|VERIFIED|STALE|CHECK_FAILED)$'),
+def list_routers(query:str=Query('',max_length=120),status:str=Query('ALL',pattern='^(ALL|VERIFIED|STALE|CHECK_FAILED|PENDING_VERIFICATION)$'),
                  page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(reader)):
     return execute(registry.list,query,status,page,page_size)
+
+
+@router.post('/inventory')
+def inventory(payload:InventoryRouter,user:dict=Depends(mutator)):
+    return execute(registry.inventory,payload,user['id'])
 
 
 @router.post('/verify')

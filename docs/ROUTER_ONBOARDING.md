@@ -5,7 +5,7 @@ API-SSL** açıkça ayrılır. Demo router/abone/audit kayıtları değiştirilm
 bildirdiği CEBECI_TOWERS / 6.49.19 pilot PASS sonucu dış doğrulama bilgisidir;
 yeni kayıt deposuna otomatik canlı kanıt veya hazır credential olarak aktarılmaz.
 
-## Panel akışı
+## VERIFIED panel akışı
 
 1. Merkezi ADMIN, **Router ekle** ile ad, IPv4 yönetim adresi, API-SSL portu
    (8729), API hesabı/parolası, public CA ve güvenilir kanaldan edinilmiş leaf
@@ -32,6 +32,40 @@ yeni kayıt deposuna otomatik canlı kanıt veya hazır credential olarak aktar�
    dakikadan eski başarı STALE olur. Bunlar anlık ONLINE/OFFLINE veya sürekli
    izleme iddiası değildir. WAN/IPsec/trafik/abone ölçümleri okunmadığından
    **bilinmiyor** gösterilir.
+
+## Bağlantısız envanter kaydı
+
+Router Merkezi'ndeki **Bağlantısız envanter kaydı**, ayrı
+`POST /api/v1/router-registry/inventory` sözleşmesini kullanır. Aynı merkezi
+ADMIN, uygun LOCAL operatör/allowlist, güvenli panel ve
+`X-V2-Demo-Action: router-onboarding` kapıları geçerlidir. Canlı bağlantı
+policy'si çağrılmaz; kapalı bağlantı ayarı değişmeden kayıt yapılabilir.
+
+- Zorunlu alanlar: UUID `request_id`, ad, IPv4 yönetim adresi, mevcut V2 vault
+  UUID `credential_ref` ve gerçek boolean `confirmed: true`. Port varsayılan
+  8729; 1024–65535 arası integer, 8728 hariçtir. Unspecified, multicast,
+  reserved, loopback ve link-local IP reddedilir. Açıklama, konum, bildirilen
+  model ve bildirilen RouterOS sürümü isteğe bağlı, sınırlı metindir.
+- Secret dosyası mevcut güvenli vault okuyucusuyla doğrulanır; yeni credential
+  oluşturulmaz, sır DB/audit/API'ye kopyalanmaz. Başarısız transaction mevcut
+  referansı silmez. Envanterin paylaştığı referans VERIFIED kayıt yenilenince
+  korunur. Bu yol pilot alias'ı veya keyfi dosya yolu kabul etmez.
+- Kayıt ve `INVENTORY_REGISTERED` audit'i tek transaction'dadır. Aynı aktör,
+  request ID ve içerik tekrarında aynı kayıt döner; farklı içerik/aktör 409
+  alır. Canonical IPv4 + port mevcut DB UNIQUE kısıtıyla korunur; eşzamanlı
+  çakışmada transaction rollback ve sabit 409 hata vardır. Ad bir etiket olup
+  uç nokta kimliği yerine kullanılmaz.
+- Durum `configuration.onboarding_state=PENDING_VERIFICATION` olarak mevcut
+  JSON sütununda tutulur. Mevcut NOT NULL varchar zaman sütunlarında boş dize
+  **hiç ölçülmedi** anlamındadır; API bunları null yayınlar. Migration veya
+  uydurulmuş başarılı kontrol zamanı gerekmez. Bildirilen model/sürüm cihaz
+  gözlemi değildir; UI bunu açıkça etiketler ve açıklama/konumu gösterir.
+- Bekleyen kayıtlar normal VERIFIED/STALE/CHECK_FAILED filtrelerine girmez.
+  Genel verify, recheck, read-only, VERIFIED kayıt güncellemesi ve iki PPPoE
+  gözlem API'si cihaz erişiminden önce kapalıdır; enjekte edilmiş binding bile
+  okuma izni vermez. Otomatik aktivasyon/promotion veya arka plan probe yoktur.
+  Bekleyen kaydı aktive eden ayrı bir süreç bu pakette uygulanmamıştır.
+  Mevcut yeni cihaz VERIFIED onboarding akışı aynen korunur.
 
 ## Bir kez yapılan V2 sunucu hazırlığı
 

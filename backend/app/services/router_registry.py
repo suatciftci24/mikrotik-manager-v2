@@ -32,7 +32,21 @@ def storage_boundary(method):
     return call
 
 
+def pending(row):
+    return row.configuration.get('onboarding_state')=='PENDING_VERIFICATION'
+
+
+def require_verified_inventory(row):
+    if pending(row):raise RegistryError(409,'ROUTER_PENDING_VERIFICATION')
+
+
 def public_router(row):
+    if pending(row):
+        return dict(id=row.id,name=row.name,management_address=row.management_address,port=row.port,
+            identity=None,model=row.metadata_snapshot.get('model'),routeros_version=row.metadata_snapshot.get('routeros_version'),
+            inventory_information=row.metadata_snapshot,revision=row.revision,last_checked_at=None,last_success_at=None,
+            last_error=None,status='PENDING_VERIFICATION',leaf_sha256='',source_ip='',expected_identity='',expected_version='',
+            credentials_configured=True,pilot_kind=None,is_demo=False,continuous_monitoring=False)
     checked=datetime.fromisoformat(row.last_success_at)
     state='CHECK_FAILED' if row.last_error else 'STALE' if now()-checked>timedelta(minutes=5) else 'VERIFIED'
     return dict(id=row.id,name=row.name,management_address=row.management_address,port=row.port,
@@ -48,9 +62,39 @@ class RouterRegistry:
         self.sessions=sessions;self.vault=vault or RouterSecretVault();self.client=client or RouterApiSslClient()
         self.policy=policy or ConnectionPolicy.environment
 
+    @storage_boundary
+    def inventory(self,payload,actor):
+        command=payload.model_dump(mode='json',exclude={'request_id','confirmed'})
+        key=str(payload.request_id)
+        try:
+            with self.sessions.begin() as session:
+                prior=session.get(RouterRegistryAudit,key)
+                if prior:
+                    if prior.actor_id!=actor or prior.action!='INVENTORY_REGISTERED' or prior.details.get('command')!=command:
+                        raise RegistryError(409,'INVENTORY_REQUEST_CONFLICT')
+                    return dict(item=public_router(session.get(RegisteredRouter,prior.router_id)),replayed=True,is_demo=False)
+                duplicate=session.scalar(select(RegisteredRouter.id).where(RegisteredRouter.management_address==command['management_address'],RegisteredRouter.port==payload.port))
+                if duplicate:raise RegistryError(409,'ROUTER_ENDPOINT_EXISTS')
+                # Resolve only the existing V2 vault. Never create/copy credentials or consult connection policy.
+                self.vault.read(str(payload.credential_ref))
+                row=RegisteredRouter(id='registered-'+str(uuid4()),name=payload.name,
+                    management_address=command['management_address'],port=payload.port,
+                    configuration={'onboarding_state':'PENDING_VERIFICATION'},
+                    metadata_snapshot={field:command[field] for field in ('description','site','model','routeros_version')},
+                    credential_ref=str(payload.credential_ref),revision=1,
+                    # Existing schema is NOT NULL: empty means never observed; API publishes null.
+                    last_checked_at='',last_success_at='',last_error=None)
+                session.add(row)
+                self.audit(session,actor,key,'INVENTORY_REGISTERED',row.id,audit_id=key,command=command,state='PENDING_VERIFICATION')
+                session.flush()
+                result=dict(item=public_router(row),replayed=False,is_demo=False)
+            return result
+        except IntegrityError:
+            raise RegistryError(409,'INVENTORY_CONFLICT') from None
+
     @staticmethod
-    def audit(session,actor,verification,action,router_id=None,**details):
-        session.add(RouterRegistryAudit(id=str(uuid4()),actor_id=actor,verification_id=verification,
+    def audit(session,actor,verification,action,router_id=None,audit_id=None,**details):
+        session.add(RouterRegistryAudit(id=audit_id or str(uuid4()),actor_id=actor,verification_id=verification,
             action=action,router_id=router_id,occurred_at=stamp(),details=details))
 
     @staticmethod
@@ -87,6 +131,7 @@ class RouterRegistry:
                 return prior.snapshot.get('result',dict(state='RUNNING',error_code='VERIFICATION_IN_PROGRESS',is_demo=False))
             row=session.get(RegisteredRouter,id)
             if not row:raise RegistryError(404,'ROUTER_NOT_FOUND')
+            require_verified_inventory(row)
             if row.revision!=payload.expected_revision:raise RegistryError(409,'ROUTER_REVISION_CONFLICT')
             if row.configuration.get('pilot_kind')!='CEBECI_TOWERS':raise RegistryError(403,'PILOT_SCOPE_MISMATCH')
             policy=self.policy();policy.validate(row.management_address,row.port)
@@ -120,6 +165,9 @@ class RouterRegistry:
             if query:
                 term='%'+query.replace('\\','\\\\').replace('%','\\%').replace('_','\\_')+'%'
                 clause.append(or_(RegisteredRouter.name.ilike(term,escape='\\'),RegisteredRouter.management_address.ilike(term,escape='\\'),RegisteredRouter.metadata_snapshot['model'].as_string().ilike(term,escape='\\'),RegisteredRouter.metadata_snapshot['identity'].as_string().ilike(term,escape='\\'),RegisteredRouter.metadata_snapshot['routeros_version'].as_string().ilike(term,escape='\\')))
+            pending_clause=RegisteredRouter.configuration['onboarding_state'].as_string()=='PENDING_VERIFICATION'
+            if status=='PENDING_VERIFICATION':clause.append(pending_clause)
+            elif status!='ALL':clause.append(or_(RegisteredRouter.configuration['onboarding_state'].as_string().is_(None),RegisteredRouter.configuration['onboarding_state'].as_string()!='PENDING_VERIFICATION'))
             cutoff=(now()-timedelta(minutes=5)).isoformat()
             if status=='CHECK_FAILED':clause.append(RegisteredRouter.last_error.is_not(None))
             elif status=='STALE':clause.extend((RegisteredRouter.last_error.is_(None),RegisteredRouter.last_success_at<cutoff))
@@ -146,6 +194,7 @@ class RouterRegistry:
                 if prior.actor_id!=actor:raise RegistryError(409,'VERIFICATION_REQUEST_CONFLICT')
                 return self.proof(prior)
             old=session.get(RegisteredRouter,payload.router_id) if payload.router_id else None
+            if old:require_verified_inventory(old)
             if payload.router_id and old is None:raise RegistryError(404,'ROUTER_NOT_FOUND')
             if payload.expected_revision!=(old.revision if old else 0):raise RegistryError(409,'ROUTER_REVISION_CONFLICT')
             duplicate=session.scalar(select(RegisteredRouter.id).where(RegisteredRouter.management_address==str(payload.management_address),RegisteredRouter.port==payload.port))
@@ -219,6 +268,7 @@ class RouterRegistry:
             self.vault.read(proof.credential_ref)
             row=session.get(RegisteredRouter,proof.target_router_id,with_for_update=True) if proof.target_router_id else None
             if proof.target_router_id and row is None:raise RegistryError(404,'ROUTER_NOT_FOUND')
+            if row:require_verified_inventory(row)
             if row and row.revision!=proof.expected_revision:raise RegistryError(409,'ROUTER_REVISION_CONFLICT')
             duplicate=session.scalar(select(RegisteredRouter.id).where(RegisteredRouter.management_address==value['management_address'],RegisteredRouter.port==value['port']))
             if duplicate and (row is None or duplicate!=row.id):raise RegistryError(409,'ROUTER_ENDPOINT_EXISTS')
@@ -237,6 +287,10 @@ class RouterRegistry:
             self.audit(session,actor,proof.id,action,row.id,revision=row.revision)
             result=dict(item=public_router(row),replayed=False,is_demo=False)
             new_reference=proof.credential_ref
+            if old_reference and old_reference!=new_reference:
+                session.flush()
+                if session.scalar(select(RegisteredRouter.id).where(RegisteredRouter.credential_ref==old_reference)):
+                    old_reference=None
         if old_reference and old_reference!=new_reference:
             try:self.vault.discard(old_reference)
             except ApiSslStop:pass  # Committed registry/audit stays successful; no credential is exposed.
@@ -254,6 +308,7 @@ class RouterRegistry:
             else:result=None
         if result is None:
             item=self.detail(id)['item']
+            if item['status']=='PENDING_VERIFICATION':raise RegistryError(409,'ROUTER_PENDING_VERIFICATION')
             if item['revision']!=payload.expected_revision:raise RegistryError(409,'ROUTER_REVISION_CONFLICT')
             candidate=RouterCandidate(request_id=payload.request_id,name=item['name'],management_address=item['management_address'],
                 port=item['port'],expected_identity=item['identity'],expected_version=item['expected_version'],

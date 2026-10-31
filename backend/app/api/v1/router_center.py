@@ -50,4 +50,5 @@ def subscribers(id:str,access_type:str=Query(...,pattern='^(PPPOE|HOTSPOT)$'),qu
 def pppoe_observations(id: str, user: dict = Depends(current_demo_user), binding=Depends(disabled_binding), source: Literal['LOCAL', 'RADIUS'] | None = None):
     # Reuse the center's source-specific authorization before any adapter dispatch.
     data = detail(id, user)
+    if data.item.status=='PENDING_VERIFICATION':binding=None
     return snapshot(id, is_demo=data.is_demo, binding=binding, source=source)

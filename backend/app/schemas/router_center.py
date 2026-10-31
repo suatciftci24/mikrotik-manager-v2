@@ -12,6 +12,7 @@ class RouterCenterSummary(BaseModel):
     routeros_version:str|None=None
     management_address:str
     site:str|None=None
+    inventory_description:str|None=None
     status:str
     last_success_at:str|None=None
     last_seen_at:str|None=None

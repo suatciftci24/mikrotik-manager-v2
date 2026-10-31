@@ -153,6 +153,102 @@ class RegistryTests(TestCase):
         with self.assertRaises(service.RegistryError) as error:self.registry.recheck('registered-'+str(uuid4()),payload,'actor')
         self.assertEqual(error.exception.code,'VERIFICATION_REQUEST_CONFLICT');self.client.probe.assert_called_once()
 
+    def inventory_payload(self,**values):
+        from app.schemas.router_registry import InventoryRouter
+        reference=self.vault.put('fixture-ro','SYNTHETIC_INVENTORY_SECRET')
+        return InventoryRouter(**(dict(request_id=uuid4(),name='SYNTHETIC_TOWERS',management_address='10.77.0.3',
+            credential_ref=reference,description='Operator supplied inventory',model='Reported model',confirmed=True)|values))
+
+    def test_inventory_offline_atomic_replay_and_unobserved_projection(self):
+        payload=self.inventory_payload();self.registry.policy=Mock(side_effect=AssertionError('NO_POLICY_OR_IO'))
+        result=self.registry.inventory(payload,'actor');item=result['item']
+        self.assertEqual(item['status'],'PENDING_VERIFICATION')
+        self.assertIsNone(item['last_success_at']);self.assertIsNone(item['last_checked_at']);self.assertIsNone(item['identity'])
+        self.assertTrue(self.registry.inventory(payload,'actor')['replayed'])
+        self.assertEqual(self.count(RegisteredRouter),1);self.assertEqual(self.count(RouterRegistryAudit),1)
+        self.assertEqual(self.count(RouterVerification),0)
+        self.assertEqual(self.registry.list(status='PENDING_VERIFICATION')['total'],1)
+        for status in ('VERIFIED','STALE','CHECK_FAILED'):self.assertEqual(self.registry.list(status=status)['total'],0)
+        self.assertEqual(self.registry.detail(item['id'])['history'][0]['action'],'INVENTORY_REGISTERED')
+        with self.sessions() as session:
+            row=session.get(RegisteredRouter,item['id'])
+            self.assertEqual(row.credential_ref,str(payload.credential_ref))
+            output=json.dumps([row.configuration,row.metadata_snapshot,[e.details for e in session.scalars(select(RouterRegistryAudit))]])
+        self.assertNotIn('SYNTHETIC_INVENTORY_SECRET',output);self.assertNotIn('fixture-ro',output)
+        self.assertEqual(len(list(self.vault.root.iterdir())),1)
+        self.client.probe.assert_not_called();self.client.read_snapshot.assert_not_called()
+
+    def test_inventory_conflicts_missing_secret_and_audit_rollback(self):
+        payload=self.inventory_payload()
+        with patch.object(self.registry,'audit',side_effect=SQLAlchemyError('PRIVATE_CANARY')),self.assertRaises(service.RegistryError) as failure:
+            self.registry.inventory(payload,'actor')
+        self.assertEqual(failure.exception.code,'REGISTRY_STORAGE_UNAVAILABLE')
+        self.assertEqual(self.count(RegisteredRouter),0);self.assertEqual(self.count(RouterRegistryAudit),0)
+        self.assertEqual(len(list(self.vault.root.iterdir())),1)
+        self.registry.inventory(payload,'actor')
+        for change,actor,code in (({},'other','INVENTORY_REQUEST_CONFLICT'),({'name':'Changed'},'actor','INVENTORY_REQUEST_CONFLICT'),({'request_id':uuid4()},'actor','ROUTER_ENDPOINT_EXISTS')):
+            with self.assertRaises(service.RegistryError) as failure:self.registry.inventory(payload.model_copy(update=change),actor)
+            self.assertEqual(failure.exception.code,code)
+        with self.assertRaises(service.RegistryError) as failure:
+            self.registry.inventory(payload.model_copy(update={'request_id':uuid4(),'management_address':'10.77.0.4','credential_ref':uuid4()}),'actor')
+        self.assertEqual(failure.exception.code,'SECRET_STORAGE_REJECTED')
+        self.assertEqual(self.count(RegisteredRouter),1)
+
+    def test_verified_rotation_preserves_reference_used_by_inventory(self):
+        item=self.create()
+        with self.sessions() as session:reference=session.get(RegisteredRouter,item['id']).credential_ref
+        payload=self.inventory_payload(credential_ref=reference)
+        self.registry.inventory(payload,'actor')
+        command=RouterCandidate(request_id=uuid4(),name=item['name'],management_address=item['management_address'],
+            router_id=item['id'],expected_revision=1,leaf_sha256='a'*64,confirmed_read_only=True)
+        self.registry.register(self.command(self.registry.verify(command,'actor')),'actor')
+        self.assertEqual(self.vault.read(reference),('fixture-ro','SYNTHETIC_PASSWORD_CANARY'))
+
+    def test_inventory_unique_constraint_rolls_back_racing_insert_and_audit(self):
+        from sqlalchemy import event
+        payload=self.inventory_payload()
+        def race(session,context,instances):
+            row=next((r for r in session.new if isinstance(r,RegisteredRouter)),None)
+            if row:
+                session.add(RegisteredRouter(id='registered-'+str(uuid4()),name='Concurrent synthetic',
+                    management_address=row.management_address,port=row.port,configuration=row.configuration,
+                    metadata_snapshot={},credential_ref=row.credential_ref,revision=1,last_checked_at='',last_success_at=''))
+        event.listen(self.sessions,'before_flush',race)
+        try:
+            with self.assertRaises(service.RegistryError) as failure:self.registry.inventory(payload,'actor')
+            self.assertEqual(failure.exception.code,'INVENTORY_CONFLICT')
+        finally:event.remove(self.sessions,'before_flush',race)
+        self.assertEqual(self.count(RegisteredRouter),0);self.assertEqual(self.count(RouterRegistryAudit),0)
+        self.assertEqual(len(list(self.vault.root.iterdir())),1)
+
+    def test_inventory_cannot_probe_recheck_read_or_register_without_verified_proof(self):
+        from app.schemas.router_registry import RecheckRouter
+        payload=self.inventory_payload();item=self.registry.inventory(payload,'actor')['item']
+        self.registry.policy=Mock(side_effect=AssertionError('NO_POLICY_OR_IO'))
+        calls=[lambda:self.registry.verify(RouterCandidate(request_id=uuid4(),name=item['name'],management_address=item['management_address'],router_id=item['id'],expected_revision=1,leaf_sha256='a'*64,confirmed_read_only=True),'actor'),
+            lambda:self.registry.recheck(item['id'],RecheckRouter(request_id=uuid4(),expected_revision=1,confirmed_read_only=True),'actor'),
+            lambda:self.registry.read_details(item['id'],RecheckRouter(request_id=uuid4(),expected_revision=1,confirmed_read_only=True),'actor')]
+        for call in calls:
+            with self.assertRaises(service.RegistryError) as failure:call()
+            self.assertEqual(failure.exception.code,'ROUTER_PENDING_VERIFICATION')
+        with self.assertRaises(service.RegistryError):self.registry.register(RegisterVerified(verification_id=payload.request_id,confirmed=True),'actor')
+        self.client.probe.assert_not_called();self.client.read_snapshot.assert_not_called()
+        self.registry.policy.assert_not_called()
+        self.assertEqual(self.count(RouterVerification),0)
+
+    def test_inventory_center_and_pppoe_block_even_explicit_binding(self):
+        from app.api.v1 import router_center
+        item=self.registry.inventory(self.inventory_payload(),'actor')['item']
+        with patch.object(router_center,'registry',self.registry),patch.object(router_center,'registry_reader'):
+            data=router_center.detail(item['id'],{'id':'actor'})
+            self.assertEqual(data.item.status,'PENDING_VERIFICATION');self.assertIsNone(data.read_snapshot)
+            binding=Mock();binding.router_id=item['id']
+            result=router_center.pppoe_observations(item['id'],{'id':'actor'},binding)
+            self.assertEqual(result.error,'DISABLED');binding.adapter.read.assert_not_called()
+            from app.api.v1 import subscriber_center
+            result=subscriber_center.pppoe_observations(item['id'],'synthetic-account','LOCAL',{'id':'actor'},binding)
+            self.assertEqual(result.error,'DISABLED');binding.adapter.read.assert_not_called()
+
 class RegistryAuthorizationTests(TestCase):
     def test_admin_csrf_operator_scope_and_bootstrap_deny(self):
         user={'id':'operator','account_origin':'LOCAL','bootstrap_closed':True,'is_demo':True,'role_code':'ADMIN','can_manage_users':True,'active':True,'revision':0}
@@ -180,3 +276,18 @@ class RegistryAuthorizationTests(TestCase):
             self.assertEqual(routes.reader(admin),admin)
             for user in ({**admin,'id':'demo-user'},{**admin,'id':'other'},{**admin,'role_code':'VIEWER'}):
                 with self.assertRaises(HTTPException):routes.reader(user)
+
+
+class InventoryValidationTests(TestCase):
+    def test_strict_inventory_contract(self):
+        from app.schemas.router_registry import InventoryRouter
+        base=dict(request_id=uuid4(),name='SYNTHETIC',management_address='10.77.0.3',credential_ref=uuid4(),confirmed=True)
+        for change in ({'name':'  '},{'management_address':'not-ip'},{'management_address':'127.0.0.1'},
+                       {'management_address':'224.0.0.1'},{'port':8728},{'port':65536},{'port':True},{'credential_ref':'/secret/path'},
+                       {'password':'SECRET'},{'status':'VERIFIED'},{'confirmed':1},{'description':'bad\x00text'}):
+            with self.subTest(change=change),self.assertRaises(ValidationError):InventoryRouter(**(base|change))
+
+    def test_inventory_route_uses_existing_admin_operator_transport_gate(self):
+        from fastapi.routing import APIRoute
+        route=next(r for r in routes.router.routes if isinstance(r,APIRoute) and r.path=='/router-registry/inventory')
+        self.assertIn(routes.mutator,[d.call for d in route.dependant.dependencies])

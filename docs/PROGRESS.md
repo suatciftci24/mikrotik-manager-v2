@@ -1,5 +1,110 @@
 # MikroTik Manager V2 — İlerleme
 
+
+## Bağlantısız router envanter onboarding — 2026-10-31
+
+- PASS: Ayrı ADMIN/uygun LOCAL operatör/güvenli panel/onay header kapılı
+  POST /api/v1/router-registry/inventory ve Router Merkezi formu eklendi.
+  Ad, canonical IPv4, API-SSL port, mevcut vault credential_ref, açıklama,
+  konum ve bildirilen model/sürüm kaydedilir. Gerçek CEBECI kaydı oluşturulmadı.
+- PENDING_VERIFICATION mevcut configuration JSON'unda tutulur; şema/migration
+  değişmedi. Hiç gözlenmemiş varchar zamanları boş saklanır, API null döner.
+  Veri kaynağı operatör beyanıdır; başarılı kontrol/kimlik kanıtı üretilmez.
+  Liste filtresi, durum etiketi, açıklama/konum ve audit geçmişi gösterilir.
+- Kayıt/audit aynı transaction; endpoint UNIQUE, actor+request+content replay,
+  çakışma, geçersiz IP/port/reference ve audit/constraint hata rollback'i var.
+  Sır DB/audit/API'ye kopyalanmaz; mevcut vault dosyası yalnız güvenli okuyucuyla
+  doğrulanır. Paylaşılan credential referansı VERIFIED rotasyonunda korunur.
+- Bekleyen kayıt verify/recheck/read-only/VERIFIED güncellemesine ulaşamaz;
+  router ve abone PPPoE API'leri açık binding olsa da IO yapmaz. Bağlantı
+  policy'si, VERIFIED proof zorunluluğu ve mevcut pilot kapıları korunur.
+  Bekleyen kaydı aktif hale getiren ayrı promotion yolu eklenmedi.
+- PASS: Router registry dosyasındaki 24 test ilk koşuda 23 PASS; yalnız route
+  lookup testi düzeltilip geçti. Yeni yarış/UNIQUE rollback, iki PPPoE endpoint
+  engeli ve doğrudan etkilenen Router Merkezi/PPPoE/router-abone testleriyle
+  hedefli 28 kontrol geçti. Shared-reference rotasyonu ve etkilenen VERIFIED
+  düzenleme kontrolü de geçti. Üç frontend test dosyası (yeni formun mock API
+  submit/retry akışı, registry ve center) ve TypeScript/Vite build PASS.
+  Son UI değişikliği sonrası build tekrar geçti; mevcut chunk uyarısı sürer.
+  Kontroller sentetik SQLite/mock/render kapsamındadır; gerçek PostgreSQL,
+  tarayıcı veya canlı cihaz kabulü yapılmış sayılmaz.
+- Önceden değişmiş bu ilerleme belgesi korundu. VDS, V1, canlı router/RADIUS,
+  gerçek DB, migration, deployment ve servis restartı yok. Kullanıcının açık
+  talimatıyla Git commit/push yapılmadı.
+- Sonraki somut adım: yerel UI'da sentetik envanter formunun görsel kabulü;
+  gerçek envanter kaydı yalnız ayrı yetkili ortam ve kapsamda oluşturulabilir.
+
+
+## CEBECI_TOWERS — yalnız envanter kaydı hazırlığı — 2026-10-31
+
+- BLOCKED: Kullanıcı yalnız izole V2 DB'ye CEBECI_TOWERS / 10.250.0.19:8729
+  eklenmesini onayladı; RB3011UiAS / RouterOS 6.49.19 doğrulanmış envanter
+  girdisi kabul edildi. Mevcut RegisteredRouter modeli, RouterCandidate,
+  CebeciPilotCandidate, RouterRegistry.verify/register ve credential vault
+  sözleşmeleri incelendi. Kayıt varlığı bu oturumda doğrulanamadı.
+- Resmi register, aynı aktöre ait VERIFIED ve süresi dolmamış (5 dakika)
+  RouterVerification, mevcut vault credential_ref ve etkin ConnectionPolicy
+  gerektirir. verify_pilot/verify canlı probe yapar ve yeni vault referansı
+  üretir. Kapalı kapılar korunarak operatörce doğrulanmış envanteri doğrudan
+  kaydeden resmi bir akış mevcut değildir. last_success_at zorunludur ve
+  register bunu probe checked_at değerinden alır; güncel cihaz bağlantısı
+  yapılmış gibi tarih/kanıt üretilmedi.
+- Önceki aynı ortam SSH socket izin engeli nedeniyle VDS erişimi tekrar
+  denenmedi. DB/credential kaynağı okunmadı veya değiştirilmedi; mükerrer
+  kayıt oluşturulmadı. Router bağlantısı, gerçek veri modu, V1, migration,
+  deployment, restart, test ve Git commit/push yok. Önceden değişmiş ilerleme
+  belgesi korundu.
+- Tek sonraki somut adım: kapıları açmadan, cihaz gözlemi zamanı uydurmadan ve
+  mevcut credential_ref'i yeniden kullanarak atomik kayıt/audit yapabilen
+  resmi offline envanter onboarding yolunu tanımlamak. Mevcut akışı atlayan
+  SQL INSERT veya sahte VERIFIED proof içeren WSL komutu hazırlanmadı;
+  yalnız SSH engelini aşmak bu uygulama sözleşmesi engelini çözmez.
+
+
+## CEBECI_TOWERS — VDS envanteri SELECT doğrulaması — 2026-10-31
+
+- BLOCKED: Gerçek envanter modeli RegisteredRouter, tablo v2_registered_routers;
+  Router Merkezi kaynak türü REGISTERED / is_demo=false. Demo envanteri gerçek
+  kayıt olarak kabul edilmedi. Modelde active/enabled alanı yok; status son
+  başarı zamanı/last_error üzerinden VERIFIED, STALE veya CHECK_FAILED üretilir.
+- Mevcut SSH ile mikadmin@185.139.5.51 erişimi BatchMode/StrictHostKeyChecking
+  ve 10 saniye timeout ile bir kez denendi. Yerel sandbox socket açmayı
+  Operation not permitted ile reddetti; VDS komutu ve SELECT çalışmadı.
+- CEBECI_TOWERS kaydının varlığı, yönetim IP'si ve güncel durumu VDS DB'den
+  doğrulanamadı; kaydın eksik olduğu sonucuna varılmadı. Sır çıktısı, router/PPP,
+  DB yazma, migration, deployment, restart, V1 işlemi, test ve commit/push yok.
+- Tek sonraki adım: SSH socket erişimi olan yetkili ortamdan mevcut izole V2
+  PostgreSQL üzerinde aynı salt okunur envanter doğrulamasını tamamlamak.
+
+
+## CEBECI_TOWERS salt okunur bağlantı hazırlık incelemesi — 2026-10-31
+
+- BLOCKED: Proje envanteri/pilot belgeleri ve mevcut adaptör kapsamı incelendi.
+  Cihaz CEBECI_TOWERS / RB3011UiAS / bildirilen RouterOS 6.49.19;
+  kayıtlı yönetim hedefi 10.250.0.19. Mevcut yönetim yöntemi operatörün
+  kimliği doğrulanmış WinBox oturumu; geçmiş V1 yolu IPsec/API 8728 olarak
+  kayıtlıdır ve bu görevde kullanılmadı. V2 tasarım hedefi API-SSL 8729,
+  kaynak 10.250.0.1/32; bunlar güncel cihaz gözlemi değildir.
+- İlk API-SSL kapalı/sertifikasız bildirimi tarihsel kaldı: sonraki Aşama 31
+  bildirimi sertifika/8729/source hazırlığının tamamlandığını, Aşama 32 ise
+  public CA/leaf kopyalarının offline chain/server-auth/IP SAN/pin kontrolünü
+  kaydediyor. Bunlar güncel servis/port/sertifika geçerliliği kanıtı değildir.
+  V2 sözleşmesi explicit CA zinciri, TLS 1.2+, 10.250.0.19 IP SAN ve incelenmiş
+  leaf pini ister; bu görevde handshake veya sertifika testi yapılmadı.
+- Son hesap bildirimi v2-cebeci-ro hesabının yeniden Disabled oluşturulduğu;
+  beklenen grup v2-cebeci-pilot-ro, exact read,api ve kaynak 10.250.0.1/32.
+  Güncel enabled/policy/source durumu doğrulanmadı. Hesap/servis kaynak sınırları,
+  cihazın gördüğü kaynak IP ve sıralı input firewall erişimi doğrulanmış değil.
+- Bu oturumda kullanılabilir doğrulanmış router yönetim erişimi yok. Sırlar,
+  özel anahtarlar veya V1 erişim bilgileri aranmadı/okunmadı. Router komutu,
+  alternatif bağlantı/port denemesi, V2 gerçek bağlantısı veya etkinleştirme yok.
+  V1/VDS/servis/migration/üretim ayarlarına dokunulmadı; test, commit/push yok.
+- Tek sonraki adım: yetkili operatörün mevcut doğrulanmış WinBox oturumundan,
+  hiçbir ayarı değiştirmeden sürüm, API-SSL durum/port/public sertifika metadata,
+  V2 hesap policy/disabled/source ve ilgili sıralı firewall koşullarını okuyup
+  sır içermeyen, gözlem zamanı belirtilmiş özeti sağlaması. Eski belgelerdeki
+  Enable/kurulum adımları bu salt okunur görev kapsamında uygulanmaz.
+
 ## API-SSL RouterOS 6.43+ / 7 kabul hazırlığı — 2026-10-31
 
 - PASS: Mevcut 25 PPPoE sentetik test ve 8 yeni hedefli test geçti. TLS policy,
@@ -1716,3 +1821,12 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   gerçek DB/router/RADIUS bağlantısı ve commit/push işlemi yapılmadı.
 - Sonraki somut adım: yerel demo UI'da üç ekranın görsel kabulü; canlı
   taşıyıcı ve gerçek Dashboard ölçüm entegrasyonu bu kapsamda açılmaz.
+
+## CEBECI_TOWERS — tek PPP active okuma kabulü ön kontrolü — 2026-10-31
+
+- Kullanıcı yalnız 10.250.0.19:8729, kaynak 10.250.0.1 ve tek /ppp/active/print okumasını onayladı. Mevcut AGENTS/ilerleme, gerçek router registry sınırı ve pilot taşıyıcısı incelendi. Önceden değiştirilmiş ilerleme belgesi korundu; commit/push yapılmadı.
+- Mevcut özel V2 CA/leaf/username/password kaynakları owner, izin, normal dosya, symlink/hardlink ve boyut kontrollerinden geçti. Hesap v2-cebeci-ro ile eşleşti; parola yalnız bellekte biçim kontrolü gördü, değeri/uzunluğu raporlanmadı. CA veya kimlik bilgileri üretilmedi/değiştirilmedi.
+- Çevrimdışı OpenSSL doğrulaması: mevcut CA ile leaf zinciri, geçerlilik, sslserver amacı ve 10.250.0.19 IP SAN PASS. Mevcut leaf DER SHA-256, kodda operatör incelemesine dayalı kayıtlı pin ile eşleşti; pin tahmin edilmedi. Bu sonuç sunulan canlı sertifikanın veya güncel iptal durumunun doğrulandığı anlamına gelmez.
+- BLOCKED: bu çalışma ortamında açık V2_DATABASE_URL veya repo .env bulunmadı; mevcut gerçek V2 envanter kaydı güvenilir çalışma deposundan doğrulanamadı. Kodun varsayılan demo DB bilgileri canlı envanter kanıtı sayılmadı; VDS'deki özel pilot kökü de burada mevcut değil. Envanterin olmadığı iddia edilmez. Ön koşullar eksik olduğundan router/TLS/login/PPP bağlantısı denenmedi; anonim oturum sayısı ÖLÇÜLMEDİ (sıfır varsayılmadı).
+- Mevcut run_once/_read_session ayrıca /system/identity ve /system/resource sorguladığından bu dar onaya uygun değildir ve çalıştırılmadı. Gerçek veri modu, router ayarları, servis, migration, deployment, V1 ve diğer routerlar değişmedi. Ürün kodu değişmediğinden test suite tekrarlanmadı.
+- Sonraki somut adım: mevcut V2 envanterinin güvenli yapılandırmasına erişilebilen yetkili ortamda envanter/source ön kontrolünü tamamlayıp yalnız onaylı tek PPP okumasını uygulamak; mevcut geniş pilot CLI kullanılmamalı. Sırlar rapora veya Git'e taşınmamalı.
