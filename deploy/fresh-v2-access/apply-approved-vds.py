@@ -9,6 +9,7 @@ import pwd
 import stat
 import subprocess
 import sys
+import tempfile
 
 USER = 'v2-fresh-ops'
 WRAPPER = Path('/usr/local/sbin/mikrotik-v2-fresh-ssh')
@@ -20,6 +21,9 @@ CONFIG = Path('/etc/ssh/sshd_config')
 BEFORE = Path('/etc/ssh/sshd_config.v2-fresh-access-before')
 CANDIDATE = Path('/etc/ssh/sshd_config.v2-fresh-access-candidate')
 CREATED_KEY = False
+ORIGINAL_CONFIG = None
+INSTALLED_CONFIG = None
+RELOAD_ATTEMPTED = False
 
 
 def need(ok, code):
@@ -94,7 +98,7 @@ def check_ssh_only(match, connection):
 
 
 def apply(payload, connection):
-    global CREATED_KEY
+    global CREATED_KEY, ORIGINAL_CONFIG, INSTALLED_CONFIG, RELOAD_ATTEMPTED
     need(os.geteuid() == 0, 'ROOT_REQUIRED')
     need(set(payload) == {'wrapper','policy','match','public_key'}, 'PAYLOAD_INVALID')
     key = payload['public_key'].strip().split()
@@ -113,7 +117,7 @@ def apply(payload, connection):
             pass
         else:
             raise RuntimeError('GROUP_EXISTS')
-    for path in (WRAPPER, POLICY, HOME, KEY, BEFORE, CANDIDATE):
+    for path in (WRAPPER, POLICY, HOME, KEY):
         need(not os.path.lexists(path), 'TARGET_EXISTS:' + str(path))
     need(not os.path.lexists('/srv/mikrotik-manager-v2-fresh-pilot'), 'PILOT_ROOT_EXISTS_REVIEW_REQUIRED')
     for unit in ('mikrotik-v2-fresh-pilot.service','mikrotik-v2-fresh-pilot-db.service'):
@@ -136,13 +140,19 @@ def apply(payload, connection):
         require_environment_disabled(effective(CONFIG, USER, address))
     original = CONFIG.read_text()
     candidate = original.rstrip('\n') + '\n\n' + payload['match']
-    exclusive(BEFORE, original, 0o600)
-    exclusive(CANDIDATE, candidate, 0o600)
-    run(['/usr/sbin/sshd','-t','-f',str(CANDIDATE)])
+    legacy = {path: (path.read_bytes(), path.stat()) for path in (BEFORE, CANDIDATE)}
+    evidence = Path(tempfile.mkdtemp(prefix='v2-fresh-access-', dir=str(CONFIG.parent)))
+    before_path = evidence/'sshd_config.before'
+    candidate_path = evidence/'sshd_config.candidate'
+    exclusive(before_path, original, 0o600)
+    exclusive(candidate_path, candidate, 0o600)
+    exclusive(evidence/'sudoers.candidate', payload['policy'], 0o600)
+    run(['/usr/sbin/visudo','-cf',str(evidence/'sudoers.candidate')])
+    run(['/usr/sbin/sshd','-t','-f',str(candidate_path)])
     for (user,address), settings in before.items():
-        need(effective(CANDIDATE,user,address) == settings, 'EXISTING_USER_POLICY_CHANGED')
+        need(effective(candidate_path,user,address) == settings, 'EXISTING_USER_POLICY_CHANGED')
     for address in addresses:
-        values = dict(line.split(' ',1) for line in effective(CANDIDATE,USER,address).splitlines())
+        values = dict(line.split(' ',1) for line in effective(candidate_path,USER,address).splitlines())
         for key_name, expected in {
             'forcecommand':str(WRAPPER), 'disableforwarding':'yes', 'permittty':'no',
             'permituserrc':'no','permituserenvironment':'no','passwordauthentication':'no',
@@ -166,6 +176,8 @@ def apply(payload, connection):
     listing = run(['/usr/bin/sudo','-n','-l','-U',USER])
     need('(ALL)' not in listing and 'NOPASSWD: ALL' not in listing, 'BROAD_SUDO_GRANT')
     need(CONFIG.read_text() == original, 'SSH_CONFIG_CHANGED_CONCURRENTLY')
+    ORIGINAL_CONFIG = original
+    INSTALLED_CONFIG = original + '\n\n' + payload['match']
     with CONFIG.open('a') as output:
         output.write('\n\n' + payload['match'])
     run(['/usr/sbin/sshd','-t'])
@@ -176,20 +188,47 @@ def apply(payload, connection):
     exclusive(KEY,'restrict ' + ' '.join(key[:2]) + '\n',0o600)
     CREATED_KEY = True
     safe(KEY)
+    for path, (content, metadata) in legacy.items():
+        need(path.read_bytes() == content and path.stat().st_mtime_ns == metadata.st_mtime_ns
+             and path.stat().st_mode == metadata.st_mode and path.stat().st_uid == metadata.st_uid
+             and path.stat().st_gid == metadata.st_gid, 'LEGACY_EVIDENCE_CHANGED')
+    RELOAD_ATTEMPTED = True
     run(['/usr/bin/systemctl','reload','ssh.service'])
     print('PASS: ACCESS_INSTALLED; SSH_RELOADED; PILOT_SERVICES_NOT_TOUCHED',flush=True)
     print('PUBLIC_KEY_FINGERPRINT ' + run(['/usr/bin/ssh-keygen','-lf',str(KEY)]).split()[1],flush=True)
     print('EXISTING_SSH_ACCOUNTS_VERIFIED',len(users),'CONTEXTS',len(addresses),flush=True)
+    receipt = {'status':'INSTALLED_PENDING_SSH_ACCEPTANCE',
+               'existing_users':len(users), 'contexts':len(addresses),
+               'config_sha256':hashlib.sha256(CONFIG.read_bytes()).hexdigest(),
+               'package_sha256':{name:hashlib.sha256(payload[name].encode()).hexdigest()
+                                 for name in ('wrapper','policy','match')}}
+    exclusive(evidence/'receipt.json',json.dumps(receipt,sort_keys=True)+'\n',0o600)
+    print('EVIDENCE',str(evidence),flush=True)
+
+
+def fail_closed():
+    """Disable only this attempt's key and restore only our exact config edit."""
+    if CREATED_KEY and KEY.exists() and KEY.is_file() and not KEY.is_symlink():
+        disabled = KEY.with_name(USER + '.disabled')
+        need(not os.path.lexists(disabled), 'DISABLED_KEY_TARGET_EXISTS')
+        KEY.rename(disabled)
+    if ORIGINAL_CONFIG is not None:
+        need(CONFIG.read_text() == INSTALLED_CONFIG, 'CONFIG_CHANGED_CONCURRENTLY_NO_OVERWRITE')
+        CONFIG.write_text(ORIGINAL_CONFIG)
+        run(['/usr/sbin/sshd', '-t'])
+        if RELOAD_ATTEMPTED:
+            run(['/usr/bin/systemctl', 'reload', 'ssh.service'])
 
 
 if __name__ == '__main__':
     try:
         apply(PAYLOAD, sys.argv[1])
     except Exception as exc:
-        # Do not print raw subprocess output or sensitive input. Preserve evidence.
-        # If account creation happened, lock access by removing only this new key.
-        if CREATED_KEY and KEY.exists() and KEY.is_file() and not KEY.is_symlink():
-            KEY.rename(KEY.with_name(USER + '.disabled'))
+        try:
+            fail_closed()
+            print('ROLLBACK: NEW_KEY_DISABLED_IF_CREATED; ORIGINAL_SSH_CONFIG_PRESERVED',file=sys.stderr)
+        except Exception:
+            print('BLOCKED: ROLLBACK_REQUIRES_ADMIN_REVIEW',file=sys.stderr)
         reason = str(exc) if isinstance(exc, RuntimeError) else type(exc).__name__
-        print('BLOCKED: ACCESS_APPLY_FAILED; NEW_KEY_DISABLED_IF_CREATED; KEEP_ARTIFACTS; ' + reason,file=sys.stderr)
+        print('BLOCKED: ACCESS_APPLY_FAILED; KEEP_ARTIFACTS; ' + reason,file=sys.stderr)
         sys.exit(2)

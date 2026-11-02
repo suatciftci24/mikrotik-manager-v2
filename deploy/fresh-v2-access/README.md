@@ -103,3 +103,39 @@ kurmak. Önceki aday/yedekler yerinde korunur; mevcut uygulayıcının bu yollar
 çakışma sayan kapısı atlanmaz. Canlı uygulama öncesinde bu kayıtları koruyan
 ayrı yeni kanıt yolları seçilmelidir. Bu görevde hesap/anahtar/sudo kurulumu,
 SSH config yazması veya reload yapılmadı.
+
+## Düzeltilmiş paketin canlı denemesi — 2026-11-02
+
+**BLOCKED (SSH hesap kabulü)**. 7c90491 şablonu ve sudo politikası kullanıldı.
+Uygulayıcı bu deneme için atomik, root:root 0700 yeni kanıt dizini oluşturdu:
+`/etc/ssh/v2-fresh-access-a9s28fvf`. Önceki iki 0600 kanıt dosyası korunur.
+Aday SSH/sudoers sözdizimi ve 40 mevcut hesabın 3 bağlamda etkin SSH politika
+eşitliği geçti. Yeni hesabın sudo shell/id/başka servis/daemon-reload yetkileri
+reddedildi. SSH reload sonrası mevcut yönetici erişimi korundu.
+
+Yeni hesabın gerçek SSH girişi publickey reddiyle durdu. Neden: root:root 0600
+public-key dosyası, sshd'nin kimlik doğrulama sırasında geçici olarak geçtiği
+hedef kullanıcı tarafından okunamıyor. Hedef journal kaydı ve yeni hesapla
+salt okunur erişim kontrolü bunu doğruladı. Komut kısıtları/forwarding/PTY/SFTP
+canlı kabulüne geçilmedi; bunlar PASS bildirilmez.
+
+Güvenli geri dönüş tamamlandı:
+
+- Etkin sshd_config yeni denemenin `sshd_config.before` dosyasına bayt düzeyinde
+  geri alındı; sshd -t geçti ve SSH yeniden yüklendi. Reload sonrası geçici
+  active-state kontrolü başarısız oldu; yalnız bu kontrol yeni yönetici SSH
+  bağlantısıyla tekrarlandı: SSH active ve erişim PASS. Restart yapılmadı.
+- Yeni key `/etc/ssh/authorized_keys/v2-fresh-ops.disabled` olarak kapalıdır.
+  Yeni sudoers dosyası kanıt dizinindeki `sudoers.disabled` konumuna taşındı;
+  etkin sudoers dizininde yoktur. Birleşik sudoers kontrolü geçti.
+- Parolası kilitli `v2-fresh-ops` hesabı ve özel grubu, root-owned home,
+  forced-command dosyası ve root-owned authorized_keys üst dizini korunur.
+  Yeni anahtar/sudo yetkisi etkin değildir. Bu kalıntılar otomatik devralınmaz.
+- Yeni kanıt dizininde before/candidate/sudoers.candidate/receipt.json ve
+  acceptance-blocked.json vardır; sır içerikleri raporlanmadı.
+- V1/eski pilot/mevcut kullanıcı politikaları, diğer servisler ve uygulama/DB
+  kurulumu değişmedi. Yeni pilot servisi kurulmadı/başlatılmadı.
+
+Sonraki tek adım: public-key okuma modelini yerelde root sahipliği + yalnız yeni
+hesabın grubuna okuma (0640) ile düzeltmek; yazma yetkisi vermemek. Canlı tekrar
+bu görevde yapılmadı. Uygulayıcının ACCOUNT_EXISTS kapısı korunur.

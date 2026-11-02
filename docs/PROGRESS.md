@@ -1,5 +1,25 @@
 # MikroTik Manager V2 — İlerleme
 
+## Yeni V2 erişim uygulaması ve güvenli geri dönüş — 2026-11-02
+
+- BLOCKED: 7c90491 SSH adayı ve sudoers doğrulandı; 40 mevcut hesabın 3 bağlamda
+  etkin SSH ayarları aynı. Ayrı atomik kanıt dizini /etc/ssh/v2-fresh-access-a9s28fvf;
+  eski kanıtlar korunur. Yeni hesap/grup/home/forced-command/anahtar/sudo oluşturuldu.
+- SSH reload sonrası yeni hesap publickey kabulü başarısız: root:root 0600 public
+  anahtar dosyasını sshd'nin auth kullanıcısı okuyamıyor. Log ve salt okunur
+  dosya erişim kontrolü doğruladı. Sınırlar gevşetilmeden canlı işlem durduruldu.
+- Güvenli rollback PASS: etkin SSH config işlem öncesi içeriğine döndü; yeni key
+  .disabled, yeni sudoers kanıt dizininde sudoers.disabled. SSH reload yapıldı;
+  geçici state kontrolü sonrası yalnız başarısız kapsam yeni bağlantıda tekrarlandı:
+  SSH active, syntax PASS, yeni yönetici SSH/sudo erişimi PASS. Restart yapılmadı.
+- Kilitli yeni hesap/grup, root-owned home/forced-command/key üst dizini ve yeni
+  kanıtlar korunur; etkin yeni key/sudo grant yok. V1/eski pilot/diğer servisler,
+  uygulama/DB dağıtımı ve migration değişmedi. Pilot servis kurulmadı/başlatılmadı.
+- PASS: 2 yeni rollback testi, aday/live sshd/sudoers ve root tarafı yasaklı sudo
+  kontrolleri. Yeni hesap SSH komut/PTY/tünel/SFTP kabulü çalıştırılamadı; PASS değil.
+- Sonraki tek adım: public-key okuma modelini yerelde root sahipliği + yalnız yeni
+  hesap grubu okuma (0640) ile düzeltmek. Canlı tekrar veya kalıntı devralma yok.
+
 ## SSH Match uyumluluk düzeltmesi — 2026-11-02
 
 - PASS: PermitUserEnvironment geçersiz Match bağlamından çıkarıldı. Mevcut
