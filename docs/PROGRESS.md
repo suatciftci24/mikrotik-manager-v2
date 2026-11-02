@@ -3084,3 +3084,19 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   satır verileri Git'e eklenmez. Yalnız bu dokümantasyon normal commit/push.
 - Tek sonraki adım: Fresh Pilot Merkezi Dashboard > Gerçek V1 · Salt Okunur
   ekranını mevcut yetkili erişimle günlük kullanımda görsel olarak onaylamak.
+
+## V2.5 — Kullanıcı görsel kabulü — 2026-11-02
+
+- PASS: kullanıcının bildirdiği gerçek Fresh Pilot ADMIN oturumu görsel
+  kabulünde 9/9 router, 9 güncel ölçüm, CPU/RAM, RouterOS ve ölçüm zamanları
+  doğrulandı. Bu kayıt kullanıcının görsel teyididir; yeni otomatik test
+  veya yeniden dağıtım yapıldığı anlamına gelmez.
+- Önceki 0 router görüntüsü sonraki ADMIN oturumunda giderilmiş görünüyor.
+  Nedeni doğrulanmadı; oturum, önbellek, kaynak veya servis hakkında kök neden
+  çıkarımı yapılmadı. Önceki kontrollü 9/9 kabulü, sorun yaşanan kullanıcı
+  oturumunun o andaki görünümünü tek başına doğrulamaz.
+- Yalnız bu ilerleme kaydı güncellendi. Kod, VDS, V1, eski V2, Fresh Pilot,
+  servis/timer, PostgreSQL ve routerlarda değişiklik yapılmadı. Yeni test,
+  teşhis veya canlı bağlantı çalıştırılmadı; mevcut değişiklikler korundu.
+- Tek sonraki adım: kabul edilen V2.5 Dashboard'u mevcut Fresh Pilot
+  ortamında kullanmak; bu kayıt için yeni dağıtım gerekmez.
