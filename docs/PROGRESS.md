@@ -2035,3 +2035,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   korunur. Canlı sağlık kabulü/dağıtım, DB yetkisi, V1/servis/router/abone,
   PPPoE/Hotspot/RADIUS değişikliği yok. Önceden yerel değişiklikler korundu.
 - Sonraki tek adım: ayrı onaylı kapsamda sağlık aktarımını yeni pilota bağlamak.
+
+
+## Onaylı caf2b4c sağlık dağıtımı — geri dönüş — 2026-11-02
+
+- BLOCKED: yetkili yönetici SSH ön kontrolü PASS. V1 sağlık tablosundaki
+  id/router_id/sampled_at/cpu_load_percent/memory_used_percent/internet_success
+  kolonları ve mevcut NOLOGIN/superuser olmayan okuma rolü doğrulandı.
+- Dar kolon SELECT grant + efektif public tablo/kolon yazma/fazla SELECT/DDL
+  kontrolü transaction içinde geçti. Snapshot SET LOCAL ROLE + READ ONLY ile
+  alındı; 9 router metadata/kalıcı ID eşleşmesi ve yeni model doğrulaması geçti.
+- caf2b4c adaptörü ve mevcut frontend/dist yalnız fresh pilot'a uygulandı.
+  Canlı ADMIN/HTTP kabulünde AssertionError oluştu; araç hata adımını ayrıntılı
+  kaydetmedi. Sağlık verisi görünen router sayısı ve eksik alanlar doğrulanamadı;
+  sıfır veya PASS varsayılmadı. Başarılı genel test/build tekrarı yapılmadı.
+- V2 rollback tamamlandı: tüm hedef dosyalar ve eski metadata handoff geri
+  yüklendi; yalnız mikrotik-v2-fresh-pilot.service restart edildi ve active
+  doğrulandı. Bu işlemde eklenen sağlık SELECT kolon yetkileri geri alındı.
+  Yedek: /srv/mikrotik-manager-v2-fresh-pilot/backups/health-caf2b4c-before-99oaky2l.
+- V1 uygulama/servis/kayıtları, eski V2, router/PPPoE/Hotspot/RADIUS değişmedi.
+  Yeni migration/şema/genel yetki genişlemesi yok. Router API/yazma açılmadı.
+  Dağıtım tekrarlanmadı; geçmiş ölçüm canlı çevrimiçi kanıtı olarak sunulmadı.
+- Tek sonraki adım: başarısız canlı kabul assertion adımını salt okunur teşhisle
+  belirlemek; yeni dağıtım bu görevde tekrar denenmedi.
