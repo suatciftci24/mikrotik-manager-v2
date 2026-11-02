@@ -232,3 +232,29 @@ input::placeholder{color:var(--muted);opacity:1}
   .subscriber-toolbar .table-search{width:100%;min-width:0}
   .subscriber-toolbar .table-search input{width:100%;min-width:0}
 }
+
+/* Real inventory: fixed desktop columns and stacked mobile rows contain long values. */
+.v1-inventory{min-width:0;max-width:100%;padding:18px;overflow-wrap:anywhere}
+.inventory-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.v1-inventory h2{margin:0;font-size:1rem}.v1-inventory>p{line-height:1.6;color:var(--text-secondary)}
+.inventory-refresh-time{font-size:var(--font-small)}
+.inventory-table{width:100%;min-width:0!important;table-layout:fixed;border-collapse:collapse}
+.inventory-table caption{text-align:left;padding:10px 0;color:var(--text-secondary)}
+.inventory-table th,.inventory-table td{white-space:normal!important;overflow-wrap:anywhere;max-width:none;vertical-align:top;padding:12px 8px}
+.inventory-table th:nth-child(1){width:18%}.inventory-table th:nth-child(2){width:16%}.inventory-table th:nth-child(3){width:18%}
+.inventory-table th:nth-child(4),.inventory-table th:nth-child(5){width:7%}.inventory-table th:nth-child(6){width:19%}.inventory-table th:nth-child(7){width:15%}
+.inventory-table small{display:block;margin-top:5px;color:var(--text-secondary)}
+.inventory-table .record-link{color:var(--accent);min-height:44px;max-width:100%;overflow-wrap:anywhere;white-space:normal}
+.inventory-stale{color:var(--orange,var(--text));font-weight:600}
+.inventory-dialog{box-sizing:border-box;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow:auto;overflow-wrap:anywhere}
+.inventory-dialog .detail-facts>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr)}
+.inventory-dialog .detail-facts dd{max-width:100%;text-align:left}.inventory-dialog button{margin-top:16px;min-height:44px}
+@media(max-width:900px){
+ .inventory-table,.inventory-table tbody,.inventory-table tr{display:block;width:100%}
+ .inventory-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ .inventory-table tbody{display:grid;gap:12px}
+ .inventory-table tr{border:1px solid var(--line);border-radius:8px;box-sizing:border-box}
+ .inventory-table td{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:12px;box-sizing:border-box;width:100%;border:0}
+ .inventory-table td::before{content:attr(data-label);font-weight:600;color:var(--text-secondary)}
+ .v1-inventory{padding:14px}.registry-source-tabs{flex-wrap:wrap;overflow:visible}.registry-source-tabs button{white-space:normal}
+}

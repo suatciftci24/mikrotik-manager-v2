@@ -1,12 +1,82 @@
-import {useResource} from '../lib/useResource';
-import {ResourceState, dateTime} from './Resource';
+import {useEffect,useRef,useState} from 'react';
+import {api} from '../lib/api';
+import {inventoryRefresh} from '../lib/inventoryRefresh';
+import {ResourceState,dateTime,Facts} from './Resource';
 export type Inventory={source:'V1_INVENTORY_EXPORT';is_demo:false;availability:'AVAILABLE'|'NO_DATA';items:{id:string;name:string;identity:string|null;model:string|null;routeros_version:string|null;status:'NO_DATA';health_source:'V1_ROUTER_HEALTH_SAMPLES'|null;health_sample_id:string|null;connection_status:'NO_DATA'|'LAST_PROBE_SUCCEEDED'|'LAST_PROBE_FAILED';freshness:'RECENT'|'STALE'|'NO_DATA';sampled_at:string|null;cpu_load_percent:number|null;memory_used_percent:number|null}[]};
-export function V1Inventory(){
- const resource=useResource<Inventory>('/v1-inventory');
- return <V1InventoryView {...resource}/>;
+type Row=Inventory['items'][number];
+type State={data?:Inventory|null;loading:boolean;error?:string;lastSuccess?:number|null};
+const percent=(n:number|null)=>n==null?'Veri yok':`${n}%`;
+const probe=(row:Row)=>row.connection_status==='LAST_PROBE_SUCCEEDED'?'Son internet denemesi başarılı':row.connection_status==='LAST_PROBE_FAILED'?'Son internet denemesi başarısız':'Veri yok';
+export function freshness(row:Row,now:number){
+ const time=row.sampled_at?Date.parse(row.sampled_at):NaN;
+ return !Number.isFinite(time)||time>now?'Veri yok':now-time>300_000?'Güncel değil':'Son bilinen ölçüm';
 }
-export function V1InventoryView(resource:{data?:Inventory|null;loading:boolean;error?:string;retry:()=>void}){
- const data=resource.data;
- const valid=data?.source==='V1_INVENTORY_EXPORT'&&data.is_demo===false&&Array.isArray(data.items);
- return <section className="panel"><h2>Gerçek V1 envanteri · salt okunur aktarım</h2><p>Kaynak: V1_INVENTORY_EXPORT. Geçmiş ölçümler güncel çevrimiçi durum kanıtı değildir. Canlı cihaz bağlantısı yapılmaz.</p><ResourceState {...resource}/>{!resource.loading&&!resource.error&&(valid?<><table className="data-table"><thead><tr><th>Cihaz / kimlik</th><th>Model / RouterOS</th><th>Son bağlantı denemesi</th><th>CPU / Bellek</th><th>Son ölçüm · Türkiye saati</th></tr></thead><tbody>{data.items.map(row=><tr key={row.id}><td>{row.name} / {row.identity??'Veri yok'}</td><td>{row.model??'Veri yok'} / {row.routeros_version??'Veri yok'}</td><td>{row.connection_status==='LAST_PROBE_SUCCEEDED'?'Son internet denemesi başarılı':row.connection_status==='LAST_PROBE_FAILED'?'Son internet denemesi başarısız':'Veri yok'}<small> · Canlı durum: Veri yok</small></td><td>{row.cpu_load_percent==null?'Veri yok':`${row.cpu_load_percent}%`} / {row.memory_used_percent==null?'Veri yok':`${row.memory_used_percent}%`}</td><td>{dateTime(row.sampled_at)} · {!row.sampled_at?'Veri yok':Date.now()-Date.parse(row.sampled_at)>300000?'Güncel değil':'Son bilinen ölçüm'}<small> · Kaynak: {row.health_source??'Veri yok'}{row.health_sample_id?` · Ölçüm #${row.health_sample_id}`:''}</small></td></tr>)}</tbody></table>{data.items.length===0&&<p>Veri yok · güvenilir gerçek envanter aktarımı sağlanmadı.</p>}</>:<p role="alert">Veri yok · kaynak doğrulanamadı.</p>)}</section>;
+export function validInventory(data:unknown):data is Inventory{
+ if(!data||typeof data!=='object')return false;
+ const value=data as Inventory;
+ if(value.source!=='V1_INVENTORY_EXPORT'||value.is_demo!==false||!['AVAILABLE','NO_DATA'].includes(value.availability)||!Array.isArray(value.items))return false;
+ const nullableString=(s:unknown)=>s===null||typeof s==='string';
+ const metric=(n:unknown)=>n===null||typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=100;
+ return value.items.every(row=>row&&typeof row==='object'&&typeof row.id==='string'&&typeof row.name==='string'&&
+  [row.identity,row.model,row.routeros_version,row.health_sample_id].every(nullableString)&&row.status==='NO_DATA'&&
+  [null,'V1_ROUTER_HEALTH_SAMPLES'].includes(row.health_source)&&['NO_DATA','LAST_PROBE_SUCCEEDED','LAST_PROBE_FAILED'].includes(row.connection_status)&&
+  [row.cpu_load_percent,row.memory_used_percent].every(metric)&&
+  (row.sampled_at===null||typeof row.sampled_at==='string'&&/(Z|[+-]\d{2}:\d{2})$/.test(row.sampled_at)&&Number.isFinite(Date.parse(row.sampled_at))&&Date.parse(row.sampled_at)<=Date.now()))&&
+  new Set(value.items.map(row=>row.id)).size===value.items.length;
+}
+export function V1Inventory(){
+ const [state,setState]=useState<State>({loading:true});
+ const refresh=useRef(()=>{});
+ useEffect(()=>{
+  const task=inventoryRefresh<Inventory>({load:async signal=>{
+   const data=await api<unknown>('/v1-inventory',{signal});
+   if(!validInventory(data))throw new Error('Invalid inventory');
+   return data;
+  },publish:setState});
+  refresh.current=task.refresh;
+  const changed=(event:Event)=>{if((event as CustomEvent<string[]>).detail?.includes('/v1-inventory'))task.refresh();};
+  window.addEventListener('v2-resource-change',changed);
+  return()=>{refresh.current=()=>{};window.removeEventListener('v2-resource-change',changed);task.stop();};
+ },[]);
+ return <V1InventoryLiveView {...state} retry={()=>refresh.current()}/>;
+}
+function V1InventoryLiveView(props:State&{retry:()=>void}){
+ const [now,setNow]=useState(Date.now);
+ const [selected,setSelected]=useState<string|null>(null);
+ useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
+ return <V1InventoryView {...props} now={now} selectedId={selected} onSelect={setSelected}/>;
+}
+export function InventoryDetail({row,onClose}:{row:Row;onClose:()=>void}){
+ const dialog=useRef<HTMLDialogElement>(null);
+ useEffect(()=>{const origin=document.activeElement as HTMLElement|null;const node=dialog.current;node?.showModal();return()=>{node?.close();if(origin?.isConnected)origin.focus({preventScroll:true});};},[]);
+ return <dialog ref={dialog} className="expiry-dialog inventory-dialog" aria-labelledby="inventory-detail-title" onCancel={event=>{event.preventDefault();onClose();}}>
+  <h2 id="inventory-detail-title">{row.name} · Router detayı</h2>
+  <p>Salt okunur aktarım. Son internet denemesi canlı çevrimiçi durum kanıtı değildir.</p>
+  <Facts items={[
+   ['Router ID',row.id],['Kimlik',row.identity],['Model',row.model],['RouterOS',row.routeros_version],
+   ['CPU',percent(row.cpu_load_percent)],['Bellek',percent(row.memory_used_percent)],['Son internet denemesi',probe(row)],
+   ['Ölçüm zamanı · İstanbul',dateTime(row.sampled_at)],['Tam zaman damgası',row.sampled_at],
+   ['Envanter kaynağı','V1_INVENTORY_EXPORT'],['Sağlık kaynağı',row.health_source],['Ölçüm ID',row.health_sample_id],['Canlı durum','Veri yok']
+  ]}/><button autoFocus className="button-secondary" onClick={onClose}>Kapat</button>
+ </dialog>;
+}
+export function V1InventoryView(resource:State&{retry:()=>void;now?:number;selectedId?:string|null;onSelect?:(id:string|null)=>void}){
+ const data=resource.data,valid=validInventory(data),now=resource.now??Date.now();
+ const visible=!resource.loading&&!resource.error&&valid;
+ const selected=visible?data.items.find(row=>row.id===resource.selectedId):undefined;
+ const headers=['Router','Model / RouterOS','Son bağlantı denemesi','CPU','Bellek','Son ölçüm · İstanbul','Güncellik'];
+ return <section className="panel v1-inventory"><div className="inventory-heading"><h2>Gerçek V1 envanteri</h2><button className="button-secondary" disabled={resource.loading} onClick={resource.retry}>Şimdi yenile</button></div>
+  <p>Salt okunur · Bu sekme açıkken API her 60 saniyede yenilenir. Son internet denemesi canlı çevrimiçi durum kanıtı değildir.</p>
+  <p className="inventory-refresh-time">Son başarılı yenileme: {resource.lastSuccess?dateTime(new Date(resource.lastSuccess).toISOString()):'Veri yok'}. Bu zaman ölçüm zamanı değildir.</p>
+  <ResourceState {...resource}/>
+  {visible?<><table className="data-table inventory-table"><caption>Gerçek router sağlık ölçümleri</caption><thead><tr>{headers.map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>{data.items.map(row=><tr key={row.id}>
+   <td data-label={headers[0]}><button className="record-link" aria-label={`${row.name} router detayını aç`} onClick={()=>resource.onSelect?.(row.id)}>{row.name}</button></td>
+   <td data-label={headers[1]}><span>{row.model??'Veri yok'}<small>RouterOS {row.routeros_version??'Veri yok'}</small></span></td>
+   <td data-label={headers[2]}>{probe(row)}</td>
+   <td data-label={headers[3]}>{percent(row.cpu_load_percent)}</td><td data-label={headers[4]}>{percent(row.memory_used_percent)}</td>
+   <td data-label={headers[5]}>{row.sampled_at?dateTime(row.sampled_at).replace(' (İstanbul)',''):'Veri yok'}</td>
+   <td data-label={headers[6]}><span className={freshness(row,now)==='Güncel değil'?'inventory-stale':''}>{freshness(row,now)}</span></td>
+  </tr>)}</tbody></table>{data.items.length===0&&<p>Veri yok · güvenilir gerçek envanter aktarımı sağlanmadı.</p>}</>:!resource.loading&&!resource.error?<p role="alert">Veri yok · kaynak doğrulanamadı.</p>:null}
+  {selected&&<InventoryDetail row={selected} onClose={()=>resource.onSelect?.(null)}/>}
+ </section>;
 }

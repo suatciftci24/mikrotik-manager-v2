@@ -2142,3 +2142,36 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Gerçek satırlar/sırlar Git'e alınmadı; mevcut yerel değişiklikler korunur.
 - Tek sonraki adım: mevcut SSH tünelindeki fresh pilot panelinde 9 routerın
   sağlık görünümünün kullanıcı görsel kabulü; snapshot canlı bağlantı kanıtı değildir.
+
+
+## Router Merkezi V2.1 — yerel tablo ve API yenileme — 2026-11-02
+
+- PASS: Gerçek V1 Envanteri sabit sütunlu masaüstü tablo ve 900px altında
+  etiketli satır düzenine geçti. Router/model/RouterOS/son internet denemesi,
+  ayrı CPU/bellek, İstanbul ölçüm zamanı ve güncellik okunaklı gösterilir.
+  Uzun değerler satır kırar; kaynak sekmeleri mobilde sarılır.
+- Router adına basınca native modal detay açılır: kimlik/ID, kaynaklar, ölçüm ID,
+  tam timestamp ve teknik bilgiler burada. Escape/Kapat/focus dönüşü korunur.
+- Yalnız ADMIN + gerçek kaynak + görünür liste mount sınırında mevcut GET
+  /v1-inventory 60 saniye aralıkla okunur. Otomatik/manuel/merkezi yenileme
+  aynı istek kilidini kullanır; unmount timer/listener temizler ve isteği abort eder.
+- Güncellik ölçüm timestamp'inden 5 dakika eşiğiyle hesaplanır; açık ekranda
+  saniyelik yerel saat güncellemesi etiketi eskitir. Veri yok/Güncel değil ve
+  son denemenin canlı çevrimiçi kanıtı olmadığı açıklaması korunur.
+- Hata/loading sırasında önceki satır ve modal gösterilmez. Sabit hata mesajı,
+  son başarılı API yenileme zamanı ve bunun ölçüm zamanı olmadığı gösterilir.
+  Kaynak/is_demo/alan doğrulaması başarısızsa gerçek/sentetik fallback yoktur.
+- PASS: 6 hedefli frontend testi (tablo/modal, hata-kaynak izolasyonu, ölçüm
+  tazeliği, 60sn/tek-istek/abort, hata-son başarı-kurtarma, mount/CSS sınırı).
+  İlk eski render beklentisi kaynak alanının detaya taşınmasına göre güncellendi;
+  yalnız ilgili dosya çalıştırıldı. TypeScript + Vite build PASS; mevcut 500kB
+  chunk uyarısı devam eder. Genel test suite veya backend testleri tekrarlanmadı.
+- PASS: mevcut headless Chromium ile sentetik 9 uzun isimli router, mobil
+  (375px içerik) ve masaüstü (1425px içerik): scrollWidth=clientWidth, 9 satır,
+  modal açma/teknik alan/Kapat başarılı. Gerçek API/DB/cihaz kullanılmadı.
+- Canlı dağıtım, SSH, servis restartı, DB/grant/migration veya V1/eski V2/router,
+  PPPoE/Hotspot/RADIUS değişikliği yok. Mevcut pilot son dağıtımı 71523b3 olarak
+  kalır. 60sn API okuması tek seferlik sunucu snapshot'ını yeniden okur; yeni
+  cihaz ölçümü veya otomatik V1 export üretmez. Kullanıcı yerel değişiklikleri korunur.
+- Tek sonraki adım: bu V2.1 paketini yalnız fresh pilot'a ayrı açık canlı
+  dağıtım onayıyla yedek/rollback ve hedefli ADMIN kabulü üzerinden taşımak.
