@@ -1,5 +1,32 @@
 # MikroTik Manager V2 — İlerleme
 
+## Onaylı gerçek router envanteri tamamlandı — 2026-11-02
+
+- PASS: tek SSH ön kontrolü VDS_SSH_OK. Mevcut dar canlı onayla yalnız
+  V1 mikrotik_manager PostgreSQL içinde v2_fresh_inventory_ro NOLOGIN rolü
+  oluşturuldu; üyelik/superuser/DDL/yazma yok. Yalnız public.routers tablosunun
+  id/name/identity/model/routeros_version kolonlarına SELECT verildi; efektif
+  public tablo/kolon fazla yetki kontrolü transaction içinde PASS.
+- Mevcut PostgreSQL yöneticisi SET LOCAL ROLE + READ ONLY transaction ile
+  sırsız tek seferlik metadata görüntüsü üretti. Yeni parola/login veya V1
+  yapılandırma/uygulama/servis değişikliği yok. V2 doğrudan V1'e bağlanmaz.
+- İlk aktarım JSON çok satır ayrıştırma hatasında pilot değişmeden durdu.
+  Yalnız ayrıştırma düzeltildi ve oluşmuş NOLOGIN rolünün nitelikleri tekrar
+  doğrulanarak kalan aktarım/deploy tamamlandı; başarılı test suite tekrarlanmadı.
+- 3cb3794 backend adaptörü/API kaydı ve mevcut envanter içeren frontend/dist
+  yalnız fresh pilot'a dağıtıldı. Yeni handoff root:pilot 0640; mevcut DB env
+  yalnız handoff yolu ile genişletildi. Yalnız yeni API unit restart edildi.
+- Gerçek ADMIN HTTP login/envanter/logout PASS: 9 gerçek router, kaynak
+  V1_INVENTORY_EXPORT, is_demo=false, ID kümesi export ile aynı. Anonim 401 ve
+  panelin envanter JS sunumu PASS. CPU/bellek/online durumu uydurulmadı.
+- Ön-imaj ve kabul receipt: yeni pilot backups/inventory-before-5_gfs6m9.
+  Kaynak snapshot otomatik yenilenmez; PostgreSQL rolü V2 uygulamasına verilmez.
+  V1/eski V2/MikroTik/PPPoE/RADIUS/abonelerde değişiklik yok; yazma kapalı.
+- Kontrol: dağıtım aracı Python syntax, diff ve yukarıdaki dar canlı kabul PASS;
+  genel test/build tekrarı yok. Sır ve gerçek envanter satırları Git'e alınmadı.
+- Sonraki tek adım: mevcut SSH tüneli üzerinden yeni panelin Gerçek V1
+  Envanteri sekmesinde 9 router listesinin kullanıcı görsel kabulü.
+
 ## Yeni izole V2 pilot canlı kurulum — 2026-11-02
 
 - PASS: açık kullanıcı onayı, 4f09295/19f6344 ve önceden hazırlanmış tar/checksum
