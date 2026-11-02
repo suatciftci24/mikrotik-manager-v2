@@ -44,9 +44,23 @@ class AccessTests(unittest.TestCase):
         config = (ROOT/'sshd-match.conf').read_text()
         for value in ('ForceCommand /usr/local/sbin/mikrotik-v2-fresh-ssh',
                       'DisableForwarding yes', 'PermitTTY no',
-                      'PermitUserRC no', 'PermitUserEnvironment no',
+                      'PermitUserRC no',
                       'AuthenticationMethods publickey'):
             self.assertIn(value, config)
+        self.assertFalse(any(line.strip().lower().startswith('permituserenvironment ')
+                             for line in config.splitlines()))
+
+
+class EnvironmentGateTests(unittest.TestCase):
+    def test_effective_global_environment_gate(self):
+        loader = importlib.machinery.SourceFileLoader('access_apply', str(ROOT/'apply-approved-vds.py'))
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        access = importlib.util.module_from_spec(spec)
+        loader.exec_module(access)
+        access.require_environment_disabled('permituserenvironment no\n')
+        for settings in ('', 'permituserenvironment yes\n', 'permituserenvironment LANG,LC_*\n'):
+            with self.assertRaisesRegex(RuntimeError, 'GLOBAL_USER_ENVIRONMENT_NOT_DISABLED'):
+                access.require_environment_disabled(settings)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,22 @@
 # MikroTik Manager V2 — İlerleme
 
+## SSH Match uyumluluk düzeltmesi — 2026-11-02
+
+- PASS: PermitUserEnvironment geçersiz Match bağlamından çıkarıldı. Mevcut
+  global etkin değerin no olması uygulayıcıda yazma öncesi zorunlu kapıdır;
+  yes/allowlist/eksik değer reddedilir. Genel SSH ayarları değiştirilmez.
+- Yeni salt okunur check-ssh-office.py adayı yalnız stdin üzerinden VDS sshd'ye
+  iletir; uygulayıcı ana akışını çalıştırmaz. Hedef sshd -t ve etkin yeni hesap
+  kısıtları PASS; mevcut 40 hesabın 3 bağlantı bağlamında tüm sshd -T çıktıları
+  aynı. Etkin config ve önceki iki yedeğin içerik/owner/mode/mtime bilgileri aynı.
+- PASS: yalnız ilgili 2 yerel test (Match kısıtları + global ortam değişkeni
+  kapısının güvenli/unsafe/eksik değerleri) ve git diff --check. Önceki başarılı
+  sudo/forced-command testleri tekrarlanmadı; iki unit sudo sınırı değişmedi.
+- Canlı config yazma/reload, hesap/anahtar/sudo kurulumu, dağıtım/migration veya
+  servis başlatma yok. V1/eski pilot ve mevcut kullanıcılar korunur.
+- Sonraki tek adım: ayrı canlı uygulama talimatında eski yedekleri koruyan yeni
+  kanıt yollarıyla düzeltilmiş paketi uygulamak; mevcut çakışma kapısı atlanmaz.
+
 ## Onaylı yeni V2 erişimi uygulama denemesi — 2026-11-02
 
 - BLOCKED: e397f95 Match bloğundaki PermitUserEnvironment VDS sshd tarafından

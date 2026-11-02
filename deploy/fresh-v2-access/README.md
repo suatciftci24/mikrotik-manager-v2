@@ -76,3 +76,30 @@ Kontrol atlanmadı; canlı tekrar veya otomatik düzeltme yapılmadı.
 - Sonraki tek adım: paketin Match uyumsuzluğunu yerelde düzeltmek; ortam değişkeni
   kısıtını etkin global `permituserenvironment no` ile doğrulamadan ilerlememek.
   Bu sonuç mevcut onayı iptal etmez; bu görev hata sonrasında güvenle durmuştur.
+
+## SSH uyumluluk düzeltmesi — 2026-11-02
+
+**PASS (yerel düzeltme ve hedef SSH doğrulaması)**; canlı kurulum yapılmadı.
+`PermitUserEnvironment` Match bloğundan çıkarıldı. Genel SSH ayarına yönerge
+eklenmez/değiştirilmez: uygulayıcı, hedef hesap için mevcut etkin
+`permituserenvironment no` değerini aday/yedek dosyalarını yazmadan önce zorunlu
+kontrol eder. `yes`, değişken allowlist'i veya eksik sonuçta BLOCKED olur.
+Adayın etkin değerinin de `no` kalması zorunludur. Python `-I`, temiz execve
+ortamı, root-owned home/authorized_keys, PermitUserRC=no, ForceCommand ve
+forwarding kısıtları korunur. Sudo ve iki unit sınırı değişmedi.
+
+`check-ssh-office.py` yalnız salt okunur doğrulama yapar; uygulayıcı ana akışını
+çağırmaz. Mevcut config + düzeltilmiş Match bloğunu `/dev/stdin` üzerinden hedef
+sshd'ye verir, uzak dosya oluşturmaz. `sshd -t`, etkin yeni hesap kısıtları ve
+40 mevcut hesabın üç adres bağlamında tüm `sshd -T` çıktılarının eşitliği PASS.
+Etkin config ve iki eski root erişimli yedeğin içerik/mode/owner/mtime bilgileri
+korundu. İki doğrudan ilgili yerel test PASS; sudo/komut testleri tekrarlanmadı.
+
+Ofis WSL, proje dizini için salt okunur kontrol komutu:
+`python3 deploy/fresh-v2-access/check-ssh-office.py`
+
+Sonraki tek adım: ayrı canlı uygulama talimatı geldiğinde düzeltilmiş paketi
+kurmak. Önceki aday/yedekler yerinde korunur; mevcut uygulayıcının bu yolları
+çakışma sayan kapısı atlanmaz. Canlı uygulama öncesinde bu kayıtları koruyan
+ayrı yeni kanıt yolları seçilmelidir. Bu görevde hesap/anahtar/sudo kurulumu,
+SSH config yazması veya reload yapılmadı.

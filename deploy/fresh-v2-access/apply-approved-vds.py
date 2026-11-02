@@ -27,9 +27,9 @@ def need(ok, code):
         raise RuntimeError(code)
 
 
-def run(argv, accepted=(0,)):
+def run(argv, accepted=(0,), input_text=None):
     result = subprocess.run(argv, env={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LANG':'C'},
-                            capture_output=True, text=True)
+                            capture_output=True, text=True, input=input_text)
     need(result.returncode in accepted, 'COMMAND_FAILED:' + argv[0])
     return result.stdout
 
@@ -48,9 +48,49 @@ def exclusive(path, content, mode):
     os.chmod(path, mode)
 
 
-def effective(config, user, address):
+def effective(config, user, address, input_text=None):
     return run(['/usr/sbin/sshd','-T','-f',str(config),'-C',
-                f'user={user},host=office,addr={address},laddr=185.139.5.51,lport=22'])
+                f'user={user},host=office,addr={address},laddr=185.139.5.51,lport=22'], input_text=input_text)
+
+
+def require_environment_disabled(settings):
+    values = dict(line.split(' ', 1) for line in settings.splitlines())
+    need(values.get('permituserenvironment') == 'no', 'GLOBAL_USER_ENVIRONMENT_NOT_DISABLED')
+
+
+def check_ssh_only(match, connection):
+    """Read-only target validation: candidate exists solely in process stdin."""
+    need(os.geteuid() == 0, 'ROOT_REQUIRED')
+    paths = (CONFIG, BEFORE, CANDIDATE)
+    snapshots = {path: (path.read_bytes(), path.stat()) for path in paths}
+    original = CONFIG.read_text()
+    candidate = original.rstrip('\n') + '\n\n' + match
+    run(['/usr/sbin/sshd', '-t', '-f', '/dev/stdin'], input_text=candidate)
+    users = [account.pw_name for account in pwd.getpwall()]
+    addresses = sorted(set(['127.0.0.1', '::1', connection.split()[0]]))
+    for address in addresses:
+        require_environment_disabled(effective(CONFIG, USER, address))
+        settings = effective('/dev/stdin', USER, address, candidate)
+        require_environment_disabled(settings)
+        values = dict(line.split(' ', 1) for line in settings.splitlines())
+        for key, expected in {
+            'forcecommand': str(WRAPPER), 'disableforwarding': 'yes', 'permittty': 'no',
+            'permituserrc': 'no', 'passwordauthentication': 'no',
+            'kbdinteractiveauthentication': 'no', 'authenticationmethods': 'publickey',
+            'authorizedkeysfile': str(KEY), 'pubkeyauthentication': 'yes',
+            'x11forwarding': 'no', 'maxsessions': '1',
+        }.items():
+            need(values.get(key) == expected, 'SSH_RESTRICTION_FAILED:' + key)
+        for user in users:
+            need(effective(CONFIG, user, address) == effective('/dev/stdin', user, address, candidate),
+                 'EXISTING_USER_POLICY_CHANGED')
+    for path, (content, metadata) in snapshots.items():
+        need(path.read_bytes() == content and path.stat().st_mtime_ns == metadata.st_mtime_ns
+             and path.stat().st_mode == metadata.st_mode and path.stat().st_uid == metadata.st_uid
+             and path.stat().st_gid == metadata.st_gid, 'CONFIG_OR_BACKUP_CHANGED')
+    print('PASS: SSH_SYNTAX; EFFECTIVE_USER_ENVIRONMENT_NO; RESTRICTED_ACCOUNT; '
+          'EXISTING_USERS_UNCHANGED; BACKUPS_UNCHANGED; NO_RELOAD', flush=True)
+    print('VERIFIED_ACCOUNTS', len(users), 'CONTEXTS', len(addresses), flush=True)
 
 
 def apply(payload, connection):
@@ -92,6 +132,8 @@ def apply(payload, connection):
     users = [account.pw_name for account in pwd.getpwall()]
     addresses = sorted(set(['127.0.0.1','::1', connection.split()[0]]))
     before = {(user, address):effective(CONFIG,user,address) for user in users for address in addresses}
+    for address in addresses:
+        require_environment_disabled(effective(CONFIG, USER, address))
     original = CONFIG.read_text()
     candidate = original.rstrip('\n') + '\n\n' + payload['match']
     exclusive(BEFORE, original, 0o600)
