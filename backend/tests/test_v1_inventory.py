@@ -39,3 +39,31 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(set(app.openapi()['paths']['/api/v1/v1-inventory']),{'get'})
         route=router.routes[0]
         self.assertIs(route.dependant.dependencies[0].call,current_admin)
+
+    def test_health_join_is_by_primary_key_and_one_sample(self):
+        payload={'source':'V1_INVENTORY_EXPORT','items':[{'id':'1','name':'Same'},{'id':'2','name':'Same'}],
+                 'health_samples':[{'id':'17','router_id':'2','sampled_at':'2020-01-01T00:00:00Z',
+                                    'cpu_load_percent':0.0,'memory_used_percent':None,'internet_success':False}]}
+        with tempfile.TemporaryDirectory() as folder:
+            path=folder+'/snapshot.json'
+            def read(value):
+                with open(path,'w') as f:json.dump(value,f)
+                with patch.dict(os.environ,{'V2_V1_INVENTORY_FILE':path}):return read_inventory()
+            rows=read(payload)['items']
+            self.assertIsNone(rows[0]['cpu_load_percent'])
+            self.assertEqual(rows[0]['connection_status'],'NO_DATA')
+            self.assertEqual(rows[1]['cpu_load_percent'],0)
+            self.assertIsNone(rows[1]['memory_used_percent'])
+            self.assertEqual(rows[1]['connection_status'],'LAST_PROBE_FAILED')
+            self.assertEqual(rows[1]['status'],'NO_DATA')
+            self.assertEqual(rows[1]['health_sample_id'],'17')
+            self.assertEqual(rows[1]['health_source'],'V1_ROUTER_HEALTH_SAMPLES')
+            self.assertEqual(rows[1]['freshness'],'STALE')
+            sample=payload['health_samples'][0]
+            for change in ({'router_id':'3'},{'router_id':'02'},{'sampled_at':'2999-01-01T00:00:00Z'},
+                           {'sampled_at':'2020-01-01T00:00:00'}, {'internet_success':'true'}, {'cpu_load_percent':float('nan')}):
+                with self.assertRaises(InventoryUnavailable):
+                    read({**payload,'health_samples':[{**sample,**change}]})
+            with self.assertRaises(InventoryUnavailable):read({**payload,'health_samples':[sample,sample]})
+            good=read({**payload,'health_samples':[{**sample,'internet_success':True}]})
+            self.assertEqual(good['items'][1]['connection_status'],'LAST_PROBE_SUCCEEDED')

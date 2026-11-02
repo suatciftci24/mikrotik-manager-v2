@@ -2019,3 +2019,19 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Dağıtım başlamadığından rollback gerekmedi; ürün değişmediği için test yok.
 - Sonraki tek adım: mevcut dar onay kapsamını ağ erişimi olan yetkili çalışma
   ortamında sürdürmek. Genel sudo veya SSH yetkisi genişletilmez.
+
+## Gerçek envanter sağlık/performans — yerel geliştirme — 2026-11-02
+
+- 072809d temel alındı. Erişilebilir V1 router_health_samples şeması ve
+  mikajani_legacy_inventory_adapter sorgusu yalnız okundu. Router eşleştirmesi
+  kalıcı PK/router_id; son örnek sampled_at DESC,id DESC sözleşmesiyle seçilir.
+- İsteğe bağlı health_samples aktarımı; CPU, bellek, tarihli internet denemesi,
+  ölçüm zamanı, kaynak ve örnek ID API/panele eklendi. Çift/eşleşmeyen kimlik,
+  geçersiz/gelecek tarih ve ölçüm reddedilir. Eksik alan Veri yok, eski ölçüm
+  Güncel değil; Europe/Istanbul. Canlı durum NO_DATA kalır; demo ayrımı/ADMIN korunur.
+- PASS: 3 hedefli backend testi, frontend sağlık panel render kontrolü ve
+  TypeScript/Vite build; diff kontrolü. Mevcut chunk boyut uyarısı sürer.
+- DB SELECT sorgusu hazırlandı, çalıştırılmadı. Mevcut metadata-only aktarım
+  korunur. Canlı sağlık kabulü/dağıtım, DB yetkisi, V1/servis/router/abone,
+  PPPoE/Hotspot/RADIUS değişikliği yok. Önceden yerel değişiklikler korundu.
+- Sonraki tek adım: ayrı onaylı kapsamda sağlık aktarımını yeni pilota bağlamak.

@@ -25,3 +25,31 @@ GET /api/v1/v1-inventory merkezi V2 ADMIN yetkisi gerektirir. Yapılandırma yok
 NO_DATA; bozuk/okunamayan dosyada 503 ve temiz hata döner; demo fallback yoktur.
 UI ayrı gerçek V1 sekmesindedir. Canlı erişim, export sağlayıcısı, VDS deployment
 ve gerçek veri kabulü bu pakette BLOCKED kalır.
+
+## Yerel sağlık sözleşmesi (072809d sonrası)
+
+V1 kaynağı erişilebilir schema.sql içindeki public.router_health_samples ve
+V1 mikajani_legacy_inventory_adapter.py sorgusuyla doğrulandı. Eşleşme yalnız
+routers.id = router_health_samples.router_id; ad, IP, identity ile eşleşme yok.
+
+Handoff artık isteğe bağlı health_samples listesi kabul eder. Her satırda id ve
+router_id canonical pozitif tam sayı metni, sampled_at timezone içeren tarih;
+cpu_load_percent, memory_used_percent ve internet_success nullable alanlardır.
+Örnek: {"id":"17","router_id":"1","sampled_at":"2026-01-01T00:00:00Z",
+"cpu_load_percent":0,"memory_used_percent":null,"internet_success":false}.
+Yalnız en son satır sampled_at DESC, id DESC ile seçilir; geçmiş satırlardan
+boşluk doldurulmaz. Eşleşmeyen, çift router örneği ve gelecek/naive tarih 503
+ile kapatılır. Eski metadata-only aktarım geçerlidir, sağlık alanları Veri yoktur.
+
+health-export.sql yalnız hazırlanmış SELECT sözleşmesidir; otomatik çağrılmaz.
+Mevcut 072809d NOLOGIN rolünün sağlık SELECT yetkisi yoktur. Bu görev DB yetkisini,
+export uygulayıcısını ve canlı handoff dosyasını değiştirmez. Sonraki ayrı onaylı
+entegrasyonda gereken sütunlar: router_health_samples(id,router_id,sampled_at,
+cpu_load_percent,memory_used_percent,internet_success). Yetki hatasında admin
+fallback yasaktır. Yeni sorgu ve gerçek sağlık verisi canlıda test edilmedi.
+
+API health_source ve health_sample_id ile ölçüm kaynağını korur. connection_status
+LAST_PROBE_SUCCEEDED/FAILED yalnız tarihli internet denemesi sonucudur; router'ın
+canlı ONLINE/OFFLINE durumu değildir. status NO_DATA kalır. Ölçüm 300 saniyeyi
+geçince STALE, panelde Güncel değil gösterilir. Türkiye saati Europe/Istanbul'dur.
+API ADMIN koruması ve sentetik kaynak ayrımı değişmez. Yerel testler sentetiktir.
