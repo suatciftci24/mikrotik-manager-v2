@@ -158,6 +158,285 @@
   ilerleme belgesinin bu bölümünü kapsar. Sonraki işlem paketin gözden
   geçirilmesi ve yalnız bu yeni yetki kapsamı için açık uygulama onayıdır.
 
+## Temiz pilot VDS hazırlığının tamamlanması — 2026-11-02
+
+- **PASS (yerel hazırlık)**; VDS kurulumu/canlı kabul yapılmadı. 55442/18090,
+  boş hedef, migration/checksum, yedek ve rollback kapıları korundu. Gerçek
+  MikroTik API/onboarding/PPPoE ve RADIUS kapalı; V1/eski pilot değişmedi.
+- stage-approved.py kaynak kontrolleri hedef/OS hesabı oluşturulmadan önceye
+  taşındı. Kaynak kök symlink'leri, iç symlink/FIFO/özel dosyalar, eksik frontend
+  build ve PG16/Python venv araçları yazma öncesi denetlenir. Manifest güncellendi.
+- **PASS: 3 yeni staging regresyon testi**, standart Python offline manifest
+  kontrolü ve git diff --check. Önceki 33 test tekrarlanmadı. Sistem Python'unda
+  SQLAlchemy yok; yeni testler bağımlılık/DB/socket gerektirmez. SSH, VDS dağıtımı,
+  migration, servis restartı, gerçek cihaz erişimi ve restore provası yapılmadı.
+- Mevcut legacy updater/teşhis dosyaları korundu ve bu pakete alınmadı.
+- **BLOCKED (Git)**: tek git add/commit girişimi `.git/index.lock: Read-only
+  file system` nedeniyle durdu; commit oluşmadı, push denenmedi. Tekrar veya
+  yetki yükseltme denenmedi. Değişiklikler çalışma ağacında korunuyor.
+- Sonraki tek Ofis WSL komutu (ağ/DB/servis erişimi yok):
+  `python3 /home/suatpc/Codex-Projects/mikrotik-manager-v2/deploy/fresh-v2-pilot/manage.py check`
+
+## Bağımsız temiz V2 pilot — yerel hazırlık — 2026-10-31
+
+- **PASS (yerel hazırlık)**; eski pilot yerinde yükseltmesi BLOCKED kalır.
+  Karar docs/PILOT_LEGACY_UPGRADE_DECISION.md esas alındı. Önceden mevcut
+  ilerleme/legacy teşhis/updater dosyaları korundu; eski installer değiştirilmedi.
+- deploy/fresh-v2-pilot/ altında ayrı profil, iki service, PostgreSQL/HBA/peer
+  config, açık 001–009 SHA256 manifesti, migration ledger, referans katalog,
+  offline check, yalnız onaylı yeni host için staging/DB-create/migrate/verify/
+  backup/accept araçları ve başlangıç guard'ı hazırlandı. Yeni kök
+  /srv/mikrotik-manager-v2-fresh-pilot; DB 55442, same-origin API/UI 18090;
+  yeni DB/roller/OS hesapları/venv/socket/veri/config/yedekler bağımsızdır.
+- Önceden var olan kök (boş dahi olsa), hesap/grup/unit veya dolu DB BLOCKED.
+  DB/rol/socket/port/data_directory/major/bind doğrulanır; devralınmış DB env'i
+  reddedilir. Reset/drop/down/adoption/stamp/otomatik legacy veri veya ADMIN
+  aktarımı yok. Router API/onboarding/PPPoE/RADIUS kapalı; unit egress loopback.
+- 009, yeni LOCAL ADMIN, audit/seal, sıra/revision/hash/UTC kayıtları ve API
+  minimum grant'leri aynı transaction'dadır. Mevcut first-admin yazma yordamı
+  ortak helper'a çıkarıldı; eski hedef/güvenlik sınırları korundu. Yeni profil
+  yalnız açık yeni DB URL kimliğiyle store'a kabul edilir; eski profil değişmedi.
+- Boş ön-imaj + kurulum sonrası custom dump, archive-list/SHA256 receipt,
+  root-owned kabul ve salt okunur startup schema/seal kapısı hazırlandı.
+  docs/FRESH_V2_PILOT_SETUP.md kurulum, sır yönetimi ve veri silmeden rollback/
+  başka boş recovery hedefinde restore prosedürünü açıklar. Gerçek restore
+  provası yapılmadı; backup receipt bu durumu NOT_PERFORMED kaydeder.
+- **PASS: 33 hedefli test** (9 yeni, 13 first-admin, 11 eski pilot runtime).
+  PG16 single-user ile gerçek runner SQL'i ve helper çalıştırıldı; kasıtlı
+  009-sonrası hatada tüm DDL/ledger/ADMIN rollback'i, başarılı 9 revision,
+  audit/seal ve kolon tipi sapması doğrulandı. İlk test-double imza hatası
+  düzeltildi; yalnız başarısız test tekrar edildi. Yeni gate değişikliklerinde
+  ilgili yeni paket yeniden kontrol edildi; eski başarılı paketler tekrarlanmadı.
+  Standart Python offline manifest kontrolü, Python derleme ve diff kontrolü PASS.
+- Yerel geçici sentetik PG16 Unix-socket başlangıcı ortam EPERM'iyle durdu;
+  tekrar denenmedi. Sonraki SQL kontrolleri socketsiz single-user modundaydı.
+  SSH/socket EPERM denemesi, VDS erişimi/kurulum/migration/restart/deploy,
+  gerçek router/RADIUS/abone işlemi, mevcut DB silme/reset ve Git commit/push yok.
+  Systemd, TCP/Unix bağlantı, gerçek pg_dump/restore ve HTTP canlı kabulü
+  yapılmış sayılmaz. Yerel test cluster'ları yalnız /tmp sentetik kaynaklardır.
+- Sonraki tek Ofis WSL komutu (DB/ağ/servis erişimi olmadan):
+  `python3 /home/suatpc/Codex-Projects/mikrotik-manager-v2/deploy/fresh-v2-pilot/manage.py check`
+  Canlı uygulama bu görevin kapsamı dışındadır; ayrı açık hedef yetkisi gerekir.
+
+## 7bb617c — eski pilot yükseltme kararı — 2026-10-31
+
+- **BLOCKED (yerinde yükseltme)**: 28 hedef tablonun 10'u 001 ilk çekirdek
+  tasarımına, kalan 18'i 002–009'a aittir. 001 yeni modül değildir; yalnız
+  10 tablo/5 indeks oluşturur, mevcut demo/workspace verisini değiştirmez.
+  Verilen sayısal teşhis özeti eksik adları içermediğinden 001 eşlemesi kesin
+  uygulama geçmişi veya şema uyumluluğu kanıtı sayılmadı.
+- Karar ve veri koruyan tasarım docs/PILOT_LEGACY_UPGRADE_DECISION.md içinde.
+  001 eklemesi yalnız koşullu en küçük aday; geçmiş UNKNOWN kalır, stamp,
+  SQL tekrar oynatma, migration dosyasıyla geçmiş tamamlama ve gate atlama yok.
+  Updater/kurulum kodu açılmadı; mevcut yerel değişiklikler korundu.
+- Yerel Git SQL statik kontrolü PASS; DML aramasının ON DELETE yanlış pozitif
+  assertion'ı düzeltilip yalnız o kontrol tekrar geçti. Gerçek DB kabulü yok;
+  genel test/teşhis döngüsü eklenmedi. SSH, canlı migration, deploy/restart,
+  router bağlantısı, DB silme/reset ve commit/push yapılmadı.
+- Sonraki tek adım: ayrı kimlik/cluster/DB/rol/port/sırlar kullanan, boş hedef
+  zorunlu temiz V2 pilot kurulum profilini yerelde hazırlamak. Mevcut pilot
+  korunacak; eski veri aktarımı veya canlı kurulum yapılmış sayılmayacak.
+
+
+## Legacy migration — tek salt okunur Ofis WSL teşhisi — 2026-10-31
+
+- PASS (yerel hazırlık) / BLOCKED (güvenli güncelleme): yeni
+  deploy/cebeci-v2-pilot/diagnose-migrations-office.py mevcut updater içindeki
+  need/run/sql yordamlarını AST ile alır; updater ana akışını çalıştırmaz.
+  Tek SSH bağlantısıyla kod bellekte çalışır; uzak staging/yedek/build/API,
+  migration/stamp, DB yazması, servis işlemi veya dağıtım yoktur.
+- Sabit V2 bakım socket/DB/rol/port/data_directory ve read_only=on doğrulanır.
+  Hedef tam 7bb617c Git nesnesinden çıkarılan 28 tablo için varlık ve yalnız
+  schema_state.version kayıtları raporlanır. Sırlar/iş verileri okunmaz.
+  Repo uygulanmış revision/checksum ledger sözleşmesi içermediğinden bu durum
+  açıkça bildirilir; schema_state=1 migration head kanıtı sayılmaz.
+- Karar: nesne eksikse LEGACY_SCHEMA_EVIDENCE_INCOMPLETE; tamam olsa bile
+  LEGACY_MIGRATION_HISTORY_UNVERIFIABLE. Tam şema uyumluluğu UNVERIFIED.
+  Güvenli güncelleme için bağımsız güvenilir kurulum/uygulama kaydı veya özgün
+  yedek ile revision sırası ve migration dosyası checksum bağının kanıtı;
+  hedefe karşı kolon/tip/null/default, PK/FK/unique/check, index, schema,
+  sahiplik/izin ve veri dönüşümü invariantlarının tam incelemesi gerekir.
+  Mevcut kurulu kaynak/DB bağı ve doğrulanmış geri dönüş yedeği de gereklidir.
+  Dosya varlığı veya sürüm bayrağı eksik geçmiş yerine geçmez; bu komut
+  güncelleme yetkisi veya otomatik legacy adoption sağlamaz.
+- Kontrol: üretilen Python derleme ve sentetik SELECT-only tanı akışı PASS.
+  Önceki 26 test tekrarlanmadı; SSH/EPERM, canlı DB/V1/router erişimi yok.
+  Önceden mevcut yerel dosyalar korundu. Bilinen salt okunur Git metadata
+  engeli tekrar denenmedi; commit/push yapılmadı.
+- Sonraki tek adım: Ofis WSL terminalinde
+  python3 /home/suatpc/Codex-Projects/mikrotik-manager-v2/deploy/cebeci-v2-pilot/diagnose-migrations-office.py
+  çalıştırıp sır içermeyen çıktıyı değerlendirmek. Exit 2 kanıt engelini,
+  exit 1 teşhis/kimlik hatasını belirtir; SSH hatasında kendi exit kodu korunur.
+
+
+## Eksik eski pilot migration dizini — güvenli teşhis — 2026-10-31
+
+- PASS (yerel düzeltme) / BLOCKED (pilot güncelleme): kullanıcı VDS app/migrations
+  ve versions dizinlerinin yokluğunu doğruladı. Bu oturumda uzak inceleme yok.
+- İlk kurulum complete-vds.py tam arşivi açar veya mevcut dosyaları arşivle
+  doğrular; zaten migrate edilmiş küme bekler. Güncelleyici migration çalıştırmaz,
+  kurulu/hedef migration ağacını hash ile karşılaştırır. Hedefte 10 dosya olması
+  kurulu DB'nin bunların tümünü uyguladığını kanıtlamaz; down dosyası da içerir.
+- Eksik dizinde yeni salt okunur legacy teşhisi yalnız önceden kimliği doğrulanan
+  V2 bakım socket'inden şema nesnesi varlıklarını sorgular. Eksikte
+  LEGACY_SCHEMA_EVIDENCE_INCOMPLETE; nesneler varsa dahi
+  LEGACY_MIGRATION_HISTORY_UNVERIFIABLE ile build/replacement öncesi durur.
+  Sorgu hatası durur; symlink eksik dizin gibi kabul edilmez.
+- Depoda revision/checksum bazlı uygulanmış migration ledger sözleşmesi yok;
+  schema_state.version=1 ve kurulum bayrakları tam geçmiş/şema doğrulaması değildir.
+  Bu nedenle otomatik legacy adoption açılmadı. Tam şema eşitliği doğrulandığı
+  iddia edilmez; geçmiş ve hedef şema için bağımsız güvenilir kanıt gereklidir.
+  Dosya kopyalayarak onarma, geçmiş uydurma/stamp, DB reset/kontrol kaldırma yok.
+- PASS: test_update_approved.py içindeki 26 sentetik unittest. Yeni kontroller:
+  eksik şema, varlık kanıtının yetersizliği, sorgu hatası, kırık symlink ve salt
+  SELECT. DB/subprocess mock; gerçek DB veya frontend build çalıştırılmadı.
+- Önceden mevcut değişiklikler ve tüm yedekler korundu. SSH/canlı dağıtım,
+  migration/restart/router bağlantısı ve commit/push yapılmadı.
+- Sonraki tek Ofis WSL komutu (yalnız yerel kontrol):
+  python3 -m unittest discover -s deploy/cebeci-v2-pilot/tests -p 'test_update_approved.py'
+  Canlı güncelleme, güvenilir geçmiş ve tam hedef şema kanıtı olmadan açılmamalı.
+
+
+## INSTALLED_MIGRATIONS_MISSING — yerel dosya yapısı incelemesi — 2026-10-31
+
+- BLOCKED (dağıtım) / PASS (yerel inceleme): updater app/migrations dizinini
+  zorunlu tutar, içeriği recursive relative-path + SHA256 ile karşılaştırır.
+  migrations/versions yerleşimi desteklenir; yanlış yol varsayımı bulunmadı.
+  Bu kontrol DB migration geçmişini sorgulamaz; yalnız dosya eşitliği kontrolüdür.
+- complete-office.py ve build-native-installer.py tam Git arşivi üretir;
+  complete-vds.py arşivi app altına açar. Beklenen kurulu yol
+  /srv/mikrotik-manager-v2-pilot/app/migrations/versions dizinidir.
+- Hedef 7bb617c4838c1bd94b8cbe612981cabe5186b6b1 Git arşivinde
+  001–009 ileri dosyaları ve 002 down dosyası dahil 10 dosya var; Git tree ile
+  birebir eşleşiyor. c9b36eb (009 eklenmesi) ile hedef arasında migration farkı
+  yok; incelenen geçmişte dosya silme/taşıma yok.
+- Bildirilen reason kurulu app/migrations yolunun is_dir kontrolünün geçmediğini
+  gösterir; canlı dosyalar okunmadığından eksik/bozuk kurulumun kaynağı ve DB'ye
+  uygulanan migration geçmişi doğrulanamaz. Dosya uydurulmadı, kontrol atlanmadı;
+  dağıtım kodu ve migration dosyaları değiştirilmedi. Önceki yedeklere dokunulmadı.
+- PASS: 9 hedefli sentetik ReleaseTests; yeni eksik kurulu dizin ve nested
+  versions kontrolleri; yerel Git archive/tree/geçmiş eşitliği. Gerçek build,
+  SSH/VDS, migration, restart, router, commit/push yok. Mevcut değişiklikler korundu.
+- Sonraki tek Ofis WSL komutu (yalnız yerel migration arşiv listesi):
+  git archive 7bb617c4838c1bd94b8cbe612981cabe5186b6b1 migrations | tar -tf -
+  Dağıtımın açılması için ayrıca kurulu ağacın özgün kaynak/yedek kanıtıyla
+  incelenmesi gerekir; mevcut yetkiyle uzaktan inceleme yapılmadı.
+
+
+## release-scope-and-build — alt kontrol teşhisi — 2026-10-31
+
+- PASS (yerel) / BLOCKED (canlı kök neden): eski PRECONDITION_FAILED kodu
+  arşiv güvenliği, requirements/migration eşitliği, npm ve build index kapılarında
+  ortak kullanılmış. Verilen kayıt hangisinin başarısız olduğunu kanıtlamaz.
+  Canlı kurulu ağaç ve toolchain incelenmedi; eksik bağımlılık varsayılmadı.
+- Sabit tam 7bb617c4838c1bd94b8cbe612981cabe5186b6b1 Git arşivi yerelde
+  doğrulandı: PAX revision eşleşiyor, güvenli olmayan üye yok, gerekli frontend
+  ve requirements dosyaları mevcut. Arşiv tam depodur; kapsam daraltılmadı.
+- update-approved-vds.py her release alt kapısı/IO/komut için sabit, sır
+  içermeyen neden kodu verir. requirements/migration eşitliği korunur; npm/node
+  runtime ayrı kontrol edilir. npm ci dev/optional paketlerini açıkça içerir;
+  ignore-scripts korunur. Kısa SHA öneki yerine tam hedef SHA doğrulanır.
+- --release-check-only yeni doğrulanmış yedek ve izole release/build sonrası,
+  app replacement, migration, restart ve ADMIN/envanter işlemlerinden önce çıkar.
+  Ortam/kurulum/build hatasında durur; güvenlik kapısı atlanmaz. Önceki
+  /srv/mikrotik-manager-v2-pilot/update-20261031T101603Z-6cb14797/backup
+  korunur; bu oturumda uzak dosyalara hiç erişilmedi.
+- PASS: 20 sentetik hedefli unittest, bash syntax, yerel hedef Git arşivi
+  incelemesi. Gerçek frontend npm ci/build veya VDS toolchain kabulü yapılmadı.
+  SSH, VDS dağıtımı, migration, restart, router, Git commit/push yapılmadı.
+  Kullanıcının mevcut değişiklikleri korundu.
+- Sonraki tek Ofis WSL komutu (uzak salt kontrol + yeni yedek/build staging;
+  dağıtım yapmaz): bash deploy/cebeci-v2-pilot/update-approved-office.sh --release-check-only
+  Bu oturumda çalıştırılmadı; üreteceği reason canlı alt koşulu belirleyecek.
+
+
+## SERVICE_DATABASE_ADDRESS_MISMATCH — yerel ön kontrol düzeltmesi — 2026-10-31
+
+- PASS (yerel): PostgreSQL inet_server_addr()::text çıktısındaki 127.0.0.1/32
+  ile 127.0.0.1 artık aynı tek IPv4 hedefi olarak karşılaştırılır. Kök kod hatası
+  ham metin eşitliğidir; canlı çıktının bu biçimde olduğu bu oturumda ölçülmedi.
+- Yalnız /32 IPv4 host normalizasyonu uygulanır; farklı IP, IPv6, hostname,
+  subnet ve bozuk değerler reddedilir. Bozuk adres için sır içermeyen
+  SERVICE_DATABASE_ADDRESS_INVALID, farklı IP için mevcut MISMATCH korunur.
+- Servisin /proc ortamındaki V2_DATABASE_URL, exact URL hedefi/rol/DB/port,
+  sabit 127.0.0.1:55432 TCP bağlantısı ve read-only kimlik kapıları korunur.
+  URL portunun sayısal normalizasyonu, eksik/yanlış port, query/fragment ve
+  operatör ortamından fallback olmaması sentetik kontrollerle doğrulandı.
+- PASS: ilgili unittest dosyasındaki 13 sentetik test; gerçek subprocess,
+  DB/socket veya uzak işlem çalıştırılmadı. SSH, dağıtım, migration, restart,
+  router bağlantısı ve kullanıcı talimatıyla Git commit/push yapılmadı.
+- Canlı kabul doğrulanmadı. Sonraki somut adım: ayrı yetkili ortamda yalnız
+  ön kontrol sonucunu değerlendirmek; bu görevde uzak çalışma yetkisi yoktur.
+
+## isolated-db-identity — aktarım kanıtı ve güvenli teşhis — 2026-10-31
+
+- PASS (yerel): office betiği uygulamayı sabit 7bb617c Git arşivinden alır;
+  yerel uygulama değişiklikleri aktarılmaz. Buna karşılık updater çalışma
+  ağacından update.py olarak ayrıca aktarılır ve aynı staging yolundan sudo
+  python3 ile çalıştırılır. Önceki runuser düzeltmesi bu aktarım kapsamındadır;
+  eski kopyanın VDS'de çalıştığı veya canlı kök neden bu oturumda kanıtlanamaz.
+- Updater SHA256 yerelde gösterilir ve uzakta çalıştırmadan önce doğrulanır.
+  Bakım socket sorgusu, DB/rol/port/data_directory eşleşmesi; servis URL'si,
+  psycopg import/bağlantı/sorgu ve her TCP kimlik alanı ayrı sabit hata kodları
+  üretir. Ham stderr, URL, parola veya gerçek kimlik değeri yazdırılmaz.
+- --check-only aktarım, salt okunur DB kimliği ve kapalı servis sağlık kontrolü
+  sonrası durur; staging dosyaları oluşturur fakat yedek/build/replacement,
+  migration, restart, ADMIN login veya envanter yazması yapmaz. İzolasyon,
+  mutlak runuser, socket/TCP hedefleri ve salt okunur koşullar korunmuştur.
+- PASS: son değişiklikler sonrası 9 sentetik hedefli unittest ve bash syntax;
+  kontroller subprocess/socket/DB kullanmaz. Aktarım testi kod sözleşmesidir,
+  gerçek SSH aktarım kanıtı değildir. Canlı kabul BLOCKED/doğrulanmadı.
+- SSH EPERM tekrar denenmedi; dağıtım, canlı DB/router bağlantısı, migration,
+  servis restartı ve Git commit/push yapılmadı. Mevcut değişiklikler korundu.
+- Sonraki tek adım: Ofis WSL'de repo içinden
+  bash deploy/cebeci-v2-pilot/update-approved-office.sh --check-only
+  çalıştırıp SHA256 doğrulaması ile sır içermeyen reason kodunu almak.
+
+
+## Onaylı güncelleme — isolated-db-identity düzeltmesi — 2026-10-31
+
+- PASS (yerel): restricted PGENV PATH içinde bulunmayan runuser için mutlak
+  sistem yolu çözümlenir; bakım sorgusu ve pg_dump aynı yolu ve güvenli V2
+  çalışma dizinini kullanır. Bu somut kod hatasıdır; canlı neden doğrulanmadı.
+- Bakım rolü/socket/database/port/data_directory kontrolü korundu. Çalışan
+  V2 servisinin /proc ortamındaki V2_DATABASE_URL yalnız stdin üzerinden kendi
+  venv Python'una aktarılır; servis OS kullanıcısıyla 127.0.0.1:55432 TCP,
+  v2_local/mikrotik_manager_v2 ve salt okunur transaction kimliği doğrulanır.
+  Varsayılan URL, shell ortamı veya bağlantı fallback'i yok; sır çıktısı yok.
+- PASS: 5 sentetik unittest (başarılı TCP, yanlış hedef/rol/DB, auth/kimlik
+  hatası, eksik URL, mutlak runuser/socket); bash syntax ve diff kontrolü.
+  Test altyapısındaki AST konum hatası giderilip başarısız kapsam tekrar geçti.
+- Yedek/dump doğrulaması, rollback, sabit sürüm ve V1 izolasyon kapıları korundu.
+  SSH EPERM yeniden denenmedi; VDS/gerçek DB/router erişimi, dağıtım, restart,
+  migration ve Git commit/push yapılmadı. Önceden mevcut değişiklikler korundu.
+- Sonraki tek adım: Ofis WSL'de repo içindeki update-approved-office.sh ile
+  onaylı dağıtımı çalıştırmak; canlı kabul bu oturumda doğrulanmış değildir.
+
+
+## Onaylı V2 pilot 7bb617c dağıtımı — 2026-10-31
+
+- BLOCKED: Mevcut kayıtta doğrulanmış SSH socket EPERM nedeniyle bağlantı
+  yeniden denenmedi. VDS sürümü, yedek, servis sağlığı, ADMIN girişi ve
+  CEBECI_TOWERS kaydı bu oturumda doğrulanmadı; uzakta işlem yapılmadı.
+- Ofis WSL için update-approved-office.sh ve update-approved-vds.py hazırlandı.
+  GitHub main SHA kontrolü, sabit Git arşivi, V2 cluster kimliği, kapalı cihaz
+  kapıları, uygulama/config/venv ve PG custom dump yedeği; arşiv okuma,
+  pg_restore ile tam veri çözme ve SHA256 kontrolü tamamlanmadan değişiklik yok.
+- Mevcut migration ve Python gereksinimleri farklıysa durur; otomatik migration
+  yok. Config, sertifika ve vault korunur. Yalnız V2 API servisi restart edilir.
+  Kritik uygulama/ADMIN kabul hatasında önceki uygulamaya rollback yapılır.
+  Kabul sonrası opsiyonel envanter hatası eski kodla PENDING kayıt yorumlanması
+  riskini önlemek için kabul edilmiş sürümü geri almaz; kayıt BLOCKED raporlanır.
+- Mevcut yetki ve gerçek vault referansı resmi API tarafından doğrulanırsa
+  yalnız PENDING_VERIFICATION kayıt; mevcut endpoint tekrar oluşturulmaz.
+  Probe/API-SSL/PPPoE çağrısı, gerçek veri modu açma, V1/DB restart yok.
+- Yerel bash syntax ve Python AST kontrolü PASS; uzaktan çalıştırma/restore
+  provası/ADMIN kabulü yapılmadı. Git commit/push yapılmadı.
+- Tek sonraki adım: Ofis WSL'de repo içinden
+  bash deploy/cebeci-v2-pilot/update-approved-office.sh çalıştırmak.
+
+
+
 ## Bağlantısız router envanter onboarding — 2026-10-31
 
 - PASS: Ayrı ADMIN/uygun LOCAL operatör/güvenli panel/onay header kapılı
@@ -2020,6 +2299,18 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Sonraki tek adım: mevcut dar onay kapsamını ağ erişimi olan yetkili çalışma
   ortamında sürdürmek. Genel sudo veya SSH yetkisi genişletilmez.
 
+## Canlı envanter devamı — mevcut oturum erişim kontrolü — 2026-11-02
+
+- Kullanıcının Ofis WSL VDS_SSH_OK ve 923d411 push bildirimi alındı; mevcut
+  sınırlı canlı onay geçerlidir. Bu ajan oturumunun tek SSH ön kontrolü ise
+  socket: Operation not permitted / port 22 failure ile reddedildi. Ofis WSL
+  sonucu bu oturumdan erişim kanıtı sayılmadı; tekrar bağlantı denenmedi.
+- BLOCKED: gerçek router sayısı ve panel durumu doğrulanamadı. DB rolü/sır,
+  deployment/restart veya V1/eski V2/router/abone değişikliği yapılmadı.
+  Dağıtım başlamadığı için rollback gerekmedi. Ürün kodu değişmedi, hedefli
+  canlı testlere geçilemedi; test ve push tekrarı yapılmadı.
+- Tek sonraki adım: görevi SSH erişimi açık ajan çalışma ortamında sürdürmek.
+
 ## Gerçek envanter sağlık/performans — yerel geliştirme — 2026-11-02
 
 - 072809d temel alındı. Erişilebilir V1 router_health_samples şeması ve
@@ -2270,3 +2561,36 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   önceki dist/config/ADMIN yedeği korunur. Sırlar/gerçek satırlar Git'e alınmadı.
 - Tek sonraki adım: mevcut SSH tüneliyle fresh pilot Router Merkezi V2.1
   görünümünün kullanıcı görsel kabulü. Kaynak snapshot otomatik güncellenmez.
+
+
+## V2.1 ölçüm güncelliği — salt okunur teşhis — 2026-11-02
+
+- PASS (teşhis): kesin sınıf snapshot/aktarım güncelliği. V2 API her 60sn
+  mevcut config/v1-inventory.json dosyasını tekrar okur; V1'den yeni örnek
+  çekmez. Dosya mtime 08:50:10 UTC (11:50:10 İstanbul), içindeki dokuz örnek
+  11:45:26.212357 +03 zamanında kalmış. API/veri seçimi timestamp'i dönüştürüp
+  üretmiyor; router ID üzerinden aynı dosya örneğini projekte ediyor.
+- Mevcut NOLOGIN v2_fresh_inventory_ro rolü SET LOCAL ROLE + READ ONLY ve
+  5sn statement timeout ile kullanıldı. Her router için sampled_at DESC,id DESC
+  en son iki kayıt alındı; tekrar DB sorgusu veya ölçüm üretme yapılmadı.
+- 17:31:20 +03 teşhis anında V1 public.router_health_samples tablosunda dokuz
+  routerın tamamı için son ölçüm 17:27:58.222790 +03, önceki 17:22:55.292974
+  +03. Dokuzunda da ID/zaman snapshot'tan ileri; üretim ilerliyor. V2'de
+  11:45:26 +03 == 08:45:26 UTC; saat dilimi hatası değil. Etkilenen 9/9.
+- Kaynak collector /opt/mikrotik-manager/backend/mikajani_health_collector.py,
+  collect_health_samples() ve router_health_samples INSERT hedefi salt okunur
+  doğrulandı. mikajani-health-collector.service Type=oneshot, son sonuç success,
+  exit=0, son çalışma 17:27:32–17:27:58 +03. inactive/dead oneshot sonrası normal.
+  mikajani-health-collector.timer active/waiting; OnBootSec=2min,
+  OnUnitActiveSec=5min, AccuracySec=15s, Persistent=true. Restart/trigger yok.
+- İlk kaynak sembol araması uzak rg bulunmadığından tamamlanmadı; yalnız eksik
+  collector dosya/timer doğrulaması Python ile yapıldı. Başarılı DB karşılaştırma
+  tekrarlanmadı. V1 kodu import/execute/kopya edilmedi; sınırlı kaynak satırları
+  yalnız incelendi. ADMIN login veya audit yazan API testi yapılmadı.
+- Hiçbir V1/eski V2/fresh V2 dosya/servis/veri/rol/yetki/router değişmedi.
+  Kod değişikliği/test/build/commit yok; kullanıcının bu görevde commit oluşturma
+  talimatına uyuldu. Yerel ilerleme belgesine yalnız bu teşhis eklendi.
+- En küçük güvenli çözüm ve tek sonraki adım: mevcut dar salt okunur export'u
+  kullanan, yalnız V2'ye ait 5dk periyodik atomik snapshot yenileyicisi hazırlamak;
+  hatada eski ölçüm zamanını korumak ve aktarım hatasını açık göstermek. V1
+  collector'ına veya DB yetkilerine müdahale gerekmiyor; bu iş uygulanmadı.
