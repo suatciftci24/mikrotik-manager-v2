@@ -1,0 +1,5 @@
+# PREPARED ONLY. Root-owned 0440 /etc/sudoers.d/mikrotik-v2-fresh-ops
+# Exact argv only; no shell, editor, logs, runuser, package or deployment access.
+Defaults:v2-fresh-ops env_reset, !setenv, use_pty
+Defaults:v2-fresh-ops secure_path=/usr/sbin:/usr/bin:/sbin:/bin
+v2-fresh-ops ALL=(root) NOPASSWD: /usr/bin/systemctl is-active mikrotik-v2-fresh-pilot.service, /usr/bin/systemctl start mikrotik-v2-fresh-pilot.service, /usr/bin/systemctl stop mikrotik-v2-fresh-pilot.service, /usr/bin/systemctl restart mikrotik-v2-fresh-pilot.service, /usr/bin/systemctl is-active mikrotik-v2-fresh-pilot-db.service, /usr/bin/systemctl start mikrotik-v2-fresh-pilot-db.service, /usr/bin/systemctl stop mikrotik-v2-fresh-pilot-db.service, /usr/bin/systemctl restart mikrotik-v2-fresh-pilot-db.service

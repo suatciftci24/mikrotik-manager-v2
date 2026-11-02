@@ -1,0 +1,22 @@
+#!/usr/bin/python3 -I
+"""Root-owned forced SSH command; no shell, arguments or file transfer."""
+import os
+import sys
+
+ACTIONS = ('is-active', 'start', 'stop', 'restart')
+UNITS = ('mikrotik-v2-fresh-pilot.service', 'mikrotik-v2-fresh-pilot-db.service')
+
+
+def command(original):
+    allowed = {f'{action} {unit}': ['/usr/bin/sudo', '-n', '--',
+               '/usr/bin/systemctl', action, unit]
+               for action in ACTIONS for unit in UNITS}
+    return allowed.get(original)
+
+
+if __name__ == '__main__':
+    argv = command(os.environ.get('SSH_ORIGINAL_COMMAND', ''))
+    if len(sys.argv) != 1 or argv is None:
+        print('BLOCKED: COMMAND_NOT_ALLOWED', file=sys.stderr)
+        sys.exit(2)
+    os.execve(argv[0], argv, {'PATH': '/usr/bin:/bin', 'LANG': 'C'})

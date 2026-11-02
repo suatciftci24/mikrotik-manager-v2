@@ -1,5 +1,20 @@
 # MikroTik Manager V2 — İlerleme
 
+## Codex dar kapsamlı V2 pilot erişimi — 2026-11-02
+
+- PASS (yerel hazırlık): deploy/fresh-v2-access altında ayrı v2-fresh-ops
+  SSH Match/forced-command ve exact-argv sudoers hazır. Yalnız iki fresh unit
+  için is-active/start/stop/restart; shell/tünel/dosya yazma/genel root yok.
+- Mevcut kimlikle HTTPS Git ls-remote ve strict-host-key/batch SSH salt okunur
+  erişimi PASS. Kimlik bilgileri değişmedi/gösterilmedi; push yetkisi ölçülmedi.
+- PASS: 4 hedefli sentetik test, visudo -cf ve git diff --check. VDS etkili
+  sshd/sudo kabulü yapılmadı. Mevcut yeni pilot yolları ABSENT_OR_INACCESSIBLE;
+  root düzeyi yokluk iddiası yok. Yeni ops hesabı getent ile bulunmadı.
+- VDS kullanıcı/anahtar/sudoers/unit değişikliği, servis işlemi ve aktarım yok;
+  V1/eski pilot yetkileri korunur. Canlı uygulama ayrı açık onay bekler.
+- Önceden mevcut çalışma ağacı korunur; commit yalnız bu erişim paketi ve
+  ilerleme belgesinin bu bölümünü kapsar. Sonraki işlem paketin gözden
+  geçirilmesi ve yalnız bu yeni yetki kapsamı için açık uygulama onayıdır.
 
 ## Bağlantısız router envanter onboarding — 2026-10-31
 
