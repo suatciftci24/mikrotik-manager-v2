@@ -1,5 +1,20 @@
 # MikroTik Manager V2 — İlerleme
 
+## Onaylı yeni V2 erişimi uygulama denemesi — 2026-11-02
+
+- BLOCKED: e397f95 Match bloğundaki PermitUserEnvironment VDS sshd tarafından
+  reddedildi. Kullanıcının hatada güvenle dur talimatıyla canlı işlem durdu;
+  güvenlik kontrolü atlanmadı, canlı yeniden deneme/düzeltme yapılmadı.
+- Yeni kullanıcı/home/anahtar/sudoers/forced-command oluşmadı. Etkin sshd_config
+  yedeğiyle bayt düzeyinde aynı. Reload, pilot servis başlatma, uygulama dağıtımı,
+  migration, PostgreSQL kurulumu yok; V1/eski pilot/mevcut yetkiler korunur.
+- Canlıda yalnız root:root 0600 sshd_config.v2-fresh-access-before ve
+  sshd_config.v2-fresh-access-candidate inceleme dosyaları oluşturuldu.
+- Paket SHA/sabit komut/yol incelemesi ve uygulayıcı Python derleme PASS;
+  hedef sshd aday sözdizimi FAIL. Başarılı eski testler tekrar edilmedi.
+- Sonraki tek adım: Match uyumsuzluğunu yerelde düzeltip etkin global
+  PermitUserEnvironment=no kısıtını doğrulayacak paketi hazırlamak.
+
 ## Codex dar kapsamlı V2 pilot erişimi — 2026-11-02
 
 - PASS (yerel hazırlık): deploy/fresh-v2-access altında ayrı v2-fresh-ops

@@ -56,3 +56,23 @@ Yerel kontrol (Ofis WSL, proje dizini):
 
 Yerel sudoers sözdizimi kontrolü VDS'nin mevcut birleşik politikasını veya
 sshd sürüm uyumluluğunu kanıtlamaz. Canlı hesap/SSH/sudo/servis kabulü yapılmadı.
+
+## Onaylı uygulama sonucu — 2026-11-02
+
+**BLOCKED**: e397f95 paketi VDS'nin `sshd -t -f` kontrolünde reddedildi:
+`PermitUserEnvironment` yönergesi `Match` bloğunda kullanılamıyor.
+Kontrol atlanmadı; canlı tekrar veya otomatik düzeltme yapılmadı.
+
+- Yeni hesap/home/authorized_key/sudoers/forced-command oluşturulmadı.
+- Etkin sshd_config, V1/eski pilot ve mevcut kullanıcı yetkileri değişmedi;
+  SSH reload, pilot servis işlemi, deployment veya migration yapılmadı.
+- Yalnız `/etc/ssh/sshd_config.v2-fresh-access-before` ve
+  `/etc/ssh/sshd_config.v2-fresh-access-candidate` root:root 0600 bırakıldı.
+  Yedek ile etkin yapılandırma bayt düzeyinde eşit doğrulandı.
+- `apply-approved-vds.py` gözden geçirilmiş commit içeriklerini bellekte taşıyan
+  yönetici SSH oturumunda kullanıldı; sır içermez ve bağımsız çalıştırılmaz.
+  Anahtar yalnız public dosyadan alındı; fingerprint eşleşti. Bu yardımcı
+  mevcut hedeflerde durur; bırakılmış aday/yedek nedeniyle tekrar çalıştırılmaz.
+- Sonraki tek adım: paketin Match uyumsuzluğunu yerelde düzeltmek; ortam değişkeni
+  kısıtını etkin global `permituserenvironment no` ile doğrulamadan ilerlememek.
+  Bu sonuç mevcut onayı iptal etmez; bu görev hata sonrasında güvenle durmuştur.
