@@ -2707,3 +2707,39 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   force yok, uzak dal çakışırsa durulur.
 - Tek sonraki adım: ayrı açık canlı onayla düzeltilmiş unit üzerinden yedekli
   fresh pilot dağıtımı ve tek aktarım/API/UI kabulünü yeniden yapmak.
+
+
+## f0c891c kontrollü Fresh Pilot dağıtımı — kabul aracı engeli/rollback — 2026-11-02
+
+- ROLLBACK: açık kullanıcı onayıyla yerel HEAD=f0c891c/main-guncel/temiz ağaç
+  doğrulandı. Mevcut yedekli dosya-payload dağıtımı kullanıldı; genel test/build
+  tekrarlanmadı. Fresh API/DB aktif, yeni unit/status/runtime çakışması yok ve
+  mevcut NOLOGIN/dar SELECT ön kontrolü PASS; rol/yetki değişmedi.
+- Değişecek hedef dosyalar/snapshot ve config/ADMIN root-private yedeklendi.
+  f0c891c script/SQL/unit dosyaları dağıtıldı; host systemd verify PASS.
+  Yalnız daemon-reload ve timer kapalıyken tek yeni oneshot start yapıldı.
+- Aktarımın kendisi PASS: journal result=success/error_code=null,
+  last_success_at=2026-11-02T17:51:03.889091+00:00. Python/runuser capability
+  maskesi 1fff7fcffff, CAP_SETUID mevcut; önceki UID geçiş hatası düzeldi.
+  Kabul aracında atomik inode değişimi/snapshot izinleri, güvenli status ve
+  eski snapshot'a göre 9/9 kimlik + örnek ID/zaman ilerlemesi kontrolleri geçti.
+- Kritik kabul tamamlanmadı: orchestration sudo sistem Python3 ile çalıştığı
+  için bağımsız kaynak eşitliği kontrolünde refresh_health import'u Pydantic
+  eksikliğinde durdu. Salt okunur import tanısı: /usr/bin/python3 import
+  pydantic FAIL (No module named pydantic), pilot venv import PASS. Bu kabul
+  aracı hatasıdır; yeni aktarım/ürün hatası varsayılmadı. İstisna ham çıktısı
+  loglanmadı. Tam kaynak eşitliği, kilit kabulü ve ADMIN API/UI aşamasına
+  geçilemedi. Yeni kaynak ölçüm zamanı kalıcı kabul receipt'ine alınamadan
+  rollback oldu; aktarım zamanı kaynak zamanı diye raporlanmaz.
+- Rollback PASS: önceki snapshot geri alındı; yeni script/SQL/unit/status/runtime
+  kaldırıldı, timer INACTIVE/not-found ve enable yok. Snapshot 9/9 eski kaynak
+  zamanı 2026-11-02T11:45:26.212357+03:00. Config/ADMIN/adapter/frontend hashleri
+  ve fresh API/DB MainPID aynı. İlgili API/DB restartı yok. İkinci aktarım yok.
+- V1/eski V2/roller/veriler/router/PPPoE/RADIUS için deploy/yazma/restart yok;
+  kapsam dışı dosyaların tamamı ayrıca taranmadı. Gerçek satır/sır Git'e veya
+  kullanıcı çıktısına yazılmadı. ADMIN kabul oturumu veya browser/tünel açılmadı.
+- Yedek + failure/rollback-verification ve private journal:
+  /srv/mikrotik-manager-v2-fresh-pilot/backups/health-f0c891c-20261102T175103Z-nuprpev1
+- Tek sonraki adım: ayrı canlı onayla aynı f0c891c paketini, kaynak doğrulamasını
+  pilot venv Python'ıyla çalıştıran kabul aracı üzerinden yeniden dağıtıp tek
+  aktarım/API/UI kabulünü tamamlamak; timer yalnız tüm kritik PASS sonrası.
