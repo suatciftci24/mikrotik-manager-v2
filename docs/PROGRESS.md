@@ -3022,3 +3022,65 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   normal origin/main-guncel push, force yok.
 - Tek sonraki adım: mevcut gerçek handoff'un erişilebilir olduğu yetkili
   ortamda Dashboard gerçek sekmesinin 9/9 salt okunur görsel kabulü.
+
+## V2.5 — Onaylı Fresh Pilot dağıtımı ve gerçek 9/9 kabul — 2026-11-02
+
+- PASS: açık kullanıcı onayı; temiz main-guncel ve onaylı
+  dd52554a669f94104e114057a77d6a1cdc4b120e doğrulandı. Yalnız
+  /srv/mikrotik-manager-v2-fresh-pilot hedefi kullanıldı. Mevcut StaticFiles
+  mimarisi restart gerektirmedi. Onaylı commit'ten frontend build alındı;
+  ürün testleri tekrarlanmadı. Yerel Chromium dağıtımdan önce doğrulandı.
+- Ön durum: Fresh API/DB active, API database_connected=true ve dış cihaz
+  adaptörleri kapalı; snapshot 9 envanter + 9 sağlık örneği. Mevcut ADMIN ile
+  ilgili dokuz API bağımlılığı ve gerçek envanter kaynağı dağıtımdan önce
+  erişilebilir doğrulandı. Sırlar/parolalar/cookie değerleri çıktıya verilmedi.
+- Geri yüklenebilir root-private yedek alındı: tüm eski dist dosyaları için
+  dist-before.tar, içerik/owner/group/mode/mtime manifesti before.json ve
+  candidate-manifest.json. Arşivdeki her dosyanın hash'i ön-imajla doğrulandı.
+  Yazılacak dosyalarda symlink/hardlink/paylaşılan yol reddedildi. Rollback
+  yalnız bu dist ön-imajını geri yükleyip yeni aday dosyalarını kaldıracak
+  şekilde hazırlandı; mevcut veri veya DB restore/reset işlemi yok.
+- Tek dağıtım denemesinde yalnız app/frontend/dist için dokuz onaylı build
+  dosyası yayınlandı; hash'li assetler önce, index atomik olarak en son.
+  Eski assetler korunur. Backend/env/DB/snapshot/status/unit/timer dosyalarına
+  yazılmadı; API/DB restart/reload veya migration yapılmadı. Sunulan theme.js
+  ve giriş JS SHA256'ları onaylı payload ile eşleşti.
+- Gerçek ADMIN API kabulü PASS: 9/9 kimlik/metadata + 9/9 sağlık örneği
+  mevcut Fresh Pilot snapshot'ıyla eşleşti. CPU/RAM, sağlık kaynağı, ölçüm
+  zamanı ve son internet denemesi eksikleri 0; model/RouterOS da doğrulandı.
+  İlk kontrolde stale=9 doğru biçimde eski gösterildi. Son API kontrolünde
+  stale=0: mevcut otomatik timer doğal olarak yeni snapshot aktardı. Yeni
+  API okuması ölçüm zamanı yerine kullanılmadı; görev aktarım çağırmadı.
+- Gerçek Fresh Pilot URL'sinde Chromium ADMIN Dashboard render kabulü PASS:
+  9 satırın ad/model/RouterOS/CPU/RAM/deneme/ölçüm zamanı/güncelliği aynı API
+  yanıtıyla karşılaştırıldı. Demo abone, PPPoE, oturum ve alarm sayaçları
+  gerçek moda eklenmedi. Snapshot oluşturma zamanı sözleşmede sunulmadığından
+  Veri yok; API yenilemesi ve Europe/Istanbul ölçüm zamanları ayrı gösterildi.
+- Sekiz hedefli canlı tarayıcı kabul akışı PASS: gerçek 9/9 alanlar/kaynak
+  izolasyonu, zaman etiketleri, 1440/390px masaüstü/mobil render, gerçek
+  61sn beklemede tek 60sn yenileme ve max_active=1, yalnız tarayıcı içi 503
+  ile eski satır/sayaç gizleme ve toparlanma, V2.1 Router Merkezi/kanıt detayı,
+  demo geçişi + V2.3 Günlük Yönetim Merkezi, bekleyen istekte kaynak değişimi
+  abort/stop ve sonraki sanal 61sn'de inventory isteği olmaması. 503 sunucuya
+  uygulanmadı; sunucu/config değiştirilmedi. Kabul başarısızlığı/ikinci
+  dağıtım veya rollback gerekmedi. Sabit başlığın kaydırılmış konumda kalmaması
+  için yalnız kanıt görüntüleri ayrıca sayfa başından alındı; test tekrarı yok.
+- Son koruma kontrolü PASS: API PID 857737 ve DB PID 843217 başlangıçla aynı;
+  başlangıç zamanları da aynı. Config/ADMIN teslim dosyası/backend ve dört
+  ilgili unit dosyasının hash/owner/mode/mtime değerleri aynı. Sağlık timer'ı
+  enabled/active ve ActiveEnterTimestampMonotonic aynı; restart/enable/stop
+  çağrısı veya 5dk zamanlayıcı ayarı değişikliği yok. Snapshot sahip/izinleri
+  aynı. V1/eski V2 yollarına komut/yazma, DB rol/parola/yetki/şema değişikliği,
+  MikroTik/PPPoE/Hotspot/RADIUS/IPsec veya başka servis işlemi yapılmadı.
+- ADMIN kabul oturumu başarıyla logout edildi; uzak geçici session.json ve
+  yerel özel oturum dosyası kaldırıldı. Browser about:blank/close, yalnız bu
+  görevin SSH tüneli ve yerel geçici payload/helper temizliği tamamlandı.
+- Yedek + ön durum + API/UI/final kabul kayıtları:
+  /srv/mikrotik-manager-v2-fresh-pilot/backups/v25-dd52554-20261102T201655Z-lju77y2v
+  (prepared.json, deployed.json, accepted-v25.json, browser-evidence/).
+  Yerel özel kanıt: .local/deployment/v25-fresh-dd52554/ altında
+  ui-receipt.json, dashboard-real-1440.png, dashboard-real-390.png ve
+  dashboard-browser-only-503.png. Görüntüler görsel incelendi; sırlar ve gerçek
+  satır verileri Git'e eklenmez. Yalnız bu dokümantasyon normal commit/push.
+- Tek sonraki adım: Fresh Pilot Merkezi Dashboard > Gerçek V1 · Salt Okunur
+  ekranını mevcut yetkili erişimle günlük kullanımda görsel olarak onaylamak.
