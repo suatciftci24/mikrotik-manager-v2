@@ -12,8 +12,9 @@
   bağlantı sırasını ve yönetici/ops ayrımını somutlaştırır. 55442/18090, boş hedef,
   001–009 checksum/transaction/audit/seal/yedek ve veri silmeyen rollback korunur.
 - PASS: yalnız 2 yeni release handoff testi ve diff kontrolü. Eski 33+3 test,
-  frontend build ve SSH/sudo kabulü tekrarlanmadı. Yerel release üretimi committed
-  kaynak zorunlu olduğundan commit sonrası bir kez çalıştırılacaktır.
+  frontend build ve SSH/sudo kabulü tekrarlanmadı. Kaynak commit 4f09295 üzerinden
+  .local/fresh-v2-release-4f09295 altında tar/receipt bir kez üretildi; arşiv,
+  manifest, tüm 001–009/asset ve mevcut frontend checksum kabulü PASS. Aktarım yok.
 - BLOCKED (ops hesabıyla kurulum): forced-command/sudo allowlist aktarım, shell,
   TTY, hesap/dizin/PG oluşturma, runuser, daemon-reload ve migration vermez.
   Yetki gevşetilmedi. VDS'ye bu görevde hiçbir komut/aktarım/kurulum yapılmadı.
