@@ -2111,3 +2111,34 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   çalıştırılmadı. Kullanıcının mevcut yerel değişiklikleri korunur.
 - Tek sonraki adım: düzeltilmiş kabul aracını ayrı açık onaylı canlı sağlık
   dağıtımı/kabulünde kullanmak; mevcut görev canlı uygulama yetkisi vermez.
+
+
+## İkinci canlı sağlık dağıtımı — kabul tamamlandı — 2026-11-02
+
+- PASS: açık kullanıcı onayıyla tek yetkili SSH oturumunda kısa preflight
+  yapıldı. Pilot active, önceki rollback dosyaları byte eşit, metadata 9 router;
+  fresh profil/18090/loopback ağ sınırı ve router onboarding/API kapalı doğrulandı.
+- caf2b4c adaptörü + ilk işlemdeki payload ile byte eşit mevcut frontend build,
+  3557b88 ortak API/SHA256 kabul aracıyla yalnız fresh pilot'a dağıtıldı.
+  Yalnız mikrotik-v2-fresh-pilot.service restart edildi; başka servis işlemi yok.
+- Mevcut v2_fresh_inventory_ro NOLOGIN rolüne yalnız router_health_samples
+  id/router_id/sampled_at/cpu_load_percent/memory_used_percent/internet_success
+  kolon SELECT verildi. Transaction içinde efektif fazla SELECT/yazma/DDL ve
+  rol üyeliği güvenlik kontrolü geçti. Kaynak SET LOCAL ROLE + READ ONLY ile
+  okundu; V1 uygulaması/kayıtları/kullanıcıları veya sırları değiştirilmedi.
+- Gerçek ADMIN HTTP/API kabulü PASS: 9 router ID/metadata eşleşmesi, 9 sağlık
+  kaydı; CPU/bellek/ölçüm zamanı/kaynak/internet denemesi eksik sayıları ayrı
+  ayrı 0. Kabul anında STALE=0; status=NO_DATA. Geçmiş örnek canlı çevrimiçi
+  kanıtı sayılmadı; aktarım tek seferlik snapshot, otomatik yenileme yok.
+- Anonim 401, ADMIN login/kabul/logout ve sunulan theme.js + giriş JS SHA256
+  eşleşmesi PASS. Bu HTTP/API kabulüdür; yeni tarayıcı görsel kabulü iddia edilmez.
+  UI eksik veri için Veri yok, eski ölçüm için Güncel değil davranışını korur.
+- Yedek ve PASS receipt:
+  /srv/mikrotik-manager-v2-fresh-pilot/backups/health-caf2b4c-before-awb78trt.
+  Rollback gerekmedi; işlemde eklenen dar SELECT yetkileri başarıyla korunur.
+- Migration/şema/genel sudo/DB yetki genişlemesi, eski V2, gerçek MikroTik,
+  PPPoE/Hotspot/RADIUS/router yazma değişikliği yok. Yerel genel test/build
+  tekrarlanmadı; yalnız operasyon payload syntax ve zorunlu canlı kabul yapıldı.
+  Gerçek satırlar/sırlar Git'e alınmadı; mevcut yerel değişiklikler korunur.
+- Tek sonraki adım: mevcut SSH tünelindeki fresh pilot panelinde 9 routerın
+  sağlık görünümünün kullanıcı görsel kabulü; snapshot canlı bağlantı kanıtı değildir.
