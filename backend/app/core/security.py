@@ -14,6 +14,12 @@ _DEMO_USER = {'id': 'demo-user', 'name': 'Demo Operatör', 'email': 'demo@local.
 
 def login_demo(username: str, password: str) -> str:
     identity=find_user(username,by_username=True)
+    # Compatibility alias for the documented local bootstrap demo profile only.
+    # find_user still enforces the authoritative setup seal; never alias LOCAL users.
+    if identity is None and username == _DEMO_USER['email']:
+        demo=find_user('demo',by_username=True)
+        if demo and demo['id']==_DEMO_USER['id'] and not demo.get('bootstrap_closed',False):
+            identity=demo
     valid=verify_password(password,identity['password_hash'] if identity else BOOTSTRAP_HASH)
     if not identity or not identity['active'] or not valid:
         raise HTTPException(status_code=401,detail='Giriş bilgileri geçersiz')

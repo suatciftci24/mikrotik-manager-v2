@@ -10,7 +10,7 @@ cd /home/suatpc/Codex-Projects/mikrotik-manager-v2
 ./dev.sh
 ```
 
-Open `http://127.0.0.1:5173`. Before first ADMIN setup, the synthetic demo account is `demo` / `demo-only` (profile email `demo@local.test`). After setup only LOCAL accounts can log in. The login form never pre-fills credentials. Dashboard, Router Center, and Subscriber Center retain their synthetic data. The browser API is served by FastAPI at loopback; `/api/health` reports local demo storage connectivity and device-adapter isolation.
+Open `http://127.0.0.1:5173`. Before first ADMIN setup, `demo@local.test` is accepted as a login alias for the bootstrap demo user. The synthetic demo account is `demo` / `demo-only` (profile email `demo@local.test`). After setup only LOCAL accounts can log in. The login form never pre-fills credentials. Dashboard, Router Center, and Subscriber Center retain their synthetic data. The browser API is served by FastAPI at loopback; `/api/health` reports local demo storage connectivity and device-adapter isolation.
 
 The first run prepares V2-specific Python/frontend dependencies. First-time dependency installation needs normal package-registry access. Demo persistence uses the existing SQLAlchemy/psycopg stack and locally installed PostgreSQL 16; no additional Python/npm package is introduced. The explicit `--prepare-demo` maintenance command starts only a repo-owned development PostgreSQL cluster and applies/seeds only the isolated demo schema. Normal `./dev.sh` startup neither connects to the DB nor runs migrations; API reads/writes connect on demand. The original `001_initial_v2.sql` domain design is not applied by demo setup.
 

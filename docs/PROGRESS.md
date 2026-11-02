@@ -2820,3 +2820,57 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   origin/main-guncel push kapsamındadır; force yok, çakışmada durulur.
 - Tek sonraki adım: yerel Dashboard > Günlük Yönetim Raporu üzerinden V2.2
   görünümünün kullanıcı görsel kabulü; canlı dağıtım bu görevin kapsamında değil.
+
+
+## Ev WSL yerel demo PostgreSQL erişim onarımı — 2026-11-02
+
+- PASS: main-guncel/b34ecdb ve başlangıçta temiz ağaç doğrulandı. Kesin neden
+  repo-owned .local/postgres-v2-demo PostgreSQL16 kümesinin kapalı olmasıydı.
+  API/UI açıktı; uygulama doğru loopback:55432/V2 DB/rolünü kullanıyordu.
+  Genel sistem PostgreSQL servisi aktifti ve ona dokunulmadı.
+- Proje izolasyon/owner/symlink/port ön kontrollerinden sonra yalnız mevcut
+  repo kümesi pg_ctl ile başlatıldı. Mevcut DB, schema_state version=1,
+  data_directory ve tekil tablo yetkileri doğrulandı. Migration/init/seed,
+  parola/GRANT/DB yeniden oluşturma veya mevcut veri sıfırlama gerekmedi.
+- Gerçek HTTP PASS: database_connected=true, device_adapters_connected=false;
+  demo@local.test profiline ait mevcut demo girişi, Dashboard, rapor envanteri,
+  14 abone detayı ve olay kaynağı okunabildi. Abone + işlem geçmişi fingerprint
+  öncesi/sonrası aynı; bellek fallback yok. Kabul oturumları logout edildi.
+- Gerçek yerel API verileriyle 4 V2.2 dönem projeksiyonu PASS. Gerçek Chromium
+  çalışan localhost5173 UI/API'de Dashboard → Günlük Yönetim Raporu V2.2,
+  14 abone ve Son30 filtre okuması PASS; API/page hatası yok. Görüntü yalnız
+  .local/browser-acceptance/local-db-repair/report.png içinde tutulur.
+- Kod hatası/değişikliği yok. Kullanıcı talimatıyla commit/push oluşturulmadı;
+  yalnız bu ilerleme kaydı yerel bırakılır. VDS/V1/eski V2/fresh pilot/canlı
+  DB/cihaz/Router API/PPPoE/Hotspot/RADIUS erişimi veya değişikliği yok.
+- Tek sonraki adım: açık yerel V2.2 panelini yenileyerek kullanmak.
+
+
+## Ev WSL demo e-posta girişi — kesin neden ve düzeltme — 2026-11-02
+
+- PASS: gerçek Chromium formunda orijinal hata yeniden üretildi. İstek
+  localhost5173/api/v1/auth/login'e username=demo@local.test ile gidiyordu,
+  HTTP401 alıyordu. Proxy ve doğrudan localhost8000 /api/ready repo/build
+  kimlikleri aynıydı; yanlış backend veya DB değil.
+- Yerel repo DB/şema/yetkileri PASS; 14 abone vardı. demo kullanıcı adı mevcut,
+  hesap aktif, beklenen parola doğru, bootstrap açık. E-posta username olarak
+  aranıyordu ve bulunamıyordu. Önceki PASS raporu demo kullanıcı adıyla HTTP
+  girişini test etmişti; profil e-postasını formda giriş olarak sınamamıştı.
+- En küçük kod düzeltmesi: yalnız demo-user bootstrap kimliği için
+  demo@local.test → demo giriş takma adı; aynı parola/aktiflik kontrolleri
+  zorunlu. Kapalı bootstrap, LOCAL veya başka DEMO kullanıcıya bu alias
+  verilmez. Genel e-posta login'i, fallback hesap, seed, parola reseti yok.
+- 6 yeni hedefli alias/güvenlik testi + doğrudan etkilenen identity/yetki
+  kapsamıyla toplam23 unittest PASS. Yanlış parola, pasif/kapalı bootstrap,
+  farklı kullanıcı/e-posta ve mevcut LOCAL giriş davranışı kontrol edildi.
+- Projenin owner/PID doğrulayan dev.sh --refresh-owned akışıyla yalnız bu
+  deponun yerel API/UI süreçleri kodu yüklemek için yenilendi; DB restartı yok.
+- Gerçek Chromium login formu, istenen e-posta ve parola ile HTTP200 PASS;
+  Dashboard → Günlük Yönetim Raporu V2.2 verileri açıldı. Proxy8000 eşleşmesi
+  yeniden doğrulandı. Kabul oturumları logout edildi.
+- Salt okunur fingerprint karşılaştırması: tüm kullanıcı/parola kayıtları ile
+  14 abone/işlem geçmişi değişmedi. Sırlar/hashler loglanmadı. VDS/fresh/V1/
+  eski V2/canlı PostgreSQL/router/PPPoE/Hotspot/RADIUS erişimi/değişikliği yok.
+- Önceki görevde yerel bırakılan DB-onarım ilerleme notu bu ilgili düzeltme
+  kaydıyla birlikte korunur. İlgili kod/test/README/progress normal commit/push;
+  force yok. Tek sonraki adım: açık yerel tarayıcıda demo@local.test ile giriş.
