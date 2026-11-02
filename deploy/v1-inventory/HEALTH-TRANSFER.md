@@ -65,3 +65,51 @@ only the new units/status artifacts. It never restores or changes V1 data.
 Local checks use nine synthetic routers and mocked subprocess output. The real
 VDS unit paths cannot be executed locally; unit syntax is checked using a
 throwaway copy whose Python executable path is replaced with the local one.
+
+
+## Diagnosed deployment failure (2026-11-02)
+
+The rolled-back 0bfac70 attempt failed before PostgreSQL connection/SQL:
+`runuser` could not switch from UID 0 to the existing `postgres` OS user.
+The saved journal has `pam_keyinit(runuser:session): Unable to change UID ...
+temporarily`. Both the Python parent and runuser have `_CAP_EFFECTIVE` equal
+to `1fff7fcff7f`: CAP_SETUID (bit 7) is absent, CAP_SETGID is present. This is
+not a PostgreSQL role/grant/password or timeout error.
+
+The VDS runs systemd 255.4-1ubuntu8.18. Its v255.4 execution path enters
+`keep_seccomp_privileges` for an explicit User= and seccomp restrictions, then
+drops CAP_SETUID unless it is ambient. The unit specified `User=root` and no
+ambient capabilities. With User= omitted, UID remains UID_INVALID in that
+path and the explicit UID-switch/drop branch is skipped; system services
+still start as root. This matches the saved capability mask and PAM failure.
+There were no matching global/prefix/unit drop-ins in the read-only check.
+
+The smallest correction removes only the redundant `User=root` assignment.
+Group=root, NoNewPrivileges, PrivateDevices, ProtectSystem, all other
+sandboxing, timeouts, Unix-socket-only transport and read-only SQL remain.
+No ambient capabilities, privileged command prefixes, fallback connection or
+permission changes are introduced. Runtime transfer/API/frontend code is
+unchanged.
+
+Read-only VDS diagnostics confirmed both inherited and minimal environments
+connect and execute the role/read-only check in 45ms and 41ms respectively.
+The exact full export transaction also succeeded outside the service, with
+9 inventory rows, 9 samples and 2777 bytes, far below the 1MiB limit. No
+snapshot was written. Therefore the existing source SQL, socket, role and
+permissions do not need changing. The journal's failed attempt was immediate,
+not a five/twenty/thirty-second timeout.
+
+Sources:
+- [systemd v255.4 UID setup](https://github.com/systemd/systemd-stable/blob/v255.4/src/core/exec-invoke.c#L3800-L3814)
+- [systemd v255.4 seccomp capability branch](https://github.com/systemd/systemd-stable/blob/v255.4/src/core/exec-invoke.c#L4419-L4480)
+- [system service default user and sandbox semantics](https://www.freedesktop.org/software/systemd/man/258/systemd.exec.html)
+- [Linux-PAM UID transition](https://github.com/linux-pam/linux-pam/blob/master/modules/pam_keyinit/pam_keyinit.c)
+
+Validation is local only: the existing seven synthetic transfer tests and
+unit syntax validation with a throwaway local executable path. A privileged
+systemd/root-to-postgres reproduction could not be run locally: sudo requires
+a password. This limitation is not reported as a successful service execution.
+The fix follows the recorded capability/PAM evidence and matching systemd
+source, not a relaxed sandbox experiment. Live unit execution remains pending
+separate deployment approval. No VDS file/unit/config changes were made during
+diagnosis; the timer remains absent/inactive after the prior rollback.

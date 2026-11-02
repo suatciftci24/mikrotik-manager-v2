@@ -4,7 +4,9 @@ Description=MikroTik V2 read-only health snapshot transfer
 
 [Service]
 Type=oneshot
-User=root
+# System service defaults to root. Keep User= unset: systemd 255 drops
+# CAP_SETUID for explicit User=root with seccomp, breaking runuser.
+# See HEALTH-TRANSFER.md; all sandbox restrictions remain enabled.
 Group=root
 WorkingDirectory=/srv/mikrotik-manager-v2-fresh-pilot/app
 Environment=PYTHONDONTWRITEBYTECODE=1

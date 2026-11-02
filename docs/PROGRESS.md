@@ -2673,3 +2673,37 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Tek sonraki adım: source_read_failed nedenini mevcut service sandbox/peer
   transport sınırları içinde yerel sentetik ortamda teşhis etmek; yeni canlı
   deneme veya izin genişletmesi bu görevde yapılmaz.
+
+
+## source_read_failed kesin teşhis ve en küçük unit düzeltmesi — 2026-11-02
+
+- PASS (yerel düzeltme): kaydedilmiş PAM hatası postgres OS UID'sine geçişte.
+  Journal Python/runuser UID=0, _CAP_EFFECTIVE=1fff7fcff7f; CAP_SETUID(bit7)
+  yok, CAP_SETGID var. Bu nedenle PostgreSQL bağlantısı/rol/SELECT öncesinde
+  runuser kullanıcı değiştiremiyor. Ham stderr ilk sürümde saklanmamıştı;
+  mevcut PAM + process capability kanıtı ve systemd kaynak dalı kullanıldı.
+- VDS systemd=255.4-1ubuntu8.18. v255.4 exec-invoke.c açık User= + seccomp
+  dalında ambient değilse CAP_SETUID düşürüyor. UID başta UID_INVALID;
+  User= olmadan açık UID-switch/drop dalına girilmiyor. İlgili global/prefix/
+  unit drop-in yok. Kaynak bağlantıları HEALTH-TRANSFER.md içinde kaydedildi.
+- Yalnız salt okunur tanılama: önceki inherited ve yenileyicinin minimal env
+  bağlantısı + mevcut rol/READ ONLY kontrolü 45ms/41ms PASS. Tam export SQL
+  servis dışında PASS: 9 router/9 ölçüm, 2777 byte, SQLSTATE hatası yok.
+  Socket/rol/izin/sorgu, çıktı limiti veya timeout değişikliği gerekmiyor.
+- Tek işlevsel değişiklik: prepared service içindeki redundant User=root
+  satırı kaldırıldı; sistem servisi varsayılan root olarak kalır. Group=root,
+  NoNewPrivileges ve tüm sandbox/timeouts/Unix socket sınırları aynı. Ambient
+  capability, grant, fallback veya sandbox gevşetmesi eklenmedi. Snapshot/
+  kilit/hata koruması/API/UI ve timer kaynak kodu değişmedi.
+- Hedefli kontrol: mevcut 7 sentetik transfer testi PASS; yerel executable
+  kullanan geçici kopyada systemd-analyze verify ve git diff --check PASS.
+  Yerel host da systemd255; sudo parola istediğinden ayrıcalıklı unit/kernel
+  yeniden üretimi çalıştırılamadı, geçmiş gibi gösterilmedi. Genel suite yok.
+- VDS dosya/config/unit/snapshot değişikliği, deploy/restart/timer açma,
+  DB grant/migration/yazma veya router işlemi yapılmadı. Salt okunur teşhiste
+  gerçek kaynak satırları veya sırlar çıktıya/Git'e yazılmadı. Timer mevcut
+  rollback durumunda not-found/INACTIVE. 1bb46a3 ve önceki commit'ler korunur.
+- Bu düzeltme yerel commit ve normal origin/main-guncel push için hazırlanır;
+  force yok, uzak dal çakışırsa durulur.
+- Tek sonraki adım: ayrı açık canlı onayla düzeltilmiş unit üzerinden yedekli
+  fresh pilot dağıtımı ve tek aktarım/API/UI kabulünü yeniden yapmak.
