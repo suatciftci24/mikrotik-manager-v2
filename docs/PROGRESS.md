@@ -2058,3 +2058,31 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Dağıtım tekrarlanmadı; geçmiş ölçüm canlı çevrimiçi kanıtı olarak sunulmadı.
 - Tek sonraki adım: başarısız canlı kabul assertion adımını salt okunur teşhisle
   belirlemek; yeni dağıtım bu görevde tekrar denenmedi.
+
+
+## caf2b4c sağlık kabulü — hedefli salt okunur teşhis — 2026-11-02
+
+- BLOCKED (özgün ilk hata): /tmp/v2-health-deploy.py yalnız exception türünü
+  kaydetmiş; traceback/assert satırı ve API yanıtı saklanmamış. Yedekte receipt
+  yok. Tek SSH oturumunda ilgili pilotun 90 saniyelik journal aralığında 28 satır,
+  sıfır ERROR/Traceback/AssertionError görüldü. İlk başarısız assert belirlenemez.
+- Kesin kabul testi hatası: araç satır 91, UTF-8 Güncel değil VE
+  V1_ROUTER_HEALTH_SAMPLES metnini served JS içinde arıyor. Orijinal /tmp
+  payload AST üzerinden (çalıştırılmadan) açıldı: label=True, source_marker=False.
+  Beklenen ikisi True, gerçekleşen True/False; koşul deterministik False.
+  Kaynak sabiti UI bundle gereksinimi değildir; row.health_source API'den gelir.
+  Bu kanıt aynı çalışmada daha erken başka assert düşmediğini kanıtlamaz.
+- SQL yetki hatası aynı denemenin nedeni olamaz: grant/export/metadata/model
+  aşamaları geçilip changed=True sonrası rollback'e ulaşıldı. Güncel salt okunur
+  kaynak özeti 9 router/9 son sağlık örneği; geri alınmış role health SELECT=False.
+  Özgün API yanıtı kayıtsız olduğundan alan eşleştirme kabulü kanıtlanamaz.
+- Yedekle mevcut hedeflerin byte karşılaştırması eşit. Pilot/DB yetkisi/dosya,
+  login/audit, servis/restart, migration veya router bağlantısı değiştirilmedi.
+- Yerel static_acceptance.py, API değerini bundle içinde aramak yerine HTML'nin
+  referans verdiği scriptleri onaylı payload ile SHA256 karşılaştırır; mismatch
+  beklenen/gerçekleşen hash ile adlandırılır. Geçici dağıtım aracı yeniden
+  çalıştırılmadı; yardımcı canlıya uygulanmadı ve runtime ürün kodu değişmedi.
+- PASS: tek sentetik regresyon testi; dinamik kaynak metniyle doğru bundle kabulü
+  ve farklı içerik reddi. Genel test/build tekrarı yok. Kullanıcı yerel dosyaları
+  korunur. Tek sonraki adım: gelecekteki ayrı onaylı kabul aracına bu yardımcıyı
+  ve assert adımı/beklenen-gerçekleşen kaydını bağlamak; canlı tekrar yapılmadı.
