@@ -12,6 +12,10 @@ VDS_OPERATOR_ID = 'v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92'
 
 def validate_scope(environment=None):
     values = os.environ if environment is None else environment
+    from app.core import fresh_pilot
+    if fresh_pilot.active(values):
+        fresh_pilot.validate(values)
+        return
     if 'V2_DEPLOYMENT_PROFILE' not in values:
         return
     if values['V2_DEPLOYMENT_PROFILE'] != VDS_PROFILE:
@@ -58,6 +62,10 @@ def validate_target(target, username):
 
 def validate_runtime(root, environment=None):
     values = os.environ if environment is None else environment
+    from app.core import fresh_pilot
+    if fresh_pilot.active(values):
+        fresh_pilot.validate(values, root)
+        return
     validate_scope(values)
     if 'V2_DEPLOYMENT_PROFILE' not in values:
         return

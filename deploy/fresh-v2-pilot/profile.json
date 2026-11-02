@@ -1,0 +1,14 @@
+{
+  "profile": "fresh-v2-pilot",
+  "root": "/srv/mikrotik-manager-v2-fresh-pilot",
+  "database": "mikrotik_manager_v2_fresh_pilot",
+  "owner_role": "v2_fresh_owner",
+  "app_role": "v2_fresh_app",
+  "db_os_user": "mikrotik-v2-fresh-db",
+  "app_os_user": "mikrotik-v2-fresh",
+  "db_port": 55442,
+  "api_port": 18090,
+  "db_service": "mikrotik-v2-fresh-pilot-db.service",
+  "app_service": "mikrotik-v2-fresh-pilot.service",
+  "postgres_major": 16
+}

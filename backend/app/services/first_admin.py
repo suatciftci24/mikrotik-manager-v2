@@ -138,24 +138,33 @@ class FirstAdminStore:
             # Recheck after the schema upgrade. Never promote/rewrite a demo account.
             state = inspect_setup(connection, self.schema)
             require(not state.closed, 'FIRST_ADMIN_SETUP_CLOSED')
-            exists = connection.execute(text(f'SELECT 1 FROM {self.schema}.users WHERE lower(username)=lower(:username)'),
-                                        {'username': payload.username}).scalar_one_or_none()
-            require(exists is None, 'USERNAME_UNAVAILABLE')
-            record = dict(id='v2-user-' + str(uuid4()), username=payload.username, name=payload.name,
-                          email=payload.email, role='ADMIN', active=True, revision=0, account_origin='LOCAL',
-                          permissions={r['id']: {p: True for p in PERMISSIONS} for r in ROUTERS})
-            connection.execute(text(f'''INSERT INTO {self.schema}.users
-                (id,username,name,email,role,active,password_hash,permissions,revision,account_origin)
-                VALUES (:id,:username,:name,:email,:role,:active,:password_hash,CAST(:permissions AS jsonb),:revision,:account_origin)'''),
-                {**record, 'permissions': json.dumps(record['permissions']),
-                 'password_hash': identity.hash_password(payload.password.get_secret_value(), real_account=True)})
-            public = identity.public_user(record, True, bootstrap_closed=True)
-            connection.execute(text(f'''INSERT INTO {self.schema}.user_audit
-                (id,actor_id,target_id,operation,previous_values,new_values,result,fingerprint,response)
-                VALUES (:id,:actor,:target,'FIRST_ADMIN_CREATE',NULL,CAST(:new AS jsonb),'SUCCESS','LOCAL_TTY_BOOTSTRAP',CAST(:new AS jsonb))'''),
-                dict(id=str(uuid4()), actor='local-os:' + str(local_uid), target=record['id'], new=json.dumps(public)))
-            connection.execute(text(f'''INSERT INTO {self.schema}.first_admin_setup(singleton,admin_id,local_operator_uid)
-                VALUES (1,:id,:uid)'''), {'id': record['id'], 'uid': local_uid})
-            connection.execute(text(f'UPDATE {self.schema}.schema_state SET identity_initialized=true,first_admin_initialized=true WHERE version=1'))
+            public = create_local_admin(connection, payload, local_uid, self.schema)
         # Context manager has committed both the account/audit and permanent seal.
         return public
+
+
+def create_local_admin(connection, payload, local_uid, schema="v2_demo"):
+    """Caller owns the authorized transaction; no migration, commit or external IO."""
+    schema = schema_name(schema)
+    payload = FirstAdminInput.model_validate({**payload.model_dump(), "password": payload.password})
+    require(type(local_uid) is int and local_uid > 0, "LOCAL_OWNER_REQUIRED")
+    exists = connection.execute(text(f'SELECT 1 FROM {schema}.users WHERE lower(username)=lower(:username)'),
+                                {'username': payload.username}).scalar_one_or_none()
+    require(exists is None, 'USERNAME_UNAVAILABLE')
+    record = dict(id='v2-user-' + str(uuid4()), username=payload.username, name=payload.name,
+                  email=payload.email, role='ADMIN', active=True, revision=0, account_origin='LOCAL',
+                  permissions={r['id']: {p: True for p in PERMISSIONS} for r in ROUTERS})
+    connection.execute(text(f'''INSERT INTO {schema}.users
+        (id,username,name,email,role,active,password_hash,permissions,revision,account_origin)
+        VALUES (:id,:username,:name,:email,:role,:active,:password_hash,CAST(:permissions AS jsonb),:revision,:account_origin)'''),
+        {**record, 'permissions': json.dumps(record['permissions']),
+         'password_hash': identity.hash_password(payload.password.get_secret_value(), real_account=True)})
+    public = identity.public_user(record, True, bootstrap_closed=True)
+    connection.execute(text(f'''INSERT INTO {schema}.user_audit
+        (id,actor_id,target_id,operation,previous_values,new_values,result,fingerprint,response)
+        VALUES (:id,:actor,:target,'FIRST_ADMIN_CREATE',NULL,CAST(:new AS jsonb),'SUCCESS','LOCAL_TTY_BOOTSTRAP',CAST(:new AS jsonb))'''),
+        dict(id=str(uuid4()), actor='local-os:' + str(local_uid), target=record['id'], new=json.dumps(public)))
+    connection.execute(text(f'''INSERT INTO {schema}.first_admin_setup(singleton,admin_id,local_operator_uid)
+        VALUES (1,:id,:uid)'''), {'id': record['id'], 'uid': local_uid})
+    connection.execute(text(f'UPDATE {schema}.schema_state SET identity_initialized=true,first_admin_initialized=true WHERE version=1'))
+    return public

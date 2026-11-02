@@ -1,0 +1,34 @@
+# PREPARED ONLY. A later approved deployment is required.
+[Unit]
+Description=MikroTik Manager V2 independent fresh pilot API
+After=network.target mikrotik-v2-fresh-pilot-db.service
+Requires=mikrotik-v2-fresh-pilot-db.service
+
+[Service]
+Type=simple
+User=mikrotik-v2-fresh
+Group=mikrotik-v2-fresh
+WorkingDirectory=/srv/mikrotik-manager-v2-fresh-pilot/app
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+RestrictAddressFamilies=AF_INET AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1/32
+Restart=no
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONPATH=/srv/mikrotik-manager-v2-fresh-pilot/app/backend
+Environment=V2_DEPLOYMENT_PROFILE=fresh-v2-pilot
+Environment=V2_API_PORT=18090
+Environment=V2_ROUTER_ONBOARDING_ENABLED=false
+Environment=V2_CEBECI_API_SSL_ENABLED=false
+Environment=V2_ROUTER_ONBOARDING_OPERATOR_IDS=
+EnvironmentFile=/srv/mikrotik-manager-v2-fresh-pilot/config/database.env
+ExecStartPre=/srv/mikrotik-manager-v2-fresh-pilot/venv/bin/python /srv/mikrotik-manager-v2-fresh-pilot/app/deploy/fresh-v2-pilot/runtime_check.py
+ExecStart=/srv/mikrotik-manager-v2-fresh-pilot/venv/bin/python -m uvicorn app.pilot_panel:create_app --factory --host 127.0.0.1 --port 18090 --no-access-log --no-proxy-headers
+ReadWritePaths=/srv/mikrotik-manager-v2-fresh-pilot/app/.local
+
+[Install]
+WantedBy=multi-user.target

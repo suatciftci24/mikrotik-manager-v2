@@ -23,8 +23,13 @@ class PostgresDemoStore:
 
     def __init__(self, engine, schema='v2_demo'):
         url = engine.url
+        from app.core import fresh_pilot
+        fresh = fresh_pilot.active()
+        if fresh:
+            fresh_pilot.validate()
+        target = (fresh_pilot.PORT, fresh_pilot.DB, fresh_pilot.ROLE) if fresh else (55432, 'mikrotik_manager_v2', 'v2_local')
         if (url.drivername != 'postgresql+psycopg' or url.host not in ('127.0.0.1', 'localhost', '::1')
-                or url.port != 55432 or url.database != 'mikrotik_manager_v2' or url.username != 'v2_local'):
+                or (url.port, url.database, url.username) != target):
             raise DemoStorageUnavailable()
         if schema != 'v2_demo' and not re.fullmatch(r'v2_demo_test_[a-f0-9]{32}', schema):
             raise ValueError('Invalid isolated demo schema')

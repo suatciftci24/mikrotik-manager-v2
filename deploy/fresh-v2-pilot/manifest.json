@@ -1,0 +1,65 @@
+{
+  "format": 1,
+  "migrations": [
+    {
+      "position": 1,
+      "revision": "001_initial_v2.sql",
+      "sha256": "981e0fc314ff82e65398c752b13e8914f23ea6fbdc890d3e73a7c21b01a8c4c9"
+    },
+    {
+      "position": 2,
+      "revision": "002_demo_storage.sql",
+      "sha256": "f367778817c7e09cf90b3f9f037413f9761da5bb2362c8df76814e1d8c11e1a5"
+    },
+    {
+      "position": 3,
+      "revision": "003_demo_alarm_actions.sql",
+      "sha256": "ead974b81a0e5b4b1f468c6767b0ba8c59f7526dc5e510ce954209d01f4c5531"
+    },
+    {
+      "position": 4,
+      "revision": "004_demo_identity.sql",
+      "sha256": "fcfcd5f75350bdde395d6c9163d4f4a1ff8db096e1f1d2a5171d3736091c0e8e"
+    },
+    {
+      "position": 5,
+      "revision": "005_demo_settings.sql",
+      "sha256": "497510e124150d719c8d6b553bdc18422d9086312da88ad5677a455116bfdbfc"
+    },
+    {
+      "position": 6,
+      "revision": "006_router_registry.sql",
+      "sha256": "572349678953590059e162b7389b4e6a602bdaf4f00cfecc7c21ce0c6285cfbe"
+    },
+    {
+      "position": 7,
+      "revision": "007_router_workspace.sql",
+      "sha256": "74c33dfaabd48bf1db8e4476511944a03e31826a6779af566544e33e7a26a231"
+    },
+    {
+      "position": 8,
+      "revision": "008_subscriber_workspace.sql",
+      "sha256": "7036de1ea95043745743cb20683f9d4c8cae0e117e2ea3193977203a0894fc18"
+    },
+    {
+      "position": 9,
+      "revision": "009_first_local_admin.sql",
+      "sha256": "06a50b5fcc7265eebe53edf23269d825fab064ac0390228de113d36585ec6a9c"
+    }
+  ],
+  "assets": {
+    "profile.json": "4dc51d169e64753889cae45a60c261059c5c3294860c2940b9ffb0aa8bbd7008",
+    "ledger.sql": "89418db6762f0b4aedc18034bf34e5403375ccda066090089fe5690a2d1c2584",
+    "schema.sql": "5b92ac9f9e306771e21d8f13ef002267baefa6dc6174a6e45e59ea64b0486334",
+    "schema.expected.json": "4fc32889e6b461790bfb7e02741d9e8a42009c94154b6dd080d9bc4344e9ec00",
+    "postgresql.conf": "51b6639bfa30286a7a27786ced8fde4bf8525c70038dda78a04c297c377376bb",
+    "pg_hba.conf": "ca9945945727c54ace1774da60a0e8f169a263e4236ecdeb6ef82a8d5da310e7",
+    "pg_ident.conf": "2b2ef456bfe598a3c1541fb0cf84ccc45a7bb90cafb9cf7ce36c066928c18430",
+    "mikrotik-v2-fresh-pilot.service": "91413180d5a140045c2ac7225b17f54a9067c409b1dd88f7510b3f12ae810157",
+    "mikrotik-v2-fresh-pilot-db.service": "92d7ebabeaea846798fc0c64c76fa2128ba3e53979c9636db185153a8ab261b4",
+    "manage.py": "a8e799f2922cb3313dd71031305c7382aefcfa17288457af58a6de70fae36949",
+    "stage-approved.py": "d8b554d816023470b72191510321bd0b5ae7dd366bd256642398563d4dcb7636",
+    "accept-approved.py": "bf139aff5d1ee7f7b9da59b8f274ea2aadfd77a6847c39b55a5db4301b2e4f43",
+    "runtime_check.py": "be8b5affe79fac393f6ab8746cd73baaddd36f025dd59366e2dfcebe31bc869d"
+  }
+}

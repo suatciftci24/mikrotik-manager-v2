@@ -1,0 +1,24 @@
+# PREPARED ONLY. A later approved deployment is required.
+[Unit]
+Description=MikroTik Manager V2 independent fresh pilot PostgreSQL
+After=network.target
+
+[Service]
+Type=simple
+User=mikrotik-v2-fresh-db
+Group=mikrotik-v2-fresh-db
+WorkingDirectory=/srv/mikrotik-manager-v2-fresh-pilot/app
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+RestrictAddressFamilies=AF_INET AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1/32
+Restart=no
+ExecStart=/usr/lib/postgresql/16/bin/postgres -D /srv/mikrotik-manager-v2-fresh-pilot/postgres -c config_file=/srv/mikrotik-manager-v2-fresh-pilot/config/postgresql.conf
+ReadWritePaths=/srv/mikrotik-manager-v2-fresh-pilot/postgres /srv/mikrotik-manager-v2-fresh-pilot/socket
+
+[Install]
+WantedBy=multi-user.target

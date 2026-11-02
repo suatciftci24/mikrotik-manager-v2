@@ -1,5 +1,25 @@
 # MikroTik Manager V2 — İlerleme
 
+## Fresh pilot son dağıtım hazırlığı — 2026-11-02
+
+- PASS (yerel bağlantı): mevcut fresh pilot/migration manifesti/unit/şema ve
+  önceden test edilmiş backend entegrasyonları yeniden üretilmeden commit'e alındı.
+  Legacy updater/teşhis dosyaları ve ilgisiz yerel ilerleme değişiklikleri korunur.
+- Yeni prepare-release.py yalnız committed kaynak + mevcut frontend/dist ile
+  private/symlink/özel dosya içermeyen yerel tar ve commit/SHA256 receipt üretir;
+  build/test tekrarlamaz. Frontend kaynak-build eşdeğerliği yeniden kanıtlanmaz.
+- INSTALL.md mevcut stage/create-DB/TTY ADMIN+migration/verify+backup/kabul/API
+  bağlantı sırasını ve yönetici/ops ayrımını somutlaştırır. 55442/18090, boş hedef,
+  001–009 checksum/transaction/audit/seal/yedek ve veri silmeyen rollback korunur.
+- PASS: yalnız 2 yeni release handoff testi ve diff kontrolü. Eski 33+3 test,
+  frontend build ve SSH/sudo kabulü tekrarlanmadı. Yerel release üretimi committed
+  kaynak zorunlu olduğundan commit sonrası bir kez çalıştırılacaktır.
+- BLOCKED (ops hesabıyla kurulum): forced-command/sudo allowlist aktarım, shell,
+  TTY, hesap/dizin/PG oluşturma, runuser, daemon-reload ve migration vermez.
+  Yetki gevşetilmedi. VDS'ye bu görevde hiçbir komut/aktarım/kurulum yapılmadı.
+- Sonraki tek adım: yalnız yeni V2 kurulumu için mevcut yetkili yönetici oturumunda
+  açık canlı kurulum onayı; mevcut erişim onayı uygulama/DB kurulum onayı değildir.
+
 ## Public-key 0640 düzeltmesi ve canlı erişim kabulü — 2026-11-02
 
 - PASS: public key root:v2-fresh-ops 0640; tek özel grup, root-owned/yazılamaz
