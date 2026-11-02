@@ -2743,3 +2743,41 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Tek sonraki adım: ayrı canlı onayla aynı f0c891c paketini, kaynak doğrulamasını
   pilot venv Python'ıyla çalıştıran kabul aracı üzerinden yeniden dağıtıp tek
   aktarım/API/UI kabulünü tamamlamak; timer yalnız tüm kritik PASS sonrası.
+
+
+## f0c891c Fresh Pilot otomatik sağlık aktarımı — kesin kabul — 2026-11-02
+
+- PASS: main-guncel/ee9c9fd temiz ağaç ve f0c891c ancestry doğrulandı.
+  Dağıtımdan önce gerçek pilot venv Python/Pydantic 2.14.2, adapter/model ve
+  kabul stdlib importları PASS; tüm uzak kabul bu yorumlayıcıyla çalıştı.
+  Yerel Chromium/CDP ve HTTP tüneli dağıtım öncesinde hazır doğrulandı.
+- Açık canlı onayıyla yalnız fresh pilot script/SQL ve bağımsız service/timer
+  yedekli dağıtıldı. Gerçek host unit verify PASS. Mevcut rol/dar SELECT
+  korundu; grant/parola/migration veya kaynak SQL yazma yapılmadı.
+- Timer kapalıyken tek kontrollü oneshot aktarımı PASS: 9/9 kimlik, metadata ve
+  ölçüm ID/zamanı eski 11:45:26 +03 snapshot'tan ilerledi. Bağımsız READ ONLY
+  kaynak karşılaştırması 9/9 tam eşit; tüm son gerçek kaynak ölçüm zamanları
+  2026-11-02T21:10:45.742079+03:00. Aktarım zamanı ölçüm diye kullanılmadı.
+- Atomik inode değişimi, snapshot owner/group/mode korunması, root-only güvenli
+  status ve aynı lock tutulurken kaynak/status/snapshot'a dokunmadan skip PASS.
+- ADMIN API PASS: 9 router/9 sağlık örneği; CPU/RAM/ölçüm zamanı/kaynak/son
+  internet denemesi eksikleri 0. Kabulde stale=0; değerlendirme kaynak zamanına
+  göre doğrulandı. Anonim 401 ve served JS/theme SHA256 PASS.
+- Gerçek Chromium ADMIN UI PASS: 9 satır CPU/RAM ve zamana göre güncellik,
+  masaüstü/mobil taşmasız görünüm, kaynak/ölçüm ID/tam zaman damgalı teknik
+  detay modalı aç/kapat, 61sn sanal sürede tam bir 60sn polling isteği ve
+  max_active=1. Logout ve about:blank PASS; yerel browser/tünel/private oturum
+  dosyaları ve uzak geçici cookie teslimi temizlendi.
+- Yalnız bütün kritik kabul sonrası yeni V2 timer enable --now yapıldı:
+  enabled/active PASS, OnUnitActiveSec=5min. Kabulde bir sonraki planlı çalışma
+  2026-11-02 21:16:45 +03. Açılıştaki otomatik timer tick'i onaylı periyodik
+  işleyiştir; ikinci manuel aktarım yapılmadı. Rollback gerekmedi.
+- Fresh API/DB PID aynı; config/ADMIN/adapter/frontend hashleri aynı. Uygulama/
+  DB restartı, V1/eski V2/collector/router/PPPoE/Hotspot/RADIUS müdahalesi yok.
+  Kapsam dışı tüm dosyalar ayrıca taranmadı; değişmedi beyanı yürütülen kapsamla
+  sınırlı. Genel suite/build tekrarlanmadı; sır/gerçek satırlar Git'e alınmadı.
+- Geri yüklenebilir root-private yedek ve checkpoint/transfer-receipt/
+  ui-receipt/accepted-health.json kayıtları:
+  /srv/mikrotik-manager-v2-fresh-pilot/backups/health-f0c891c-20261102T181140Z-s4chs2yi
+- Tek sonraki adım: mevcut panelde otomatik yenilenen sağlık verisinin kullanıcı
+  görsel kabulü. Bu görev sonucu yerel commit ve güvenli normal push ile kaydedilir.
