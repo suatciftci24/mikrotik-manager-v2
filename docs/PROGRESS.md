@@ -1960,3 +1960,20 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - BLOCKED: bu çalışma ortamında açık V2_DATABASE_URL veya repo .env bulunmadı; mevcut gerçek V2 envanter kaydı güvenilir çalışma deposundan doğrulanamadı. Kodun varsayılan demo DB bilgileri canlı envanter kanıtı sayılmadı; VDS'deki özel pilot kökü de burada mevcut değil. Envanterin olmadığı iddia edilmez. Ön koşullar eksik olduğundan router/TLS/login/PPP bağlantısı denenmedi; anonim oturum sayısı ÖLÇÜLMEDİ (sıfır varsayılmadı).
 - Mevcut run_once/_read_session ayrıca /system/identity ve /system/resource sorguladığından bu dar onaya uygun değildir ve çalıştırılmadı. Gerçek veri modu, router ayarları, servis, migration, deployment, V1 ve diğer routerlar değişmedi. Ürün kodu değişmediğinden test suite tekrarlanmadı.
 - Sonraki somut adım: mevcut V2 envanterinin güvenli yapılandırmasına erişilebilen yetkili ortamda envanter/source ön kontrolünü tamamlayıp yalnız onaylı tek PPP okumasını uygulamak; mevcut geniş pilot CLI kullanılmamalı. Sırlar rapora veya Git'e taşınmamalı.
+
+## Gerçek V1 router envanteri — 2026-11-02
+
+- Yerel şema incelendi: routers metadata ve router_health_samples ölçüm kaynağı
+  olarak değerlendirildi. V1 kaynak kodu import edilmedi; canlı bağlantı yapılmadı.
+- V2'ye özel salt okunur JSON handoff adaptörü, merkezi ADMIN GET API ve ayrı
+  Router Merkezi kaynak sekmesi eklendi. İzinli alanlar, boyut/kayıt sınırı,
+  symlink/hardlink reddi, temiz 503 ve NO_DATA davranışı uygulandı. Durum uydurulmaz;
+  tarihsiz ölçüm bastırılır, geçmiş ölçüm açıkça etiketlenir. DB yetkisi yaratılmadı.
+- Kontrol: 9 hedefli backend testi (başarısız test düzeltildikten sonra yalnız
+  o test tekrarlandı), TypeScript/Vite build ve diff PASS. HTTP TestClient
+  tamamlanmadı; gerçek HTTP/ADMIN veya canlı veri kabulü iddia edilmez.
+- BLOCKED: güvenilir gerçek aktarım ve yetkili sağlayıcısı mevcut değil.
+  Canlı okuma/DB yetkisi/deploy yapılmadı. V1, eski V2, router, PPPoE, RADIUS ve
+  aboneliklere dokunulmadı. Mevcut yerel değişiklikler bu commit dışında korundu.
+- Sonraki tek adım: yetkili ortamda sırsız, izinli alanlardan oluşan gerçek
+  envanter aktarımının sağlanması için kapsamlı canlı okuma iznini belirlemek.
