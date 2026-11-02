@@ -1,0 +1,32 @@
+# PREPARED ONLY. Do not install/start without separate live deployment approval.
+[Unit]
+Description=MikroTik V2 read-only health snapshot transfer
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/srv/mikrotik-manager-v2-fresh-pilot/app
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0077
+RuntimeDirectory=mikrotik-v2-health-transfer
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+ExecStart=/srv/mikrotik-manager-v2-fresh-pilot/venv/bin/python -B /srv/mikrotik-manager-v2-fresh-pilot/app/deploy/v1-inventory/refresh_health.py
+TimeoutStartSec=30
+Restart=no
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+ReadWritePaths=/srv/mikrotik-manager-v2-fresh-pilot/config /run/mikrotik-v2-health-transfer
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mikrotik-v2-health-transfer

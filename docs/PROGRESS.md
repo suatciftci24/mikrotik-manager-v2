@@ -2613,3 +2613,31 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 
 - PASS: kullanıcı talimatıyla `git push origin main-guncel` tamamlandı; uzak dal f4f57c4 → ffe909b ilerledi.
 - Bu ilerleme kaydı da aynı dalda commit edilip gönderilir. Sonraki adım: yeni görev talimatını beklemek.
+
+
+## Otomatik V2 sağlık aktarımı — yerel hazırlık — 2026-11-02
+
+- PASS: bağımsız refresh_health.py, 5dk oneshot/timer ve HEALTH-TRANSFER.md
+  hazırlandı. Mevcut yerel commit geçmişi korundu; main-guncel üzerinde çalışıldı.
+- Mevcut Unix socket/NOLOGIN salt okunur rol için sabit transport; repeatable-read
+  READ ONLY transaction, SET LOCAL ROLE, statement/lock/client timeout; fallback,
+  parola, grant, migration, kaynak yazma veya V1 kod/config import yok.
+- 9 routerın kimlik/metadata eşitliği ve tüm son sağlık örnekleri doğrulanır.
+  Eksik/yabancı/tekrarlı kimlik, şema, gelecek veya gerileyen zaman/ID reddedilir.
+  flock eşzamanlı çalışmayı engeller. Aynı dizinde fsync+atomic replace yapılır;
+  snapshot sahibi/grubu/modu ve kaynak ölçüm zamanları korunur. Hatalı okuma/
+  doğrulama/pre-rename yazmada önceki dosya korunur; eskilik tazelenmiş sayılmaz.
+- Ayrı root-only atomik durum dosyası ve journal yalnız UTC aktarım zamanı,
+  son başarı, sonuç ve sabit hata kodu içerir. Kaynak satırları/stderr/sırlar
+  loglanmaz. ADMIN API, 60sn frontend polling ve detay penceresi değişmedi.
+- Test: 7 sentetik aktarım testi + mevcut 3 inventory/ADMIN API testi PASS;
+  atomiklik/izinler, hata/geri toparlanma, son başarı korunması, kilit ve STALE
+  davranışı dahil. Unit syntax yerel executable kullanan geçici kopyada PASS;
+  doğrudan verify yalnız bu bilgisayarda VDS venv yolu yok diye sonuçlanmadı.
+  diff --check PASS. Genel suite/build veya başarılı test tekrarı yapılmadı.
+- V1/eski V2/canlı V2/DB/roller/router değişmedi. Gerçek bağlantı, VDS dağıtımı,
+  servis restartı, timer etkinleştirme, Router API/PPPoE/RADIUS yazma yapılmadı.
+- Kullanıcı yetkisiyle bu paket yerel commit sonrası normal, force içermeyen
+  origin/main-guncel push için hazırlanır; uzak dal çakışırsa durulur.
+- Tek sonraki adım: ayrı açık canlı onayla yalnız fresh pilot'a yedekli dağıtım,
+  bir kontrollü aktarım ve 9 router zaman/API/durum kabulü ardından timer açılışı.

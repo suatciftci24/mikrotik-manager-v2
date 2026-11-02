@@ -1,0 +1,12 @@
+# PREPARED ONLY. Enabling requires separate live deployment approval.
+[Unit]
+Description=Refresh V2 health snapshot every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=1s
+Unit=mikrotik-v2-health-transfer.service
+
+[Install]
+WantedBy=timers.target
