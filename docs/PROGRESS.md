@@ -2594,3 +2594,9 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   kullanan, yalnız V2'ye ait 5dk periyodik atomik snapshot yenileyicisi hazırlamak;
   hatada eski ölçüm zamanını korumak ve aktarım hatasını açık göstermek. V1
   collector'ına veya DB yetkilerine müdahale gerekmiyor; bu iş uygulanmadı.
+
+
+## Codex CLI güncellemesi — 2026-11-02
+
+- PASS: kullanıcının istediği global npm kurulumu tamamlandı; `codex --version`: `codex-cli 0.166.0`.
+- Proje kodu veya canlı sistem değiştirilmedi. Sonraki adım: yeni CLI sürümünü yeni oturumda kullanmak.
