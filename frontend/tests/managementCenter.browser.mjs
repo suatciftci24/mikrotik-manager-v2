@@ -8,8 +8,9 @@ import {build} from 'esbuild';
 import {selectBrowser} from './browserRuntime.mjs';
 import {turkeyToday} from '../src/lib/expiry.ts';
 const {chromium}=await import('../../.local/browser-tools/node_modules/playwright/index.mjs');
-const temp=mkdtempSync(join(tmpdir(),'v22-management-'));
-const output=resolve('../.local/browser-acceptance/v22-management');mkdirSync(output,{recursive:true});
+const temp=mkdtempSync(join(tmpdir(),'v23-management-'));
+const output=resolve('../.local/browser-acceptance/v23-management');mkdirSync(output,{recursive:true});
+const finalChecks=process.argv.includes('--v23-final');
 const fixed=new Date('2026-11-02T21:30:00Z'),today=turkeyToday(fixed);
 const stamp=seconds=>new Date(fixed.getTime()-seconds*1000).toISOString();
 const day=offset=>new Date(Date.parse(today+'T00:00:00Z')+offset*86400000).toISOString().slice(0,10);
@@ -18,7 +19,9 @@ const subscriber=(id,expires_on,access_type)=>({id,customer_name:'Sentetik abone
 const items=[subscriber('one',today,'PPPOE'),subscriber('two',day(3),null)];
 const details=items.map((item,i)=>({item,is_demo:true,persistence:'local-postgresql-demo',history_available:true,history:[{id:'op'+i,operation:i===0?'RENEWAL':'PLAN_CHANGE',occurred_at:stamp(60),is_demo:true,actor_id:'synthetic-admin',source:'LOCAL',previous_expires_on:day(-1),expires_on:today,previous_values:{plan:'Önceki sentetik plan'},new_values:{plan:'Yeni sentetik plan'}}]}));
 const events=[{id:'down',router_id:'r1',kind:'INTERNET_DOWN',occurred_at:stamp(1200),state:'OPEN',is_demo:true},{id:'up',router_id:'r1',kind:'INTERNET_UP',occurred_at:stamp(600),down_event_id:'down',is_demo:true},{id:'wan',router_id:'r1',kind:'WAN_CHANGE',occurred_at:stamp(300),previous_wan:'Sentetik A',new_wan:'Sentetik B',is_demo:true}];
-const entry=`import React from 'react';import {createRoot} from 'react-dom/client';import {ManagementReport} from './src/screens/ManagementReport';import {ThemePicker} from './src/components/ThemePicker';import './src/styles.css';createRoot(document.getElementById('root')).render(<main style={{padding:16,maxWidth:1400,margin:'auto'}}><ThemePicker/><ManagementReport onBack={()=>{location.hash='module=dashboard'}}/></main>);`;
+const managed={...subscriber('demo-managed-sub-fixture',day(3),'PPPOE'),router_id:'demo-managed-router-current'};
+const saved={request_id:'audit-one',item_id:managed.id,success:true,recorded:true,operation:'PLAN',actor_id:'synthetic-admin',router_id:'demo-managed-router-old',previous:{plan:'Eski kalıcı plan'},values:{plan:'Yeni kalıcı plan'},occurred_at:stamp(30)};
+const entry=`import {PermissionContext} from './src/lib/permissions';import React from 'react';import {createRoot} from 'react-dom/client';import {ManagementReport} from './src/screens/ManagementReport';import {ThemePicker} from './src/components/ThemePicker';import './src/styles.css';createRoot(document.getElementById('root')).render(<main style={{padding:16,maxWidth:1400,margin:'auto'}}><ThemePicker/><PermissionContext.Provider value={${finalChecks?"{role_code:'ADMIN',can_manage_users:true}":'null'}}><ManagementReport onBack={()=>{location.hash='module=dashboard'}}/></PermissionContext.Provider></main>);`;
 await build({stdin:{contents:entry,resolveDir:process.cwd(),loader:'tsx'},bundle:true,outfile:join(temp,'fixture.js'),jsx:'automatic',platform:'browser'});
 writeFileSync(join(temp,'index.html'),'<!doctype html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="/theme.js"></script><link rel="stylesheet" href="/fixture.css"></head><body><div id="root"></div><script src="/fixture.js"></script></body></html>');
 writeFileSync(join(temp,'theme.js'),readFileSync('public/theme.js'));
@@ -28,14 +31,15 @@ let browser;const checks=[];const ok=name=>{checks.push(name);console.log('PASS:
 try{
  browser=await chromium.launch(selectBrowser(chromium));
  const context=await browser.newContext({viewport:{width:1440,height:1000},colorScheme:'light'});
- let failure=false,empty=false,release;const gate=new Promise(r=>release=r),calls=[];
+ let failure=false,empty=false,workspaceFailure=false,release;const gate=new Promise(r=>release=r),calls=[];
  await context.route('**/*',async route=>{
   const url=new URL(route.request().url());if(url.origin!==base){await route.abort();return;}
   if(!url.pathname.startsWith('/api/')){await route.continue();return;}
   assert.equal(route.request().method(),'GET');calls.push(url.pathname);await gate;
   if(failure){await route.fulfill({status:503,json:{detail:'Sentetik kabul hatası'}});return;}
   const path=url.pathname;
-  const value=path.endsWith('/reports/inventory')?{routers:empty?[]:routers,items:empty?[]:items,is_demo:true}:path.endsWith('/router-events')?{items:empty?[]:events,available:true,is_demo:true}:path.includes('/subscribers/')?details.find(d=>d.item.id===path.split('/').at(-1)):path.endsWith('/v1-inventory')?{source:'V1_INVENTORY_EXPORT',is_demo:false,availability:'AVAILABLE',items:[{id:'1',name:'Synthetic V1 snapshot fixture',identity:null,model:null,routeros_version:null,sampled_at:stamp(60),cpu_load_percent:0,memory_used_percent:20,health_source:'V1_ROUTER_HEALTH_SAMPLES',health_sample_id:'1',status:'NO_DATA',connection_status:'LAST_PROBE_FAILED',freshness:'RECENT'}]}:null;
+  if(workspaceFailure&&path.includes('workspace')){await route.fulfill({status:503,json:{detail:'Sentetik kalıcı kaynak kapalı'}});return;}
+  const value=path.endsWith('/subscriber-workspace')?{items:[managed],total:1,is_demo:true}:path.endsWith('/management/history')?{items:[saved,{...saved,request_id:'audit-failed',success:false}],total:2,is_demo:true}:path.endsWith('/router-workspace/routers')?{items:[{id:'demo-managed-router-old',fields:{name:'Önceki sentetik router'}},{id:'demo-managed-router-current',fields:{name:'Güncel sentetik router'}}],total:2,is_demo:true}:path.endsWith('/reports/inventory')?{routers:empty?[]:routers,items:empty?[]:items,is_demo:true}:path.endsWith('/router-events')?{items:empty?[]:events,available:true,is_demo:true}:path.includes('/subscribers/')?details.find(d=>d.item.id===path.split('/').at(-1)):path.endsWith('/v1-inventory')?{source:'V1_INVENTORY_EXPORT',is_demo:false,availability:'AVAILABLE',items:[{id:'1',name:'Synthetic V1 snapshot fixture',identity:null,model:null,routeros_version:null,sampled_at:stamp(60),cpu_load_percent:0,memory_used_percent:20,health_source:'V1_ROUTER_HEALTH_SAMPLES',health_sample_id:'1',status:'NO_DATA',connection_status:'LAST_PROBE_FAILED',freshness:'RECENT'}]}:null;
   await route.fulfill({status:value?200:404,json:value??{detail:'Not Found'}});
  });
  const page=await context.newPage();await page.clock.install({time:fixed});
@@ -45,39 +49,53 @@ try{
   await page.getByRole('button',{name:label,exact:true}).click();assert.equal(await page.evaluate(()=>window.v2Theme.getPreference()),theme);
   if(theme==='system'){await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');}
   for(const width of [1440,390,320]){await page.setViewportSize({width,height:1000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),theme+' '+width);}
-  await page.screenshot({path:join(output,theme+'-320.png'),fullPage:true});
+  await page.screenshot({path:join(output,theme+'-320.png'),fullPage:true});await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:join(output,theme+'-1440.png'),fullPage:true});
  }
  ok('Beyaz/Gece/Sistem ve 1440/390/320px taşmasız görünüm');
  }
  await page.goto(base+'/#module=dashboard&view=DAILY_REPORT');
  await page.getByText('Veriler yükleniyor…',{exact:true}).waitFor();release();
  const operations=page.getByRole('region',{name:'Günlük yönetim işlemleri tablosu',exact:true});await operations.waitFor();
- assert.equal(await operations.locator('tbody tr').count(),2);ok('yükleniyor ve sentetik kayıt kaynağı');
- if(process.env.V2_MANAGEMENT_LAYOUT_ONLY==='1'){await layoutChecks();writeFileSync(join(output,'layout-result.json'),JSON.stringify({status:'PASS',checks,synthetic_only:true}));}else{
+ assert.equal(await operations.locator('tbody tr').count(),finalChecks?3:2);assert.equal(await page.locator('.metric-card').count(),4);ok('yükleniyor ve sentetik kayıt kaynağı');
+ if(finalChecks){
+  assert.match(await operations.innerText(),/Kalıcı çalışma alanı/);assert.match(await operations.innerText(),/Eski kalıcı plan → Paket\/profil: Yeni kalıcı plan/);
+  await page.getByRole('button',{name:'Yalnız PPPoE',exact:true}).click();assert.equal(await operations.locator('tbody tr').count(),2);
+  await page.getByRole('button',{name:'Paket / profil',exact:true}).click();await page.getByRole('dialog').waitFor();assert.match(await page.getByRole('dialog').innerText(),/Önceki sentetik router/);await page.keyboard.press('Escape');
+  assert.match(await operations.getByRole('link',{name:'Sentetik abone demo-managed-sub-fixture',exact:true}).getAttribute('href'),/workspace=PERSISTENT/);
+  await page.getByLabel('Router',{exact:true}).selectOption('demo-managed-router-old');assert.equal(await operations.locator('tbody tr').count(),1);
+  await page.getByLabel('Router',{exact:true}).selectOption('demo-managed-router-current');assert.equal(await operations.count(),0);
+  await page.getByLabel('Router',{exact:true}).selectOption('');await operations.waitFor();ok('kalıcı audit aynı tabloda, başarılı PPPoE ayrımı, tarihsel router filtresi ve detay bağlantıları');
+  workspaceFailure=true;await page.getByRole('button',{name:'Raporu yenile',exact:true}).click();await page.getByText('İşlem kaynağı eksik; toplam Veri yok. Yalnız alınabilen kayıtlar gösterilir.',{exact:true}).waitFor();assert.equal(await page.locator('.metric-value-row strong').first().innerText(),'Veri yok');assert.equal(await operations.locator('tbody tr').count(),1);ok('kalıcı kaynak eksikse alınabilen liste korunur, PPPoE toplamı Veri yok');
+  workspaceFailure=false;await page.getByRole('button',{name:'Raporu yenile',exact:true}).click();await page.getByText('İşlem kaynağı eksik; toplam Veri yok. Yalnız alınabilen kayıtlar gösterilir.',{exact:true}).waitFor({state:'detached'});await operations.waitFor();
+  await page.getByLabel('İşlem / olay',{exact:true}).selectOption('ALL');await page.getByRole('button',{name:'3 gün',exact:true}).click();await layoutChecks();
+  const before=calls.length;await page.getByRole('button',{name:'Gerçek V1 · Salt okunur',exact:true}).click();await page.locator('.inventory-table tbody tr').waitFor();assert.equal(await page.locator('.metric-value-row strong').filter({hasText:'Veri yok'}).count(),4);assert.deepEqual(calls.slice(before),['/api/v1/v1-inventory']);assert.equal(await operations.count(),0);await page.locator('.inventory-table .record-link').click();await page.getByRole('dialog').waitFor();assert.match(await page.getByRole('dialog').innerText(),/V1_ROUTER_HEALTH_SAMPLES/);await page.keyboard.press('Escape');assert.deepEqual(errors,[]);ok('gerçek kaynak ayrımı ve detayları; yalnız V1 okuma API çağrısı');
+  writeFileSync(join(output,'final-result.json'),JSON.stringify({status:'PASS',checks,synthetic_only:true},null,2));
+ }else if(process.env.V2_MANAGEMENT_REAL_ONLY==='1'){const before=calls.length;await page.getByRole('button',{name:'Gerçek V1 · Salt okunur',exact:true}).click();await page.locator('.inventory-table tbody tr').waitFor();assert.equal(await page.locator('.metric-card').count(),4);assert.equal(await page.locator('.metric-value-row strong').filter({hasText:'Veri yok'}).count(),4);assert.deepEqual(calls.slice(before),['/api/v1/v1-inventory']);assert.equal(await operations.count(),0);await page.locator('.inventory-table .record-link').click();await page.getByRole('dialog').waitFor();assert.match(await page.getByRole('dialog').innerText(),/V1_ROUTER_HEALTH_SAMPLES/);await page.keyboard.press('Escape');assert.deepEqual(errors,[]);ok('gerçek kaynak ayrımı ve detayları; yalnız V1 okuma API çağrısı');writeFileSync(join(output,'real-result.json'),JSON.stringify({status:'PASS',checks}));}
+ else if(process.env.V2_MANAGEMENT_LAYOUT_ONLY==='1'){await layoutChecks();writeFileSync(join(output,'layout-result.json'),JSON.stringify({status:'PASS',checks,synthetic_only:true}));}else{
  for(const value of ['TODAY','YESTERDAY','LAST_7','LAST_30']){await page.getByLabel('Dönem',{exact:true}).selectOption(value);assert.equal(new URLSearchParams(new URL(page.url()).hash.slice(1)).get('period'),value);}
  ok('Türkiye dönem filtreleri ve URL');
- await page.getByRole('button',{name:'PPPoE işlem detayları: 1',exact:true}).click();
+ await page.getByRole('button',{name:'Yalnız PPPoE',exact:true}).click();
  assert.equal(await operations.locator('tbody tr').count(),1);
  const open=page.getByRole('button',{name:'Yenileme (demo)',exact:true});await open.click();
  await page.getByRole('dialog').waitFor();assert.ok((await page.getByRole('dialog').innerText()).includes('Önceki değerler'));
  await page.keyboard.press('Escape');await page.getByRole('dialog').waitFor({state:'detached'});await open.waitFor();assert.ok(await open.evaluate(el=>el===document.activeElement));ok('PPPoE ayrımı ve erişilebilir işlem detayı');
- await page.getByRole('button',{name:/^3 gün içinde dolacak/}).click();
- assert.equal(await page.locator('.management-expiries li').count(),2);
+ await page.getByRole('button',{name:'3 gün',exact:true}).click();
+ assert.equal(await page.locator('.management-expiries tbody tr').count(),2);
  assert.match(await page.getByRole('link',{name:'İlgili abone listesini aç'}).getAttribute('href'),/expiry=WITHIN_3/);
- await page.reload();await operations.waitFor();assert.equal(await page.getByLabel('Dönem',{exact:true}).inputValue(),'LAST_30');assert.equal(await page.locator('.management-expiries li').count(),2);ok('bitiş kartları, abone bağlantısı ve yenilemede filtre korunması');
+ await page.reload();await operations.waitFor();assert.equal(await page.getByLabel('Dönem',{exact:true}).inputValue(),'LAST_30');assert.equal(await page.locator('.management-expiries tbody tr').count(),2);ok('bitiş kartları, abone bağlantısı ve yenilemede filtre korunması');
  await page.getByLabel('İşlem / olay',{exact:true}).selectOption('ALL');
- await page.getByRole('button',{name:'WAN değişikliği · wan',exact:true}).click();await page.getByRole('dialog').waitFor();
+ await page.getByRole('button',{name:'WAN değişikliği',exact:true}).click();await page.getByRole('dialog').waitFor();
  assert.match(await page.getByRole('dialog').innerText(),/Sentetik A/);await page.getByRole('button',{name:'Kapat',exact:true}).click();
  assert.match(await page.getByRole('region',{name:'Günlük bağlantı olayları tablosu'}).innerText(),/600 sn/);ok('WAN ve doğrulanmış kesinti zamanları/detayı');
  await layoutChecks();
  failure=true;await page.getByRole('button',{name:'Raporu yenile',exact:true}).click();await page.getByRole('alert').waitFor();assert.equal(await operations.count(),0);
  failure=false;empty=true;await page.getByRole('button',{name:'Tekrar dene',exact:true}).click();await page.getByText('Filtrelerle eşleşen kayıtlı yönetim işlemi yok.',{exact:false}).waitFor();ok('hata/yeniden deneme ve boş durum');
  const before=calls.length;await page.getByRole('button',{name:'Gerçek V1 · Salt okunur',exact:true}).click();
- await page.locator('.inventory-table tbody tr').waitFor();assert.match(await page.locator('.management-report').innerText(),/gerçek işlem geçmişi bağlı değil/);
+ await page.locator('.inventory-table tbody tr').waitFor();assert.match(await page.locator('.management-report').innerText(),/Doğrulanmış geçmiş bağlı değil/);
  assert.equal(await page.locator('.management-pppoe').count(),0);assert.deepEqual(calls.slice(before),['/api/v1/v1-inventory']);
  await page.locator('.inventory-table .record-link').click();await page.getByRole('dialog').waitFor();assert.match(await page.getByRole('dialog').innerText(),/V1_ROUTER_HEALTH_SAMPLES/);await page.keyboard.press('Escape');
  ok('gerçek kaynak ayrımı, mevcut V1 detay bileşeni ve sentetik API izolasyonu');
  assert.deepEqual(errors,[]);writeFileSync(join(output,'result.json'),JSON.stringify({status:'PASS',checks,synthetic_only:true},null,2));
- console.log('PASS: V2.2 browser acceptance, '+checks.length+' checks');
+ console.log('PASS: V2.3 browser acceptance, '+checks.length+' checks');
  }
 }finally{if(browser)await browser.close();server.close();rmSync(temp,{recursive:true,force:true});}

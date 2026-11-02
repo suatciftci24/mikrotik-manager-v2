@@ -39,22 +39,31 @@ test('Dashboard opens the report in its existing module and direct report links 
   globalThis.window={location:{hash:''}};
   const dashboard=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));assert.match(dashboard,/Günlük Yönetim Raporu/);
   globalThis.window.location.hash='#module=dashboard&view=DAILY_REPORT&period=TODAY';
-  const report=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));assert.match(report,/Günlük Yönetim Merkezi · V2.2/);assert.match(report,/Dashboard’a dön/);
+  const report=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));assert.match(report,/Günlük Yönetim Merkezi · V2.3/);assert.match(report,/Dashboard’a dön/);
  }finally{globalThis.window=previous;delete globalThis.__dailySummary;delete globalThis.__reportResource;}
 });
 
-test('V2.2 expiry navigation and missing histories are explicit',()=>{
+test('V2.3 expiry navigation and missing histories are explicit',()=>{
  const html=render({data:{...data,details:details.map(d=>({...d,history_available:false}))},loading:false,retry(){}});
- for(const text of ['PPPoE işlem detayları: Veri yok','3 gün içinde dolacak','7 gün içinde dolacak','30 gün içinde dolacak','İlgili abone listesini aç','Merkezi İşlem Geçmişini aç','Kalıcı sentetik PPPoE / Hotspot'])assert.ok(html.includes(text),text);
+ for(const text of ['İşlem kaynağı eksik; toplam Veri yok','3 gün','7 gün','30 gün','İlgili abone listesini aç','Merkezi İşlem Geçmişini aç','Kalıcı abonelerin bitişleri'])assert.ok(html.includes(text),text);
  assert.match(html,/workspace=LEGACY&amp;expiry=TODAY/);
+ assert.equal((html.match(/class="metric-card"/g)??[]).length,4);
+ assert.match(html,/<details class="panel management-notes"><summary>Veri kapsamı/);
+ assert.doesNotMatch(html,/Abonelik Takip ve Uyarı Merkezi|Toplam router/);
 });
-test('V2.2 real source never substitutes synthetic operations or fabricated history totals',()=>{
+test('V2.3 real source never substitutes synthetic operations or fabricated history totals',()=>{
  const previous=globalThis.window;
  try{
   globalThis.window={location:{hash:'#module=dashboard&view=DAILY_REPORT&report_source=V1_INVENTORY'}};
   const html=render({data,loading:false,retry(){}});
   assert.match(html,/GERÇEK V1 · SALT OKUNUR/);
-  assert.match(html,/gerçek işlem geçmişi bağlı değil/);
+  assert.match(html,/Gerçek işlem geçmişi bağlı değil/);
   assert.doesNotMatch(html,/Seçili dönemin işlem ve olay toplamları|Demo kişi|PPPoE işlem detayları:/);
  }finally{globalThis.window=previous;}
+});
+
+test('V2.3 compact event row keeps kind, router, time, status and WAN values without technical IDs',()=>{
+ const html=render({data:{...data,events:[{id:'technical-audit-identifier',kind:'WAN_CHANGE',router_id:routers[0].id,started_at:now,occurred_at:now,status:'RECORDED',ended_at:null,recovery_id:null,duration_seconds:null,previous_wan:'Sentetik önce',new_wan:'Sentetik sonra',is_demo:true}]},loading:false,retry(){}});
+ for(const text of ['WAN değişikliği','Kaydedildi','Sentetik önce','Sentetik sonra','Günlük bağlantı olayları tablosu'])assert.ok(html.includes(text));
+ assert.doesNotMatch(html,/technical-audit-identifier/);
 });

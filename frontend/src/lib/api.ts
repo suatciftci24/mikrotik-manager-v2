@@ -52,7 +52,7 @@ export type SubscriberHistoryEvent = {
   id: string; occurred_at: string; previous_expires_on?: string | null; expires_on?: string | null;
   previous_values?: Record<string, string | number | null>; new_values?: Record<string, string | number | null>;
   actor_id: string;
-  operation: 'RENEWAL' | 'DATE_EDIT' | 'CREATE' | 'PLAN_CHANGE' | 'STATUS_CHANGE'; source: 'LOCAL' | 'RADIUS'; is_demo: true;
+  operation: 'EDIT' | 'UPDATE' | 'ROUTER' | 'RENEWAL' | 'DATE_EDIT' | 'CREATE' | 'PLAN_CHANGE' | 'STATUS_CHANGE'; source: 'LOCAL' | 'RADIUS'; is_demo: true;
 };
 export type SubscriberDetailData = {item: Subscriber; history: SubscriberHistoryEvent[]; history_available?:boolean; is_demo: true; persistence: 'process-memory' | 'local-postgresql-demo'};
 

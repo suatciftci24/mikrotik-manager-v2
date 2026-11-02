@@ -2874,3 +2874,50 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Önceki görevde yerel bırakılan DB-onarım ilerleme notu bu ilgili düzeltme
   kaydıyla birlikte korunur. İlgili kod/test/README/progress normal commit/push;
   force yok. Tek sonraki adım: açık yerel tarayıcıda demo@local.test ile giriş.
+
+## V2.3 — Günlük Yönetim ekranını sadeleştirme — 2026-11-02
+
+- PASS: main-guncel başlangıcı temizdi; mevcut yerel 05954b6 giriş düzeltmesi
+  korundu. V2.2/b34ecdb üzerine ekran tek başlık, kompakt dönem/router/işlem
+  filtreleri, dört özet kartı ve üç detay tablosuna indirildi. Tekrarlı envanter,
+  hesap, uyarı kartları ve toplam bölümleri kaldırıldı; uzun kapsam açıklamaları
+  açılır bilgi bölümüne taşındı. Ekran sayaçları uydurulmaz.
+- Bitişler abone/router/tarih/kalan gün tablosunda. Bugün/3/7/30 gün,
+  dolmuş/bilinmeyen/geçerli/tümü ve mevcut abone bağlantıları korunur. Bu kapsam
+  mevcut demo aboneleridir; kalıcı çalışma alanı bitişleri Abone Merkezi'nde
+  kalır. Türkiye bugün hesabı rapor döneminden bağımsızdır.
+- Kesin kaynak nedeni: önceki loader yalnız /reports/inventory ve mevcut
+  /subscribers/{id} geçmişini okuyordu. Kalıcı PostgreSQL çalışma alanının
+  ayrı SyntheticSubscriberEvent audit modeli ve /subscriber-workspace/management/
+  history API'si okunmuyordu. Merkezi ADMIN için mevcut yetkili API'lerden
+  tüm audit/abone/router sayfaları okunarak başarılı PPPoE kayıtları aynı işlem
+  tablosuna bağlandı. Mevcut demo ve kalıcı audit kimlikleri ayrı tutulur.
+- PPPoE türü ve yetkili kaynak, mevcut modelin değiştirmeye izin vermediği
+  abone kimliğinden doğrulanır. Router işlem anındaki receipt'ten alınır;
+  bugünkü router geçmişe yazılmaz. Başarısız/Hotspot/gelecek kayıtlar PPPoE
+  toplamına alınmaz; önceki/yeni değerler ve doğru kaynaklı detay bağlantıları
+  korunur. Eksik/tamamlanamayan/tekrarlı sayfa veya değişen toplam, kaynağı
+  belirsiz yapar: toplam Veri yok, alınabilen mevcut demo listesi görünür.
+  Merkezi ADMIN olmayan kullanıcıya workspace API isteği yapılmaz.
+- WAN/kesinti tek kompakt olay tablosunda; tür/router/zaman/doğrulanmış durum,
+  WAN öncesi-sonrası, doğrulanmış bitiş/süre ve mevcut dialoglar korunur.
+  Teknik olay ID'si tablo metninden çıkarıldı. Demo / Gerçek V1 ayrımı açık;
+  gerçek sekmede doğrulanmış geçmiş bağlı olmadığından dört kart Veri yok.
+- Kontrol: 14 rapor modeli/loader + 6 görünüm testi (20 tekil hedefli test)
+  PASS; yalnız değişen kapsam gerektiğinde yeniden kontrol edildi. Son
+  TypeScript + Vite build PASS; mevcut bundle boyut uyarısı sürüyor.
+- Gerçek yerel Chromium, yalnız sentetik loopback HTTP fixture: dönem/URL,
+  PPPoE, bitiş bağlantıları/yenileme, Escape/focus, WAN ve doğrulanmış kesinti,
+  hata/boş durum PASS. Yeni kalıcı audit başarı/eksik kaynak/historik router/
+  detay akışları ve V1 sekmesine geçişte yalnız V1 okuma isteği PASS.
+  Beyaz/Gece/Sistem, 1440/390/320px taşmasız görünüm PASS; masaüstü ve mobil
+  ekran görüntüleri görsel olarak incelendi. Kabul çıktıları yalnız
+  .local/browser-acceptance/v23-management/ içinde; Git'e alınmaz.
+  Canlı PostgreSQL veri sayıları veya gerçek cihaz geçmişi bu kabulde sınanmadı.
+- Backend/API sözleşmeleri, güvenlik kontrolleri ve çalışan 5dk snapshot
+  mekanizması değişmedi. VDS/Fresh Pilot/V1/eski V2/canlı router/RADIUS erişimi,
+  migration, servis restartı, timer değişikliği veya deploy yapılmadı.
+- Git kapsamı: yalnız ilgili frontend kaynak/testleri, README ve bu ilerleme
+  kaydı; origin/main-guncel için normal fast-forward push, force yok.
+- Tek sonraki adım: yerel Dashboard → Günlük Yönetim Raporu V2.3 ekranının
+  kullanıcı görsel kabulü.

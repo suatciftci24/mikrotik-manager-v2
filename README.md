@@ -532,8 +532,10 @@ Last 7 Days and Last 30 Days use inclusive Europe/Istanbul calendar dates (last 
 today and six preceding days); future records are excluded. Router and operation/
 event filters intersect and remain in the URL.
 
-Inventory/account/expiry cards explicitly show the latest saved state, regardless
-of the activity period. They are not reconstructed historical snapshots. Equal
+V2.3 uses four summary cards (PPPoE operations, subscription expiries, internet
+outages and WAN changes) and compact expiry, operation and event tables. The
+expiry table shows the latest saved state, independently of the activity period;
+it is not a reconstructed historical snapshot. Scope notes are collapsed. Equal
 copies of a record count once; conflicting payloads with the same identity fail
 visibly. Recorded recovery IDs are counted at their own time, while the associated
 outage lifecycle counts as one outage. A recovery row opens that shared lifecycle
@@ -553,21 +555,34 @@ health snapshot view; it never substitutes synthetic activity, expiry or WAN
 history. Those real historical sources remain explicitly unavailable. The
 snapshot exporter and 60-second Router Center refresh are unchanged.
 
-The synthetic report counts only explicitly typed PPPoE records in its PPPoE
-filter, retains existing operation value/detail dialogs, and offers cumulative
-Today/3/7/30-day expiry cards with subscriber links. Expiry is based on today's
-Turkey calendar date, independently of the activity period. Counts cover the
-existing demo subscriber API; the persistent PPPoE/Hotspot workspace remains
-separately accessible through **Merkezi İşlem Geçmişi** and is not added to these
-totals. Unavailable history remains unknown. Future/unverified recovery timestamps
-never supply a displayed outage end or duration.
+The synthetic report counts only explicitly typed PPPoE records. For central
+ADMIN users it additionally reads every page of the existing versioned
+`/subscriber-workspace/management/history`, `/subscriber-workspace` and
+`/router-workspace/routers` APIs. Successful recorded PPPoE receipts are joined
+using the immutable account ID/type/source and retain the receipt's historical
+router ID. Legacy and workspace audit IDs are namespaced; failed and Hotspot
+receipts are excluded. Before/after values and subscriber/router links remain
+available in the same table. Missing, incomplete, duplicate-page or changing-total
+workspace responses leave the PPPoE total **Veri yok**; available legacy rows
+remain visible. Users without central ADMIN access do not request these APIs and
+see only their existing authorized demo history. No API contract, migration,
+provisioning adapter or background snapshot behavior changes.
+
+The existing demo expiry scope is preserved, with compact Today/3/7/30-day,
+expired/unknown/valid/all filters. Persistent workspace expiries remain in the
+Subscriber Center. Expiry uses today's Turkey calendar date, independently of
+the activity period. Future/unverified recovery timestamps never supply an
+outage end or duration. The real source tab keeps four **Veri yok** cards because
+no real activity/expiry/event history is connected.
 
 Synthetic-only browser acceptance (existing local Chromium/Playwright required;
 no backend, database, SSH or devices): from `frontend`, run
 `node tests/managementCenter.browser.mjs`. Screenshots/results are written under
-`.local/browser-acceptance/v22-management/`. The test checks 320/390/1440px,
+`.local/browser-acceptance/v23-management/`. The test checks 320/390/1440px,
 White/Night/System, filters/reload, expiry links, keyboard dialogs, empty/error
-states and isolation of the real-source view.
+states and isolation of the real-source view. Add `--v23-final` for persistent
+workspace success/unavailability, historical-router filtering, source isolation
+and layout acceptance using synthetic HTTP fixtures only.
 
 ### Central internet usage and connection reports
 

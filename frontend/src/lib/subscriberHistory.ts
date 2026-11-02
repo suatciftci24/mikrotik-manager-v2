@@ -2,7 +2,7 @@ import type { SubscriberHistoryEvent } from './api.ts';
 import { expiryDate } from './expiry.ts';
 
 export function operationLabel(operation: SubscriberHistoryEvent['operation']) {
-  return ({RENEWAL:'Yenileme (demo)', DATE_EDIT:'Bitiş tarihi düzenleme (demo)', CREATE:'PPPoE abonesi oluşturma (demo)', PLAN_CHANGE:'Paket/profil değiştirme (demo)', STATUS_CHANGE:'Etkinlik durumu değiştirme (demo)'})[operation] ?? 'Bilinmeyen demo işlemi';
+  return ({EDIT:'Abone bilgisi (demo)', UPDATE:'Abone düzenleme (demo)', ROUTER:'Router değişikliği (demo)', RENEWAL:'Yenileme (demo)', DATE_EDIT:'Bitiş tarihi düzenleme (demo)', CREATE:'PPPoE abonesi oluşturma (demo)', PLAN_CHANGE:'Paket/profil değiştirme (demo)', STATUS_CHANGE:'Etkinlik durumu değiştirme (demo)'})[operation] ?? 'Bilinmeyen demo işlemi';
 }
 export function statusText(value: unknown): string {
   return value==='ACTIVE'?'Etkin':value==='PAUSED'?'Devre dışı (duraklatıldı)':value==='PENDING'?'Bekliyor':'Veri yok';

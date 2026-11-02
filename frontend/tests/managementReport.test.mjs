@@ -109,3 +109,43 @@ test('V2.2 future recovery cannot supply an end or duration in a current outage 
  assert.equal(report.events.length,1);assert.equal(report.counts.recoveries,0);
  assert.equal(report.events[0].lifecycle.ended_at,null);assert.equal(report.events[0].lifecycle.duration_seconds,null);assert.equal(report.events[0].lifecycle.status,'UNKNOWN');
 });
+
+const managedAccount={id:'demo-managed-sub-a',customer_name:'Kalıcı demo',username:'synthetic.a',access_type:'PPPOE',source:'LOCAL',router_id:'demo-managed-router-new'};
+const receipt=(request_id,extra={})=>({request_id,item_id:managedAccount.id,success:true,recorded:true,operation:'EXTEND',actor_id:'demo-user',router_id:'demo-managed-router-old',occurred_at:now.toISOString(),previous:{expires_on:'2026-10-27'},values:{expires_on:'2026-11-26'},...extra});
+const workspace=(receipts)=>({accounts:[managedAccount],receipts,routers:[{id:'demo-managed-router-old',fields:{name:'Önceki sentetik router'}}]});
+test('V2.3 persistent PPPoE receipts retain historical router and values, exclude failed, future and Hotspot',()=>{
+ const input={...source([detail('legacy','r1',[operation('legacy-op',now.toISOString())])]),workspace:workspace([receipt('renew'),receipt('failed',{success:false}),receipt('future',{occurred_at:'2026-10-27T10:00:00Z'}),receipt('hotspot',{item_id:'demo-managed-sub-h'})])};
+ input.workspace.accounts.push({...managedAccount,id:'demo-managed-sub-h',access_type:'HOTSPOT'});
+ const report=buildManagementReport(input,filter,now);
+ assert.equal(report.pppoeOperations,2);assert.equal(report.operations.length,2);
+ const saved=report.operations.find(row=>row.workspace);assert.equal(saved.router_id,'demo-managed-router-old');assert.equal(saved.router_name,'Önceki sentetik router');assert.equal(saved.previous_expires_on,'2026-10-27');assert.equal(saved.expires_on,'2026-11-26');
+ assert.equal(buildManagementReport(input,{...filter,router:'demo-managed-router-old'},now).pppoeOperations,1);
+ assert.equal(buildManagementReport(input,{...filter,router:managedAccount.router_id},now).pppoeOperations,0);
+ assert.equal(buildManagementReport(input,{...filter,kind:'PLAN_CHANGE'},now).pppoeOperations,0);
+ assert.equal(buildManagementReport({...input,workspace:null},filter,now).pppoeOperations,null);
+ assert.throws(()=>buildManagementReport({...input,workspace:workspace([receipt('bad',{item_id:'missing'})])},filter,now),/doğrulanamadı/);
+ assert.throws(()=>buildManagementReport({...input,workspace:workspace([receipt('same'),receipt('same',{operation:'STATUS'})])},filter,now),/çelişkili/);
+});
+test('V2.3 audit edit and router operations retain their type rather than inventing a plan change',()=>{
+ const input={...source(),workspace:workspace([receipt('edit',{operation:'EDIT',previous:{customer_name:'Önce'},values:{customer_name:'Sonra'}}),receipt('move',{operation:'ROUTER',previous:{router_id:'old'},values:{router_id:'new'}})])};
+ assert.deepEqual(buildManagementReport(input,filter,now).operations.map(row=>row.operation),['EDIT','ROUTER']);
+ assert.equal(buildManagementReport(input,{...filter,kind:'PLAN_CHANGE'},now).operations.length,0);
+});
+test('V2.3 admin loader reads all audit pages; incomplete workspace is unavailable; default loader never requests admin APIs',async()=>{
+ const original=globalThis.fetch,calls=[];let broken=false,duplicate=false;
+ try{
+ globalThis.fetch=async(url)=>{
+  calls.push(url);let value;
+  if(url.includes('/management/history'))value=broken?{items:[],total:2,is_demo:true}:{items:[receipt(url.includes('page=2')&&!duplicate?'second':'first')],total:2,is_demo:true};
+  else if(url.includes('/subscriber-workspace'))value={items:[managedAccount],total:1,is_demo:true};
+  else if(url.includes('/router-workspace'))value={items:[],total:0,is_demo:true};
+  else if(url.endsWith('/reports/inventory'))value={routers,items:[]};
+  else value={items:[],available:true,is_demo:true};
+  return new Response(JSON.stringify(value));
+ };
+ const loaded=await loadManagementReport('/management/report?workspace=1');assert.equal(loaded.workspace.receipts.length,2);assert.ok(calls.some(url=>url.endsWith('page=2')));
+ broken=true;const missing=await loadManagementReport('/management/report?workspace=1');assert.equal(missing.workspace,null);assert.match(missing.workspaceError,/tamamı doğrulanamadı/);
+ broken=false;duplicate=true;const repeated=await loadManagementReport('/management/report?workspace=1');assert.equal(repeated.workspace,null);assert.match(repeated.workspaceError,/tekil değil/);
+ calls.length=0;await loadManagementReport('/management/report');assert.ok(calls.every(url=>!url.includes('workspace')));
+ }finally{globalThis.fetch=original;}
+});

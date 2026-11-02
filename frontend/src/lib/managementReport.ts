@@ -1,5 +1,7 @@
-import type { Router, SubscriberDetailData } from './api.ts';
-import { buildDailySummary, loadDailyInventory } from './dailySummary.ts';
+import type { CenterSubscriber } from './subscriberCenter.ts';
+import { dailyLabels, type OperationReceipt } from './subscriberManagementCenter.ts';
+import { api, type Router, type SubscriberDetailData } from './api.ts';
+import { buildDailySummary, loadDailyInventory, type DailyOperation } from './dailySummary.ts';
 import { buildSubscriptionAlerts } from './subscriptionAlerts.ts';
 import { matchesExpiry, type ExpiryFilter, turkeyToday } from './expiry.ts';
 import { observationTime } from './subscriberObservation.ts';
@@ -9,7 +11,9 @@ import type { AlarmEvent } from './routerEvents.ts';
 export const reportPeriods={TODAY:'Bugün',YESTERDAY:'Dün',LAST_7:'Son 7 Gün',LAST_30:'Son 30 Gün'} as const;
 export type ManagementPeriod=keyof typeof reportPeriods;
 export const reportKinds={ALL:'Tüm işlem ve olaylar',OPERATIONS:'Tüm yönetim işlemleri',PPPOE:'PPPoE işlemleri',CREATE:'Abone oluşturma',PLAN_CHANGE:'Paket/profil değiştirme',STATUS_CHANGE:'Hesap durumu değiştirme',RENEWAL:'Abonelik yenileme',DATE_EDIT:'Bitiş tarihi düzenleme',INTERNET_DOWN:'İnternet kesintisi',INTERNET_UP:'Bağlantı geri gelmesi',WAN_CHANGE:'WAN değişikliği'} as const;
-export type ManagementSource={read_at?:string;routers:Router[];details:SubscriberDetailData[];events:AlarmEvent[]|null};
+export type ReportOperation=DailyOperation & {router_id:string|null;workspace?:boolean;label?:string};
+export type WorkspaceHistory={accounts:CenterSubscriber[];receipts:OperationReceipt[];routers:{id:string;fields:{name:string}}[]};
+export type ManagementSource={workspace?:WorkspaceHistory|null;workspaceError?:string;read_at?:string;routers:Router[];details:SubscriberDetailData[];events:AlarmEvent[]|null};
 export type ManagementFilter={period:ManagementPeriod;router:string;kind:keyof typeof reportKinds;expiry?:ExpiryFilter};
 export const managementExpiryFilters=['ALL','EXPIRED','TODAY','WITHIN_3','WITHIN_7','WITHIN_30','VALID','UNKNOWN'] as const;
 export function managementSourceFromHash(hash:string){return new URLSearchParams(hash.replace(/^#/, '')).get('report_source')==='V1_INVENTORY'?'V1_INVENTORY':'DEMO';}
@@ -52,7 +56,25 @@ export function buildManagementReport(source:ManagementSource,filter:ManagementF
     const time=observationTime(value);if(!time)return false;
     const milliseconds=Date.parse(time);return milliseconds>=range.from&&milliseconds<range.until&&milliseconds<=range.cutoff;
   };
-  const operations=inventory.operation_history.filter(event=>inRange(event.occurred_at)&&(filter.kind==='ALL'||filter.kind==='OPERATIONS'||filter.kind==='PPPOE'&&event.access_type==='PPPOE'||event.operation===filter.kind)).map(event=>({...event,router_id:reportRouterId(scopedDetails.find(detail=>detail.item.id===event.subscriber_id)!.item,routers)}));
+  const legacyOperations=inventory.operation_history.filter(event=>inRange(event.occurred_at)&&(filter.kind==='ALL'||filter.kind==='OPERATIONS'||filter.kind==='PPPOE'&&event.access_type==='PPPOE'||event.operation===filter.kind)).map(event=>({...event,router_id:reportRouterId(scopedDetails.find(detail=>detail.item.id===event.subscriber_id)!.item,routers)}));
+  const workspaceOperations:ReportOperation[]=[];
+  if(source.workspace){
+    const accounts=uniqueReportRecords(source.workspace.accounts,row=>row.id);
+    uniqueReportRecords(source.workspace.routers,row=>row.id);
+    for(const receipt of uniqueReportRecords(source.workspace.receipts,row=>row.request_id)){
+      if(!receipt.recorded||!receipt.success)continue;
+      const account=accounts.find(row=>row.id===receipt.item_id);
+      if(!account||!account.id.startsWith('demo-managed-sub-')||!['PPPOE','HOTSPOT'].includes(account.access_type??'')||!account.source)throw new Error('Kalıcı işlem abonesi doğrulanamadı.');
+      if(account.access_type!=='PPPOE')continue;
+      const mapping:Record<string,DailyOperation['operation']>={EDIT:'EDIT',UPDATE:'UPDATE',ROUTER:'ROUTER',CREATE:'CREATE',PLAN:'PLAN_CHANGE',STATUS:'STATUS_CHANGE',EXTEND:'RENEWAL',RENEWAL:'RENEWAL',EXPIRE:'DATE_EDIT'};
+      const operation=mapping[receipt.operation];
+      if(!operation)throw new Error('Kalıcı işlem türü doğrulanamadı.');
+      if(!inRange(receipt.occurred_at)||filter.router&&receipt.router_id!==filter.router)continue;
+      if(!['ALL','OPERATIONS','PPPOE',operation].includes(filter.kind))continue;
+      workspaceOperations.push({id:'workspace:'+receipt.request_id,subscriber_id:account.id,customer_name:account.customer_name,username:account.username,router_id:receipt.router_id,router_name:source.workspace.routers.find(row=>row.id===receipt.router_id)?.fields.name??receipt.router_id??'Veri yok',access_type:'PPPOE',source:account.source,is_demo:true,operation,label:dailyLabels[receipt.operation]??receipt.operation,workspace:true,occurred_at:receipt.occurred_at,actor_id:receipt.actor_id,previous_values:receipt.previous,new_values:receipt.values,...(operation==='RENEWAL'||operation==='DATE_EDIT'?{previous_expires_on:receipt.previous.expires_on,expires_on:receipt.values.expires_on}:{})});
+    }
+  }
+  const operations:ReportOperation[]=[...legacyOperations,...workspaceOperations].sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at)||a.id.localeCompare(b.id));
   const sourceEvents=source.events===null?null:uniqueReportRecords(source.events,event=>event.id);
   const expanded=sourceEvents?.flatMap(event=>{
     if(event.is_demo!==true)throw new Error('Rapor yalnız sentetik olayları destekler.');
@@ -64,11 +86,11 @@ export function buildManagementReport(source:ManagementSource,filter:ManagementF
     return records;
   })??null;
   const events=expanded===null?null:uniqueReportRecords(expanded,event=>event.id).filter(event=>(!filter.router||event.router_id===filter.router)&&inRange(event.occurred_at)&&(filter.kind==='ALL'||filter.kind===event.kind)).sort((a,b)=>Date.parse(b.occurred_at!)-Date.parse(a.occurred_at!)||a.id.localeCompare(b.id));
-  const historyAvailable=scopedDetails.every(detail=>detail.history_available!==false);
+  const historyAvailable=source.workspace!==null&&scopedDetails.every(detail=>detail.history_available!==false);
   const expiry=filter.expiry??'TODAY';
   if(!managementExpiryFilters.includes(expiry as typeof managementExpiryFilters[number]))throw new Error('Bitiş filtresi geçersiz.');
   const subscribers=scopedDetails.map(detail=>detail.item);
-  return {range,inventory,operations,events,historyAvailable,
+  return {range,inventory,operations,events,historyAvailable,workspaceError:source.workspaceError,
     pppoeOperations:historyAvailable?operations.filter(event=>event.access_type==='PPPOE').length:null,
     untypedOperations:historyAvailable?operations.filter(event=>event.access_type!== 'PPPOE').length:null,
     expirySummary:buildSubscriptionAlerts(subscribers,turkeyToday(now)),
@@ -80,7 +102,18 @@ export function buildManagementReport(source:ManagementSource,filter:ManagementF
 }
 export async function loadManagementReport(_path:string,init?:RequestInit):Promise<ManagementSource>{
   const [inventory,events]=await Promise.all([loadDailyInventory(init,true),loadRouterEvents('/router-events',init)]);
-  return {...inventory,events,read_at:new Date().toISOString()};
+  let workspace:WorkspaceHistory|null|undefined,workspaceError:string|undefined;
+  if(_path.includes('workspace=1')){
+    try{
+      const [accounts,receipts,routers]=await Promise.all([
+        reportPages<CenterSubscriber>('/subscriber-workspace',init),
+        reportPages<OperationReceipt>('/subscriber-workspace/management/history',init),
+        reportPages<{id:string;fields:{name:string}}>('/router-workspace/routers',init),
+      ]);
+      workspace={accounts,receipts,routers};
+    }catch(error){if(init?.signal?.aborted)throw error;workspace=null;workspaceError=error instanceof Error?error.message:'Kalıcı geçmiş okunamadı.';}
+  }
+  return {...inventory,events,workspace,workspaceError,read_at:new Date().toISOString()};
 }
 
 export function managementFilterFromHash(hash:string):ManagementFilter{
@@ -89,3 +122,17 @@ export function managementFilterFromHash(hash:string):ManagementFilter{
   return {period:Object.hasOwn(reportPeriods,period)?period as ManagementPeriod:'TODAY',router:params.get('router')??'',kind:Object.hasOwn(reportKinds,kind)?kind as keyof typeof reportKinds:'ALL',...(params.has('expiry')?{expiry:managementExpiryFilters.includes(params.get('expiry') as typeof managementExpiryFilters[number])?params.get('expiry') as ExpiryFilter:'TODAY' as const}:{})};
 }
 export function managementReportHash(filter:ManagementFilter){return '#'+new URLSearchParams({module:'dashboard',view:'DAILY_REPORT',...filter}).toString();}
+
+/** Read every page; partial or changing totals must never become a complete counter. */
+async function reportPages<T extends {id?:string;request_id?:string}>(path:string,init?:RequestInit):Promise<T[]>{
+  const rows:T[]=[];const ids=new Set<string>();let expected:number|undefined;
+  for(let page=1;page<=1000;page++){
+    const data=await api<{items:T[];total:number;is_demo:true}>(path+'?page_size=100&page='+page,init);
+    if(data.is_demo!==true||!Array.isArray(data.items)||!Number.isInteger(data.total)||data.total<0||expected!==undefined&&expected!==data.total)throw new Error('Kalıcı geçmiş kapsamı değişti; raporu yenileyin.');
+    expected=data.total;
+    for(const row of data.items){const id=row.request_id??row.id;if(!id||ids.has(id))throw new Error('Kalıcı geçmiş sayfaları tekil değil; raporu yenileyin.');ids.add(id);rows.push(row);}
+    if(rows.length===expected)return rows;
+    if(!data.items.length||rows.length>expected)break;
+  }
+  throw new Error('Kalıcı geçmişin tamamı doğrulanamadı.');
+}
