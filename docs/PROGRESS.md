@@ -1977,3 +1977,18 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   aboneliklere dokunulmadı. Mevcut yerel değişiklikler bu commit dışında korundu.
 - Sonraki tek adım: yetkili ortamda sırsız, izinli alanlardan oluşan gerçek
   envanter aktarımının sağlanması için kapsamlı canlı okuma iznini belirlemek.
+
+## Gerçek envanter canlı entegrasyonu — erişim engeli — 2026-11-02
+
+- Kullanıcı yeni envanter SELECT rolünü, yeni pilot bağlantısını ve yalnız
+  mikrotik-v2-fresh-pilot.service dağıtım/restart kapsamını açıkça onayladı.
+  3cb3794, fresh-v2-pilot profili ve fresh-v2-access sınırları incelendi.
+- BLOCKED: BatchMode/StrictHostKeyChecking açık mevcut yönetici SSH kanalı,
+  185.139.5.51:22 için socket: Operation not permitted döndürdü. Bu çalışma
+  ortamının ağ engelidir; hedef kimlik doğrulaması veya DB yetkisi denenemedi.
+- Gerçek router sayısı doğrulanamadı; sıfır varsayılmadı. PostgreSQL kaynağı,
+  SELECT yetkileri, API ve panel canlı kabulü yapılmadı. Rol/sır/şema/veri,
+  servis/deployment, V1/eski V2/router/PPPoE/Hotspot/RADIUS/abone değişikliği yok.
+  Dağıtım başlamadığından rollback gerekmedi; ürün değişmediği için test yok.
+- Sonraki tek adım: mevcut dar onay kapsamını ağ erişimi olan yetkili çalışma
+  ortamında sürdürmek. Genel sudo veya SSH yetkisi genişletilmez.
