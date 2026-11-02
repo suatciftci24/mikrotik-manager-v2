@@ -2175,3 +2175,34 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   cihaz ölçümü veya otomatik V1 export üretmez. Kullanıcı yerel değişiklikleri korunur.
 - Tek sonraki adım: bu V2.1 paketini yalnız fresh pilot'a ayrı açık canlı
   dağıtım onayıyla yedek/rollback ve hedefli ADMIN kabulü üzerinden taşımak.
+
+
+## Router Merkezi V2.1 canlı dağıtım denemesi — güvenli rollback — 2026-11-02
+
+- BLOCKED: kullanıcı 99ce25b için yalnız fresh pilot dağıtımını onayladı.
+  Yetkili SSH ile fresh kök/profil/loopback/kapalı cihaz kapıları, aktif unit,
+  caf2b4c backend hash ve önceki sağlık PASS receipt doğrulandı. PostgreSQL'e
+  bağlanılmadı; rol/yetki/şema veya DB değişikliği yok.
+- Mevcut 99ce25b frontend build/source temizliği doğrulandı; build/test suite
+  tekrarlanmadı. Yalnız frontend/dist yedekli değiştirildi. Config ve ADMIN
+  teslim dosyası root private yedeklendi. Backend/env/DB/ADMIN yapısı korunur.
+- ADMIN API + served JS SHA256 PASS: 9 router kimlik/metadata ve 9 sağlık kaydı
+  snapshot ile eşit. CPU/bellek/internet denemesi/zaman/kaynak eksikleri 0.
+  Bu kabulde STALE=9; geçmiş ölçümler canlı çevrimiçi kanıtı sayılmadı.
+- Yetkili tünelde headless Chromium ile gerçek ADMIN arayüzü: masaüstü/mobil
+  yatay taşma yok, teknik bilgiler tabloda gizli/modalda mevcut, modal kapatma
+  ve sanal saatte 61sn sonrası tek otomatik API yenilemesi PASS.
+- Kabul refresh.error adımında durdu: beklenen kontrollü tarayıcı 503 sonrası
+  hata görünümü, gerçekleşen condition timeout. Ham API yanıtı/sır yazılmadı.
+  Sanal saatli browser kontrolü kullanıldığı için bu sonuç tek başına ürün
+  hatası kanıtı değildir. Hata/son-başarı ve sekme kapanma kabulü tamamlanmadı;
+  PASS varsayılmadı ve canlı tekrar denenmedi.
+- Rollback PASS: önceki dist geri taşındı; servis active ve MainPID aynı,
+  config/ADMIN hashleri değişmedi. Servis restartı gerekmedi/yapılmadı.
+  ADMIN kabul oturumu logout edildi; geçici tünel/browser ve yerel session
+  handoff temizlendi. V1/eski V2/router/PPPoE/Hotspot/RADIUS değişmedi.
+- Yedek ve api-receipt/ui-failure/rollback-receipt kayıtları:
+  /srv/mikrotik-manager-v2-fresh-pilot/backups/v21-99ce25b-before-mt2poo77.
+  99ce25b canlıda bırakılmadı; önceki başarılı sağlık sürümü korunur.
+- Tek sonraki adım: refresh.error zaman aşımını yerelde sanal saat/tarayıcı
+  kabul akışında teşhis etmek; yeni canlı dağıtım bu görevde tekrarlanmadı.
