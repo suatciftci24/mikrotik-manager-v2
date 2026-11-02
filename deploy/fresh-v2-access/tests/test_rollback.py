@@ -46,3 +46,25 @@ class RollbackTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'CONFIG_CHANGED_CONCURRENTLY'):
                 module.fail_closed()
             self.assertEqual(module.CONFIG.read_text(), 'other administrator change')
+
+    def test_attempt_rollback_preserves_previous_disabled_key_and_policy(self):
+        module = load()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            module.ATTEMPT_EVIDENCE = root/'new-evidence'
+            module.ATTEMPT_EVIDENCE.mkdir()
+            module.KEY = root/'v2-fresh-ops'
+            module.KEY.write_text('new attempt key')
+            old = root/'v2-fresh-ops.disabled'
+            old.write_text('old evidence key')
+            module.POLICY = root/'sudoers'
+            module.POLICY.write_text('new attempt policy')
+            module.CREATED_KEY = True
+            module.CREATED_POLICY = True
+            module.run = Mock()
+            module.fail_closed()
+            self.assertEqual(old.read_text(), 'old evidence key')
+            self.assertEqual((module.ATTEMPT_EVIDENCE/'authorized_key.disabled').read_text(), 'new attempt key')
+            self.assertEqual((module.ATTEMPT_EVIDENCE/'sudoers.disabled').read_text(), 'new attempt policy')
+            self.assertFalse(module.KEY.exists())
+            self.assertFalse(module.POLICY.exists())

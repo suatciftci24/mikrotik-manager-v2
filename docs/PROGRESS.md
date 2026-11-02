@@ -1,5 +1,24 @@
 # MikroTik Manager V2 — İlerleme
 
+## Public-key 0640 düzeltmesi ve canlı erişim kabulü — 2026-11-02
+
+- PASS: public key root:v2-fresh-ops 0640; tek özel grup, root-owned/yazılamaz
+  üst dizinler, hesapla traversal/read/no-write, ACL/hardlink/mode kontrolü geçti.
+- Önceki a9s28fvf rollback kaydı/package hash/config/disabled key/hesap/grup
+  doğrulandıktan sonra yalnız bu V2 hesabıyla devam edildi. Eski kanıtlar aynı;
+  yeni root:root 0700 kanıt dizini /etc/ssh/v2-fresh-access-8oc0glqm, kabul PASS.
+- SSH/sudoers aday ve etkin sözdizimi PASS; 40 diğer hesap x 3 bağlamda etkin SSH
+  ayarları aynı. Yalnız SSH reload; yeni SSH girişi ve mevcut yönetici SSH/sudo PASS.
+- İki exact V2 unit durum sorgusu başarılı (kurulu/aktif değiller). Tam 8 exact
+  sudo komutu doğrulandı; shell/diğer servis/dosya yazma/SFTP/PTY/forwarding reddi
+  PASS. Start/stop/restart çağrılmadı. SFTP stderr beklentisi düzeltildi; yalnız
+  başarısız ve henüz çalışmayan kabul kapsamı devam etti, güvenlik gevşetilmedi.
+- PASS: 3 key/resume testi + 2 etkilenen rollback testi + 1 yeni eski kanıtı
+  koruma testi ve diff kontrolü. Geniş/önceden başarılı testler tekrarlanmadı.
+- V1/eski V2/diğer kullanıcı ve servislerde değişiklik, uygulama dağıtımı,
+  migration, PostgreSQL kurma/başlatma yok. Sırlar gösterilmedi/değiştirilmedi.
+- Sonraki tek adım: yeni V2 pilotunun ayrı uygulama kurulum kapsamını hazırlamak.
+
 ## Yeni V2 erişim uygulaması ve güvenli geri dönüş — 2026-11-02
 
 - BLOCKED: 7c90491 SSH adayı ve sudoers doğrulandı; 40 mevcut hesabın 3 bağlamda

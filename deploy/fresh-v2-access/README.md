@@ -1,4 +1,4 @@
-# Yeni V2 pilot — uygulanmamış erişim paketi
+# Yeni V2 pilot — erişim paketi
 
 2026-11-02: Ofis WSL mevcut HTTPS Git kimliğiyle `git ls-remote origin HEAD`
 başarılı; mevcut SSH anahtarıyla BatchMode/StrictHostKeyChecking açık VDS girişi
@@ -27,7 +27,7 @@ yokluk kanıtı değildir. Mevcut hesabın sudo kapsamı veya sır dosyaları ok
 
 ## Yalnız ayrıca onaydan sonra yönetici uygulaması
 
-Bu paket otomatik kurulum komutu içermez; şu anda VDS'ye dosya aktarılmadı.
+İlk hazırlıkta paket VDS'ye uygulanmamıştı; güncel canlı sonuç aşağıdadır.
 Önce yönetici root yetkisiyle hesap/grup/yol/unit çakışmalarını ve mevcut sshd
 politikasını inceler. Çakışmada devralma/üzerine yazma yapılmaz. Yeni pilot
 henüz kurulmadıysa bu izinler servis kurmaz; servis kurulumu ayrı onaylı iştir.
@@ -36,7 +36,7 @@ henüz kurulmadıysa bu izinler servis kurmaz; servis kurulumu ayrı onaylı iş
    Mevcut anahtarın **yalnız public** kısmını operatörün yerelde türettiği
    fingerprint ile eşleştir; özel anahtarı taşıma/gösterme/yenileme.
 2. Forced-command dosyasını `/usr/local/sbin/mikrotik-v2-fresh-ssh` root:root
-   0755 kur. Public anahtarı root:root 0600
+   0755 kur. Public anahtarı root:v2-fresh-ops 0640
    `/etc/ssh/authorized_keys/v2-fresh-ops` içine `restrict` önekiyle koy;
    parent root:root 0755. Account'un authorized_keys değiştirmesine izin verme.
 3. Sudoers'ı önce `visudo -cf` ile doğrula, yalnız yeni dosyayı root:root 0440
@@ -139,3 +139,39 @@ Güvenli geri dönüş tamamlandı:
 Sonraki tek adım: public-key okuma modelini yerelde root sahipliği + yalnız yeni
 hesabın grubuna okuma (0640) ile düzeltmek; yazma yetkisi vermemek. Canlı tekrar
 bu görevde yapılmadı. Uygulayıcının ACCOUNT_EXISTS kapısı korunur.
+
+## Güncel canlı kabul — 2026-11-02 — PASS
+
+Public key artık **root:v2-fresh-ops 0640**; dosya atomik/exclusive 0600 açılır,
+fd üzerinden sahip/grup ve 0640 ayarlanır. UID/GID/mode/normal dosya/tek hardlink,
+ek ACL yokluğu, tüm üst dizinlerde root sahipliği/yazma kısıtı ve hesapla
+traversal/read/no-write kontrolleri zorunludur. Grup yalnız bu hesaba aittir.
+Parola kilidi, ek grup yokluğu ve root-owned home korunur.
+
+Önceki başarısız denemenin hesabı yalnız açık kullanıcı talimatı ve tam kayıt
+kontrolüyle kullanıldı: sabit eski kanıt yolu, rollback kaydı, config ön-imajı,
+üç paket SHA256, wrapper/policy/disabled public key, hesap/home/shell/özel grup
+bütünlüğü eşleşti. Diğer mevcut hedefler/hesaplar devralınmaz. Eski kanıtlar ve
+.disabled dosyası yerinde korunur. Yeni rollback anahtar/sudo dosyalarını yalnız
+bu denemenin ayrı kanıt dizinine kapatır; eski dosyaların üzerine yazmaz.
+
+Yeni kanıt dizini: `/etc/ssh/v2-fresh-access-8oc0glqm` (root:root 0700).
+Before/candidate/sudoers.candidate/receipt.json/acceptance.json yalnız root
+okur. SSH ve sudoers aday/live kontrolleri PASS; 40 diğer hesabın 3 bağlantı
+bağlamında tüm etkin SSH ayarları aynı kaldı. Yalnız SSH reload yapıldı.
+
+Canlı hedefli kabul PASS:
+
+- Yeni SSH kimliğiyle iki exact V2 servis durum sorgusu başarılı; servisler
+  kurulu değil ve aktif değil. Start/stop/restart çağrılmadı.
+- Kabuk, diğer servis ve dosya yazma komutları; SFTP, PTY ve forwarding reddedildi.
+  SFTP reddi stderr metni vermediği için ilk test beklentisi düzeltildi; yalnız
+  o ve henüz çalışmayan kapsam devam ettirildi. Güvenlik ayarı değiştirilmedi.
+- Yeni yönetici SSH bağlantısı/sudo, kilitli parola, root-owned dosyalar ve
+  key grubu, tam 8 exact sudo komutu ve başka sudo komutlarının reddi doğrulandı.
+- Üç key/resume testi, iki doğrudan etkilenen rollback testi ve eski disabled
+  kanıtı koruyan yeni rollback testi PASS. Genel ürün testleri tekrarlanmadı.
+
+Bu yalnız erişim kurulumudur: V1/eski V2/diğer kullanıcı ve servisler değişmedi;
+uygulama dağıtımı, migration veya PostgreSQL kurulumu/başlangıcı yapılmadı.
+Sonraki tek adım: yeni V2 pilotunun ayrı uygulama kurulum kapsamını hazırlamak.

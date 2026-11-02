@@ -24,6 +24,8 @@ CREATED_KEY = False
 ORIGINAL_CONFIG = None
 INSTALLED_CONFIG = None
 RELOAD_ATTEMPTED = False
+ATTEMPT_EVIDENCE = None
+CREATED_POLICY = False
 
 
 def need(ok, code):
@@ -97,27 +99,87 @@ def check_ssh_only(match, connection):
     print('VERIFIED_ACCOUNTS', len(users), 'CONTEXTS', len(addresses), flush=True)
 
 
-def apply(payload, connection):
-    global CREATED_KEY, ORIGINAL_CONFIG, INSTALLED_CONFIG, RELOAD_ATTEMPTED
+def validate_resume(payload, evidence):
+    """Resume only the exact documented, rolled-back attempt; never arbitrary adoption."""
+    need(evidence == Path('/etc/ssh/v2-fresh-access-a9s28fvf'), 'UNKNOWN_RESUME_EVIDENCE')
+    safe(evidence)
+    receipt = json.loads((evidence/'receipt.json').read_text())
+    blocked = json.loads((evidence/'acceptance-blocked.json').read_text())
+    need(blocked.get('status') == 'BLOCKED' and blocked.get('original_ssh_config_restored')
+         and blocked.get('new_key_disabled') and blocked.get('sudoers_disabled'), 'ROLLBACK_NOT_PROVEN')
+    need(CONFIG.read_bytes() == (evidence/'sshd_config.before').read_bytes(), 'RESUME_CONFIG_DRIFT')
+    for name in ('wrapper', 'policy', 'match'):
+        need(hashlib.sha256(payload[name].encode()).hexdigest() == receipt['package_sha256'][name],
+             'RESUME_PACKAGE_DRIFT')
+    need(WRAPPER.read_text() == payload['wrapper'], 'RESUME_WRAPPER_DRIFT')
+    need((evidence/'sudoers.disabled').read_text() == payload['policy'], 'RESUME_POLICY_DRIFT')
+    expected_key = 'restrict ' + ' '.join(payload['public_key'].split()[:2]) + '\n'
+    need(KEY.with_name(USER+'.disabled').read_text() == expected_key, 'RESUME_PUBLIC_KEY_DRIFT')
+    for path in (WRAPPER, HOME, KEYDIR, KEY.with_name(USER+'.disabled')):
+        safe(path)
+    account = pwd.getpwnam(USER)
+    group = grp.getgrnam(USER)
+    need(account.pw_dir == str(HOME) and account.pw_shell == '/bin/sh'
+         and account.pw_gid == group.gr_gid and not group.gr_mem, 'RESUME_ACCOUNT_DRIFT')
+    need([x.pw_name for x in pwd.getpwall() if x.pw_gid == group.gr_gid] == [USER],
+         'SHARED_KEY_GROUP')
+    need(os.getgrouplist(USER, account.pw_gid) == [account.pw_gid], 'EXTRA_GROUPS')
+    need(run(['/usr/bin/passwd', '-S', USER]).split()[1] == 'L', 'PASSWORD_NOT_LOCKED')
+    need(stat.S_IMODE(HOME.stat().st_mode) == 0o755, 'RESUME_HOME_MODE')
+
+
+def validate_public_key_metadata(metadata, gid):
+    need(metadata.st_uid == 0 and metadata.st_gid == gid
+         and stat.S_ISREG(metadata.st_mode) and stat.S_IMODE(metadata.st_mode) == 0o640
+         and metadata.st_nlink == 1, 'KEY_PERMISSION_MODEL_REJECTED')
+
+
+def install_public_key(content, gid):
+    global CREATED_KEY
+    fd = os.open(KEY, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    CREATED_KEY = True
+    with os.fdopen(fd, 'w') as output:
+        output.write(content)
+        output.flush()
+        os.fchown(output.fileno(), 0, gid)
+        os.fchmod(output.fileno(), 0o640)
+    need('system.posix_acl_access' not in os.listxattr(KEY), 'KEY_ACL_NOT_ALLOWED')
+    validate_public_key_metadata(KEY.lstat(), gid)
+    for parent in KEY.parents:
+        safe(parent)
+        run(['/usr/sbin/runuser', '-u', USER, '--', '/usr/bin/test', '-x', str(parent)])
+    run(['/usr/sbin/runuser', '-u', USER, '--', '/usr/bin/test', '-r', str(KEY)])
+    result = subprocess.run(['/usr/sbin/runuser', '-u', USER, '--', '/usr/bin/test', '-w', str(KEY)],
+                            capture_output=True)
+    need(result.returncode == 1, 'KEY_WRITABLE_BY_ACCOUNT')
+
+
+def apply(payload, connection, resume_evidence=None):
+    global CREATED_KEY, ORIGINAL_CONFIG, INSTALLED_CONFIG, RELOAD_ATTEMPTED, ATTEMPT_EVIDENCE, CREATED_POLICY
     need(os.geteuid() == 0, 'ROOT_REQUIRED')
     need(set(payload) == {'wrapper','policy','match','public_key'}, 'PAYLOAD_INVALID')
     key = payload['public_key'].strip().split()
     need(len(key) >= 2 and key[0] == 'ssh-ed25519' and '\n' not in payload['public_key'].strip(),
          'PUBLIC_KEY_INVALID')
-    for name in (USER,):
-        try:
-            pwd.getpwnam(name)
-        except KeyError:
-            pass
-        else:
-            raise RuntimeError('ACCOUNT_EXISTS')
-        try:
-            grp.getgrnam(name)
-        except KeyError:
-            pass
-        else:
-            raise RuntimeError('GROUP_EXISTS')
-    for path in (WRAPPER, POLICY, HOME, KEY):
+    if resume_evidence is not None:
+        validate_resume(payload, Path(resume_evidence))
+    else:
+        for name in (USER,):
+            try:
+                pwd.getpwnam(name)
+            except KeyError:
+                pass
+            else:
+                raise RuntimeError('ACCOUNT_EXISTS')
+            try:
+                grp.getgrnam(name)
+            except KeyError:
+                pass
+            else:
+                raise RuntimeError('GROUP_EXISTS')
+        for path in (WRAPPER, HOME):
+            need(not os.path.lexists(path), 'TARGET_EXISTS:' + str(path))
+    for path in (POLICY, KEY):
         need(not os.path.lexists(path), 'TARGET_EXISTS:' + str(path))
     need(not os.path.lexists('/srv/mikrotik-manager-v2-fresh-pilot'), 'PILOT_ROOT_EXISTS_REVIEW_REQUIRED')
     for unit in ('mikrotik-v2-fresh-pilot.service','mikrotik-v2-fresh-pilot-db.service'):
@@ -133,7 +195,8 @@ def apply(payload, connection):
     run(['/usr/sbin/sshd','-t'])
     run(['/usr/sbin/visudo','-c'])
     need(run(['/usr/bin/systemctl','is-active','ssh.service']).strip() == 'active', 'SSH_UNIT_NOT_ACTIVE')
-    users = [account.pw_name for account in pwd.getpwall()]
+    users = [account.pw_name for account in pwd.getpwall()
+             if not (resume_evidence is not None and account.pw_name == USER)]
     addresses = sorted(set(['127.0.0.1','::1', connection.split()[0]]))
     before = {(user, address):effective(CONFIG,user,address) for user in users for address in addresses}
     for address in addresses:
@@ -142,6 +205,7 @@ def apply(payload, connection):
     candidate = original.rstrip('\n') + '\n\n' + payload['match']
     legacy = {path: (path.read_bytes(), path.stat()) for path in (BEFORE, CANDIDATE)}
     evidence = Path(tempfile.mkdtemp(prefix='v2-fresh-access-', dir=str(CONFIG.parent)))
+    ATTEMPT_EVIDENCE = evidence
     before_path = evidence/'sshd_config.before'
     candidate_path = evidence/'sshd_config.candidate'
     exclusive(before_path, original, 0o600)
@@ -162,12 +226,14 @@ def apply(payload, connection):
             need(values.get(key_name) == expected, 'EFFECTIVE_SSH_RESTRICTION_FAILED:' + key_name)
     print('PASS: PREFLIGHT; EXISTING_SSH_POLICIES_IDENTICAL', flush=True)
     # New account remains without a usable authorized key until all policy checks pass.
-    run(['/usr/sbin/useradd','--user-group','--no-create-home','--home-dir',str(HOME),
-         '--shell','/bin/sh','--password','!',USER])
-    HOME.mkdir(mode=0o755)
-    need(os.getgrouplist(USER,pwd.getpwnam(USER).pw_gid) == [pwd.getpwnam(USER).pw_gid], 'EXTRA_GROUPS')
-    exclusive(WRAPPER,payload['wrapper'],0o755)
+    if resume_evidence is None:
+        run(['/usr/sbin/useradd','--user-group','--no-create-home','--home-dir',str(HOME),
+             '--shell','/bin/sh','--password','!',USER])
+        HOME.mkdir(mode=0o755)
+        need(os.getgrouplist(USER,pwd.getpwnam(USER).pw_gid) == [pwd.getpwnam(USER).pw_gid], 'EXTRA_GROUPS')
+        exclusive(WRAPPER,payload['wrapper'],0o755)
     exclusive(POLICY,payload['policy'],0o440)
+    CREATED_POLICY = True
     run(['/usr/sbin/visudo','-c'])
     for denied in (['/bin/sh'],['/usr/bin/id'],['/usr/bin/systemctl','start','ssh.service'],
                    ['/usr/bin/systemctl','daemon-reload'],['/usr/bin/cat','/etc/shadow']):
@@ -185,8 +251,7 @@ def apply(payload, connection):
         need(effective(CONFIG,user,address) == settings, 'LIVE_EXISTING_POLICY_CHANGED')
     if not KEYDIR.exists():
         KEYDIR.mkdir(mode=0o755)
-    exclusive(KEY,'restrict ' + ' '.join(key[:2]) + '\n',0o600)
-    CREATED_KEY = True
+    install_public_key('restrict ' + ' '.join(key[:2]) + '\n', pwd.getpwnam(USER).pw_gid)
     safe(KEY)
     for path, (content, metadata) in legacy.items():
         need(path.read_bytes() == content and path.stat().st_mtime_ns == metadata.st_mtime_ns
@@ -198,6 +263,8 @@ def apply(payload, connection):
     print('PUBLIC_KEY_FINGERPRINT ' + run(['/usr/bin/ssh-keygen','-lf',str(KEY)]).split()[1],flush=True)
     print('EXISTING_SSH_ACCOUNTS_VERIFIED',len(users),'CONTEXTS',len(addresses),flush=True)
     receipt = {'status':'INSTALLED_PENDING_SSH_ACCEPTANCE',
+               'key_uid':0, 'key_gid':pwd.getpwnam(USER).pw_gid, 'key_mode':'0640',
+               'resumed_from':str(resume_evidence) if resume_evidence else None,
                'existing_users':len(users), 'contexts':len(addresses),
                'config_sha256':hashlib.sha256(CONFIG.read_bytes()).hexdigest(),
                'package_sha256':{name:hashlib.sha256(payload[name].encode()).hexdigest()
@@ -209,9 +276,16 @@ def apply(payload, connection):
 def fail_closed():
     """Disable only this attempt's key and restore only our exact config edit."""
     if CREATED_KEY and KEY.exists() and KEY.is_file() and not KEY.is_symlink():
-        disabled = KEY.with_name(USER + '.disabled')
+        disabled = (ATTEMPT_EVIDENCE/'authorized_key.disabled' if ATTEMPT_EVIDENCE
+                    else KEY.with_name(USER + '.disabled'))
         need(not os.path.lexists(disabled), 'DISABLED_KEY_TARGET_EXISTS')
         KEY.rename(disabled)
+    if CREATED_POLICY and POLICY.exists():
+        need(ATTEMPT_EVIDENCE is not None, 'POLICY_ROLLBACK_EVIDENCE_REQUIRED')
+        target = ATTEMPT_EVIDENCE/'sudoers.disabled'
+        need(not os.path.lexists(target), 'DISABLED_POLICY_TARGET_EXISTS')
+        POLICY.rename(target)
+        run(['/usr/sbin/visudo', '-c'])
     if ORIGINAL_CONFIG is not None:
         need(CONFIG.read_text() == INSTALLED_CONFIG, 'CONFIG_CHANGED_CONCURRENTLY_NO_OVERWRITE')
         CONFIG.write_text(ORIGINAL_CONFIG)
@@ -222,7 +296,7 @@ def fail_closed():
 
 if __name__ == '__main__':
     try:
-        apply(PAYLOAD, sys.argv[1])
+        apply(PAYLOAD, sys.argv[1], sys.argv[2] if len(sys.argv) == 3 else None)
     except Exception as exc:
         try:
             fail_closed()
