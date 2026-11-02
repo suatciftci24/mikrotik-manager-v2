@@ -1,6 +1,7 @@
-# Bağımsız temiz V2 pilot — yerel hazırlık
+# Bağımsız temiz V2 pilot
 
-Durum: yerel hazırlık PASS; VDS kurulumu ve canlı kabul YAPILMADI.
+Durum: **2026-11-02 VDS kurulumu ve hedefli canlı kabul PASS**.
+Yalnız yeni izole pilot; restore provası yapılmadı. Önceki hazırlık kayıtları aşağıda korunur.
 Esas karar: [eski pilot yükseltmesi BLOCKED](PILOT_LEGACY_UPGRADE_DECISION.md).
 Bu belge uzak kurulum yetkisi değildir. Eski native installer/updater kullanılmaz.
 
@@ -80,7 +81,8 @@ başarısızsa kurulum başarılı bildirilmez; otomatik yeniden uygulama yapıl
 
 ## Daha sonra ayrıca yetkilendirilecek host işlemleri
 
-Bu oturumda aşağıdaki aşamaların **hiçbiri çalıştırılmadı**. SSH otomasyonu yoktur.
+İlk yerel hazırlıkta aşağıdaki aşamalar çalıştırılmamıştı. 2026-11-02 tarihli
+açık kullanıcı onayıyla uygulanan kurulumun sonucu son bölümde kayıtlıdır.
 Onay; yalnız yeni hedefte OS hesabı/disk/DB oluşturma ve yeni servis başlangıcını
 ayrıca kapsamalıdır. Eski pilot veya V1 servislerine işlem yapılmaz.
 
@@ -155,3 +157,35 @@ python3 /home/suatpc/Codex-Projects/mikrotik-manager-v2/deploy/fresh-v2-pilot/ma
 [Yetki ayrımı, yerel release ve yönetici kurulum sırası](../deploy/fresh-v2-pilot/INSTALL.md)
 son hazırlığı tamamlar. Sınırlı v2-fresh-ops hesabı ilk kurulum yapamaz;
 yetki genişletilmez. Mevcut hazır frontend çıktısı yeniden üretilmez.
+
+## Canlı kurulum ve kabul — 2026-11-02
+
+- Kaynak commit `4f09295`, hazırlık kaydı `19f6344`; mevcut tar/receipt checksum
+  doğrulandı. Mevcut yetkili yönetici SSH kullanıldı; sudo/SSH yetkisi genişletilmedi.
+- Yeni hedef/hesap/grup/unit yokluğu ve 55442/18090 boşluğu kontrol edildi.
+  PG16/venv araçları zaten vardı; apt veya ortak PostgreSQL cluster kurulmadı.
+  İncelenmiş kaynak `/root/v2-fresh-pilot-release-utwdpuzn` altında korundu.
+- Yalnız `/srv/mikrotik-manager-v2-fresh-pilot` stage edildi. Bağımsız yeni
+  PostgreSQL ve API/UI unit'leri active; yalnız 127.0.0.1:55442 / :18090 dinler.
+  Enable/reboot provası yapılmadı. Her iki unit'in loopback politikası ve kernel
+  ingress/egress BPF programları doğrulandı.
+- 001–009 migration'ları, revision/checksum/sıra, tam katalog şema, yeni LOCAL
+  ADMIN/audit/seal ve sınırlı API grant'leri tek transaction ile tamamlandı.
+  Ön-imaj, migration sonrası ve kabul yedekleri yeni private backups dizinindedir.
+  Root-owned accepted.json ve deployment-receipt.json kabulü tamamlar.
+- ADMIN: `v2-pilot-admin` (V2 Pilot ADMIN, admin@pilot.invalid). Parola yalnız
+  VDS'de üretildi; gerçek PTY/getpass echo kapalı kontrolüyle girildi; argv/env/
+  stdout/loga verilmedi. Root:root 0600 `admin-handoff.json` yalnız yeni köktedir.
+  Parola/token/hash raporlanmadı. Varsayılan kimlik önerisi için farklı yanıt gelmedi.
+- HTTP sağlık/DB, panel index + theme.js + JS/CSS bütünlüğü, LOCAL ADMIN login/me/
+  logout ve demo kimliğinin 401 reddi geçti. Panel kontrolünün yalnız /assets/
+  beklemesi theme.js'yi yanlış reddetti; güvenli rollback iki yeni unit'i durdurdu,
+  veri/yedekleri korudu. Yalnız hatalı/kalan kabul düzeltildi; DB/API yeniden
+  başlatıldı, migration tekrarlanmadı. Sonraki başarılı giriş DB kalıcılığını da
+  doğrular. Genel test/build veya gerçek browser görsel kabulü tekrarlanmadı.
+- Router API, onboarding ve PPPoE gerçek taşıyıcısı kapalı; V1/eski V2, mevcut DB,
+  gerçek abone/router/RADIUS verisi ve servisleri değiştirilmedi. Önceden mevcut
+  sentetik UI kaynakları gerçek abone envanteri değildir.
+- Panel **VDS loopback**: `http://127.0.0.1:18090`. Genel bind/proxy yoktur.
+  Sonraki tek adım: mevcut yönetici hesabıyla doğrulanmış SSH tünelinden paneli
+  açmak ve root erişimli ADMIN teslim dosyasını güvenli kullanıcı tesliminde kullanmak.

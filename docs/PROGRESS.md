@@ -1,5 +1,28 @@
 # MikroTik Manager V2 — İlerleme
 
+## Yeni izole V2 pilot canlı kurulum — 2026-11-02
+
+- PASS: açık kullanıcı onayı, 4f09295/19f6344 ve önceden hazırlanmış tar/checksum
+  esas alındı. Mevcut yönetici SSH kullanıldı; ops sudo/SSH genişletilmedi.
+- Yeni hedef/hesap/grup/unit ve port çakışması yoktu. PG16/venv araçları hazırdı;
+  sistem paketi/ortak cluster kurulmadı. Kaynak root private staging dizininde.
+- Yalnız /srv/mikrotik-manager-v2-fresh-pilot hazırlandı. DB 127.0.0.1:55442 ve
+  API/UI 127.0.0.1:18090 active; gerçek bind ve kernel ingress/egress BPF doğrulandı.
+- 001–009 sıralı migration/revision/checksum + katalog şema + ADMIN/audit/seal
+  transaction'ı PASS. Ön-imaj/sonrası/kabul yedekleri, accepted.json ve private
+  deployment-receipt.json var. Restore/reboot/enable provası yapılmış sayılmaz.
+- ADMIN v2-pilot-admin; varsayılan kimlik önerisine farklı yanıt gelmedi. VDS'de
+  üretilen sır gerçek PTY/getpass echo kapalı kontrolüyle kullanıldı; yalnız
+  root:root 0600 admin-handoff.json dosyasında tutulur, çıktıya/argv/env'e yazılmadı.
+- HTTP health/DB, panel+theme.js+JS/CSS, LOCAL ADMIN login/me/logout ve demo 401
+  kabulü PASS. /assets/ varsayımı theme.js'yi yanlış reddedince güvenli rollback
+  iki yeni servisi durdurdu. Yalnız hatalı/kalan kabul düzeltildi; yeniden başlayan
+  DB/API ile kalıcılık doğrulandı. Migration/genel test/build tekrarlanmadı.
+- V1/eski V2/mevcut DB/aboneler/router/RADIUS değişmedi; gerçek cihaz IO yok.
+  Router API/PPPoE yazma/onboarding kapalı. Panel yalnız VDS loopback'tedir.
+- Sonraki tek adım: yönetici SSH tüneliyle http://127.0.0.1:18090 panelini açıp
+  root erişimli ADMIN teslim dosyasını güvenli kullanıcı tesliminde kullanmak.
+
 ## Fresh pilot son dağıtım hazırlığı — 2026-11-02
 
 - PASS (yerel bağlantı): mevcut fresh pilot/migration manifesti/unit/şema ve
