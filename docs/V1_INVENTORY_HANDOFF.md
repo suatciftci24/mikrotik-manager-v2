@@ -53,3 +53,23 @@ LAST_PROBE_SUCCEEDED/FAILED yalnız tarihli internet denemesi sonucudur; router'
 canlı ONLINE/OFFLINE durumu değildir. status NO_DATA kalır. Ölçüm 300 saniyeyi
 geçince STALE, panelde Güncel değil gösterilir. Türkiye saati Europe/Istanbul'dur.
 API ADMIN koruması ve sentetik kaynak ayrımı değişmez. Yerel testler sentetiktir.
+
+### Yerel kabul aracı
+
+`deploy/v1-inventory/acceptance.py`, hem `apply-approved.py` hem de önceki
+geçici sağlık dağıtım aracının payload içermeyen depo sürümü
+`apply-health-approved.py` tarafından çağrılır. Bu dosyalar ile
+`static_acceptance.py` birlikte bulunmalıdır. Import işlemi canlı bağlantı
+başlatmaz. Dağıtım araçlarının çalıştırılması ayrı canlı onay gerektirir.
+
+Sağlık kaynağı, örnek/router kimliği, CPU/bellek, ölçüm zamanı, son internet
+sonucu ve tazelik snapshot ile gerçek ADMIN API yanıtı arasında karşılaştırılır.
+Canlı durum `NO_DATA` kalmalıdır. Frontend scriptleri HTML referansları ve
+onaylı payload SHA256 değerleriyle doğrulanır; API kaynak sabitinin JS bundle
+metninde bulunması gerekmez.
+
+Kabul hataları `acceptance-failure.json` içinde `step`, `expected`, `actual`
+alanlarıyla kaydedilir ve raporlanır. HTTP hatasında yalnız hata türü/durum kodu
+raporlanır; ham gövde, URL, header, cookie veya exception mesajı yazılmaz.
+İzinli durum etiketleri/sayısal ölçümler/zaman dışında metinler hash ile özetlenir.
+Rollback akışı korunur. Bu yerel değişiklik canlı kabul veya dağıtım kanıtı değildir.

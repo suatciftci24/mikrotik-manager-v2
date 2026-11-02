@@ -16,6 +16,7 @@ import time
 import urllib.request
 import urllib.error
 import http.cookiejar
+from acceptance import accept_authenticated, AcceptanceError
 
 ROOT = Path('/srv/mikrotik-manager-v2-fresh-pilot')
 ROLE = 'v2_fresh_inventory_ro'
@@ -114,24 +115,26 @@ ROLLBACK;""")
             {'username':admin['username'],'password':admin['password']}).encode(),
             headers={'Content-Type':'application/json'})
         client.open(request,timeout=10).close()
-        result = json.load(client.open(url+'/api/v1/v1-inventory',timeout=5))
-        assert result['is_demo'] is False and result['source']=='V1_INVENTORY_EXPORT'
-        assert {r['id'] for r in result['items']} == {r['id'] for r in data['items']}
-        assert all(r['status']=='NO_DATA' for r in result['items'])
-        client.open(urllib.request.Request(url+'/api/v1/auth/logout',data=b''),timeout=5).close()
-        receipt = {'status':'PASS','router_count':len(result['items']),
-                   'mode':'one-shot metadata snapshot; no device observations',
-                   'role':ROLE,'rollback_directory':str(backup)}
+        try:
+            receipt = accept_authenticated(client, url, data, files)
+            receipt.update(role=ROLE, rollback_directory=str(backup))
+        finally:
+            client.open(urllib.request.Request(url+'/api/v1/auth/logout',data=b''),timeout=5).close()
         (backup/'receipt.json').write_text(json.dumps(receipt))
         print(json.dumps(receipt))
-    except Exception:
+    except Exception as error:
+        report = error.report if isinstance(error, AcceptanceError) else {
+            'status': 'BLOCKED', 'step': 'deployment_or_auth',
+            'expected': 'successful operation', 'actual': type(error).__name__}
+        (backup/'acceptance-failure.json').write_text(json.dumps(report))
+        print(json.dumps(report), file=sys.stderr)
         for i,p in enumerate(targets):
             saved = backup/str(i)
             if saved.exists(): shutil.copy2(saved,p)
             elif p.exists(): p.unlink()
         run(['systemctl','restart','mikrotik-v2-fresh-pilot.service'])
         print('BLOCKED: pilot files/config restored; isolated NOLOGIN role and handoff retained',file=sys.stderr)
-        raise
+        raise SystemExit(1) from None
 
 if __name__ == '__main__':
     main(json.loads(sys.stdin.read()))

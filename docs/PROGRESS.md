@@ -2086,3 +2086,28 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   ve farklı içerik reddi. Genel test/build tekrarı yok. Kullanıcı yerel dosyaları
   korunur. Tek sonraki adım: gelecekteki ayrı onaylı kabul aracına bu yardımcıyı
   ve assert adımı/beklenen-gerçekleşen kaydını bağlamak; canlı tekrar yapılmadı.
+
+
+## Sağlık kabul aracı bağlantısı — yalnız yerel — 2026-11-02
+
+- PASS: 0c916d8 SHA256 yardımcısı ortak acceptance.py akışına bağlandı.
+  apply-approved.py bunu çağırır; başarısız işlemde kullanılan /tmp sağlık
+  aracının payload içermeyen sürümü apply-health-approved.py olarak depoya
+  alındı ve aynı kabul akışına bağlandı. Geçici eski dosya çalıştırılmadı.
+- JS içinde V1_ROUTER_HEALTH_SAMPLES arayan koşul kaldırıldı. Sağlık örneği,
+  router/metadata eşleşmesi, CPU/bellek, zaman, kaynak, internet denemesi ve
+  tazelik gerçek API yanıtı ile snapshot üzerinden doğrulanır. Scriptler onaylı
+  payload byte/SHA256 eşleşmesiyle doğrulanır; geçmiş ölçüm status=NO_DATA kalır.
+- AcceptanceError step/expected/actual alanları sağlar. HTTP hataları yalnız
+  tür/status, bozuk JSON sabit hata koduyla raporlanır. Ham API gövdesi, URL,
+  header/cookie veya exception mesajı yok; bilinmeyen metinler hash özetidir.
+  Çağıranlar rollback öncesi acceptance-failure.json yazar. API kabulü salt
+  okunur helper'dadır; login/logout ve rollback mevcut çağıran sınırındadır.
+- PASS: 7 doğrudan ilgili sentetik kontrol (ortak API+static akışı, ölçüm
+  uyumsuzluğu, HTTP sır sızdırmama, eksik alan, yanlış bundle, iki çağıranın
+  bağlantısı ve mevcut statik regresyon). Rapor etiket/zaman özetlemesi sonrasında
+  yalnız etkilenen 6 kabul kontrolü tekrar geçti. Genel suite/build yapılmadı.
+- SSH/VDS/API/DB/router bağlantısı, dağıtım, servis işlemi, grant veya migration
+  çalıştırılmadı. Kullanıcının mevcut yerel değişiklikleri korunur.
+- Tek sonraki adım: düzeltilmiş kabul aracını ayrı açık onaylı canlı sağlık
+  dağıtımı/kabulünde kullanmak; mevcut görev canlı uygulama yetkisi vermez.
