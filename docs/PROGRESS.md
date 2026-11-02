@@ -2971,3 +2971,54 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Git kapsamı: yalnız Dashboard kaynak/model/stil, ilgili hedefli testler,
   README ve ilerleme kaydı; normal origin/main-guncel push, force yok.
 - Tek sonraki adım: yerel Genel Bakış ekranının kullanıcı görsel kabulü.
+
+## V2.5 — Gerçek router sağlığını Dashboard'a bağlama — 2026-11-02
+
+- PASS: main-guncel/8b3a267 temiz başlangıç. Dashboard'a URL'de korunan
+  V2 Sentetik Demo / Gerçek V1 · Salt Okunur kaynak seçimi eklendi. Seçili
+  kaynak ayrı component ağacı: değişimde önceki loader, sayaçlar, bekleyen
+  istek ve yenileme kaldırılır. Gerçek kaynak merkezi ADMIN'e bağlı; yetkisiz
+  doğrudan URL'de veri isteği veya demo fallback yapılmaz.
+- Gerçek mod mevcut V2.1 GET /v1-inventory sözleşmesi, doğrulaması ve aynı
+  V1Inventory/inventoryRefresh runtime'ını kullanır. Ek poller yok; varsayılan
+  Router Merkezi/detay görünümü korunur. 60sn tek istek, çakışma engeli,
+  unmount abort/stop ve hata/yenilemede eski veriyi gizleme davranışı aynı.
+- Dört kart: API'nin döndürdüğü router adedi, son 5dk sağlık örneği, eski örnek,
+  ölçümü olmayan router. Dokuz sayısı sabit yazılmaz. Kompakt tabloda ad,
+  model/RouterOS, CPU/RAM, son internet denemesi, Europe/Istanbul gerçek ölçüm
+  zamanı ve güncellik var. Mevcut gerçek Router Merkezi ve detayına erişim var.
+- Sağlık örneği yalnız V1_ROUTER_HEALTH_SAMPLES + ölçüm ID + doğrulanmış zaman
+  ile gösterilir. Salt envanter tarihi/CPU değerleri sağlık örneği sayılmaz.
+  CPU sıfır geçerlidir. Son başarılı deneme canlı online kanıtı değildir;
+  eski örnek yeni API okumasıyla tazelenmez. Snapshot aktarım/oluşturma zamanı
+  sözleşmede yok: Veri yok; API okuma zamanı ve satır ölçüm zamanından ayrıdır.
+- Gerçek modda abone/bitiş/PPPoE/aktif oturum/WAN olay/alarm verisi sunulmuyor;
+  demo toplamları eklenmez. Üst bilgi/banner/sidebar gerçek salt okunur
+  kaynak etiketini gösterir; demo için sabit navigasyon adedi gerçek modda yok.
+  V2.4 demo özeti ve V2.3 günlük merkez işlevleri korunur.
+- Kontrol: 6 yeni model/görünüm/kaynak/etiket testi + mevcut V2.1'in 6
+  doğrulama/görünüm/refresh testi + doğrudan bağlı 2 Dashboard kontrolü,
+  14 tekil hedefli test PASS. SSR testinin ortam kurulum hatası yalnız ilgili
+  kapsamda düzeltildi. Son tsc/Vite build ve diff --check PASS;
+  mevcut büyük-bundle uyarısı dışında kapsam dışı değişiklik yok.
+- Gerçek Chromium, gerçek App ve yalnız sentetik loopback HTTP fixture:
+  dokuz satırlı gerçek-sözleşme fixture, eksik/eski örnekler, sıfır CPU,
+  60sn tek istek, bekleyen istekte kaynak değişimi/abort/stop, kaynak URL'si,
+  hata/boş/yanlış kaynak, ölçüm yaşlanması, mevcut Router Merkezi/kanıt detayı
+  ve yetkisiz URL izolasyonu PASS. Geçmiş kaynaktan başlamış isteklerin test
+  sınırına taşınmasını önlemek için yalnız kalan kapsam ayrı kontrol edildi.
+  Beyaz/Gece/Sistem, 1440/390/320px App kabuğu PASS; mobil sidebar geçişi
+  bitirilerek ekran görüntüsü alınır. Son grid/table genişliği için yalnız
+  yerleşim kapsamı PASS. Görüntüler görsel incelendi; çıktılar yalnız
+  .local/browser-acceptance/v25-dashboard/ altında, Git'e alınmaz.
+- Yerel kabukta V2_V1_INVENTORY_FILE tanımlı değil; mevcut salt okunur adaptör
+  availability=NO_DATA/router_count=0 döndü. Bu, çalışan başka bir servisin
+  ortamını veya gerçek V1'i sorgulamaz. Gerçek 9/9 kabulü YAPILMADI; dokuz
+  fixture satırı gerçek dokuz router kabulü olarak raporlanmaz.
+- Backend/sözleşme/5dk snapshot aktarımı değişmedi. VDS/Fresh Pilot/V1/eski V2,
+  PostgreSQL rolleri, router/RADIUS/PPPoE, deploy, migration, servis restartı
+  veya timer yapılandırması erişimi/değişikliği yok. Handoff ayarı yapılmadı.
+- Git kapsamı: ilgili frontend kaynak/model/stil/testleri, README ve ilerleme;
+  normal origin/main-guncel push, force yok.
+- Tek sonraki adım: mevcut gerçek handoff'un erişilebilir olduğu yetkili
+  ortamda Dashboard gerçek sekmesinin 9/9 salt okunur görsel kabulü.

@@ -18,18 +18,18 @@ const nav: { key: ScreenKey; label: string; icon: LucideIcon; group: string }[] 
   { key: 'system', label: 'Sistem ve Kullanıcı', icon: Settings2, group: 'SİSTEM' },
 ];
 
-export function Sidebar({ active, onNavigate, user, onLogout }: {
-  active: ScreenKey; onNavigate: (key: ScreenKey) => void; user: User; onLogout: () => void;
+export function Sidebar({ active, onNavigate, user, onLogout, realInventory=false }: {
+  active: ScreenKey; onNavigate: (key: ScreenKey) => void; user: User; onLogout: () => void; realInventory?:boolean;
 }) {
   const operator=pilotOperatorView(user.pilot_identity);
   let group = '';
-  return <aside className="sidebar">
+  return <aside className={`sidebar${realInventory?' sidebar-real':''}`}>
     <button className="brand" onClick={() => onNavigate('dashboard')} aria-label="V2 genel bakış">
       <span className="brand-mark"><Network size={19} strokeWidth={2.3} /></span>
       <span className="brand-copy"><strong>mikrotik<span>.</span></strong><small>MANAGER <b>V2</b></small></span>
       <ChevronDown className="brand-caret" size={15} />
     </button>
-    <button className="workspace-switch"><span className="workspace-dot" /><span><strong>Demo çalışma alanı</strong><small>Yerel geliştirme</small></span><ChevronDown size={15} /></button>
+    <button className="workspace-switch"><span className="workspace-dot" /><span><strong>{realInventory?'Gerçek V1 · Salt okunur':'Demo çalışma alanı'}</strong><small>Yerel geliştirme</small></span><ChevronDown size={15} /></button>
     <div className="side-label">ÇALIŞMA ALANI</div>
     <div className="nav-list">{nav.filter(item=>item.key!=='system'||user.can_manage_users===true).map(item => {
       const first = item.group !== group; group = item.group;
@@ -38,7 +38,7 @@ export function Sidebar({ active, onNavigate, user, onLogout }: {
         <button className={`nav-item ${active === item.key ? 'active' : ''}`} onClick={() => onNavigate(item.key)}>
           <Icon size={17} strokeWidth={active === item.key ? 2 : 1.75} /><span>{item.label}</span>
           {item.key === 'mikajani' && <i className="nav-spark">✦</i>}
-          {item.key === 'routers' && <span className="nav-count">4</span>}
+          {item.key === 'routers' && !realInventory && <span className="nav-count">4</span>}
         </button>
         {item.key==='dashboard'&&<a className="nav-item internet-report-entry" href="#module=dashboard&view=INTERNET_REPORT"><ArrowDownUp size={17}/><span>İnternet Kullanım ve Bağlantı Raporları</span></a>}
       </div>;

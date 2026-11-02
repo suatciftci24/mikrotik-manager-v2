@@ -1,4 +1,5 @@
 import { invalidateResources } from '../lib/resourceEvents';
+import { DashboardV1Health } from '../components/DashboardV1Health';
 import { OperationReport } from './OperationReport';
 import { InternetReport } from './InternetReport';
 import { ManagementReport } from './ManagementReport';
@@ -26,7 +27,16 @@ export function Dashboard({onNavigate}: {onNavigate: Navigate}) {
   const [view,setView]=useListFilter('dashboard','view',dashboardViews,'OVERVIEW');
   return view==='OPERATIONS_REPORT'?<OperationReport/>:view==='INTERNET_REPORT'?<InternetReport/>:view==='DAILY_REPORT'?<ManagementReport onBack={()=>setView('OVERVIEW')}/>:<DashboardOverview onNavigate={onNavigate} onReport={()=>setView('DAILY_REPORT')} onInternet={()=>setView('INTERNET_REPORT')}/>;
 }
-function DashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigate;onReport:()=>void;onInternet:()=>void}) {
+const dashboardSources=['DEMO','V1_INVENTORY'] as const;
+function DashboardOverview(props:{onNavigate:Navigate;onReport:()=>void;onInternet:()=>void}){
+  const [source,setSource]=useListFilter('dashboard','dashboard_source',dashboardSources,'DEMO');
+  const identity=useIdentity(),admin=identity?.role_code==='ADMIN'&&identity.can_manage_users===true;
+  return <div className="dashboard-source-screen"><div className="filter-tabs dashboard-sources" role="group" aria-label="Dashboard veri kaynağı">
+    <button aria-pressed={source==='DEMO'} className={source==='DEMO'?'selected':''} onClick={()=>setSource('DEMO')}>V2 Sentetik Demo</button>
+    <button aria-pressed={source==='V1_INVENTORY'} className={source==='V1_INVENTORY'?'selected':''} disabled={!admin} onClick={()=>setSource('V1_INVENTORY')}>Gerçek V1 · Salt Okunur</button>
+  </div>{source==='DEMO'?<SyntheticDashboardOverview {...props}/>:admin?<DashboardV1Health/>:<section className="panel"><h1>Gerçek V1 · Salt Okunur</h1><p role="status">Bu kaynak için merkezi yönetici yetkisi gerekli. Veri gösterilmiyor.</p></section>}</div>;
+}
+function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigate;onReport:()=>void;onInternet:()=>void}) {
   const identity=useIdentity();
   const grants=Object.values(identity?.permissions??{});
   const reports=grants.some(grant=>grant.can_view&&grant.can_view_reports);

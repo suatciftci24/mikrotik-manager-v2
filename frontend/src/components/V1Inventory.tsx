@@ -1,10 +1,10 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {api} from '../lib/api';
 import {inventoryRefresh} from '../lib/inventoryRefresh';
 import {ResourceState,dateTime,Facts} from './Resource';
 export type Inventory={source:'V1_INVENTORY_EXPORT';is_demo:false;availability:'AVAILABLE'|'NO_DATA';items:{id:string;name:string;identity:string|null;model:string|null;routeros_version:string|null;status:'NO_DATA';health_source:'V1_ROUTER_HEALTH_SAMPLES'|null;health_sample_id:string|null;connection_status:'NO_DATA'|'LAST_PROBE_SUCCEEDED'|'LAST_PROBE_FAILED';freshness:'RECENT'|'STALE'|'NO_DATA';sampled_at:string|null;cpu_load_percent:number|null;memory_used_percent:number|null}[]};
 type Row=Inventory['items'][number];
-type State={data?:Inventory|null;loading:boolean;error?:string;lastSuccess?:number|null};
+export type InventoryState={data?:Inventory|null;loading:boolean;error?:string;lastSuccess?:number|null};
 const percent=(n:number|null)=>n==null?'Veri yok':`${n}%`;
 const probe=(row:Row)=>row.connection_status==='LAST_PROBE_SUCCEEDED'?'Son internet denemesi başarılı':row.connection_status==='LAST_PROBE_FAILED'?'Son internet denemesi başarısız':'Veri yok';
 export function freshness(row:Row,now:number){
@@ -24,8 +24,9 @@ export function validInventory(data:unknown):data is Inventory{
   (row.sampled_at===null||typeof row.sampled_at==='string'&&/(Z|[+-]\d{2}:\d{2})$/.test(row.sampled_at)&&Number.isFinite(Date.parse(row.sampled_at))&&Date.parse(row.sampled_at)<=Date.now()))&&
   new Set(value.items.map(row=>row.id)).size===value.items.length;
 }
-export function V1Inventory(){
- const [state,setState]=useState<State>({loading:true});
+type Renderer=(resource:InventoryState&{retry:()=>void;now:number})=>ReactNode;
+export function V1Inventory({render}:{render?:Renderer}={}){
+ const [state,setState]=useState<InventoryState>({loading:true});
  const refresh=useRef(()=>{});
  useEffect(()=>{
   const task=inventoryRefresh<Inventory>({load:async signal=>{
@@ -38,12 +39,13 @@ export function V1Inventory(){
   window.addEventListener('v2-resource-change',changed);
   return()=>{refresh.current=()=>{};window.removeEventListener('v2-resource-change',changed);task.stop();};
  },[]);
- return <V1InventoryLiveView {...state} retry={()=>refresh.current()}/>;
+ return <V1InventoryLiveView {...state} retry={()=>refresh.current()} render={render}/>;
 }
-function V1InventoryLiveView(props:State&{retry:()=>void}){
+function V1InventoryLiveView(props:InventoryState&{retry:()=>void;render?:Renderer}){
  const [now,setNow]=useState(Date.now);
  const [selected,setSelected]=useState<string|null>(null);
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
+ if(props.render)return props.render({...props,now});
  return <V1InventoryView {...props} now={now} selectedId={selected} onSelect={setSelected}/>;
 }
 export function InventoryDetail({row,onClose}:{row:Row;onClose:()=>void}){
@@ -60,7 +62,7 @@ export function InventoryDetail({row,onClose}:{row:Row;onClose:()=>void}){
   ]}/><button autoFocus className="button-secondary" onClick={onClose}>Kapat</button>
  </dialog>;
 }
-export function V1InventoryView(resource:State&{retry:()=>void;now?:number;selectedId?:string|null;onSelect?:(id:string|null)=>void}){
+export function V1InventoryView(resource:InventoryState&{retry:()=>void;now?:number;selectedId?:string|null;onSelect?:(id:string|null)=>void}){
  const data=resource.data,valid=validInventory(data),now=resource.now??Date.now();
  const visible=!resource.loading&&!resource.error&&valid;
  const selected=visible?data.items.find(row=>row.id===resource.selectedId):undefined;

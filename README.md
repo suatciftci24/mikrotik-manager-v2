@@ -239,7 +239,7 @@ The overview preserves its existing authorized demo inventory scope using
 and future records. Turkey calendar boundaries are used consistently. The
 persistent workspace history is available through the unchanged V2.3 daily
 management center, and is not silently mixed into the overview's legacy demo
-counts. Real V1 remains a separate ADMIN-only read-only Router Center link.
+counts. V2.5 adds a separate ADMIN-only real V1 source; see below.
 
 The existing scoped `/alarms` summary supplies critical counts with no long list;
 ACK/recovering active P1/P2 remain included. An incomplete alarm source with no
@@ -247,7 +247,7 @@ recorded critical alarms is **Veri yok**, not a healthy zero. Alarm failure does
 not hide inventory. Report-authorized users additionally read `/router-events`;
 without the grant no event request is made. Report/MikAjanı shortcuts respect
 existing grants; no MikAjanı analysis, PPPoE observation, workspace or real V1
-API is requested by the overview. Backend authorization remains authoritative.
+API is requested by the synthetic overview. Backend authorization remains authoritative.
 
 The existing 60-second/focus/visibility refresh and Turkey-day rollover are
 preserved. No backend API, schema, migration, device adapter, service or five-minute
@@ -262,6 +262,43 @@ keyboard access, source failures, empty states, restricted users and White/Night
 System at 1440/390/320px. Screenshots/results stay in
 `.local/browser-acceptance/v24-dashboard/`. `--navigation-only` checks only the
 final quick-access name and existing V2.3 daily-report navigation.
+
+## V2.5 real router health on the Dashboard
+
+The overview source selector separates **V2 Sentetik Demo** from **Gerçek V1 ·
+Salt Okunur**. `#module=dashboard&dashboard_source=V1_INVENTORY` restores the real
+source after reload. Only the existing central ADMIN can mount it; an unauthorized
+real-source URL shows no data and never falls back to demo counts. Switching
+sources unmounts the previous loader and all its counters/polling.
+
+Real mode reuses V2.1's validated `GET /api/v1/v1-inventory`, `V1Inventory` runtime
+and serialized `inventoryRefresh` scheduler. One request at a time, the existing
+60-second cadence, abort on unmount and hiding retained rows during refresh/error
+are preserved. The Router Center's default view and detail dialogs are unchanged;
+a render option supplies the compact Dashboard presentation without a second
+poller. No backend contract, exporter, transport or five-minute transfer changes.
+
+Four cards show the actual returned router count, samples within five minutes,
+stale samples and missing health samples. The table retains name/model/RouterOS,
+CPU/RAM, last internet-probe result, Istanbul measurement time and freshness.
+Only a timestamp with `V1_ROUTER_HEALTH_SAMPLES` provenance and a sample ID is
+shown as a real health measurement. CPU zero remains valid; inventory-only
+values/timestamps do not become health evidence. A successful probe never proves
+live online status. Age follows the sample, not API reads or its freshness label.
+
+The API does not provide snapshot creation/transfer time: that field is explicitly
+**Veri yok**, separate from successful API-read time and per-router measurement
+time. Subscription/expiry, PPPoE, sessions, WAN event and alarm data are unavailable
+in this source and never filled from demo. Header/banner/sidebar source labels
+follow the selection, and the old fixed demo navigation counter is hidden.
+
+Targeted tests from `frontend`:
+`node --test --test-isolation=none tests/dashboardV1Health.test.mjs tests/v1Inventory.test.mjs`.
+`node tests/dashboardV1Health.browser.mjs` exercises the actual App against synthetic
+loopback fixtures (including a nine-row fixture, **not real 9/9 acceptance**).
+`--remaining`, `--final-scopes` and `--layout-only` allow focused continuation.
+Artifacts remain under `.local/browser-acceptance/v25-dashboard/`. No live data,
+service restart or handoff configuration is needed for these tests.
 
 ## Router usage and connection report
 
