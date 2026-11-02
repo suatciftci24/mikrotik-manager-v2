@@ -73,3 +73,24 @@ alanlarıyla kaydedilir ve raporlanır. HTTP hatasında yalnız hata türü/duru
 raporlanır; ham gövde, URL, header, cookie veya exception mesajı yazılmaz.
 İzinli durum etiketleri/sayısal ölçümler/zaman dışında metinler hash ile özetlenir.
 Rollback akışı korunur. Bu yerel değişiklik canlı kabul veya dağıtım kanıtı değildir.
+
+### Tarayıcı kabulünde sanal saat
+
+Kalıcı arayüz kabul aracı `deploy/v1-inventory/browser-acceptance.mjs` dosyasıdır.
+Eski geçici aracın akışını korur; CDP komut/olaylarına 5 saniye süre sınırı koyar.
+61 saniyelik sanal bütçe bitince Chromium görevleri durur. Sonraki DOM koşulu
+beklenirken saat 25 ms adımlarla, en çok 50 kez ilerletilir. Bu bekleme yeni API
+isteği veya retry başlatmaz; 60 saniyelik polling kontrolü ayrı açık adımdır.
+
+Kabul aracı yalnız mevcut loopback Chromium ve önceden oluşturulmuş özel ADMIN
+session dosyasını kullanır. JSON yapılandırma `cdpUrl`, `url`, `sessionFile`,
+`receiptPath` yollarını içerir; cookie değerlerini komut satırına yazmayın.
+Araç deployment/SSH/DB/service işlemi yapmaz. Tarayıcıdaki 503 ve gecikme
+simülasyonu sunucuyu değiştirmez. Sonuçta logout denenir ve sayfa about:blank'e
+alınarak artık timer çalışması önlenir. Bu aracın canlı kullanımı ayrıca onaylı
+kabul kapsamındadır; bu düzeltmede canlıya bağlanılmamıştır.
+
+Yerel regresyon: Ofis WSL'de proje kökünde
+`node --test deploy/v1-inventory/browser/acceptance.test.mjs`.
+Testler mevcut Chromium'u ve yalnız sentetik file:// fixture'ı kullanır.
+Farklı Chromium yolu için `V2_TEST_CHROMIUM` verilebilir; test bağımlılık indirmez.

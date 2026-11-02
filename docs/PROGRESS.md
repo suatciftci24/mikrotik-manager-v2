@@ -2206,3 +2206,35 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   99ce25b canlıda bırakılmadı; önceki başarılı sağlık sürümü korunur.
 - Tek sonraki adım: refresh.error zaman aşımını yerelde sanal saat/tarayıcı
   kabul akışında teşhis etmek; yeni canlı dağıtım bu görevde tekrarlanmadı.
+
+
+## V2.1 refresh.error — yerel kabul aracı düzeltmesi — 2026-11-02
+
+- PASS: timeout kabul aracından kaynaklandı. Aynı React bileşeni ve 9 sentetik
+  router ile özgün 61sn virtual budget + wall-clock wait yeniden üretildi.
+  Pause halinde requests=3, response.json calls/done=3/3, active=0, rows=0,
+  error=false; yalnız küçük virtual clock pump sonrası requests yine 3,
+  error=true, rows=0 ve lastSuccessPreserved=true. Yanıt işlenmiş, React commit
+  görevi duraklamıştı. Yeni istek veya uygulama kod değişikliği gerekmiyor.
+- Geçici tarayıcı aracı kalıcı browser-acceptance.mjs olarak depoya alındı.
+  cdp.mjs, budget event sonrası DOM beklerken bounded 25ms clock pump yapar;
+  60sn kontrolü açık ayrı adım kalır. CDP send/event 5sn, DOM wait 50 adımla
+  sınırlı; unresolved promise/event sonsuza kadar beklemez. DOM bekleme retry
+  veya ekstra inventory isteği başlatmaz. Sonunda logout ve about:blank ile
+  timerların çalışmaya devam etmesi önlenir. Eski /tmp giriş yolu yeni araca
+  açık config isteyen bir yönlendirici yapıldı; canlı çalıştırılmadı.
+- PASS: 3 farklı hedefli gerçek Chromium regresyonu: eski hatayı yeniden
+  üretme/pump ile aynı istekte çözme; tam düzeltilmiş kabul akışı; kayıp event,
+  unresolved page promise ve false DOM koşulunun süre sınırı. İlk fixture'ın
+  CDP session kapsamı düzeltildi; yalnız başarısız iki kontrol yeniden geçti.
+  Son sayfa cleanup değişikliğinden sonra yalnız etkilenen iki kontrol geçti.
+- Düzeltilmiş kabulde stale ölçüm, hata uyarısı, son başarılı zamanın korunması,
+  eski satırların gizlenmesi, toparlanma, 60sn tek istek, unmount/abort ve tab
+  kapalıyken polling durması PASS. Fixture bilerek RECENT döndürmesine rağmen
+  2020 ölçümü Güncel değil gösterildi. Mobil/masaüstü ve modal da aynı akışta PASS.
+- Frontend runtime değişmedi; ürün build ve önceki frontend suite tekrarlanmadı.
+  Yalnız test fixture'ı esbuild ile derlendi. Canlı SSH/VDS/API/router/DB erişimi,
+  deployment/restart/grant/migration veya V1/eski V2 değişikliği yapılmadı.
+  Mevcut kullanıcı yerel değişiklikleri korunur; sır/gerçek satır Git'e alınmadı.
+- Tek sonraki adım: ayrı açık onayla yalnız fresh pilot 99ce25b dağıtımını bu
+  düzeltilmiş tarayıcı kabul aracıyla yedek/rollback sınırında yeniden kabul etmek.
