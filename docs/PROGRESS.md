@@ -2641,3 +2641,35 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   origin/main-guncel push için hazırlanır; uzak dal çakışırsa durulur.
 - Tek sonraki adım: ayrı açık canlı onayla yalnız fresh pilot'a yedekli dağıtım,
   bir kontrollü aktarım ve 9 router zaman/API/durum kabulü ardından timer açılışı.
+
+
+## 0bfac70 Fresh Pilot sağlık dağıtımı — güvenli rollback — 2026-11-02
+
+- ROLLBACK: açık kullanıcı canlı onayıyla yalnız fresh pilot hedeflendi.
+  Yerel HEAD=0bfac70, main-guncel, temiz ağaç ve paket doğrulandı. Yönetici
+  SSH/sudo, aktif fresh API/DB, mevcut snapshot/adapter/config ve yeni unit
+  çakışması yok kontrolü PASS. Mevcut dar SELECT/NOLOGIN erişimi salt okunur
+  ön kontrolde PASS; rol/yetki/parola değiştirilmedi.
+- Fresh pilot değişecek dosyalar/snapshot + config/ADMIN teslimi root-private
+  zaman damgalı yedeklendi. 0bfac70 script/SQL ve yeni bağımsız service/timer
+  dosyaları dağıtıldı; gerçek host systemd verify PASS, daemon-reload yapıldı.
+- Timer açılmadan tek systemctl start denendi. Aktarım aracı güvenli
+  source_read_failed koduyla başarısız oldu; daha ayrıntılı neden kanıtlanmadı.
+  Yetki/fallback/sandbox genişletme, ikinci aktarım veya canlı düzeltme yok.
+  Yeni ölçüm kabulü, ADMIN API/UI kabulü aşamasına geçilmedi; PASS sayılmadı.
+- Rollback PASS: önceki snapshot/dosyalar geri alındı, yeni paket/unit/status
+  kaldırıldı, daemon-reload yapıldı. Yeni timer INACTIVE/not-found; enable yok.
+  Config/ADMIN/adapter/frontend SHA256 değerleri ve API/DB MainPID aynı.
+  Restart yok. 9/9 eski snapshot zamanı: 2026-11-02T11:45:26.212357+03:00.
+- V1/eski V2/router/RADIUS için deploy/yazma/restart yapılmadı; PostgreSQL
+  işlemleri yalnız mevcut erişim kontrolü ve başarısız salt okunur okumaydı.
+  V1/eski V2 bütün dosyaları ayrıca taranmadı; değişmedi beyanı işlem kapsamına
+  ve hedef fresh pilot rollback/hash/PID kanıtına dayanır.
+- Yedek ve failure-receipt/rollback-verification/private unit journal:
+  /srv/mikrotik-manager-v2-fresh-pilot/backups/health-0bfac70-20261102T171941Z-td9vu9ke
+  Sırlar ve gerçek router satırları yerel repo/log çıktısına alınmadı.
+- Genel test/build tekrarlanmadı. Bu görev yalnız dağıtım sonucu kaydı oluşturur;
+  0bfac70 canlıda bırakılmadı ve timer kurulmadı.
+- Tek sonraki adım: source_read_failed nedenini mevcut service sandbox/peer
+  transport sınırları içinde yerel sentetik ortamda teşhis etmek; yeni canlı
+  deneme veya izin genişletmesi bu görevde yapılmaz.
