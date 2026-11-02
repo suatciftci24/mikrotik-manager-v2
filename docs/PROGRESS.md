@@ -2238,3 +2238,35 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Mevcut kullanıcı yerel değişiklikleri korunur; sır/gerçek satır Git'e alınmadı.
 - Tek sonraki adım: ayrı açık onayla yalnız fresh pilot 99ce25b dağıtımını bu
   düzeltilmiş tarayıcı kabul aracıyla yedek/rollback sınırında yeniden kabul etmek.
+
+
+## Router Merkezi V2.1 ikinci canlı dağıtım — kabul tamamlandı — 2026-11-02
+
+- PASS: açık kullanıcı onayıyla 99ce25b uygulama + d607439 düzeltilmiş Chromium
+  kabul aracı kullanıldı. Önceki e3e7176 rollback receipt/config hashleri,
+  eski frontend entry, caf2b4c backend hash, fresh profil, loopback ve kapalı
+  router kapıları doğrulandı. Başarılı genel test/build tekrarlanmadı.
+- Yalnız /srv/mikrotik-manager-v2-fresh-pilot/app/frontend/dist yedekli
+  değiştirildi. Config/ADMIN teslim dosyaları root private yedeklendi;
+  öncesi/sonrası hashler aynı. Backend/DB/env korunur; servis active ve PID aynı.
+  Restart gerekmedi/yapılmadı. PostgreSQL bağlantısı/yetki/şema işlemi yok.
+- ADMIN API + served JS SHA256 PASS: 9 router ID/metadata ve 9 sağlık kaydı
+  mevcut snapshot ile eşleşti. CPU/bellek/son internet denemesi/ölçüm zamanı/
+  kaynak alanlarında eksik sayıları ayrı ayrı 0. STALE=9; güncel çevrimiçi
+  kanıtı üretilmedi. Yenileme yalnız V2 API'deki mevcut snapshot'ı okur.
+- Gerçek ADMIN oturumunda düzeltilmiş Chromium kabulünün tamamı PASS:
+  masaüstü/mobil taşmasız tablo, teknik detay/modal, 60sn tek otomatik istek,
+  tarayıcı içinde kontrollü 503 sonrası hata/eski satırların gizlenmesi,
+  son başarılı zamanın korunması ve toparlanma, tek aktif istek, sekme
+  değişiminde abort ve sonraki 61sn sanal sürede yeni inventory isteği olmaması.
+  Güncel değil tüm 9 satırda, Veri yok detayda canlı durum için doğrulandı.
+  503/gecikme simülasyonu tarayıcı içindedir; server/config değiştirilmedi.
+- ADMIN kabul logout, about:blank ve görev browser/tünel/session dosyası
+  temizliği tamamlandı. V1/eski V2/router/aboneler/PPPoE/Hotspot/RADIUS
+  değiştirilmedi. Migration/genel sudo/DB grant işlemi yok.
+- Yedek ve API/UI/final PASS kayıtları:
+  /srv/mikrotik-manager-v2-fresh-pilot/backups/v21-second-99ce25b-before-i0npql9p
+  (api-receipt.json, ui-receipt.json, accepted-v21.json). Rollback gerekmedi;
+  önceki dist/config/ADMIN yedeği korunur. Sırlar/gerçek satırlar Git'e alınmadı.
+- Tek sonraki adım: mevcut SSH tüneliyle fresh pilot Router Merkezi V2.1
+  görünümünün kullanıcı görsel kabulü. Kaynak snapshot otomatik güncellenmez.
