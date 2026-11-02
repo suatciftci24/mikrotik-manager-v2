@@ -18,15 +18,14 @@ async function compile(path){
 const {Dashboard}=await compile('../src/screens/Dashboard.tsx');
 const {RouterDetails}=await compile('../src/screens/Details.tsx');
 const router={id:'r',name:'Sentetik Router',site:'Demo konum',management_address:'192.0.2.11',model:'Demo model',routeros_version:'7.demo',status:'ONLINE',cpu_percent:24,memory_percent:null,uptime:'Demo uptime',subscriber_count:248,last_seen:'2026-10-26T09:42:00Z',is_demo:true};
-test('central screen renders unknown/outage scope and existing rolling operation details',()=>{
+test('V2.4 overview has three compact sections, missing sources and preserved center entries',()=>{
  globalThis.__centralSummary=buildDailySummary([router],[]);
  try{
   const html=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));
-  assert.match(html,/Merkezi Dashboard/);assert.match(html,/Durumu bilinmeyen/);
-  assert.match(html,/Kayıtlı açık alarm: Veri yok/);assert.match(html,/İnternet kesintileri: Veri yok/);assert.match(html,/WAN değişiklikleri: Veri yok/);
-  assert.match(html,/Son 24 saat PPPoE demo yönetim işlemleri/);
-  assert.match(html,/PPPoE olarak kayıtlı: 0/);
-  assert.match(html,/href="#module=operations&amp;kind=INTERNET_DOWN&amp;period=24H"/);
+  for(const text of ['Merkezi Dashboard','Genel durum','Günlük işlemler','Hızlı erişim','Son kayıtlı router durumları','Bilinmiyor','Günlük Yönetim Merkezi','Alarm Merkezi','MikAjanı','SENTETİK V2','Veri yok','Rapor yetkisi gerekli'])assert.ok(html.includes(text),text);
+  assert.match(html,/<details class="panel overview-info"><summary>Veri kapsamı ve güvenilirlik/);
+  assert.doesNotMatch(html,/Router envanteri<|Merkezi alarm tablosu|PPPoE veri kaynağı ve tazelik|Operasyon WAN ve IPsec özeti|Son 24 saat PPPoE demo yönetim işlemleri/);
+  assert.match(html,/aria-label="Günlük Yönetim Merkezi" disabled/);
  }finally{delete globalThis.__centralSummary;}
 });
 test('router detail keeps WAN unknown, formats valid samples, and links only assigned subscribers',()=>{

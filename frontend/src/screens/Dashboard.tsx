@@ -1,28 +1,25 @@
-import { AlarmCenter } from '../components/AlarmCenter';
-import { OperationReport } from './OperationReport';
-import { DashboardHealth } from '../components/DashboardHealth';
-import { DashboardPppoe } from '../components/DashboardPppoe';
 import { invalidateResources } from '../lib/resourceEvents';
+import { OperationReport } from './OperationReport';
 import { InternetReport } from './InternetReport';
-import { useListFilter } from '../lib/useListFilter';
 import { ManagementReport } from './ManagementReport';
-import { AlarmEvents } from '../components/AlarmEvents';
-import { RecentOperations } from '../components/RecentOperations';
-import { useEffect, useRef } from 'react';
-import { ArrowRight, Clock3, RefreshCw, Router as RouterIcon, Users, CalendarClock, AlertTriangle } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useListFilter } from '../lib/useListFilter';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { ArrowRight, RefreshCw, Router as RouterIcon, Users, CalendarClock, AlertTriangle, Activity, WifiOff, Bot, LayoutDashboard } from 'lucide-react';
 import type { ScreenKey } from '../components/Sidebar';
-import { StatusBadge } from '../components/Status';
 import { PageHeading } from '../components/PageHeading';
 import { ResourceState, dateTime } from '../components/Resource';
 import { useResource } from '../lib/useResource';
 import { useTurkeyToday } from '../lib/useTurkeyToday';
-import { loadDailySummary, type DailySummary } from '../lib/dailySummary';
+import { useIdentity } from '../lib/permissions';
+import { loadDashboardSummary, dashboardToday, dashboardCritical, loadDashboardAlarms, dashboardAlarmPath, type DashboardSummary } from '../lib/dashboardOverview';
+import { loadRouterEvents } from '../lib/routerEvents';
 
 const DEPENDENCIES = ['/routers', '/subscribers'] as const;
+const EVENT_DEPENDENCIES = ['/routers','/subscribers','/router-events'] as const;
+const ALARM_DEPENDENCIES = [...EVENT_DEPENDENCIES,'/alarms','/mikajani'] as const;
 type Navigate = (screen: ScreenKey, params?: Record<string,string>) => void;
-function DailyTile({title, value, note, icon, tone, onClick, label}: {title:string; value:number; note:string; icon:ReactNode; tone:string; onClick:()=>void; label:string}) {
-  return <button className="metric-card daily-tile" onClick={onClick} aria-label={label}><span className="metric-card-top"><span>{title}</span><span className={`metric-icon ${tone}`}>{icon}</span></span><strong className="daily-value">{value.toLocaleString('tr-TR')}</strong><span className="metric-foot">{note}<ArrowRight size={14}/></span></button>;
+function SummaryTile({title,value,note,icon,onClick,label,disabled=false}: {title:string;value:number|string|null;note:string;icon:ReactNode;onClick:()=>void;label:string;disabled?:boolean}){
+  return <button className="metric-card daily-tile" onClick={onClick} aria-label={label} disabled={disabled}><span className="metric-card-top"><span>{title}</span><span className="metric-icon blue">{icon}</span></span><strong className="daily-value">{value===null?'Veri yok':typeof value==='number'?value.toLocaleString('tr-TR'):value}</strong><span className="metric-foot"><span>{note}</span><ArrowRight size={14}/></span></button>;
 }
 const dashboardViews=['OVERVIEW','DAILY_REPORT','INTERNET_REPORT','OPERATIONS_REPORT'] as const;
 export function Dashboard({onNavigate}: {onNavigate: Navigate}) {
@@ -30,12 +27,14 @@ export function Dashboard({onNavigate}: {onNavigate: Navigate}) {
   return view==='OPERATIONS_REPORT'?<OperationReport/>:view==='INTERNET_REPORT'?<InternetReport/>:view==='DAILY_REPORT'?<ManagementReport onBack={()=>setView('OVERVIEW')}/>:<DashboardOverview onNavigate={onNavigate} onReport={()=>setView('DAILY_REPORT')} onInternet={()=>setView('INTERNET_REPORT')}/>;
 }
 function DashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigate;onReport:()=>void;onInternet:()=>void}) {
-  const resource = useResource<DailySummary>('/dashboard/summary', loadDailySummary, DEPENDENCIES);
-  const today = useTurkeyToday();
-  const previousDay = useRef(today);
-  useEffect(() => {
-    if (previousDay.current !== today) {previousDay.current = today;resource.retry();}
-  }, [today, resource.retry]);
+  const identity=useIdentity();
+  const grants=Object.values(identity?.permissions??{});
+  const reports=grants.some(grant=>grant.can_view&&grant.can_view_reports);
+  const mika=grants.some(grant=>grant.can_view&&grant.can_use_mikajani);
+  const admin=identity?.role_code==='ADMIN'&&identity.can_manage_users===true;
+  const resource=useResource<DashboardSummary>('/dashboard/summary',loadDashboardSummary,DEPENDENCIES);
+  const today=useTurkeyToday(),previousDay=useRef(today);
+  useEffect(()=>{if(previousDay.current!==today){previousDay.current=today;resource.retry();}},[today,resource.retry]);
   const refresh=()=>invalidateResources(['/routers','/subscribers','/router-events','/mikajani','/alarms']);
   useEffect(()=>{
     const tick=()=>{if(!document.hidden)invalidateResources(['/routers','/subscribers','/router-events','/mikajani','/alarms']);};
@@ -43,58 +42,65 @@ function DashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigat
     window.addEventListener('focus',tick);document.addEventListener('visibilitychange',tick);
     return()=>{window.clearInterval(timer);window.removeEventListener('focus',tick);document.removeEventListener('visibilitychange',tick);};
   },[]);
-  const lastData=useRef<DailySummary|undefined>(undefined);
+  const lastData=useRef<DashboardSummary|undefined>(undefined);
   if(resource.data)lastData.current=resource.data;
-  const data = resource.data??(resource.loading?lastData.current:undefined);
-  const goSubscribers = (params: Record<string,string> = {}) => onNavigate('subscribers', params);
-  const goRouters = (params: Record<string,string> = {}) => onNavigate('routers', params);
-  const fullDate = data ? new Intl.DateTimeFormat('tr-TR', {dateStyle:'full', timeZone:'UTC'}).format(new Date(data.as_of_date+'T00:00:00Z')) : 'Türkiye takvim günü · Europe/Istanbul';
-  return <div className="screen-stack" aria-busy={resource.loading}>
-    <PageHeading title="Merkezi Dashboard" eyebrow={fullDate} description="Sentetik demo envanteri ve kaydedilmiş abonelik işlemleri. Canlı sistem durumu değildir. PPPoE yönetimi kapsamındaki eski abonelerde erişim türü belirtilmemiş olabilir." actions={<><a className="button-secondary" href="#module=dashboard&view=OPERATIONS_REPORT">Operasyon ve audit raporları</a><button className="button-secondary" onClick={onInternet}>İnternet Kullanım ve Bağlantı Raporları</button><button className="button-primary" onClick={onReport}>Günlük Yönetim Raporu</button><button className="button-secondary" disabled={resource.loading} onClick={refresh}><RefreshCw size={15}/>Özeti yenile</button></>}/>
-    <ResourceState {...resource} retry={refresh}/>
-    {data&&resource.loading&&<p role="status">Önceki özet gösteriliyor; kayıtlar yenileniyor.</p>}
-    {data && !resource.error && <>
-      <div className="metric-grid">
-        <DailyTile title="Toplam router" value={data.router_counts.total} note="Sentetik envanter kayıtları" icon={<RouterIcon size={17}/>} tone="blue" label="Tüm routerları göster" onClick={()=>goRouters()}/>
-        <DailyTile title="Online kaydı" value={data.router_counts.online} note="Son sentetik envanter durumu" icon={<RouterIcon size={17}/>} tone="teal" label="Online kayıtlı routerları göster" onClick={()=>goRouters({status:'ONLINE'})}/>
-        <DailyTile title="Offline kaydı" value={data.router_counts.offline} note="İnternet kesintisi kanıtı değildir" icon={<RouterIcon size={17}/>} tone="amber" label="Offline kayıtlı routerları göster" onClick={()=>goRouters({status:'OFFLINE'})}/>
-        <DailyTile title="Durumu bilinmeyen" value={data.router_counts.unknown} note="Durum kaydı doğrulanamayan router" icon={<RouterIcon size={17}/>} tone="violet" label="Durumu bilinmeyen routerları göster" onClick={()=>goRouters({status:'UNKNOWN'})}/>
-        <DailyTile title="Toplam abonelik" value={data.subscribers.total} note="Kayıtlı demo abonelikleri" icon={<Users size={17}/>} tone="violet" label="Tüm aboneleri göster" onClick={()=>goSubscribers()}/>
-        <DailyTile title="Süresi dolmuş" value={data.expiry.expired} note="Bitiş tarihi bugünden önce" icon={<AlertTriangle size={17}/>} tone="amber" label="Süresi dolmuş aboneleri göster" onClick={()=>goSubscribers({expiry:'EXPIRED'})}/>
-        <DailyTile title="30 gün içinde bitecek" value={data.expiry.within_30} note={`İlk 7 gün: ${data.expiry.within_7} · bugün dahil`} icon={<CalendarClock size={17}/>} tone="teal" label="30 gün içinde bitecek aboneleri göster" onClick={()=>goSubscribers({expiry:'WITHIN_30'})}/>
+  const data=resource.data??(resource.loading?lastData.current:undefined);
+  const subscribers=(params:Record<string,string>={})=>onNavigate('subscribers',{workspace:'LEGACY',...params});
+  const routers=(params:Record<string,string>={})=>onNavigate('routers',{source:'DEMO',...params});
+  const daily=(kind:string)=>{window.location.hash=new URLSearchParams({module:'dashboard',view:'DAILY_REPORT',report_source:'DEMO',period:'TODAY',kind}).toString();};
+  const fullDate=data?new Intl.DateTimeFormat('tr-TR',{dateStyle:'full',timeZone:'UTC'}).format(new Date(data.as_of_date+'T00:00:00Z')):'Türkiye takvim günü';
+  return <div className="screen-stack dashboard-overview">
+    <PageHeading title="Merkezi Dashboard" eyebrow={fullDate} description="V2 sentetik kayıtları · Mevcut demo çalışma alanı" actions={<button className="button-secondary" disabled={resource.loading} onClick={refresh}><RefreshCw size={15}/>Özeti yenile</button>}/>
+    <section aria-labelledby="overview-status-title" className="overview-section"><div className="overview-section-heading"><h2 id="overview-status-title">Genel durum</h2><span className="demo-chip">SENTETİK V2</span></div>
+      <ResourceState {...resource} retry={refresh}/>
+      {data&&resource.loading&&<p role="status" className="daily-description">Önceki özet gösteriliyor; kayıtlar yenileniyor.</p>}
+      <div className="overview-status-grid">
+      {data&&!resource.error&&<>
+        <SummaryTile title="Routerlar" value={data.router_counts.total} note="Son kayıtlı envanter" icon={<RouterIcon size={18}/>} label="Tüm routerları göster" onClick={()=>routers()}/>
+        <SummaryTile title="Toplam aboneler" value={data.subscribers.total} note="Mevcut demo aboneleri" icon={<Users size={18}/>} label="Tüm aboneleri göster" onClick={()=>subscribers()}/>
+        <SummaryTile title="Süresi dolmuş" value={data.expiry.expired} note="Bitiş tarihi bugünden önce" icon={<AlertTriangle size={18}/>} label="Süresi dolmuş aboneleri göster" onClick={()=>subscribers({expiry:'EXPIRED'})}/>
+        <SummaryTile title="Yaklaşan bitişler" value={data.expiry.within_7} note="Bugün dahil · 7 gün" icon={<CalendarClock size={18}/>} label="7 gün içinde bitecek aboneleri göster" onClick={()=>subscribers({expiry:'WITHIN_7'})}/>
+      </>}
+      <CriticalAlarmTile onNavigate={onNavigate}/>
       </div>
-      <div className="dashboard-grid">
-        <section className="panel"><div className="panel-title"><h2>Abonelik dağılımı</h2><span className="demo-chip">SENTETİK</span></div><p className="daily-description">PPPoE olarak kayıtlı: {data.pppoe.confirmed} · erişim türü belirtilmemiş: {data.pppoe.untyped}. Hesap durumu, bitiş durumu ve yetkili kaynak ayrı bilgilerdir; aktif hesap çevrimiçi oturum anlamına gelmez.</p>
-          <div className="daily-links" aria-label="Abonelik özeti filtreleri">
-            <button onClick={()=>goSubscribers({status:'ACTIVE'})}>Aktif hesap <strong>{data.subscribers.active}</strong></button>
-            <button onClick={()=>goSubscribers({status:'PAUSED'})}>Duraklatıldı <strong>{data.subscribers.paused}</strong></button>
-            <button onClick={()=>goSubscribers({status:'PENDING'})}>Bekliyor <strong>{data.subscribers.pending}</strong></button>
-            <button onClick={()=>goSubscribers({expiry:'WITHIN_7'})}>7 gün içinde bitecek <strong>{data.expiry.within_7}</strong></button>
-            <button onClick={()=>goSubscribers({expiry:'WITHIN_15'})}>15 gün içinde bitecek <strong>{data.expiry.within_15}</strong></button>
-            <button onClick={()=>goSubscribers({expiry:'UNKNOWN'})}>Bitiş tarihi bilinmiyor <strong>{data.expiry.unknown}</strong></button>
-            <button onClick={()=>goSubscribers({expiry:'ACTIVE'})}>Bitişine 30 günden fazla <strong>{data.expiry.active}</strong></button>
-            <button onClick={()=>goSubscribers({source:'LOCAL'})}>LOCAL kaynak <strong>{data.subscribers.local}</strong></button>
-            <button onClick={()=>goSubscribers({source:'RADIUS'})}>RADIUS kaynak <strong>{data.subscribers.radius}</strong></button>
-            <button onClick={()=>goSubscribers({source:'UNKNOWN'})}>Kaynak bilinmiyor <strong>{data.subscribers.unknown_source}</strong></button>
-          </div>{data.subscribers.unknown_status>0&&<p className="daily-description">Hesap durumu bilinmeyen: {data.subscribers.unknown_status}</p>}{data.subscribers.total===0&&<p className="table-empty">Henüz kayıtlı demo abonelik yok.</p>}
-        </section>
-        <section className="panel"><div className="panel-title"><h2>Router durum özeti</h2></div><p className="daily-description">Envanterdeki son sentetik durum kaydı esas alınır; cihaz sorgusu veya canlı sağlık kontrolü yapılmaz.</p><div className="daily-links">
-          <button onClick={()=>goRouters({status:'ONLINE'})}>Çevrimiçi kaydı <strong>{data.router_counts.online}</strong></button>
-          <button onClick={()=>goRouters({status:'OFFLINE'})}>Çevrimdışı kaydı <strong>{data.router_counts.offline}</strong></button>
-          <button onClick={()=>goRouters({status:'DEGRADED'})}>Dikkat gerektiren <strong>{data.router_counts.degraded}</strong></button>
-        <button onClick={()=>goRouters({status:'UNKNOWN'})}>Bilinmiyor <strong>{data.router_counts.unknown}</strong></button></div><p className="missing-data">Veri yok: canlı router bağlantısı, çevrimiçi abone oturumu, ölçülmüş trafik ve günlük tahsilat kaynağı bağlı değil.</p></section>
+      {data&&!resource.error&&<>
+        <div className="overview-router-status" role="group" aria-label="Son kayıtlı router durumları"><span>Son kayıt:</span>{([['ONLINE','Online',data.router_counts.online],['OFFLINE','Offline',data.router_counts.offline],['DEGRADED','Dikkat',data.router_counts.degraded],['UNKNOWN','Bilinmiyor',data.router_counts.unknown]] as const).map(([status,label,count])=><button key={status} className="button-secondary" onClick={()=>routers({status})}>{label} <strong>{count}</strong></button>)}</div>
+        {data.router_counts.total===0&&data.subscribers.total===0&&<p className="daily-description">Henüz kayıtlı demo router veya abone yok.</p>}
+      </>}
+    </section>
+    <section aria-labelledby="overview-daily-title" className="overview-section"><div className="overview-section-heading"><h2 id="overview-daily-title">Günlük işlemler</h2><span className="daily-description">Bugün · Türkiye saati</span></div>
+      <div className="overview-daily-grid">
+        <SummaryTile title="PPPoE işlemleri" value={data&&!resource.error?dashboardToday(data,null).pppoe:null} note={resource.loading?'Özet yenileniyor':reports?'Mevcut demo geçmişi':'Geçmiş için rapor yetkisi gerekli'} icon={<Activity size={18}/>} label="Bugünün PPPoE işlemlerini aç" disabled={!reports} onClick={()=>daily('PPPOE')}/>
+        <SummaryTile title="Yaklaşan abonelikler" value={data&&!resource.error?data.within_3??null:null} note="Bugün dahil · 3 gün" icon={<CalendarClock size={18}/>} label="3 gün içinde bitecek aboneleri göster" onClick={()=>subscribers({expiry:'WITHIN_3'})}/>
+        {reports?<DailyEventTile data={data} onOpen={()=>daily('ALL')}/>:<SummaryTile title="İnternet / WAN olayları" value={null} note="Rapor yetkisi gerekli" icon={<WifiOff size={18}/>} label="İnternet ve WAN olayları için rapor yetkisi gerekli" disabled onClick={()=>{}}/>}
       </div>
-      {!resource.loading&&<DashboardPppoe data={data}/>}
-      <AlarmCenter compact/>
-      <DashboardHealth/>
-      <AlarmEvents mode="cards" routers={data.routers}/>
-      <div className="dashboard-grid bottom-grid">
-        <section className="panel router-panel"><button className="button-secondary report-entry" onClick={()=>goRouters({view:'REPORT'})}>Kullanım ve bağlantı raporu <ArrowRight size={14}/></button><div className="panel-heading"><div><div className="panel-title"><h2>Router envanteri</h2><span className="soft-count">{data.routers.length}</span></div><p>Sentetik kayıt · kaynak zamanı aşağıda gösterilir</p></div><button className="text-link" onClick={()=>goRouters()}>Tümünü gör <ArrowRight size={14}/></button></div>
-          {data.routers.length ? <div className="router-list">{data.routers.map(router=><div className="router-list-row" key={router.id}><span className={`router-row-icon ${router.status?.toLowerCase()}`}><RouterIcon size={16}/></span><span className="router-row-name daily-router-name"><strong><button className="record-link" onClick={()=>goRouters({id:router.id})}>{router.name}</button></strong><small>Kaynak zamanı: {dateTime(router.last_seen)}</small></span><StatusBadge status={['ONLINE','OFFLINE','DEGRADED'].includes(router.status)?router.status:'UNKNOWN'}/></div>)}</div> : <p className="table-empty">Router envanteri için veri yok.</p>}
-        </section>
-        <RecentOperations data={data} onSubscriber={id=>goSubscribers({id})}/>
+    </section>
+    <section aria-labelledby="overview-quick-title" className="overview-section"><div className="overview-section-heading"><h2 id="overview-quick-title">Hızlı erişim</h2></div>
+      <div className="overview-quick-grid">
+        <button className="button-secondary" onClick={()=>routers()}><RouterIcon size={17}/>Router Merkezi<ArrowRight size={14}/></button>
+        <button className="button-secondary" onClick={()=>subscribers()}><Users size={17}/>Abone Merkezi<ArrowRight size={14}/></button>
+        <button className="button-secondary" aria-label="Günlük Yönetim Merkezi" disabled={!reports} onClick={onReport}><LayoutDashboard size={17}/>Günlük Yönetim Merkezi<ArrowRight size={14}/></button>
+        <button className="button-secondary" onClick={()=>onNavigate('operations')}><AlertTriangle size={17}/>Alarm Merkezi<ArrowRight size={14}/></button>
+        <button className="button-secondary" disabled={!mika} onClick={()=>onNavigate('mikajani')}><Bot size={17}/>MikAjanı<ArrowRight size={14}/></button>
       </div>
-      <p className="screen-footnote daily-updated"><span><Clock3 size={14}/>Özet güncellendi: {dateTime(data.generated_at)} · Her 60 saniye / odak dönüşünde yenilenir · Gün hesabı: Europe/Istanbul</span></p>
-    </>}
+      <div className="overview-report-links">{reports&&<><button className="record-link" onClick={onInternet}>İnternet Kullanım ve Bağlantı Raporları</button><a className="record-link" href="#module=dashboard&view=OPERATIONS_REPORT">Operasyon ve audit raporları</a></>}{admin&&<a className="record-link" href="#module=routers&source=V1_INVENTORY">Gerçek V1 · Salt okunur Router Merkezi</a>}</div>
+    </section>
+    <details className="panel overview-info"><summary>Veri kapsamı ve güvenilirlik</summary>
+      <p>Yalnız yetkili mevcut sentetik demo envanteri ve geçmişi. Gerçek V1 sağlık snapshot’ları ayrı Router Merkezi’ndedir; bu sayılarla birleştirilmez. Kalıcı sentetik PPPoE işlem geçmişi Günlük Yönetim Merkezi’ndedir.</p>
+      <p>Son kayıtlı router durumu canlı bağlantı, hesap etkinliği aktif oturum kanıtı değildir. Güvenilir ölçüm yoksa trafik, oturum veya kesinti üretilmez. Bugünün işlem/olay sayıları gelecek kayıtları içermez.</p>
+      <p>Kritik alarmlar kaydedilmiş açık P1/P2 kaynaklarıdır; onaylanan ve iyileşenler dahildir. Kaynak eksikliği sağlıklı sistem sayılmaz. Ayrıntılar, ACK, kanıt ve analizler Alarm Merkezi ile MikAjanı’nda korunur.</p>
+      {data&&<><p>Özet okuması: {dateTime(data.generated_at)}. Bitiş tarihi bilinmeyen: {data.expiry.unknown}. PPPoE türü belirtilmemiş: {data.pppoe.untyped}. Gün hesabı Europe/Istanbul; özet mevcut 60 saniye/odak dönüşü akışıyla yenilenir.</p><div className="overview-report-links"><button className="record-link" onClick={()=>subscribers({expiry:'UNKNOWN'})}>Bitişi bilinmeyen aboneler</button><button className="record-link" onClick={()=>subscribers({expiry:'WITHIN_15'})}>15 gün içinde bitecekler</button><button className="record-link" onClick={()=>subscribers({expiry:'WITHIN_30'})}>30 gün içinde bitecekler</button><button className="record-link" onClick={()=>routers({view:'REPORT'})}>Router kullanım ve bağlantı raporu</button></div></>}
+    </details>
   </div>;
+}
+function CriticalAlarmTile({onNavigate}:{onNavigate:Navigate}){
+  const resource=useResource(dashboardAlarmPath,loadDashboardAlarms,ALARM_DEPENDENCIES);
+  const critical=resource.data&&!resource.loading&&!resource.error?dashboardCritical(resource.data):null;
+  return <div className="overview-source-tile"><SummaryTile title="Kritik alarmlar" value={critical?.value??null} note={resource.loading?'Alarmlar yükleniyor':resource.error?'Alarm kaynağı alınamadı':critical?.partial?'Kayıtlı P1/P2 · kaynaklar eksik':'Açık P1/P2 · ACK dahil'} icon={<AlertTriangle size={18}/>} label="Alarm Merkezi’nde açık alarmları göster" onClick={()=>onNavigate('operations',{alarm_state:'ACTIVE',severity:'ALL'})}/><ResourceState {...resource}/></div>;
+}
+function DailyEventTile({data,onOpen}:{data:DashboardSummary|undefined;onOpen:()=>void}){
+  const resource=useResource('/router-events',loadRouterEvents,EVENT_DEPENDENCIES);
+  let counts:ReturnType<typeof dashboardToday>|undefined,error=resource.error;
+  try{if(data&&!resource.loading&&!error)counts=dashboardToday(data,resource.data??null);}catch(failure){error=failure instanceof Error?failure.message:'Olay özeti doğrulanamadı.';}
+  return <div className="overview-source-tile"><SummaryTile title="İnternet / WAN olayları" value={counts?.outages===null||counts?.outages===undefined?null:`${counts.outages} / ${counts.wan}`} note={resource.loading?'Olaylar yükleniyor':'Kesinti / WAN değişikliği · bugün'} icon={<WifiOff size={18}/>} label="Bugünün internet ve WAN olaylarını aç" onClick={onOpen}/><ResourceState {...resource} error={error}/></div>;
 }

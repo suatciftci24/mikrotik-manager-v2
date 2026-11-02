@@ -37,7 +37,7 @@ test('Dashboard opens the report in its existing module and direct report links 
  const previous=globalThis.window;globalThis.__dailySummary=buildDailySummary(routers,details);globalThis.__reportResource={data,loading:false,retry(){}};
  try{
   globalThis.window={location:{hash:''}};
-  const dashboard=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));assert.match(dashboard,/Günlük Yönetim Raporu/);
+  const dashboard=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));assert.match(dashboard,/Günlük Yönetim Merkezi/);
   globalThis.window.location.hash='#module=dashboard&view=DAILY_REPORT&period=TODAY';
   const report=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));assert.match(report,/Günlük Yönetim Merkezi · V2.3/);assert.match(report,/Dashboard’a dön/);
  }finally{globalThis.window=previous;delete globalThis.__dailySummary;delete globalThis.__reportResource;}

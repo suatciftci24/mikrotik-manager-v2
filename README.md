@@ -223,35 +223,45 @@ persistent editing is enabled when the updated API is next opened normally.
 
 ## Daily management summary
 
-The existing Dashboard is the daily summary screen. Its totals come from the
-existing authenticated router inventory and subscriber detail contracts, not the
-legacy `/dashboard/summary` aggregate fixture or the router's separate subscriber
-counter. The shared frontend loader reads each small demo subscriber's consistent
-item/history pair; no new backend endpoint, schema, data write or live connection
-is introduced. Failed or incomplete reads show an error/retry state rather than
-fabricated zero counts. Empty inventories and empty saved history have explicit
-empty states.
+V2.4 keeps the existing Dashboard in three compact sections: **Genel durum**,
+**Günlük işlemler** and **Hızlı erişim**. Five general cards cover router count,
+subscriber count, expired/7-day subscriptions and recorded critical P1/P2 alarms.
+Saved router statuses are filter buttons rather than a second inventory. Daily
+cards show today's explicitly typed PPPoE operations, subscriptions due within
+three days, and internet-outage/WAN event counts. Cards open the existing centers
+or filtered lists; full inventory, operation history, alarm tables and MikAjanı
+analysis remain in their centers. Reliability notes are in a native disclosure.
 
-Router online/offline/degraded counts describe saved synthetic inventory status,
-with original observation timestamps shown. Subscriber totals, lifecycle/source
-breakdowns, expired/7-day/30-day/unknown expiry and recent saved renewal/date-edit
-operations use current demo records. The 30-day horizon includes the first 7 days
-and today. Today is calculated in Europe/Istanbul; saved operation timestamps are
-converted from UTC. Recent events can include earlier days, separately from today's
-operation count. No live session, measured traffic or payment source exists, so
-those fields show “Veri yok”. Example growth/revenue/traffic/activity values are no
-longer shown as daily management facts.
+The overview preserves its existing authorized demo inventory scope using
+`/routers`, `/subscribers` and subscriber details. It does not use the old aggregate
+`/dashboard/summary` fixture or device subscriber counters. Missing history is
+**Veri yok**; empty valid inventories support zero. PPPoE counts exclude untyped
+and future records. Turkey calendar boundaries are used consistently. The
+persistent workspace history is available through the unchanged V2.3 daily
+management center, and is not silently mixed into the overview's legacy demo
+counts. Real V1 remains a separate ADMIN-only read-only Router Center link.
 
-Summary cards and breakdown buttons open existing filtered Router/Subscriber
-lists. Validated URL filter state survives detail return and reload; offline router
-and pending subscriber filters are available. Operation links open the subscriber's
-detail. The summary refreshes on explicit retry, shared subscription/router change
-notifications and Turkey calendar-day rollover. The header labels the environment
-as synthetic rather than claiming every system is healthy.
+The existing scoped `/alarms` summary supplies critical counts with no long list;
+ACK/recovering active P1/P2 remain included. An incomplete alarm source with no
+recorded critical alarms is **Veri yok**, not a healthy zero. Alarm failure does
+not hide inventory. Report-authorized users additionally read `/router-events`;
+without the grant no event request is made. Report/MikAjanı shortcuts respect
+existing grants; no MikAjanı analysis, PPPoE observation, workspace or real V1
+API is requested by the overview. Backend authorization remains authoritative.
 
-Targeted daily-summary tests: `node --test frontend/tests/dailySummary.test.mjs`
-(Node 22.18+). Frontend build remains `npm --prefix frontend run build`.
+The existing 60-second/focus/visibility refresh and Turkey-day rollover are
+preserved. No backend API, schema, migration, device adapter, service or five-minute
+health snapshot mechanism changes. Existing Internet/Operations report views and
+V2.3 daily management remain accessible in the same Dashboard module.
 
+Targeted overview checks:
+`node --test --test-isolation=none frontend/tests/dashboardOverview.test.mjs frontend/tests/centralViews.test.mjs`.
+From `frontend`, `node tests/dashboardOverview.browser.mjs` uses only synthetic
+loopback HTTP fixtures and a local Chromium binary. It checks counts, navigation,
+keyboard access, source failures, empty states, restricted users and White/Night/
+System at 1440/390/320px. Screenshots/results stay in
+`.local/browser-acceptance/v24-dashboard/`. `--navigation-only` checks only the
+final quick-access name and existing V2.3 daily-report navigation.
 
 ## Router usage and connection report
 
@@ -357,8 +367,8 @@ package leaves zero results until the filter is changed or cleared. The clear
 button resets every selection and search; the result/total count updates together.
 Existing authority/state/expiry URL links and detail-return behavior remain.
 
-The dashboard now lists all saved demo subscriber operations in the rolling last
-24 hours (inclusive start, excluding future timestamps), with creation, package,
+Router details retain the saved demo subscriber operation component for the rolling
+last 24 hours (inclusive start, excluding future timestamps), with creation, package,
 status and renewal counts. Date edits are counted separately. Affected subscribers
 are unique, and each operation opens a read-only detail dialog with subscriber,
 router, actor, Europe/Istanbul time and before/after values. Legacy records with no
@@ -425,12 +435,11 @@ it does not replace browser/mobile interaction checks.
 
 ### Central dashboard and router detail
 
-The central dashboard uses the same normalized inventory status projection as the
-router report. Total, online/offline snapshot and unknown-status cards open the
-corresponding lists; account status/expiry links and saved 24-hour management
-operation detail dialogs remain available. Explicit PPPoE records and legacy
-records without an access type are counted separately. Internet outage/WAN event
-coverage is unknown when no event source exists, never an inferred zero.
+The compact V2.4 overview uses the same normalized inventory status projection as
+the router report. Counts and saved-status buttons open the corresponding lists;
+expiry links and all detailed center views remain available. Daily summaries use
+explicit PPPoE types and Turkey calendar days; legacy untyped records are never
+presented as PPPoE sessions. Missing internet/WAN coverage stays unknown.
 
 Router details expose management identity, synthetic resource samples, persisted WAN snapshots when present, unavailable
 interface fields and assigned subscription links. Saved `router_id` takes
@@ -444,7 +453,7 @@ No router/RADIUS adapters, pollers or writes are introduced.
 
 ### Internet outage and WAN alarm center
 
-Dashboard 24-hour cards, Operations filters and router-scoped event history share
+Dashboard daily cards, Operations filters and router-scoped event history share
 one read-only authenticated endpoint: `GET /api/v1/router-events`. It projects
 router events from the existing persisted subscriber demo reports. Without any
 prepared report it returns `available: false, items: []`: **Veri yok**, not measured
@@ -458,7 +467,7 @@ Unmatched/ambiguous recovery records stay visible independently; missing times
 never supply a duration. An outage is ongoing only when explicitly marked OPEN;
 otherwise its state is unknown. Previous/new WAN values remain recorded values.
 
-Dashboard links preserve type and rolling-24-hour filters. Operations combines
+Dashboard daily links open the existing daily management center; Operations retains type and rolling-24-hour filters. Operations combines
 router/type/status, rolling period and inclusive Istanbul calendar date filters
 in reloadable URL state. Event rows open a read-only native dialog with Turkey
 time, lifecycle evidence, duration and WAN before/after values. Router details use

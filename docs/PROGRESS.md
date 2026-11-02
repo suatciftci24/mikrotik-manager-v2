@@ -2921,3 +2921,53 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   kaydı; origin/main-guncel için normal fast-forward push, force yok.
 - Tek sonraki adım: yerel Dashboard → Günlük Yönetim Raporu V2.3 ekranının
   kullanıcı görsel kabulü.
+
+## V2.4 — Ana Dashboard sadeleştirme — 2026-11-02
+
+- PASS: main-guncel/25a10b1 başlangıcı temizdi. Genel Bakış üç bölüme
+  indirildi: Genel durum, Günlük işlemler, Hızlı erişim. Beş genel kart,
+  son kayıtlı router durumu filtre düğmeleri ve üç kısa günlük özet gösterilir.
+  V2.3 tasarım diliyle uyumlu aralıklar/kartlar ve mobil iki sütun düzeni var.
+- Tekrarlı router envanteri, abonelik dağılım paneli, uzun alarm/işlem listeleri,
+  PPPoE kaynak paneli ve ayrıntılı MikAjanı analizi ana sayfadan çıkarıldı.
+  İlgili mevcut merkezler, raporlar, detaylar ve filtreler silinmedi.
+  Teknik kaynak/belirsizlik/okuma zamanı açıklamaları açılır bilgi alanında.
+- Mevcut /routers, /subscribers ve detay API'leriyle can_view envanter kapsamı
+  korunur. Kayıtlı router durumu canlı bağlantı veya oturum sayılmaz. Bugünkü
+  PPPoE sayısı yalnız açık türü PPPoE olan, geçmiş yetkisi doğrulanan mevcut
+  demo kayıtlarıdır; türsüz/gelecek kayıtlar eklenmez. Kalıcı sentetik geçmiş
+  mevcut V2.3 merkezinde kalır; ana sayfanın demo kapsamıyla sessizce birleşmez.
+- Yaklaşan bitişler genel durumda 7 gün, günlük özette 3 gündür; bugün dahil
+  Türkiye takvimi kullanılır. Kartlar mevcut LEGACY bitiş listesine, router
+  durum düğmeleri DEMO durum listesine gider. Alarm, MikAjanı, internet,
+  operasyon/audit ve günlük rapor girişleri korunur.
+- Kritik kart mevcut yetkili /alarms.summary.critical değerini kullanır;
+  açık P1/P2, ACK ve iyileşen kaynaklar dahildir. Eksik kapsam + sıfır kritik
+  kayıt Veri yok kalır; kayıtlı pozitif sayı kısmi kapsam notuyla gösterilir.
+  Alarm API hatası envanteri gizlemez. Günlük olay okuması mevcut rapor
+  yetkisine bağlıdır; kaynağı eksik olaylar veya geçmiş için sıfır uydurulmaz.
+- Gerçek V1 yalnız merkezi ADMIN'e ayrı salt okunur Router Merkezi bağlantısı.
+  Dashboard gerçek V1, PPPoE gözlem, workspace veya MikAjanı analiz API'sini
+  çağırmaz. Rapor/MikAjanı hızlı girişleri mevcut izinlere bağlıdır; backend
+  merkezi yetkilendirmesi gevşetilmedi. Ana sayfanın mevcut 60sn/odak/visibility
+  yenilemesi ve Türkiye gün değişimi davranışı korunur.
+- Kontrol: 20 hedefli model/loader/görünüm/doğrudan bağlı mevcut rapor/olay
+  testi PASS. Son erişilebilir ad ve ortak takvim düzeltmesinde yalnız ilgili
+  üç kontrol yeniden PASS. Son tsc + Vite build PASS; mevcut bundle boyut
+  uyarısı dışında engel yok. Genel suite çalıştırılmadı.
+- Yerel Chromium, yalnız sentetik loopback HTTP fixture: üç bölüm ve gerçek
+  fixture kayıt sayıları, V2.3'e klavyeyle filtreli geçiş/geri dönüş, mevcut
+  merkezler için doğru hash/filtre hedefleri, alarm hatası/yeniden deneme,
+  olay kaynağı eksikliği, envanter hatası/boş durum ve kısıtlı kullanıcı
+  istek izolasyonu PASS. Beyaz/Gece/Sistem, 1440/390/320px taşmasız kabul;
+  masaüstü/mobil görüntüleri görsel incelendi. Son hızlı erişim adı ve olay
+  kartı için yalnız bağlantı kapsamı ayrıca PASS. Çıktılar yalnız
+  .local/browser-acceptance/v24-dashboard/ altında; Git'e alınmaz.
+- V2.3 kaynakları/işlevleri ve çalışan 5dk sağlık snapshot mekanizması
+  değiştirilmedi. Backend/API, PostgreSQL rolleri, migration, servis restartı,
+  timer/deploy/VDS/Fresh Pilot/V1/eski V2 veya canlı PPPoE/RADIUS/router
+  erişimi/değişikliği yok. Canlı sistem veya gerçek PostgreSQL veri sayımı
+  bu sentetik tarayıcı kabulünün kapsamında değil.
+- Git kapsamı: yalnız Dashboard kaynak/model/stil, ilgili hedefli testler,
+  README ve ilerleme kaydı; normal origin/main-guncel push, force yok.
+- Tek sonraki adım: yerel Genel Bakış ekranının kullanıcı görsel kabulü.
