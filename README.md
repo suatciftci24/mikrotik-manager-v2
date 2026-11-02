@@ -528,7 +528,7 @@ remain **BLOCKED**. No fallback writes or automatic service restarts are used.
 Open **Günlük Yönetim Raporu** from the existing Dashboard. The reloadable view
 `#module=dashboard&view=DAILY_REPORT` combines the same authenticated router,
 subscriber/detail and router-event reads used by the centers. Today, Yesterday
-and Last 7 Days use inclusive Europe/Istanbul calendar dates (last 7 includes
+Last 7 Days and Last 30 Days use inclusive Europe/Istanbul calendar dates (last 7 includes
 today and six preceding days); future records are excluded. Router and operation/
 event filters intersect and remain in the URL.
 
@@ -546,6 +546,28 @@ Targeted checks:
 ```sh
 node --test --test-isolation=none frontend/tests/managementReport.test.mjs frontend/tests/managementReportView.test.mjs
 ```
+
+V2.2 adds separate **V2 sentetik kayıtları** and **Gerçek V1 · Salt okunur**
+source tabs. The real tab reuses Router Center's existing ADMIN-protected latest
+health snapshot view; it never substitutes synthetic activity, expiry or WAN
+history. Those real historical sources remain explicitly unavailable. The
+snapshot exporter and 60-second Router Center refresh are unchanged.
+
+The synthetic report counts only explicitly typed PPPoE records in its PPPoE
+filter, retains existing operation value/detail dialogs, and offers cumulative
+Today/3/7/30-day expiry cards with subscriber links. Expiry is based on today's
+Turkey calendar date, independently of the activity period. Counts cover the
+existing demo subscriber API; the persistent PPPoE/Hotspot workspace remains
+separately accessible through **Merkezi İşlem Geçmişi** and is not added to these
+totals. Unavailable history remains unknown. Future/unverified recovery timestamps
+never supply a displayed outage end or duration.
+
+Synthetic-only browser acceptance (existing local Chromium/Playwright required;
+no backend, database, SSH or devices): from `frontend`, run
+`node tests/managementCenter.browser.mjs`. Screenshots/results are written under
+`.local/browser-acceptance/v22-management/`. The test checks 320/390/1440px,
+White/Night/System, filters/reload, expiry links, keyboard dialogs, empty/error
+states and isolation of the real-source view.
 
 ### Central internet usage and connection reports
 

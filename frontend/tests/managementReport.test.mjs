@@ -84,3 +84,28 @@ test('loader reuses authenticated versioned inventory/details/events and propaga
   await assert.rejects(loadManagementReport('ignored'),/okunamadı/);
  }finally{globalThis.fetch=original;}
 });
+
+test('V2.2 thirty Turkey calendar days, expiry lists and links survive URL reload',()=>{
+ const range=managementRange('LAST_30',new Date('2024-03-01T21:00:00Z'));
+ assert.equal(range.start,'2024-02-02');assert.equal(range.end,'2024-03-02');
+ const selection={...filter,period:'LAST_30',expiry:'WITHIN_3',kind:'PPPOE'};
+ assert.deepEqual(managementFilterFromHash(managementReportHash(selection)),selection);
+ const input=source([detail('today','r1',[],{expires_on:'2026-10-27'}),detail('three','r1',[],{expires_on:'2026-10-30'}),detail('seven','r1',[],{expires_on:'2026-11-03'}),detail('unknown','r1',[],{expires_on:null})]);
+ assert.deepEqual(buildManagementReport(input,{...filter,expiry:'WITHIN_3'},now).expiryRows.map(r=>r.id),['today','three']);
+ assert.equal(buildManagementReport(input,filter,now).expirySummary.unknown,1);
+ assert.equal(buildManagementReport(input,{...filter,period:'YESTERDAY'},now).expiryRows.length,1);
+});
+test('V2.2 PPPoE scope excludes untyped operations, and unavailable history is never zero',()=>{
+ const input=source([detail('typed','r1',[operation('typed',now.toISOString())]),detail('untyped','r1',[operation('untyped',now.toISOString())],{access_type:null})]);
+ const all=buildManagementReport(input,filter,now);
+ assert.equal(all.pppoeOperations,1);assert.equal(all.untypedOperations,1);
+ assert.deepEqual(buildManagementReport(input,{...filter,kind:'PPPOE'},now).operations.map(e=>e.id),['typed']);
+ const missing=buildManagementReport(source([{...detail('missing','r1'),history_available:false}]),filter,now);
+ assert.equal(missing.counts.operations,null);assert.equal(missing.pppoeOperations,null);assert.equal(missing.untypedOperations,null);
+});
+test('V2.2 future recovery cannot supply an end or duration in a current outage report',()=>{
+ const input=source([],events([event('down','INTERNET_DOWN','2026-10-27T08:00:00Z'),event('future-up','INTERNET_UP','2026-10-27T10:00:00Z',{down_event_id:'down'})]));
+ const report=buildManagementReport(input,filter,now);
+ assert.equal(report.events.length,1);assert.equal(report.counts.recoveries,0);
+ assert.equal(report.events[0].lifecycle.ended_at,null);assert.equal(report.events[0].lifecycle.duration_seconds,null);assert.equal(report.events[0].lifecycle.status,'UNKNOWN');
+});

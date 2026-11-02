@@ -2781,3 +2781,42 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   /srv/mikrotik-manager-v2-fresh-pilot/backups/health-f0c891c-20261102T181140Z-s4chs2yi
 - Tek sonraki adım: mevcut panelde otomatik yenilenen sağlık verisinin kullanıcı
   görsel kabulü. Bu görev sonucu yerel commit ve güvenli normal push ile kaydedilir.
+
+
+## V2.2 Günlük Yönetim Merkezi — yerel geliştirme — 2026-11-02
+
+- PASS: mevcut Dashboard DAILY_REPORT, günlük projeksiyon, OperationDetails,
+  SubscriptionAlerts ve AlarmEventDetails üzerine V2.2 merkezi geliştirildi.
+  Bugün/Dün/Son 7/Son 30 Gün Türkiye takvim aralıkları; router/işlem/bitiş
+  filtreleri URL'de korunur. Gelecek kayıtlar dönem toplamına alınmaz.
+- Mevcut demo API geçmişinde açıkça PPPOE olan işlemler ayrı sayılır ve
+  filtrelenir; abone/router/tarih/tür ve önceki/yeni değer modalı korunur.
+  Türü belirtilmemiş işlemler PPPoE sayılmaz. History unavailable ise toplamlar
+  ve türü bilinmeyen işlem sayısı null/Veri yok kalır. Kalıcı sentetik çalışma
+  alanı bu mevcut API toplamına eklenmez; Merkezi İşlem Geçmişi bağlantısı var.
+- Aynı abonelik uyarı bileşeniyle bugün/3/7/30 gün ve bilinmeyen bitişler,
+  ilgili seçili abone listesi ve Abone Merkezi bağlantıları eklendi. Bitiş
+  hesabı bugünün Türkiye günüdür; geçmiş rapor dönemiyle karıştırılmaz.
+- Olay tablosu başlangıç ve yalnız doğrulanmış bitişi gösterir. Gelecekteki
+  recovery, bitiş/süre veya çözülme kanıtı sayılmaz. WAN öncesi/sonrası ve
+  kesinti yaşam döngüsü mevcut detay penceresinde korunur.
+- Gerçek V1 salt okunur / V2 sentetik sekmeleri ayrı. Gerçek sekme mevcut
+  ADMIN V1Inventory bileşenini yeniden kullanır; son sağlık snapshot'ından
+  PPPoE/abonelik/kesinti/WAN geçmişi türetilmez, bunlar açıkça Veri yok.
+  Kaynak değişiminde sentetik loader unmount olur; gerçek API dışında okuma yok.
+- Kontrol: dokümante --test-isolation=none ile 23 hedefli model/görünüm/doğrudan
+  etkilenen internet raporu testi PASS; son null-sayaç düzeltmesinde yalnız
+  ilgili PPPoE testi yeniden PASS. Final tsc+Vite build ve diff --check PASS.
+- Gerçek Chromium, yalnız sentetik loopback HTTP fixture: 8 kabul akışı PASS;
+  dönem/URL, PPPoE, bitiş bağlantıları, Escape/focus modalı, WAN/süre, hata/boş,
+  gerçek kaynak izolasyonu, Beyaz/Gece/Sistem ve 1440/390/320px. Select adları
+  açık aria-label ile düzeltildi. Görsel incelemede sütun genişlikleri düzeltildi;
+  yalnız etkilenen tema/yerleşim kabulü yeniden PASS. Ekran görüntüleri ve
+  sonuçlar .local/browser-acceptance/v22-management içinde; Git'e eklenmez.
+- Backend/API sözleşmesi, Router Merkezi V2.1 ve 5dk snapshot/timer kodu
+  değişmedi. VDS/SSH/DB/cihaz erişimi, deploy/migration/restart/timer değişikliği
+  veya V1/eski V2/fresh pilot müdahalesi yok. Genel test suite tekrarlanmadı.
+- Yalnız ilgili kaynak/test/dokümantasyon yerel commit ve normal güvenli
+  origin/main-guncel push kapsamındadır; force yok, çakışmada durulur.
+- Tek sonraki adım: yerel Dashboard > Günlük Yönetim Raporu üzerinden V2.2
+  görünümünün kullanıcı görsel kabulü; canlı dağıtım bu görevin kapsamında değil.

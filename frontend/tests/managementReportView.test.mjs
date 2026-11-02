@@ -23,7 +23,7 @@ const data={routers,details,events:null,read_at:now};
 function render(resource){globalThis.__reportResource=resource;try{return renderToStaticMarkup(createElement(ManagementReport,{onBack(){}}));}finally{delete globalThis.__reportResource;}}
 test('report renders named filters, synthetic labels, current-state scope and encoded detail links',()=>{
  const html=render({data,loading:false,retry(){}});
- for(const label of ['Bugün','Dün','Son 7 Gün','İşlem / olay','Filtreleri temizle','SENTETİK','geçmişe ait durum tahmini değildir'])assert.ok(html.includes(label));
+ for(const label of ['Bugün','Dün','Son 7 Gün','Son 30 Gün','İşlem / olay','Filtreleri temizle','SENTETİK','geçmişe ait durum tahmini değildir'])assert.ok(html.includes(label));
  assert.match(html,/href="#module=subscribers&amp;id=s\+%26\+1"/);assert.match(html,/href="#module=routers&amp;id=r\+%26\+1"/);
  assert.match(html,/Kaydedilmiş olay kaynağı yok/);assert.match(html,/aria-label="Günlük yönetim işlemleri tablosu"/);
  assert.doesNotMatch(html,/href="#module=routers&amp;id=undefined"/);
@@ -39,6 +39,22 @@ test('Dashboard opens the report in its existing module and direct report links 
   globalThis.window={location:{hash:''}};
   const dashboard=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));assert.match(dashboard,/Günlük Yönetim Raporu/);
   globalThis.window.location.hash='#module=dashboard&view=DAILY_REPORT&period=TODAY';
-  const report=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));assert.match(report,/Merkezi Günlük Yönetim Raporu/);assert.match(report,/Dashboard’a dön/);
+  const report=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));assert.match(report,/Günlük Yönetim Merkezi · V2.2/);assert.match(report,/Dashboard’a dön/);
  }finally{globalThis.window=previous;delete globalThis.__dailySummary;delete globalThis.__reportResource;}
+});
+
+test('V2.2 expiry navigation and missing histories are explicit',()=>{
+ const html=render({data:{...data,details:details.map(d=>({...d,history_available:false}))},loading:false,retry(){}});
+ for(const text of ['PPPoE işlem detayları: Veri yok','3 gün içinde dolacak','7 gün içinde dolacak','30 gün içinde dolacak','İlgili abone listesini aç','Merkezi İşlem Geçmişini aç','Kalıcı sentetik PPPoE / Hotspot'])assert.ok(html.includes(text),text);
+ assert.match(html,/workspace=LEGACY&amp;expiry=TODAY/);
+});
+test('V2.2 real source never substitutes synthetic operations or fabricated history totals',()=>{
+ const previous=globalThis.window;
+ try{
+  globalThis.window={location:{hash:'#module=dashboard&view=DAILY_REPORT&report_source=V1_INVENTORY'}};
+  const html=render({data,loading:false,retry(){}});
+  assert.match(html,/GERÇEK V1 · SALT OKUNUR/);
+  assert.match(html,/gerçek işlem geçmişi bağlı değil/);
+  assert.doesNotMatch(html,/Seçili dönemin işlem ve olay toplamları|Demo kişi|PPPoE işlem detayları:/);
+ }finally{globalThis.window=previous;}
 });

@@ -1,15 +1,18 @@
 import type { Router, SubscriberDetailData } from './api.ts';
 import { buildDailySummary, loadDailyInventory } from './dailySummary.ts';
-import { turkeyToday } from './expiry.ts';
+import { buildSubscriptionAlerts } from './subscriptionAlerts.ts';
+import { matchesExpiry, type ExpiryFilter, turkeyToday } from './expiry.ts';
 import { observationTime } from './subscriberObservation.ts';
 import { loadRouterEvents } from './routerEvents.ts';
 import type { AlarmEvent } from './routerEvents.ts';
 
-export const reportPeriods={TODAY:'Bugün',YESTERDAY:'Dün',LAST_7:'Son 7 Gün'} as const;
+export const reportPeriods={TODAY:'Bugün',YESTERDAY:'Dün',LAST_7:'Son 7 Gün',LAST_30:'Son 30 Gün'} as const;
 export type ManagementPeriod=keyof typeof reportPeriods;
-export const reportKinds={ALL:'Tüm işlem ve olaylar',OPERATIONS:'Tüm yönetim işlemleri',CREATE:'Abone oluşturma',PLAN_CHANGE:'Paket/profil değiştirme',STATUS_CHANGE:'Hesap durumu değiştirme',RENEWAL:'Abonelik yenileme',DATE_EDIT:'Bitiş tarihi düzenleme',INTERNET_DOWN:'İnternet kesintisi',INTERNET_UP:'Bağlantı geri gelmesi',WAN_CHANGE:'WAN değişikliği'} as const;
+export const reportKinds={ALL:'Tüm işlem ve olaylar',OPERATIONS:'Tüm yönetim işlemleri',PPPOE:'PPPoE işlemleri',CREATE:'Abone oluşturma',PLAN_CHANGE:'Paket/profil değiştirme',STATUS_CHANGE:'Hesap durumu değiştirme',RENEWAL:'Abonelik yenileme',DATE_EDIT:'Bitiş tarihi düzenleme',INTERNET_DOWN:'İnternet kesintisi',INTERNET_UP:'Bağlantı geri gelmesi',WAN_CHANGE:'WAN değişikliği'} as const;
 export type ManagementSource={read_at?:string;routers:Router[];details:SubscriberDetailData[];events:AlarmEvent[]|null};
-export type ManagementFilter={period:ManagementPeriod;router:string;kind:keyof typeof reportKinds};
+export type ManagementFilter={period:ManagementPeriod;router:string;kind:keyof typeof reportKinds;expiry?:ExpiryFilter};
+export const managementExpiryFilters=['ALL','EXPIRED','TODAY','WITHIN_3','WITHIN_7','WITHIN_30','VALID','UNKNOWN'] as const;
+export function managementSourceFromHash(hash:string){return new URLSearchParams(hash.replace(/^#/, '')).get('report_source')==='V1_INVENTORY'?'V1_INVENTORY':'DEMO';}
 export function managementRange(period:ManagementPeriod|'LAST_30',now=new Date()){
   if((!Object.hasOwn(reportPeriods,period)&&period!=='LAST_30')||!Number.isFinite(now.getTime()))throw new Error('Geçerli rapor dönemi ve zamanı gerekli.');
   const today=turkeyToday(now),day=Date.parse(today+'T00:00:00Z');
@@ -49,17 +52,29 @@ export function buildManagementReport(source:ManagementSource,filter:ManagementF
     const time=observationTime(value);if(!time)return false;
     const milliseconds=Date.parse(time);return milliseconds>=range.from&&milliseconds<range.until&&milliseconds<=range.cutoff;
   };
-  const operations=inventory.operation_history.filter(event=>inRange(event.occurred_at)&&(filter.kind==='ALL'||filter.kind==='OPERATIONS'||event.operation===filter.kind)).map(event=>({...event,router_id:reportRouterId(scopedDetails.find(detail=>detail.item.id===event.subscriber_id)!.item,routers)}));
+  const operations=inventory.operation_history.filter(event=>inRange(event.occurred_at)&&(filter.kind==='ALL'||filter.kind==='OPERATIONS'||filter.kind==='PPPOE'&&event.access_type==='PPPOE'||event.operation===filter.kind)).map(event=>({...event,router_id:reportRouterId(scopedDetails.find(detail=>detail.item.id===event.subscriber_id)!.item,routers)}));
   const sourceEvents=source.events===null?null:uniqueReportRecords(source.events,event=>event.id);
   const expanded=sourceEvents?.flatMap(event=>{
     if(event.is_demo!==true)throw new Error('Rapor yalnız sentetik olayları destekler.');
-    const records=[{id:event.id,kind:event.kind,occurred_at:event.started_at,router_id:event.router_id,lifecycle:event}];
-    if(event.recovery_id&&event.ended_at)records.push({id:event.recovery_id,kind:'INTERNET_UP',occurred_at:event.ended_at,router_id:event.router_id,lifecycle:event});
+    const end=observationTime(event.ended_at),start=observationTime(event.started_at);
+    const verifiedEnd=event.kind==='INTERNET_DOWN'&&event.status==='RESOLVED'&&event.recovery_id&&end&&start&&Date.parse(end)>=Date.parse(start)&&Date.parse(end)<=range.cutoff;
+    const lifecycle:AlarmEvent={...event,status:event.kind==='INTERNET_DOWN'&&event.status==='RESOLVED'&&!verifiedEnd?'UNKNOWN':event.status,ended_at:verifiedEnd?end:null,recovery_id:verifiedEnd?event.recovery_id:null,duration_seconds:verifiedEnd&&event.duration_verified!==false?event.duration_seconds:null};
+    const records=[{id:event.id,kind:event.kind,occurred_at:event.started_at,router_id:event.router_id,lifecycle}];
+    if(lifecycle.recovery_id&&lifecycle.ended_at)records.push({id:lifecycle.recovery_id,kind:'INTERNET_UP',occurred_at:lifecycle.ended_at,router_id:event.router_id,lifecycle});
     return records;
   })??null;
   const events=expanded===null?null:uniqueReportRecords(expanded,event=>event.id).filter(event=>(!filter.router||event.router_id===filter.router)&&inRange(event.occurred_at)&&(filter.kind==='ALL'||filter.kind===event.kind)).sort((a,b)=>Date.parse(b.occurred_at!)-Date.parse(a.occurred_at!)||a.id.localeCompare(b.id));
-  return {range,inventory,operations,events,generated_at:now.toISOString(),
-    counts:{operations:operations.length,events:events?.length??null,outages:events?.filter(event=>event.kind==='INTERNET_DOWN').length??null,recoveries:events?.filter(event=>event.kind==='INTERNET_UP').length??null,wan:events?.filter(event=>event.kind==='WAN_CHANGE').length??null},
+  const historyAvailable=scopedDetails.every(detail=>detail.history_available!==false);
+  const expiry=filter.expiry??'TODAY';
+  if(!managementExpiryFilters.includes(expiry as typeof managementExpiryFilters[number]))throw new Error('Bitiş filtresi geçersiz.');
+  const subscribers=scopedDetails.map(detail=>detail.item);
+  return {range,inventory,operations,events,historyAvailable,
+    pppoeOperations:historyAvailable?operations.filter(event=>event.access_type==='PPPOE').length:null,
+    untypedOperations:historyAvailable?operations.filter(event=>event.access_type!== 'PPPOE').length:null,
+    expirySummary:buildSubscriptionAlerts(subscribers,turkeyToday(now)),
+    expiryRows:subscribers.filter(row=>matchesExpiry(row.expires_on,expiry,turkeyToday(now))),
+    generated_at:now.toISOString(),
+    counts:{operations:historyAvailable?operations.length:null,events:events?.length??null,outages:events?.filter(event=>event.kind==='INTERNET_DOWN').length??null,recoveries:events?.filter(event=>event.kind==='INTERNET_UP').length??null,wan:events?.filter(event=>event.kind==='WAN_CHANGE').length??null},
     undated:{operations:inventory.operation_history.filter(event=>!observationTime(event.occurred_at)).length,events:sourceEvents?.filter(event=>(!filter.router||event.router_id===filter.router)&&!event.started_at).length??null},
   };
 }
@@ -71,6 +86,6 @@ export async function loadManagementReport(_path:string,init?:RequestInit):Promi
 export function managementFilterFromHash(hash:string):ManagementFilter{
   const params=new URLSearchParams(hash.replace(/^#/,''));
   const period=params.get('period')??'TODAY',kind=params.get('kind')??'ALL';
-  return {period:Object.hasOwn(reportPeriods,period)?period as ManagementPeriod:'TODAY',router:params.get('router')??'',kind:Object.hasOwn(reportKinds,kind)?kind as keyof typeof reportKinds:'ALL'};
+  return {period:Object.hasOwn(reportPeriods,period)?period as ManagementPeriod:'TODAY',router:params.get('router')??'',kind:Object.hasOwn(reportKinds,kind)?kind as keyof typeof reportKinds:'ALL',...(params.has('expiry')?{expiry:managementExpiryFilters.includes(params.get('expiry') as typeof managementExpiryFilters[number])?params.get('expiry') as ExpiryFilter:'TODAY' as const}:{})};
 }
 export function managementReportHash(filter:ManagementFilter){return '#'+new URLSearchParams({module:'dashboard',view:'DAILY_REPORT',...filter}).toString();}
