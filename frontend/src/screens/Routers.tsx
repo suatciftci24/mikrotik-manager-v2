@@ -10,9 +10,9 @@ import { DetailCenter } from './Details';
 import { ResourceState, dateTime } from '../components/Resource';
 import { useResource } from '../lib/useResource';
 import { useDetailNavigation } from '../lib/useDetailNavigation';
-import { lazy, Suspense, useMemo, useState, useEffect } from 'react';
+import { lazy, Suspense, useCallback, useMemo, useState, useEffect } from 'react';
 import { Cpu, HardDrive, MoreHorizontal, Plus, RefreshCw, Router as RouterIcon, Search } from 'lucide-react';
-import { type Router } from '../lib/api';
+import { api, type Router } from '../lib/api';
 import { StatusBadge } from '../components/Status';
 
 const RegisteredRouterCenter=lazy(()=>import('../components/RouterOnboarding').then(module=>({default:module.RegisteredRouterCenter})));
@@ -35,7 +35,9 @@ export function Routers({ onToast }: { onToast: (message: string) => void }) {
   const [view,setView]=useListFilter('routers','view',ROUTER_VIEWS,'LIST');
   const navigation = useDetailNavigation('routers');
   useEffect(()=>{const id=navigation.selected;if(id?.startsWith('demo-managed-router-')&&source!=='MANAGED_DEMO')setSource('MANAGED_DEMO');else if(id?.startsWith('registered-')&&source!=='REGISTERED')setSource('REGISTERED');},[navigation.selected,source,setSource]);
-  const resource = useResource<{items: Router[]}>('/routers');
+  // Each source owns its reads. Real inventory must never fetch demo routers.
+  const loadDemoRouters=useCallback((path:string,init?:RequestInit)=>source==='DEMO'?api<{items:Router[]}>(path,init):Promise.resolve({items:[]}),[source]);
+  const resource = useResource<{items: Router[]}>('/routers',loadDemoRouters);
   const routers = resource.data?.items ?? [];
   const [query, setQuery] = useState(''); const [filter, setFilter] = useListFilter('routers','status',ROUTER_FILTERS,'ALL');
   const filtered = useMemo(() => routers.filter(router => (filter === 'ALL' || connectionStatus(router.status) === filter) && `${router.name} ${router.site} ${router.model}`.toLowerCase().includes(query.toLowerCase())), [routers, filter, query]);

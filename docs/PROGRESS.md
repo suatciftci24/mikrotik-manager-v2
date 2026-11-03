@@ -3590,3 +3590,40 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Git kapsamı yalnız dokümantasyon ve yerel kabul tanı araç/testleri;
   origin/main-guncel normal commit/push. Tek açık engel Dashboard assertion
   nedeninin belirsiz olmasıdır; V2.6 CANLI KABUL HAYIR.
+
+
+## V2.6 — Dashboard assertion kök neden görevi — d3aee2e sonrası — 2026-11-03
+
+- BLOCKED (tarihsel kök neden); başlangıç main-guncel/d3aee2e temiz.
+  İki rollback raporu farklı aşamalarda duruyor: ilki son pageerror/HTTP
+  listesinde, ikincisi dashboard.desktop içinde. İkinci receipt alt assertion
+  ve operandları saklamadı; başarısız frame kaydı yok. Aynı neden varsayılmadı.
+- Üretilmiş dokuz satır + mevcut V2.6 build ile eski runner yerelde
+  Dashboard/yenileme/görünüm aşamalarını geçti, source.isolation'da durdu:
+  gerçek Router Merkezi koşulsuz /routers demo GET yapıyor. Bu ayrı ürün
+  kusuru kaynakta düzeltildi; tarihsel Dashboard hatasına atfedilmedi.
+- Ortak yeni karşılaştırma: doğru metrik kolonu/sayısal CPU-RAM, tek browser
+  API/DOM/sayaç/uyarı frame'i, gözlenen gerçek 1sn değerlendirme tick'i ve
+  response generation. Bekleyen yanıt/yaş sınırı dışında assertion retry yok.
+  Aynı snapshot/sınıflandırma saati korunur; sayaç/durum/yaş/gerekçe yanlışsa
+  FAIL. 60sn interval ve sıfır beklenmeyen HTTP/pageerror şartları korunur.
+- Private frame assertion öncesi saklanır; receipt tam alan ve izinli
+  sayısal/bool/durum beklenen-gerçek operandlarını tutar. Keyfi metin/API/
+  cookie/token/sır kaydedilmez. Yeni view önceki sağlık saatini devralmaz.
+- PASS: 5 yeni karşılaştırma +5 diagnostic kontrolü; üç ilişkili frontend
+  test dosyası/15 tanımlı test; TypeScript/Vite build (mevcut boyut uyarısı).
+  Sentetik browser: atomik snapshot, tutulan asenkron yanıt, gerçek kaynakta
+  demo isteği yokluğu, açık DEMO geçişi ve view saatinin yenilenmesi PASS.
+  Yalnız yeni/değişen kontrol scope'ları tekrarlandı; genel suite/build döngüsü yok.
+- Üç kısa canlı SALT OKUNUR tanı yalnız mevcut V2.5 ortak metrik/zaman
+  alanları içindi. İlk gözlemde row_2 metrics eşleşmedi; operand kaydı yoktu.
+  Hedefli sonraki örnekte 13% /4.7% eşleşti; sonraki operandlı 9/9 gözlem
+  de eşleşti. Bunlar tarihsel başarısız değerler değildir; root cause kanıtı
+  sayılmadı. Her oturum logout200/me401; browser/tüneller kapalı, sır bellekte.
+- 503 tekrar araştırılmadı. Üçüncü deploy, DB yazma/migration, restart,
+  timer/V1/eski V2/router/PPPoE/RADIUS/IPsec değişikliği yok. Sentetik/gerçek
+  tanı kanıtları ayrıdır; .local/v26-root-cause ve v26-comparison Git dışı.
+- Ayrıntı docs/V26_HEALTH_ACCEPTANCE.md. Tarihsel beklenen/gerçek ve tam
+  assertion bilinmiyor; üçüncü dağıtım için teknik engel HAYIR, kalkmadı.
+  Sonraki adım mevcut özgün frame/stack artefaktını kurtarmak veya aynı
+  uyuşmazlığı dağıtım yapmadan operandlarıyla yakalamaktır. Tahmini FIXED yok.

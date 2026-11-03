@@ -1,6 +1,9 @@
 # V2.6 Router Sağlık Uyarıları — kabul ve dağıtım kaydı
 
 Son canlı sonuç: **ROLLBACK_VERIFIED — V2.6 canlı kabul HAYIR.**
+Son kök neden görevi: **BLOCKED**; tarihsel Dashboard alt assertion ve
+operandları geri kazanılamadı. Kanıtlanmış ayrı kusurlar yerelde düzeltildi.
+Üçüncü dağıtım için teknik engel kaldırılmış sayılmaz.
 Aşağıdaki yerel kabul ve plan tarihsel hazırlık kaydıdır; canlı deneme sonucu
 belgenin son bölümündedir.
 
@@ -161,3 +164,104 @@ Runner syntax ve diff kontrolü PASS. Ürün/build/genel suite tekrar edilmedi.
 Tek açık engel: `dashboard.desktop` assertion nedeninin kanıtlanmamış olması.
 Sonraki adım yerel dar tanıyla bu karşılaştırmayı belirlemek; yeni canlı
 kabul gerekiyorsa geri alınmış yayını kendiliğinden tekrar dağıtmamak.
+
+
+## Dashboard assertion tanısı ve yerel düzeltmeler — d3aee2e sonrası
+
+2026-11-03 · SONUÇ **BLOCKED**, tarihsel kök neden kesinleşmedi.
+Bu bölüm önceki dağıtım hazırlığındaki EVET kararını geçersiz kılar:
+üçüncü dağıtım önerilmez ve bu görevde yapılmadı.
+
+### İki rollback aynı arıza olarak kabul edilmez
+
+| Kanıt | Başarısız assertion | Beklenen / gerçekleşen | Sınır |
+|---|---|---|---|
+| İlk V2.6 denemesi (1c9bfcd; 491f444 kayıt) | Son `assert.deepEqual(errors, [])` veya `assert.deepEqual(failures, [])` | Boş dizi / bilinmiyor | Diğer UI kontrolleri geçmişti; hangi son liste doluydu kaydedilmedi. Ev WSL'de eski özel kanıt dizini mevcut değil; sürümlü rapor esas alındı. |
+| İkinci deneme (fffac4a; d3aee2e kayıt) | `dashboard.desktop` altında bir assertion | Tam alt kontrol ve iki operand bilinmiyor | Receipt yalnız ERR_ASSERTION + geniş adımı tuttu; pageErrors=[] / httpFailures=[]. Başarısız kontrolden önce API/DOM frame diske yazılmamış. |
+| Bu görevde mevcut V2.5 salt okunur ortak alan tanısı | 0 tabanlı row_2 metrik `includes` sonucu | true / false | İlk uyuşmazlıkta metin operandları kaydedilmedi; tarihsel V2.6 hatasıyla eşitlenemez. |
+| Yalnız başarısız satırın sonraki salt okunur kontrolü | row_2 metrik karşılaştırması | `13% / 4.7%` / `13% / 4.7%` | Eşleşti; örnek zamanı ilerlemişti. Daha sonra operandları kaydeden ortak-alan gözleminde 9/9 eşleşti. Bu değerler tarihsel başarısız operandlar değildir. |
+
+Dolayısıyla ürün hatası / oturum-cache / veri zamanlaması / test yanlış
+karşılaştırması arasında **tarihsel atıf kanıtlanmadı**. Artık çözülmüş 503
+araştırılmadı. Bilinmeyen değerler yeni örnek veya tahminle doldurulmadı.
+
+### Tekrarlanabilir olarak kanıtlanan ayrı kusurlar
+
+1. Kaynak koddaki koşulsuz `useResource('/routers')`, gerçek Router Merkezi
+   açıkken de demo endpoint'ine GET atıyordu. Dağıtılmamış, tamamen üretilmiş
+   sentetik dokuz satır ve mevcut build ile eski canlı runner yerelde
+   çalıştırıldığında Dashboard/metrik/zaman/sayaç ve sonraki görünüm
+   kontrolleri geçti; `source.isolation` FAIL oldu. Receipt ayrıca Router
+   Merkezi aşamasında `/api/v1/routers` 404 kaydetti (sentetik sunucuda demo
+   endpoint'i özellikle sunulmuyordu). Bu gerçek kaynak izolasyonu kusurudur;
+   fffac4a'nın daha önceki Dashboard hatasının nedeni olduğu iddia edilmez.
+2. Eski araç alanları ayrı tarayıcı round-trip'leriyle okuyordu: API JSON,
+   Date.now, sayaçlar, satırlar ve uyarılar farklı anlardan gelebiliyordu.
+   Ürünün 1sn değerlendirme saati ile Node'un daha sonraki anı da ayrıydı.
+   Bu yöntem sınır/yenileme yarışına açıktır; tarihsel yarış yaşandığına
+   ilişkin receipt yoktur. Önceki tanı kaybı ise koddan kesin doğrulanır.
+
+### Kalıcı yerel değişiklikler
+
+- Router kaynağı yalnız DEMO olduğunda `/routers` yüklenir. Gerçek kaynak
+  demo verisi istemez; açık DEMO geçişinin gerçek demo okuması korunur.
+- Ortak `browser/health-comparison.mjs` eski satır-geneli `includes`
+  kontrolleri yerine doğru kolonun CPU ve RAM değerlerini ayrı, sayısal
+  karşılaştırır. İki metriğin yer değiştirmesi veya doğru metnin başka
+  kolonda bulunması FAIL'dir. Yalnız biçimsel whitespace eşdeğerdir;
+  geçerli bilimsel sayı gösterimi de sayısal olarak doğrulanır.
+- Fetch/1sn timer yalnız gözlenir: yanıt, saat, interval veya veri değiştirilmez.
+  Gözlem response generation ve o görünüme ait gerçek sağlık tick'inin alt/üst
+  zamanını tutar. Yeni görünüm eski tick'i kullanmaz. İki render frame'inden
+  sonra API + DOM + sayaç + uyarı tek browser evaluate ile alınır.
+- İstek sürüyorsa/yükleme bitmediyse veya gözlenen tick tam yaş sınırını
+  kesiyorsa yalnız lifecycle kararlılığı beklenir. Beklenen durumun ekranda
+  görünmesine kadar assertion tekrarı yapılmaz. Kararlı frame'de yanlış
+  CPU/RAM/sayaç/durum/gerekçe/ölçüm zamanı veya yaş anında FAIL üretir.
+  60sn interval ve canlı kabulün gerçek süre koşulu korunur; sahte saat yalnız
+  sentetik browser regresyonundadır.
+- Bağımsız oracle mevcut eşikleri/provenance/saat dilimi/10dk kuralını
+  uygular. Sayaç ve satırlar aynı API snapshot'ı ve aynı gözlenen saat
+  aralığında karşılaştırılır. İki uçta sınıf veya dakika yaşı farklıysa
+  karşılaştırma bir sonraki kararlı gözleme bırakılır; yanlış değer affedilmez.
+- Frame, assertion'dan **önce** private kanıt dosyasına yazılır. Receipt tam
+  alan adı ve yalnız izinli sayısal/bool/sabit durum beklenen/gerçek değerleri
+  tutar. Ham DOM/API özel frame'de kalır; keyfi hata operandı, token, cookie,
+  kullanıcı adı veya ham stack receipt'e kopyalanmaz. Kanıt dizini private
+  olmak zorundadır; yeni dosyalar0600. Eski FAIL receipt'ler değiştirilmedi.
+
+### Doğrulama ve kapsam
+
+- 5 yeni hedefli karşılaştırma testi +5 mevcut diagnostic testi PASS:
+  eşikler, tam 10dk, eksik kaynak, sıfır, in-flight ve yaş sınırı, kararlı
+  yanlış render'da FAIL, swapped metrikler, yanlış kolon, yanlış sayaç/durum/
+  gerekçe, karışık snapshot/demo reddi ve güvenli operand kaydı.
+- Gerçek App / sentetik loopback Chromium yeni regresyonu PASS: atomik
+  frame, tutulan yanıt sırasında yeni metrik/eski DOM karşılaştırılmaması,
+  Dashboard→Router Merkezi demo isteği yokluğu. Sonradan eklenen tam
+  gerekçe/yaş eşitliği sonrası yalnız ilgili browser kapsamı tekrarlandı.
+- Ek iki hedefli browser scope PASS: açık DEMO geçişi hâlâ çalışıyor;
+  yeni görünüm önceki tick'ten daha yeni örneği kendi saatiyle değerlendiriyor.
+- Doğrudan ilişkili routerHealth/routerCenter/v1Inventory üç test dosyası
+  (15 tanımlı test) PASS; TypeScript/Vite build PASS, mevcut >500kB uyarısı.
+  Syntax/diff PASS. Geniş suite ve değişmeyen build tekrar çalıştırılmadı.
+- Sentetik fixture'lar üretilmiştir; canlı veri Git/test fixture'larına
+  kopyalanmadı. Ürün oracle'ı testten import edilmez; aynı kurallar bağımsız
+  kontrollerle doğrulanır. Sentetik receipt'ler `synthetic_only=true` ve
+  `real_nine_router_acceptance=false` taşır. İlk yerel incelemede eski canlı
+  runner sentetik sunucuda yalnız yeniden üretim için çalıştırıldı; özel
+  receipt'in canlı adlandırılmış PASS metinleri gerçek 9/9 kabulü değildir.
+- Üç kısa Fresh Pilot SALT OKUNUR tanısında yalnız geçici ADMIN auth/GET ve
+  logout kullanıldı; her birinde logout200/me401. V2.5 ortak metrik/zaman
+  alanları okundu, V2.6 beş-sayaç kabulü çalıştırılmadı. Yeni dağıtım, DB
+  doğrudan erişim/yazma/migration, restart, timer/cihaz/V1/eski V2 değişikliği
+  yapılmadı. Sırlar yalnız bellekte, browser ve görev tünelleri kapatıldı.
+- Özel kanıt `.local/v26-root-cause/`; yeni sentetik regresyon receipt'leri
+  `.local/browser-acceptance/v26-comparison/`. Bunlar Git dışındadır.
+
+**Tek açık engel:** ikinci rollback'in kesin alt assertion'ı ve başarısız
+operandları geri kazanılamadı. Yukarıdaki düzeltmeler kanıtlanmış kusurları
+ve gözlem risklerini giderir; tarihsel Dashboard kök nedeni FIXED değildir.
+Yeni yayını denemek bu kanıt boşluğunu kapatmanın yerine geçmez. Sonraki
+somut adım, varsa asıl başarısız API/DOM/stack artefaktını kurtarmak veya
+ürün/dağıtım değişikliği olmadan aynı uyuşmazlığı operandlarıyla yakalamaktır.
