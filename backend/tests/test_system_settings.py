@@ -12,6 +12,7 @@ from sqlalchemy.exc import OperationalError
 from fastapi import HTTPException
 from app.services import system_settings as service,identity,system_health
 from app.services.demo_subscriptions import DemoChangeError,DemoStorageUnavailable
+from app.services.settings_state import SettingsStateError
 from app.core.security import current_admin
 
 class SQL:
@@ -67,8 +68,8 @@ class SettingsTransactions(TestCase):
         with self.assertRaises(DemoChangeError):service.save('user:someone-else',command,'demo-user',personal=True)
     def test_missing_store_does_not_write(self):
         self.db.ready=False
-        with self.assertRaises(DemoChangeError) as error:service.save('default',self.command(),'demo-user')
-        self.assertEqual(error.exception.status_code,503);self.assertEqual(self.db.audit,{})
+        with self.assertRaises(SettingsStateError) as error:service.save('default',self.command(),'demo-user')
+        self.assertEqual(error.exception.code,'SETTINGS_SCHEMA_MISSING');self.assertEqual(self.db.audit,{})
     def test_test_profile_changes_never_touch_active_default(self):
         id='demo-settings-'+str(uuid4());self.db.rows[id]=deepcopy(self.db.rows['default']);service.save(id,self.command(app_name='Isolated'),'demo-user');self.assertEqual(self.db.rows['default']['revision'],0);self.assertEqual(self.db.rows[id]['revision'],1)
 

@@ -1062,3 +1062,7 @@ Kaynak oturumdan tahmin edilmez; eksik oturum durumu `None` kalır. Eksik,
 hatası sabit kod üretir; ham istisna, kısmi liste, otomatik tekrar veya demo
 fallback yoktur. Gerçek envanter/API yayını için ayrıca yetkilendirilmiş taşıyıcı
 ve kaynak hesap ID eşlemesi gereklidir.
+
+Preferences 503 için kalıcı kurulum güvencesi, açık onarım/rollback kapsamı ve
+canlı kabul ölçütleri: [Fresh Pilot preferences onarımı](deploy/fresh-v2-pilot/PREFERENCES-REPAIR.md).
+Onarım HTTP/startup sırasında çalışmaz; canlı DB yazımı ayrı açık onay gerektirir.

@@ -21,7 +21,10 @@ app.include_router(api_router, prefix='/api/v1')
 
 @app.exception_handler(demo_subscriptions.DemoStorageUnavailable)
 def demo_storage_unavailable(_request, _error):
-    return JSONResponse(status_code=503, content={'detail': 'V2 demo veritabanına erişilemiyor. Yerel geliştirme veritabanını ve demo şema kurulumunu kontrol edin; işlem belleğe düşürülmedi.'})
+    from app.services.settings_state import SettingsStateError
+    if isinstance(_error, SettingsStateError):
+        return JSONResponse(status_code=503, content={'code': _error.code, 'detail': _error.detail})
+    return JSONResponse(status_code=503, content={'code': 'DATABASE_UNAVAILABLE', 'detail': 'V2 demo veritabanına erişilemiyor. Yerel geliştirme veritabanını ve demo şema kurulumunu kontrol edin; işlem belleğe düşürülmedi.'})
 
 
 @app.get('/api/health', tags=['system'])

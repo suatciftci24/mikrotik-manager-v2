@@ -191,10 +191,11 @@ class OfflinePostgres(unittest.TestCase):
         # Full forward SQL and the production helper's identity/audit/seal writes commit.
         self.single('BEGIN; SET search_path=public,pg_catalog;'+body+'COMMIT;')
         self.assertEqual(self.schema(),json.loads((HERE/'schema.expected.json').read_text()))
-        r=self.single("SELECT count(*) AS ledger_count FROM v2_migrations.applied; SELECT first_admin_initialized AS sealed FROM v2_demo.schema_state; SELECT count(*) AS audit_count FROM v2_demo.user_audit;")
+        r=self.single("SELECT count(*) AS ledger_count FROM v2_migrations.applied; SELECT first_admin_initialized AS sealed FROM v2_demo.schema_state; SELECT count(*) AS audit_count FROM v2_demo.user_audit; SELECT count(*) AS default_count FROM v2_demo.settings_records WHERE id='default';")
         self.assertIn('ledger_count = "9"',r.stdout)
         self.assertIn('sealed = "t"',r.stdout)
         self.assertIn('audit_count = "1"',r.stdout)
+        self.assertIn('default_count = "1"',r.stdout)
         # DDL drift changes the full signature; table-name presence alone is insufficient.
         self.single('ALTER TABLE public.routers ALTER COLUMN name TYPE varchar(121);')
         self.assertNotEqual(self.schema(),json.loads((HERE/'schema.expected.json').read_text()))

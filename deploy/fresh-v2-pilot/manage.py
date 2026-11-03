@@ -19,7 +19,8 @@ SCHEMAS = ('public', 'v2_demo', 'v2_router_workspace', 'v2_subscriber_workspace'
 ASSETS = ('profile.json','ledger.sql','schema.sql','schema.expected.json','postgresql.conf',
           'pg_hba.conf','pg_ident.conf','mikrotik-v2-fresh-pilot.service',
           'mikrotik-v2-fresh-pilot-db.service','manage.py','stage-approved.py',
-          'accept-approved.py','runtime_check.py')
+          'accept-approved.py','runtime_check.py','preferences-repair-approved.py',
+          'prepare-preferences-repair.py')
 FILES = ('001_initial_v2.sql', '002_demo_storage.sql', '003_demo_alarm_actions.sql',
          '004_demo_identity.sql', '005_demo_settings.sql', '006_router_registry.sql',
          '007_router_workspace.sql', '008_subscriber_workspace.sql', '009_first_local_admin.sql')

@@ -3366,3 +3366,57 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   yalnız eksik default Values kaydını ön-imaj/transaction/audit ve çakışmada
   durma/geri dönüş koşullarıyla eklemek. Yeni kurulum bbab921 bunu mevcut
   pilotta onarmaz; deploy/migration/restart gerekmez. Onarım yapılmadı.
+
+## Preferences 503 — kalıcı yerel çözüm ve canlı onarım hazırlığı — 2026-11-03
+
+- LOCAL PASS / LIVE PENDING. Başlangıç 1a53a93/main-guncel temizdi;
+  kanıtlanmış eksik default kök nedeni tekrar araştırılmadı. Bu görevde
+  canlı SSH/API/DB bağlantısı veya yazma yapılmadı. V2.6 ilerletilmedi.
+- bbab921 yeni boş Fresh kurulumunda migration 005 sonrası Values default
+  oluşturma/verify güvencesi korundu. Gerçek sentetik PG single-user tam
+  installer testine tam bir default kaydı şartı eklendi. SQL migration
+  dosyaları/checksum'ları değişmedi; mevcut kurulum yeniden kurulmaz.
+- Yeni preferences_repair servisinde açık transaction + mevcut ayar advisory
+  lock + iki ayar tablosunda write lock + PK/unique güvencesi: eksikse yalnız
+  default ve tek audit eklenir; geçerli mevcut kayıtta no-op, geçersizde STOP.
+  Eşzamanlı/tekrarlı çalışmada overwrite/çoğaltma yok. ADMIN/mühür tekrar
+  doğrulanır. Audit hatasında ekleme de rollback olur.
+- Uygulama import/startup ve GET'ler DB yazmaz veya migration başlatmaz.
+  Eksik şema/eksik default/geçersiz kayıt/gerçek erişim arızası yerel API'de
+  sırasıyla SETTINGS_SCHEMA_MISSING / DEFAULT_SETTINGS_MISSING /
+  SETTINGS_RECORD_INVALID / DATABASE_UNAVAILABLE kodlu 503 üretir.
+  Eksik şema için başarılı fallback kaldırıldı; kişisel yazma da geçerli
+  default gerektirir. ADMIN/başlık/revizyon/idempotence/audit korunur.
+- Hazır streamed bakım aracı ayrı açık canlı bayrağı olmadan durur.
+  Sabit Fresh DB/rol/port/path + kurulu eski manifest/ledger + katalog şema
+  imzası ve Values modeli doğrulanır. App rol yetkisi genişletilmez; ledger
+  yalnız mevcut owner peer transport ile READ ONLY okunur.
+- INSERT öncesi root-private ön-imaj ve aynı transaction'dan export snapshot
+  ile tam custom dump/list/SHA256/fsync zorunlu. Diğer uygulama tabloları,
+  mevcut ayar/audit ve ADMIN hash'leri korunur. Yalnız kendi iki yeni audit
+  UUID'si ve hedef default koruma karşılaştırmasından hariç tutulur.
+- Koşullu rollback yalnız kendi oluşturduğu değişmemiş default'u siler ve
+  telafi audit'i ekler; sonraki ayar değişikliğinde durur. Tam DB restore
+  veya otomatik commit-sonrası silme yok. Rollback ayrıca açık onay ister.
+- PASS: 11 yeni hedefli test, bunların 10'u Unix-socket/peer kimlikli geçici
+  sentetik PG16 ile: eksik→onarım→HTTP200, sekiz eşzamanlı onarım→tek kayıt/
+  audit, tekrar ve özelleştirme koruma, geçersiz/eksik şema ayrımı, gerçek
+  bağlantı hatası→503, gerçek oturum/ADMIN/başlık/okuma/yazma, atomic audit
+  rollback, koşullu rollback ve custom dump'ın ayrı sentetik DB'ye restore'u.
+  Diğer test onaysız bakımın bağlantıdan önce durmasını doğruladı.
+- PASS: doğrudan etkilenen 14 mevcut kontrol (3 preferences, gerçek PG
+  single-user tam installer, 8 ayar transaction, 2 initialization koruma).
+  Toplam 25 PASS, skip yok; manifest/syntax/diff PASS. Başarılı test tekrarı,
+  genel suite/frontend build yok. Sentetik küme durdurulup temizlendi.
+- İncelenebilir kapsam/kabul: deploy/fresh-v2-pilot/PREFERENCES-REPAIR.md.
+  Yerel özel bundle ve test özeti .local/deployment/preferences-live-readonly/
+  repair-candidate.py ve repair-local-validation.json; canlı sır içermez.
+- Gerçek kabul HENÜZ YOK: ayrı onay sonrası yalnız Fresh Pilot eksik default
+  + audit INSERT; öncesinde geri yüklenebilir yedek, sonrasında default ve
+  gerçek ADMIN preferences HTTP200/storage_ready/Values, korunan veri ve
+  gerçek 9/9 envanter/API-DB PID/timer kontrolü, logout200/me401 zorunlu.
+  Gerçek kabul receipt'i olmadan 503 tamamen kapandı/nihai PASS denmez.
+- Sonraki tek adım: hazırlanan bu dar canlı onarımın açık kullanıcı onayı.
+  Deploy, restart, migration, V1/eski V2/router/PPPoE/RADIUS/IPsec veya timer
+  değişikliği yok. Bu paket ve önceki 1a53a93 normal origin/main-guncel
+  commit/push kapsamındadır; force yok.

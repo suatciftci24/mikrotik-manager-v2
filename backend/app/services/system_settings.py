@@ -7,6 +7,7 @@ from sqlalchemy import text
 from app.adapters.demo_subscriptions import storage_errors
 from app.services import identity
 from app.services.demo_subscriptions import DemoChangeError,DemoStorageUnavailable
+from app.services.settings_state import SettingsStateError
 
 class Values(BaseModel):
     model_config=ConfigDict(extra='forbid',strict=True)
@@ -60,14 +61,16 @@ def ready(connection):
     return bool(connection.execute(text("SELECT to_regclass('v2_demo.settings_records') IS NOT NULL AND to_regclass('v2_demo.settings_audit') IS NOT NULL")).scalar_one())
 
 
-def clean(id,values):return (Personal if id.startswith('user:') else Values).model_validate(values).model_dump()
+def clean(id,values):
+    try:return (Personal if id.startswith('user:') else Values).model_validate(values).model_dump()
+    except ValueError:raise SettingsStateError('SETTINGS_RECORD_INVALID') from None
 
 
 def record(connection,id):
     row=connection.execute(text('SELECT * FROM v2_demo.settings_records WHERE id=:id'),{'id':id}).mappings().one_or_none()
     if row:return dict(record_id=id,values=clean(id,row['payload']),revision=row['revision'],updated_at=row['updated_at'].isoformat() if row['updated_at'] else None,storage_ready=True,is_demo=True)
     if id.startswith('user:'):return dict(record_id=id,values=Personal().model_dump(),revision=0,updated_at=None,storage_ready=True,is_demo=True)
-    if id=='default':raise DemoStorageUnavailable()
+    if id=='default':raise SettingsStateError('DEFAULT_SETTINGS_MISSING')
     raise DemoChangeError(404,'Ayar profili bulunamadı')
 
 
@@ -79,7 +82,7 @@ def load(id='default'):
             connection.execute(text('SET TRANSACTION READ ONLY'));store._verify(connection)
             if not ready(connection):
                 if id!='default' and not id.startswith('user:'):raise DemoChangeError(404,'Ayar profili bulunamadı')
-                return dict(record_id=id,values=(Personal() if id.startswith('user:') else Values()).model_dump(),revision=0,updated_at=None,storage_ready=False,is_demo=True)
+                raise SettingsStateError('SETTINGS_SCHEMA_MISSING')
             return record(connection,id)
 
 
@@ -90,7 +93,7 @@ def effective(user_id):
     with store.engine.connect().execution_options(isolation_level='REPEATABLE READ') as connection:
         with connection.begin():
             connection.execute(text('SET TRANSACTION READ ONLY'));store._verify(connection)
-            if not ready(connection):return dict(values=Values().model_dump(),personal=Personal().model_dump(),revision=0,storage_ready=False,is_demo=True)
+            if not ready(connection):raise SettingsStateError('SETTINGS_SCHEMA_MISSING')
             defaults=record(connection,'default');personal=record(connection,'user:'+user_id)
             return dict(values={**defaults['values'],**{k:v for k,v in personal['values'].items() if v is not None}},personal=personal['values'],revision=personal['revision'],storage_ready=True,is_demo=True)
 
@@ -107,10 +110,11 @@ def save(id,payload,actor_id,personal=False):
     store=identity.adapter();fingerprint=json.dumps([id,actor_id,payload.model_dump(mode='json')],sort_keys=True)
     with store.engine.begin() as connection:
         store._verify(connection)
-        if not ready(connection):raise DemoChangeError(503,'Ayar deposu hazır değil; açık settings-init bakımı gerekli.')
+        if not ready(connection):raise SettingsStateError('SETTINGS_SCHEMA_MISSING')
         connection.execute(text("SELECT pg_advisory_xact_lock(hashtext('v2-settings'))"))
         actor=connection.execute(text('SELECT * FROM v2_demo.users WHERE id=:id FOR SHARE'),{'id':actor_id}).mappings().one_or_none()
         if not actor_allowed(actor,personal):raise DemoChangeError(403,'Ayar değişikliği yetkisi gerekli')
+        if personal:record(connection,'default')
         receipt=connection.execute(text('SELECT * FROM v2_demo.settings_audit WHERE id=:id'),{'id':str(payload.request_id)}).mappings().one_or_none()
         if receipt:
             if receipt['fingerprint']!=fingerprint:raise DemoChangeError(409,'İstek kimliği farklı ayar işlemi için kullanılmış.')
