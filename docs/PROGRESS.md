@@ -3651,3 +3651,29 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   migration/restart/cihaz/V1/eski V2 değişikliği ve yeni 503 araştırması yok.
 - Sonraki somut ihtiyaç tarihsel başarısız frame/operand kanıtıdır; mevcut
   V2.5'te aynı sağlıklı kontrolü tekrar çalıştırmak bu boşluğu gidermez.
+
+## Kalıcı Codex Altın Kuralları ve başlangıç yüklemesi — 2026-11-03
+
+- PASS: kök AGENTS.md mevcut mimari/izolasyon/çalışma talimatları korunarak
+  güncellendi. Başına a–f görev öncesi kontrolü ve 17 zorunlu Altın Kural
+  eklendi; eski onay/rapor/commit hükümleri yeni işlem-bazlı onay, normal push
+  ve BLOCKED/ROLLBACK başarı değildir kurallarıyla uyumlu hale getirildi.
+- Depo talimat taramasında alt AGENTS.md veya AGENTS.override.md yok;
+  klasörlere kopya, global Codex ayarı veya uygulama değişikliği yapılmadı.
+- Kurulu codex-cli0.166.0 desteklenen `debug prompt-input` komutuyla, proje
+  kökü `-C /home/suat/Codex-Projects/mikrotik-manager-v2` seçilerek doğrulandı:
+  exit0, JSON geçerli ve güncel AGENTS.md'nin TAM metni model-visible başlangıç
+  bağlamında bulundu. Model çağrısı/token harcaması yok. Bu, gelecekteki her
+  model yanıtının kusursuz uyacağı garantisi değil, gerçek yükleme kanıtıdır.
+- İlk sandbox denemesi read-only FS ile durdu; yalnız aynı yerel tanı izinli
+  çalıştırılarak tamamlandı. Ham birleşik prompt saklanmadı/gösterilmedi.
+  Sırsız özet .local/agents-startup-verification/summary.json (Git dışı):
+  AGENTS.md9507byte, SHA256
+  ae3df7bf79ade8f756354d92b04d1c129377c7570f715a0e5b3ff230062b5302.
+- Resmî mekanizma kaynağı: https://developers.openai.com/codex/guides/agents-md/
+  Yerel CLI `debug prompt-input --help` de kullanılan yöntemi doğruladı.
+- İçerik/diff kontrolü PASS; uygulama test/build, DB, servis veya canlı erişim
+  yok. Mevcut V2.6 Dashboard tarihsel kök neden BLOCKED kaydı değişmedi.
+- Git kapsamı yalnız AGENTS.md + bu ilerleme kaydı; normal origin/main-guncel
+  commit/push. Sonraki adım ev/ofis Git senkronizasyonundan sonra Codex'i
+  ilgili proje kökünde başlatmaktır; ofis makinesinde yükleme ayrıca çalıştırılmadı.

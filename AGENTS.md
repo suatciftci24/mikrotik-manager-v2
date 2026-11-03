@@ -1,5 +1,41 @@
 # MikroTik Manager V2 — Codex Altın Kuralları
 
+## Görev öncesi zorunlu kontrol
+
+Her yeni görev ve oturum başlangıcında, uygulamadan önce sırayla:
+
+a. Altın Kuralları değerlendir.
+b. Önce `docs/PROGRESS.md` dosyasının güncel bölümünü ve görevle ilgili en son kabul raporunu oku; mevcut dalı, commit'i ve çalışma ağacını kontrol et.
+c. Açık BLOCKED sorunlarını, ROLLBACK kayıtlarını ve geçmiş kararları belirle.
+d. Görevin güvenlik, izolasyon ve kullanıcı onayı sınırlarını belirle.
+e. En az maliyetli, yeterli doğrulama planını seç.
+f. Ancak sonra uygulamaya geç.
+
+Büyük dosyaları gereksiz yere tamamen tarama; ilgili başlıkları hedefli ara ve oku.
+Bu kök dosya proje kapsamındaki ortak talimat kaynağıdır; alt klasörlere gereksiz kopyalama yapma.
+Proje talimatları kendi aralarında çelişirse güvenli ve daha kısıtlayıcı kuralı uygula;
+üst öncelikli sistem/geliştirici talimatları ve kullanıcının güncel açık talimatları saklıdır.
+
+## Zorunlu Altın Kurallar
+
+1. Kodlamadan önce mevcut mimariyi, ilgili kodu, geçmiş kararları, açık engelleri ve bağımlılıkları değerlendir.
+2. Önce `docs/PROGRESS.md` ve görevle ilgili en son kabul raporunu oku. Büyük dosyaları gereksiz yere tamamen tarama.
+3. Tek kapsamlı görevde planlama, uygulama, gerekli düzeltmeler, hedefli regresyon, kabul raporu, commit ve push işlemlerini tamamla.
+4. Kanıtlanmış sorunları yeniden araştırma. Önceki çalışmaları ve bulguları tekrar kullan.
+5. Ürün hatası ile test aracı hatasını ayır. Değişken verileri aynı snapshot ve aynı veri kaynağıyla karşılaştır.
+6. Testleri kaldırarak, gevşeterek veya hataları gizleyerek PASS üretme.
+7. Sorunun kök nedeni kanıtlanıp kalıcı düzeltme doğrulanmadan başka geliştirme aşamasına geçme.
+8. BLOCKED ve ROLLBACK başarı değildir.
+9. Gereksiz test, tekrar analiz, uzun keşif ve sonuçsuz dağıtım döngülerinden kaçın; Codex haftalık kullanım kotasını koru.
+10. Yerel kalite kapısı tamamlanmadan canlı dağıtım yapma.
+11. Her yeni canlı deploy, DB yazımı, migration, servis restartı, router, RADIUS veya PPPoE değişikliği için kullanıcıdan yeni, açık ve işlem kapsamına özgü onay al. Önceki görev veya dağıtımın onayını yeni bir canlı işleme taşıma; aynı açıkça onaylanmış işlemi gereksiz yere tekrar onaylatma.
+12. V1 üretim sistemi ve eski V2 korunacak. Fresh Pilot ve yerel demo izolasyonu bozulmayacak.
+13. Gizli bilgileri, parolaları, tokenları ve yedek içeriklerini Git'e ekleme.
+14. Güvenli yerel değişiklikleri hedefli testlerden sonra commit/push yap; force push kullanma. Yalnız talimat/dokümantasyon görevinde içerik, talimat yükleme ve diff gibi ilgili kontroller yeterlidir; uygulama test/build döngüsü başlatma.
+15. Raporlar kısa, kanıta dayalı ve net olsun. PASS yalnız gerçekten doğrulanan işlemler için verilsin.
+16. Kullanıcıya terminal komutu gerekiyorsa ev/ofis/VDS/MikroTik terminalini açıkça belirt.
+17. Kullanıcıdan gereksiz onay veya tekrar test isteme.
+
 ## Çalışma ilkeleri
 
 1. Çözüm odaklı çalış; sorunları mümkünse kendin düzelt ve tamamlanmış sonuç sun.
@@ -7,7 +43,7 @@
 3. Yerel kodlama, güvenli geliştirme, hedefli test, hata düzeltme ve commit için tekrar onay isteme.
 4. Yalnızca değişen işlevi ve doğrudan etkilenen kritik bağlantıları doğrula.
 5. Başarılı testleri sebepsiz tekrarlama; hata varsa yalnızca başarısız kapsamı yeniden test et.
-6. Tek görevde kodlama, gerekli düzeltmeler, hedefli test ve commit işlemlerini tamamla.
+6. Tek görevde kodlama, gerekli düzeltmeler, hedefli test, commit ve normal push işlemlerini tamamla.
 7. MikroTik Manager V1 üretim sistemine müdahale etme.
 8. V2 için ayrı veritabanı, yapılandırma, kimlik bilgileri ve çalışma ortamı kullan.
 9. Hibrit MikroTik Local + FreeRADIUS mimarisini koru; her aboneliğin tek yetkili yönetim kaynağı olsun.
@@ -19,7 +55,7 @@
 15. Canlı yayın, üretim migration'ı, servis restartı veya gerçek cihaz değişikliği için açık kullanıcı onayı al.
 16. Test kolaylığı için güvenlik kontrollerini veya izolasyonu gevşetme.
 17. Kritik engellerde gereksiz tekrar yerine alternatif öner ve gerçek engeli açıkça belirt.
-18. Görev sonunda kısa **PASS / BLOCKED**, yapılan iş, commit ve sıradaki somut adımı bildir.
+18. Görev sonunda kısa **PASS / BLOCKED / ROLLBACK**, yapılan iş, commit/push ve sıradaki somut adımı bildir; BLOCKED ve ROLLBACK başarı değildir.
 
 ## Değişmez mimari ilkeler
 
@@ -47,15 +83,15 @@
 
 ## Kalıcı çalışma sözleşmesi
 
-Her göreve başlarken AGENTS.md ve varsa docs/PROGRESS.md dosyasını oku. Çalışma kurallarını kullanıcıya tekrar sordurma. Görev sonunda ilerleme belgesini güncelle.
+Her göreve başlarken AGENTS.md, docs/PROGRESS.md dosyasının güncel bölümü ve görevle ilgili en son kabul raporunu oku; ilerleme belgesi yoksa oluştur. Çalışma kurallarını kullanıcıya tekrar sordurma. Görev sonunda ilerleme belgesini güncelle.
 
-1. Sonuç odaklı çalış. Görevi gereksiz parçalara bölme; kodlama, gerekli kontrol, düzeltme ve commit işlemlerini uçtan uca tamamla.
+1. Sonuç odaklı çalış. Görevi gereksiz parçalara bölme; kodlama, gerekli kontrol, düzeltme, commit ve normal push işlemlerini uçtan uca tamamla.
 2. Kullanıcıya sürekli terminal komutu, test ve teşhis işi verme. Yapabildiğin işleri kendin yap.
 3. Güvenli yerel inceleme, kodlama, hedefli test, hata düzeltme ve commit için tekrar tekrar onay isteme.
 4. Yalnızca değişikliğe uygun gerekli kontrolleri çalıştır. Yeni bir hata veya değişiklik yoksa aynı kontrolleri tekrarlama. Zorunlu proje kontrollerini atlama.
 5. Önce mevcut kodu ve proje durumunu incele; yapılmış işi yeniden yapma. Kullanıcının yerel değişikliklerini koru. Yıkıcı Git komutları kullanma.
 6. Mevcut tasarımı ve çalışan özellikleri koru. Kapsam dışı yeniden yazım, bağımlılık veya karmaşıklık ekleme.
-7. MikroTik Manager V1 ve canlı sistemlere değişiklik yetkisi yoktur. Deploy, canlı migration, servis restartı, router/RADIUS veya gerçek abone verisini değiştiren işlemler için açık ve kapsamı belirli kullanıcı onayı gerekir. Aynı onaylı kapsam için yeniden onay isteme.
+7. MikroTik Manager V1 ve canlı sistemlere değişiklik yetkisi yoktur. Her yeni canlı deploy, DB yazımı, migration, servis restartı, router/RADIUS/PPPoE veya gerçek abone verisini değiştiren işlem için yeni, açık ve o işleme özgü kullanıcı onayı gerekir. Önceki görevin onayı yeni işleme devredilmez; aynı açıkça onaylanmış işlem kapsamını gereksiz yere tekrar onaylatma.
 8. İptal edilmiş veya ertelenmiş işleri yeni açık talimat olmadan yeniden başlatma.
 9. Gerçek veri, örnek veri ve henüz uygulanmamış özellikleri açıkça ayır. Yapılmayan işlemi yapılmış, çalıştırılmayan testi geçmiş gibi bildirme.
 10. Kullanıcıya komut vermek gerekirse önce hangi bilgisayar ve terminalde çalışacağını belirt. V2 ofis yolu: `/home/suatpc/Codex-Projects/mikrotik-manager-v2`.
