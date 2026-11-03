@@ -6,7 +6,7 @@ service commands, timer triggers, router access or HTTP preference writes.
 """
 import argparse
 import hashlib
-import http.cookiejar
+from http.cookiejar import CookieJar
 import importlib.util
 import json
 import os
@@ -75,7 +75,7 @@ def main(argv=None):
     for p in [ROOT, ROOT/'app', ROOT/'config', ROOT/'backups']:
         require(p.is_dir() and not p.is_symlink() and p.resolve() == p and not p.stat().st_mode & 0o022, 'PATH_REJECTED')
     validate_secret_files()
-    jar = http.cookiejar.CookieJar()
+    jar = CookieJar()
     class NoRedirect(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, *a, **k):
             return None

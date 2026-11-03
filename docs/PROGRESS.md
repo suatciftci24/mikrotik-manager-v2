@@ -3468,3 +3468,9 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Bu kayıt aşamasında canlı onarım henüz yapılmadı. Mevcut açık kullanıcı
   onayıyla aynı dar yedek/default+audit/gerçek kabul kapsamı sürdürülecek.
   Canlı chown/chmod, deploy, restart, migration veya kapsam dışı yazma yok.
+
+- Aynı kapsam devamı: yeni sahiplik kapısı geçildikten sonra hazır aracın
+  HTTP client başlangıcında http modülü/yerel değişken adı çakışması
+  saptandı; DB açılmadan durdu. CookieJar doğrudan import ile düzeltildi.
+  Yalnız bu başlangıcın manifest kapısına IO olmadan ulaştığını sınayan
+  1 yeni hedefli test PASS; onarım/audit transaction kodu değişmedi.

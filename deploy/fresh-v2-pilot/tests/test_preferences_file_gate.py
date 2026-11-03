@@ -67,3 +67,17 @@ class SecretFilesContract(TestCase):
                 self.accounts[account]=value
                 with self.assertRaisesRegex(RepairBlocked,'SECRET_ACCOUNT_REJECTED'):executor.validate_secret_files()
             self.accounts[account]=before
+
+    def test_http_client_initialization_reaches_manifest_gate_without_io(self):
+        import hashlib
+        import io
+        import json
+        from uuid import uuid4
+        from app.services.system_settings import Values
+        model_hash=hashlib.sha256(json.dumps(Values.model_json_schema(),sort_keys=True).encode()).hexdigest()
+        # Stop at the first installed-manifest read; no real filesystem/DB/HTTP.
+        with patch.object(executor,'EXPECTED_VALUES_SCHEMA_SHA256',model_hash),patch.object(executor.os,'geteuid',return_value=0),patch.object(executor,'validate_secret_files'),patch.object(Path,'is_dir',return_value=True),patch.object(Path,'is_symlink',return_value=False),patch.object(Path,'stat',return_value=SimpleNamespace(st_mode=0o755)),patch('importlib.util.spec_from_file_location',side_effect=RuntimeError('synthetic stop')) as manifest,patch('sqlalchemy.create_engine') as connect,patch('urllib.request.OpenerDirector.open') as request,patch('sys.stdout',new_callable=io.StringIO) as output:
+            result=executor.main(['apply','--approved-live-default-repair','--request-id',str(uuid4())])
+        self.assertEqual(result,2)
+        manifest.assert_called_once();connect.assert_not_called();request.assert_not_called()
+        self.assertEqual(json.loads(output.getvalue())['status'],'BLOCKED')
