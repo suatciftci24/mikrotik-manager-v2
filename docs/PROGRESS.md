@@ -3265,3 +3265,33 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   normal origin/main-guncel commit/push. İkinci dağıtıma hazır: HAYIR; gerçek
   hatanın kaynağı henüz kanıtlanmadı. Tek sonraki adım: yeni açık canlı onay
   kapsamında ayrıntılı tanıyla kontrollü kabul planının değerlendirilmesi.
+
+## V2.6 — Mevcut V2.5 Fresh Pilot salt okunur kabul tanısı — 2026-11-03
+
+- BLOCKED (bütünsel kabul FAIL); tek salt okunur tanı geçişi tamamlandı.
+  faf473d tanı yardımcısı V2.5 dört sayaç/satır sözleşmesine uygun yerel
+  runner ile kullanıldı. Mevcut index SHA256 rollback ön-imajıyla eşleşti.
+- PASS: envanter 9/9, doğrulanmış sağlık örneği/geçerli CPU ve RAM 9/9,
+  model/RouterOS mevcut. İlk örnek yaşı 374sn; V2.5 beş dakika sınırında
+  eski ölçümdür, canlı online sonucu değildir. Dashboard/Router Merkezi
+  satırları API ile eşleşti; mevcut 60sn yenilemede tek seri okuma geçti.
+- BULGU: /api/v1/preferences iki kez HTTP 503 (dashboard.load ve
+  router_center.rows_match_api). Pageerror ve ağ requestfailure yok.
+  browser.page_errors geçti; browser.http_failures ERR_ASSERTION:
+  Expected 0 HTTP failures; observed 2. Diğer kayıtlı assertion'lar geçti.
+  Auth/envanter ve yüklenen HTML/asset yanıtları 200; yanıt gövdeleri yok.
+- Önceki assert.deepEqual(failures, []) ile eşdeğer beklenti V2.5'te de
+  başarısız oldu: V2.6'ya özgü olmayan aday mekanizma bulundu. Tarihsel
+  receipt ayrıntısız olduğundan önceki hatanın aynı 503 olduğu kanıtlanmaz.
+  V2.5 temiz olsaydı bile V2.6 hatasını dışlamazdı. 503 iç nedeni araştırılmadı.
+- ADMIN logout 200 ve sonrasında me 401; cookie dosyası/tünel temizlendi.
+  Kalıcı uzak oturum/kanıt dosyası yok. İş verisi yazımı, frontend dağıtımı,
+  restart/reload, migration, doğrudan DB/router/timer işlemi, V1/eski V2
+  erişimi yok. Hata düzeltilmedi veya yok sayılmadı; ikinci dağıtım yok.
+- Yerel özel kanıt .local/deployment/v25-readonly-diagnostics-faf473d/: API,
+  HTTP/pageerror/assertion receipt, cleanup doğrulaması, iki PNG ve runner.
+  Gerçek satırlar/kanıtlar Git dışında. İlk sandbox SSH engeli sonrası
+  izinli tek kabul çalıştı; test/build veya başarılı kontrol tekrarı yok.
+  Runner exit=0 olsa da esas receipt status=FAIL olarak korunur.
+- Sonraki tek adım: ayrı onaylı salt okunur kapsamda preferences 503 nedenini
+  belirlemek. İkinci dağıtım şimdilik önerilmez. Yalnız bu kayıt commit edilir.
