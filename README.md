@@ -278,9 +278,21 @@ are preserved. The Router Center's default view and detail dialogs are unchanged
 a render option supplies the compact Dashboard presentation without a second
 poller. No backend contract, exporter, transport or five-minute transfer changes.
 
-Four cards show the actual returned router count, samples within five minutes,
-stale samples and missing health samples. The table retains name/model/RouterOS,
-CPU/RAM, last internet-probe result, Istanbul measurement time and freshness.
+V2.6 replaces the four V2.5 cards with five exclusive health counts and a
+compact priority list (critical, attention, stale, missing), linked to Router
+Center. Both views share the UI classifier. Initial thresholds are **Dikkat**:
+CPU >= 70% or RAM >= 80%; **Kritik**: CPU >= 90% or RAM >= 95%.
+A verified measurement older than **10 minutes** is **Eski veri**, irrespective
+of recorded performance. Exactly 10 minutes is current. **Normal** requires
+both valid metrics below attention thresholds and a current sample. Missing
+metrics/provenance/time produce **Veri yok**. Future or malformed timestamps
+fail safely; invalid inventory responses hide retained rows and counts.
+These are informational UI states: no persistent alarms, notifications, automatic
+actions, additional polling, backend or device changes. Existing demo alarms
+remain separate. Historical CPU/RAM values in stale rows are labelled by age
+and are never classified as current performance alarms.
+The table retains name/model/RouterOS, CPU/RAM, last internet-probe result,
+Istanbul measurement time and health reason/age.
 Only a timestamp with `V1_ROUTER_HEALTH_SAMPLES` provenance and a sample ID is
 shown as a real health measurement. CPU zero remains valid; inventory-only
 values/timestamps do not become health evidence. A successful probe never proves
@@ -294,10 +306,10 @@ follow the selection, and the old fixed demo navigation counter is hidden.
 
 Targeted tests from `frontend`:
 `node --test --test-isolation=none tests/dashboardV1Health.test.mjs tests/v1Inventory.test.mjs`.
-`node tests/dashboardV1Health.browser.mjs` exercises the actual App against synthetic
+`node --test --test-isolation=none tests/routerHealth.test.mjs` covers health boundaries.
+`node tests/routerHealth.browser.mjs` exercises the actual App against synthetic
 loopback fixtures (including a nine-row fixture, **not real 9/9 acceptance**).
-`--remaining`, `--final-scopes` and `--layout-only` allow focused continuation.
-Artifacts remain under `.local/browser-acceptance/v25-dashboard/`. No live data,
+V2.6 artifacts remain under `.local/browser-acceptance/v26-health/`. No live data,
 service restart or handoff configuration is needed for these tests.
 
 ## Router usage and connection report

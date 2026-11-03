@@ -13,7 +13,7 @@ const data={source:'V1_INVENTORY_EXPORT',is_demo:false,availability:'AVAILABLE',
 const view=(override={})=>renderToStaticMarkup(ui.V1InventoryView({data,loading:false,retry:()=>{},...override}));
 test('compact table separates metrics and moves technical data into detail',()=>{
  const html=view();
- for(const text of ['Fixture','0%','Veri yok','Güncel değil','03:00','İstanbul','Son internet denemesi başarılı','canlı çevrimiçi durum kanıtı değildir','data-label="CPU"','data-label="Bellek"'])assert.ok(html.includes(text),text);
+ for(const text of ['Fixture','0%','Veri yok','Eski veri','03:00','İstanbul','Son internet denemesi başarılı','canlı çevrimiçi durum kanıtı değildir','data-label="CPU"','data-label="Bellek"'])assert.ok(html.includes(text),text);
  assert.doesNotMatch(html,/V1_ROUTER_HEALTH_SAMPLES|Ölçüm ID|2020-01-01T00:00:00Z|Çevrimiçi|ONLINE|null%|NaN/);
  const detail=view({selectedId:'1'});
  for(const text of ['<dialog','V1_ROUTER_HEALTH_SAMPLES','Ölçüm ID','17','2020-01-01T00:00:00Z','Canlı durum'])assert.ok(detail.includes(text),text);

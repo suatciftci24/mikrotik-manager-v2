@@ -3100,3 +3100,42 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   teşhis veya canlı bağlantı çalıştırılmadı; mevcut değişiklikler korundu.
 - Tek sonraki adım: kabul edilen V2.5 Dashboard'u mevcut Fresh Pilot
   ortamında kullanmak; bu kayıt için yeni dağıtım gerekmez.
+
+## V2.6 — Router sağlık uyarıları — 2026-11-03
+
+- PASS (yerel geliştirme): temiz main-guncel / 0c8985e üzerinden mevcut
+  V2.5 salt okunur /v1-inventory sözleşmesi ve ortak runtime kullanıldı.
+  Dashboard ve Router Merkezi aynı UI sınıflandırmasını kullanır. Yeni API,
+  bağlantı, toplayıcı, servis, timer veya migration yok.
+- Başlangıç eşikleri: Dikkat CPU >= %70 veya RAM >= %80; Kritik CPU >= %90
+  veya RAM >= %95. Önce gerçek sağlık kaynağı/ölçüm ID/zaman doğrulanır.
+  10 dakikadan eski ölçüm Eski veri olur; tam 10 dakika günceldir. Eksik,
+  hatalı, gelecekteki zaman veya eksik/geçersiz metrikler güvenli biçimde
+  Veri yok olur; eksik metrikle Normal üretilmez. Eski ölçümde yüksek CPU/RAM
+  güncel performans uyarısı sayılmaz. Eşikler README ve arayüzde belgeli.
+- Dashboard beş ayrı sayaç ve ilk beş öncelikli uyarıyı gösterir; sıralama
+  Kritik / Dikkat / Eski veri / Veri yok. Router Merkezi bağlantısı ve tüm
+  cihazların durum/gerekçe/ölçüm yaşı/zamanı korunur. Saatler Europe/Istanbul;
+  API okuma saati ölçüm saati değildir. Kalıcı alarm, bildirim veya müdahale yok.
+- Demo/gerçek kaynak ayrımı ve merkezi ADMIN yetkisi korunur. Kaynak değişimi
+  önceki uyarı/istekleri temizler. Hata/yükleme sırasında eski sayaçlar ve
+  uyarılar gizlenir; boş envanter açıkça Veri yok olarak açıklanır. Mevcut
+  60sn seri yenileme korunur; yeni polling eklenmedi.
+- PASS: 4 yeni eşik/zaman/eksik veri/sıralama testi ve doğrudan etkilenen
+  mevcut 12 test, toplam 16 hedefli test (--test-isolation=none). Son
+  TypeScript + Vite build ve diff kontrolü PASS; mevcut bundle boyut uyarısı var.
+- Yerel Chromium / gerçek App / yalnız sentetik loopback HTTP fixture PASS:
+  beş sayaç ve öncelik, gerçek örnek yaşlanması, 60sn tek istek, hata/boş veri,
+  klavye bağlantısı/dialog Escape, kaynak değişiminde bekleyen istek/polling
+  temizliği ve yetkisiz URL izolasyonu. Beyaz/Gece/Sistem, 1440/390/320px
+  taşmasız Dashboard kontrolü PASS. Mobil Router Merkezi'ndeki sabit hücre
+  yüksekliği düzeltildi; yalnız ilgili görünüm kontrolü tekrarlandı ve hücre
+  içeriğinin sığması doğrulandı. Masaüstü/mobil görüntüler görsel incelendi.
+  Kanıtlar .local/browser-acceptance/v26-health altında; Git'e alınmaz.
+- İlk sentetik tarayıcı sunucusu sandbox loopback izni nedeniyle açılamadı;
+  yalnız yerel fixture kabulü izinli çalıştırıldı. Canlı bağlantı gerekmedi.
+  Gerçek 9/9 V2.6 kabulü YAPILMADI. V1/eski V2/Fresh Pilot/VDS/PostgreSQL,
+  MikroTik/PPPoE/RADIUS/servis/timer erişimi/değişikliği, deploy/restart yok.
+- Git kapsamı yalnız ilgili frontend kaynak/test/stil, README ve bu ilerleme
+  kaydıdır; origin/main-guncel için force kullanmadan normal push hedeflenir.
+- Tek sonraki adım: yerel V2.6 Dashboard ve Router Merkezi kullanıcı görsel kabulü.

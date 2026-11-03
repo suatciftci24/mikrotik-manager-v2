@@ -29,7 +29,7 @@ test('V2.5 view keeps CPU zero, probe uncertainty, Istanbul sample time and unkn
  const inventoryOnly=view({data:{...data,items:[{...row,health_source:null,health_sample_id:null}]}});assert.doesNotMatch(inventoryOnly,/0% \/ 35%|Son deneme başarılı|2 Kas 2026 12:59/);
 });
 test('V2.5 loading, failure and malformed data hide all retained rows and counters',()=>{
- for(const override of [{loading:true},{error:'Kaynak kapalı'},{data:{...data,is_demo:true}},{data:null}]){const html=view(override);assert.doesNotMatch(html,/Fixture V1 router|0% \/ 35%/);assert.equal((html.match(/<strong>Veri yok<\/strong>/g)??[]).length,5);}
+ for(const override of [{loading:true},{error:'Kaynak kapalı'},{data:{...data,is_demo:true}},{data:null}]){const html=view(override);assert.doesNotMatch(html,/Fixture V1 router|0% \/ 35%/);assert.equal((html.match(/<strong>Veri yok<\/strong>/g)??[]).length,6);}
  const empty=view({data:{...data,availability:'NO_DATA',items:[]}});assert.match(empty,/Gerçek envanter aktarımı boş/);assert.doesNotMatch(empty,/<tbody>/);
 });
 test('V2.5 source deep link mounts real-only UI for admin and denies restricted user without demo fallback',()=>{

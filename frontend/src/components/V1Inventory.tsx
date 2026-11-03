@@ -1,3 +1,4 @@
+import {routerHealth} from '../lib/routerHealth';
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {api} from '../lib/api';
 import {inventoryRefresh} from '../lib/inventoryRefresh';
@@ -66,10 +67,11 @@ export function V1InventoryView(resource:InventoryState&{retry:()=>void;now?:num
  const data=resource.data,valid=validInventory(data),now=resource.now??Date.now();
  const visible=!resource.loading&&!resource.error&&valid;
  const selected=visible?data.items.find(row=>row.id===resource.selectedId):undefined;
- const headers=['Router','Model / RouterOS','Son bağlantı denemesi','CPU','Bellek','Son ölçüm · İstanbul','Güncellik'];
+ const headers=['Router','Model / RouterOS','Son bağlantı denemesi','CPU','Bellek','Son ölçüm · İstanbul','Sağlık / güncellik'];
  return <section className="panel v1-inventory"><div className="inventory-heading"><h2>Gerçek V1 envanteri</h2><button className="button-secondary" disabled={resource.loading} onClick={resource.retry}>Şimdi yenile</button></div>
   <p>Salt okunur · Bu sekme açıkken API her 60 saniyede yenilenir. Son internet denemesi canlı çevrimiçi durum kanıtı değildir.</p>
   <p className="inventory-refresh-time">Son başarılı yenileme: {resource.lastSuccess?dateTime(new Date(resource.lastSuccess).toISOString()):'Veri yok'}. Bu zaman ölçüm zamanı değildir.</p>
+  <p>V2.6 başlangıç eşikleri: Dikkat CPU ≥ %70 / RAM ≥ %80; Kritik CPU ≥ %90 / RAM ≥ %95 (herhangi biri). Eski veri: 10 dakikadan eski. Yalnız arayüz bilgilendirmesi.</p>
   <ResourceState {...resource}/>
   {visible?<><table className="data-table inventory-table"><caption>Gerçek router sağlık ölçümleri</caption><thead><tr>{headers.map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>{data.items.map(row=><tr key={row.id}>
    <td data-label={headers[0]}><button className="record-link" aria-label={`${row.name} router detayını aç`} onClick={()=>resource.onSelect?.(row.id)}>{row.name}</button></td>
@@ -77,7 +79,7 @@ export function V1InventoryView(resource:InventoryState&{retry:()=>void;now?:num
    <td data-label={headers[2]}>{probe(row)}</td>
    <td data-label={headers[3]}>{percent(row.cpu_load_percent)}</td><td data-label={headers[4]}>{percent(row.memory_used_percent)}</td>
    <td data-label={headers[5]}>{row.sampled_at?dateTime(row.sampled_at).replace(' (İstanbul)',''):'Veri yok'}</td>
-   <td data-label={headers[6]}><span className={freshness(row,now)==='Güncel değil'?'inventory-stale':''}>{freshness(row,now)}</span></td>
+   <td data-label={headers[6]}><span><strong className={routerHealth(row,now).status!=='Normal'?'inventory-stale':''}>{routerHealth(row,now).status}</strong><small>{routerHealth(row,now).reason} · {routerHealth(row,now).age}</small></span></td>
   </tr>)}</tbody></table>{data.items.length===0&&<p>Veri yok · güvenilir gerçek envanter aktarımı sağlanmadı.</p>}</>:!resource.loading&&!resource.error?<p role="alert">Veri yok · kaynak doğrulanamadı.</p>:null}
   {selected&&<InventoryDetail row={selected} onClose={()=>resource.onSelect?.(null)}/>}
  </section>;
