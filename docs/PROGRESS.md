@@ -3677,3 +3677,21 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Git kapsamı yalnız AGENTS.md + bu ilerleme kaydı; normal origin/main-guncel
   commit/push. Sonraki adım ev/ofis Git senkronizasyonundan sonra Codex'i
   ilgili proje kökünde başlatmaktır; ofis makinesinde yükleme ayrıca çalıştırılmadı.
+
+## V2.6 — izole yerel Chromium kabulü — 2026-11-03
+
+- LOCAL PASS; main-guncel/e50dd02 temiz başlangıç. Ayrı
+  frontend/tests/v26LocalAcceptance.browser.mjs eklendi; mevcut VDS runner değişmedi.
+- Sentetik sekiz satır/beş durum, sayaçlar, CPU/RAM eşikleri, öncelik/ad sırası,
+  ilk beş ve toplam yedi uyarı PASS. Gerçek zamanlayıcı 59999ms, iki okuma,
+  max_active1; ölçüm zamanları sabit, tarayıcı/ağ hatası yok.
+- Üç hedefli frontend test dosyası ve TypeScript/Vite build PASS;
+  mevcut bundle boyut uyarısı var. Syntax/diff PASS. Ürün düzeltmesi gerekmedi.
+- İlk loopback EPERM sonrası aynı test izinli tek tam geçişte PASS.
+  Kanıt .local/browser-acceptance/v26-local/; ayrıntı docs/V26_LOCAL_BROWSER_ACCEPTANCE.md.
+- Backend/DB/V1/Fresh Pilot/VDS/router/RADIUS bağlantısı yok; gerçek 9-router
+  kabulü HAYIR, tarihsel BLOCKED/ROLLBACK korunur.
+- Commit/push kapsamı yalnız yeni yerel runner ve iki doküman. origin/main-guncel
+  URL/upstream ve uzak başlangıç commit'i doğrulandı; normal push hedefidir.
+- Sonraki adım bu yerel testi gerektiğinde aynı frontend komutuyla kullanmak;
+  canlı kabul veya dağıtım bu görev kapsamında başlatılmaz.
