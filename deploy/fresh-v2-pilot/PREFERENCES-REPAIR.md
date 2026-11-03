@@ -1,6 +1,7 @@
 # Preferences 503 — hazırlanan kalıcı çözüm ve canlı onarım
 
-Durum: **LOCAL PASS / LIVE PENDING**. Bu belge canlı uygulama yetkisi değildir.
+Durum: **LIVE BLOCKED — 2026-11-03 onaylı deneme sahiplik kapısında durdu**.
+Yerel 25 PASS kaydı korunur; gerçek 503 kabulü henüz geçmedi. Bu belge tek başına canlı uygulama yetkisi değildir.
 503 kapanışı ancak mevcut Fresh Pilot üzerinde aşağıdaki gerçek kabul geçince
 verilebilir. V2.6 veya başka dağıtım bu çalışmanın parçası değildir.
 
@@ -137,3 +138,21 @@ Sentetik küme yalnız `/tmp/v2-preferences-synthetic-*` içinde, Unix socket/pe
 kimliğiyle çalıştı; TCP dinlemedi, mevcut yerel veya canlı DB kullanılmadı.
 Test sonunda küme kapatılıp geçici dosyalar kaldırıldı. Frontend build, genel
 test paketi, canlı bağlantı veya gerçek HTTP kabulü çalıştırılmadı.
+
+## Onaylı canlı deneme sonucu — 2026-11-03
+
+Mevcut d7ba0cb aracı değiştirilmeden çalıştırıldı; `SECRET_FILE_REJECTED` ile
+yedek/DB bağlantısı/yazma öncesi durdu. Canlı `database.env`, kurulumun
+`manage.py` akışına uygun `mikrotik-v2-fresh-db:mikrotik-v2-fresh 0640`;
+araç ise UID0 bekliyor. Sır dosyası regular, nlink1; hesaplar nologin.
+İzin/sahiplik değiştirilmedi, kontrol aşılmadı.
+
+Son salt okunur kabul: default yok, bu request audit'i yok, backup oluşmadı,
+preferences HTTP503. 9 router/sağlık örneği ve timer korunuyor; V1/eski V2/
+Fresh ana servis PID ve başlangıç zamanları aynı. Oturum logout200/me401.
+Yazma yapılmadığından rollback gerekmedi.
+
+Sonraki tek iş, araçtaki sahiplik sözleşmesini mevcut izole DB owner/app
+group kurulumu ile uyumlu doğrulayacak hedefli düzeltme ve testtir. Mevcut
+canlı dosyayı root'a chown etmek veya güvenlik kapısını kaldırmak bu planın
+çözümü değildir. Hazır araç düzeltilmeden onarım/HTTP200 kabulü tamamlanamaz.

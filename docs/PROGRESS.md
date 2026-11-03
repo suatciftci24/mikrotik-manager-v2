@@ -3420,3 +3420,36 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Deploy, restart, migration, V1/eski V2/router/PPPoE/RADIUS/IPsec veya timer
   değişikliği yok. Bu paket ve önceki 1a53a93 normal origin/main-guncel
   commit/push kapsamındadır; force yok.
+
+## Preferences 503 — onaylı canlı deneme sahiplik kapısında durdu — 2026-11-03
+
+- BLOCKED; 503 kapanmadı. Onaylı dar kapsamda mevcut d7ba0cb aracı
+  değişmeden kullanıldı. Başlangıç HEAD/origin/main-guncel aynı ve temiz.
+  Önceki 25 PASS/0 SKIP kaydı doğrulandı, test tekrarı yok.
+- Tek hazır apply çağrısı 16:06:05 UTC'de SECRET_FILE_REJECTED: yedek,
+  DB bağlantısı, ADMIN login ve yazma transaction'ından önce durdu. Request
+  40ea1bda-31ef-421f-996e-f365e2ffc0be. Rollback gerekmedi; yazma yok.
+- Dar metadata gözlemi: admin-handoff root:root0600; database.env mevcut
+  mikrotik-v2-fresh-db:mikrotik-v2-fresh0640, regular/nlink1. config2750
+  aynı owner/group. OS hesapları nologin. Kurulum manage.py dosyayı DB OS
+  hesabıyla oluştururken bakım aracı iki sır dosyasında da UID0 istiyor.
+  Bu araç/kurulum sözleşmesi uyuşmazlığıdır. Kontrol atlanmadı, izin/sahiplik
+  değiştirilmedi, yeni onarım çözümü yazılmadı veya tekrar apply yapılmadı.
+- Son READ ONLY SELECT 16:08:54 UTC: doğru Fresh DB/rol/127.0.0.1:55442,
+  default_count=0 ve bu request audit_count=0. Backup dizini oluşmadı;
+  yedek/DB onarımı/HTTP200 kabulü yapılmış sayılmaz. Gerçek ADMIN GET503
+  hâlâ DemoStorageUnavailable handler'ından geliyor.
+- Envanter HTTP200: gerçek 9/9 router +9 sağlık örneği. Timer 5dk interval,
+  enabled/active/waiting. Ana PID/start timestamp'ler korundu: V1 1173,
+  eski V2 API429918/DB387726, Fresh API857737/DB843217. Snapshot veya
+  doğal oneshot süreçleri tetiklenmedi. Son ADMIN logout200/me401 ve
+  anonim preferences401 doğrulandı; sır/token kaydedilmedi.
+- Deploy, restart, migration, INSERT/UPDATE/DELETE, rol/yetki, cihaz/RADIUS/
+  PPPoE/IPsec veya timer değişikliği yok. Canlı kod/ayar dosyası değişmedi.
+  Özel kanıt .local/deployment/preferences-approved-live/REPORT.md ve
+  JSON receipt'ler; gerçek sır/backup içeriği Git'e alınmaz.
+- Tek sonraki iş: hazır aracın database.env sahiplik kontrolünü kurulumun
+  mevcut izole DB owner/app group sözleşmesiyle uyumlu düzeltip hedefli
+  test etmek; canlı izinlerini değiştirmemek veya kontrolü kaldırmamak.
+  Ardından yedekli dar onarım/gerçek kabul tamamlanmalı. Bu görev yalnız
+  dokümantasyon commit/push kapsamıyla biter; 503 açık kalır.
