@@ -3332,3 +3332,37 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   kaydının varlık/Values-geçerlilik booleanlarını doğrulamak; geçici ADMIN
   logout/401 ile kapatılır. İkinci dağıtım önerilmez. Bu düzeltme ve ffed693
   origin/main-guncel'e normal push kapsamındadır; force yok.
+
+## Fresh Pilot preferences 503 — onaylı salt okunur doğrulama — 2026-11-03
+
+- PASS (tanı tamamlandı); mevcut 503 kök nedeni KANITLANDI: Fresh Pilot
+  settings_records/default yok. Hata giderilmedi; hiçbir canlı yazma yok.
+- Tek preferences GET 503/application-json: detail güvenli biçimde bilinen
+  DemoStorageUnavailable handler sınıfıyla eşleşti. Health 200, DB bağlı,
+  device adaptörleri kapalı. Raw yanıt/sır/parola/token/cookie kaydedilmedi.
+- Uygulama rolü ve izole Fresh DB/127.0.0.1:55442 doğrulanarak read_only=on
+  bağlantıda yalnız SELECT: settings tabloları mevcut, default_exists=false,
+  payload geçerliliği uygulanamaz. Kurulu record(default) aynı bağlantıda
+  DemoStorageUnavailable fırlattı. system_settings/system/main hash'leri
+  yerel kodla aynı. Mevcut hata eksik default'tan uygulamada üretiliyor;
+  genel bağlantı/proxy arızası bulgusu yok. Tarihsel rollback'e kesin atıf yok.
+- API journal yalnız 13:24:36–13:25:38 UTC: 0 kayıt; ek traceback yok.
+  API no-access-log ve ele alınan hata yüzünden log zorunlu değil. HTTP/DB
+  kanıtı geçerli. API PID 857737 / DB PID 843217 active/running; HTTP
+  gözlemi öncesi/sonrası PID/başlangıç zamanları aynı.
+- Envanter 200, gerçek kaynak, beklenen 9/9 kimlik ve 9 sağlık örneği.
+  Ölçüm yaşı 373sn; eski etiketi doğru, timer arızası çıkarımı yok. Timer
+  enabled/active/waiting, son tetik 16:24:44 +03; HTTP gözleminde alanları
+  değişmedi. Timer active tek başına her aktarım başarısı iddiası değildir.
+- İlk DB gate inet metni/yalın IP karşılaştırmasında durdu; yalnız kalan
+  DB kontrolünde host(inet_server_addr()) ile doğrulama tamamlandı.
+  Güvenlik kapısı gevşetilmedi. Preferences/health tekrarı yok; envanter/log
+  bir kez okundu. Her iki geçici ADMIN oturumu logout 200 / me 401.
+- V1/eski V2/cihaz/RADIUS/PPPoE/IPsec erişimi, INSERT/UPDATE/DELETE,
+  migration, deploy, restart/reload veya timer değişikliği yok. Test/build
+  çalıştırılmadı. Yerel özel kanıt .local/deployment/preferences-live-readonly
+  altında receipt'ler/summary.json/REPORT.md; yalnız bu kayıt commit edilir.
+- Tek sonraki düzeltme: ayrı açık canlı yazma onayıyla mevcut Fresh Pilot'a
+  yalnız eksik default Values kaydını ön-imaj/transaction/audit ve çakışmada
+  durma/geri dönüş koşullarıyla eklemek. Yeni kurulum bbab921 bunu mevcut
+  pilotta onarmaz; deploy/migration/restart gerekmez. Onarım yapılmadı.
