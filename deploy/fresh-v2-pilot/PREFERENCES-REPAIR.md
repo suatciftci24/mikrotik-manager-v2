@@ -1,7 +1,7 @@
 # Preferences 503 — hazırlanan kalıcı çözüm ve canlı onarım
 
-Durum: **OWNERSHIP FIX LOCAL PASS / LIVE RETRY PENDING — 2026-11-03**.
-Yerel 25 PASS kaydı korunur; gerçek 503 kabulü henüz geçmedi. Bu belge tek başına canlı uygulama yetkisi değildir.
+Durum: **LIVE PASS — 2026-11-03 16:36 UTC gerçek onarım/kabul tamamlandı**.
+Yerel 25 PASS kaydı ve yeni hedefli araç testleri korunur; mevcut preferences 503 gerçek ortamda giderildi. Bu belge tek başına canlı uygulama yetkisi değildir.
 503 kapanışı ancak mevcut Fresh Pilot üzerinde aşağıdaki gerçek kabul geçince
 verilebilir. V2.6 veya başka dağıtım bu çalışmanın parçası değildir.
 
@@ -97,8 +97,8 @@ uygulama rolü `v2_fresh_app`, loopback `127.0.0.1:55442`.
 7. Logout **200**, ardından auth/me **401**; cookie yalnız bellekte, kalıcı ADMIN
    oturumu yok. Gerçek kabul receipt'i kaydedilmeden nihai PASS yok.
 
-Bu yazma kapsamı **henüz uygulanmadı**. İzin bekleyen iş yalnız default + audit
-INSERT ve buna ait yedek/koruma/HTTP kabulüdür. V1/eski V2/router/PPPoE/RADIUS/IPsec,
+Bu yazma kapsamı **2026-11-03 tarihinde açık onayla uygulandı**: yalnız default + audit
+INSERT ve buna ait yedek/koruma/HTTP kabulü tamamlandı. V1/eski V2/router/PPPoE/RADIUS/IPsec,
 servis/timer değişikliği, kod dağıtımı, migration veya restart içermez.
 
 ## Geri dönüş ve hata davranışı
@@ -118,7 +118,7 @@ ayarlarını sıfırlamak araçta yoktur. Başlangıçtaki eksik durum/503'e dö
 
 Tam dump için `pg_restore --list` gerçek restore provası diye raporlanmaz.
 Yedek/restore mekanizması bu görevde yalnız ayrı geçici sentetik PG16 DB'sine
-restore edilerek doğrulandı. Canlı dump/restore henüz çalıştırılmadı.
+restore edilerek doğrulandı. Canlı dump alındı ve list/SHA256 doğrulandı; canlı DB restore provası yapılmadı.
 
 ## Hedefli yerel kanıt
 
@@ -139,7 +139,7 @@ kimliğiyle çalıştı; TCP dinlemedi, mevcut yerel veya canlı DB kullanılmad
 Test sonunda küme kapatılıp geçici dosyalar kaldırıldı. Frontend build, genel
 test paketi, canlı bağlantı veya gerçek HTTP kabulü çalıştırılmadı.
 
-## Onaylı canlı deneme sonucu — 2026-11-03
+## Geçmiş: ilk onaylı canlı deneme sonucu — 2026-11-03
 
 Mevcut d7ba0cb aracı değiştirilmeden çalıştırıldı; `SECRET_FILE_REJECTED` ile
 yedek/DB bağlantısı/yazma öncesi durdu. Canlı `database.env`, kurulumun
@@ -172,4 +172,38 @@ Beş yeni hedefli test tüm geçerli/tehlikeli metadata durumlarını geçti;
 stream'in açık onaydan önce bağlantıyı reddetme testi de geçti. Önceki
 25 hedefli test kaydı korunur; atomik onarım/audit/rollback kodu değişmedi,
 başarılı veri testleri tekrarlanmadı. Manifest asset checksum güncellendi.
-Canlı doğrulama bu yeni kontrolle ve önceki dar onay kapsamında yapılacaktır.
+Canlı doğrulama bu yeni kontrolle ve önceki dar onay kapsamında aşağıdaki kabulde tamamlandı.
+
+## Gerçek kapanış — 2026-11-03 16:36 UTC
+
+**PASS: mevcut preferences 503 kapandı.** Kaynak araç da81c17; request/audit
+`66ff0b32-b956-4285-9618-1f5f625b78af`. Fresh DB/rol/marker, kurulu manifest/
+ledger/katalog şema, aynı Values modeli ve ADMIN/mühür doğrulandı. Yalnız
+eksik default ve bir audit tek transaction'da commit edildi.
+
+Öncesinde root-private yedek alındı:
+`/srv/mikrotik-manager-v2-fresh-pilot/backups/preferences-default-66ff0b32-b956-4285-9618-1f5f625b78af/`.
+Custom dump SHA256
+`b85df24bccd76be53ee6caff36fc7019a0576461bcd787002e9ff16f3f3f4105`;
+export snapshot/dump/list/fsync ve0700/0600 izinler doğrulandı. Canlı
+restore provası yapıldığı iddia edilmez; yedek içeriği Git'e alınmadı.
+
+İki ardışık gerçek ADMIN GET200/storage_ready/Values ve aynı yanıt hash'i;
+okumaların öncesi/sonrası tüm uygulama tablo hash'leri, default revision/
+payload/zaman ve audit aynı. Oluşturulan audit doğru; diğer tüm kayıtlar
+ön-imaj hash'leriyle eşleşti. Anonim preferences401; son logout200/me401/
+preferences401. Mevcut9 router metadatası ve9 sağlık örneği korundu; örnek
+yaşı339sn, V2.5 eski etiketiyle uyumlu, online iddiası değildir.
+
+Timer5dk/enabled/active, unit hash/başlangıç zamanı aynı. V1/eski V2/Fresh
+API-DB PID/start timestamp'leri ve frontend index'i aynı. Deploy/restart/
+migration, V1/eski V2 DB veya cihaz/RADIUS/PPPoE/IPsec işlemi yok.
+
+Sahiplik düzeltmesine ek olarak araçtaki CookieJar yerel ad çakışması ve
+temiz PATH'te bulunamayan runuser komut yolu dar biçimde düzeltildi;
+yetki/PATH genişletilmedi.7 yeni hedefli test ve1 bağlı onay kapısı kontrolü
+geçti, önceki25 veri testi tekrarlanmadı.
+
+Özel gerçek kanıt `.local/deployment/preferences-live-repair-accepted/`
+altında REPORT.md/live-receipt.json; uzak receipt LIVE_ACCEPTED. Bu kapanış
+V2.6 dağıtımı veya eski rollback nedeninin kesinleşmesi anlamına gelmez.

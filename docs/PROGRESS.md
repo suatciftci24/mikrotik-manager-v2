@@ -3481,3 +3481,46 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   genişletilmedi. Yalnız ilgili transport komut/env testi PASS (ilk test
   fixture eksik bağımlılığı düzeltildi, yalnız başarısız test tekrarlandı).
   Bu duruşta da DB bağlantısı/yedek/yazma başlamadı.
+
+## Preferences 503 — gerçek Fresh Pilot onarımı ve kesin kabul — 2026-11-03
+
+- PASS: 503 mevcut gerçek ortamda kapandı. UTC16:36:10–16:36:13 kabulü;
+  test edilen streamed araç kaynağı da81c17, işlem/audit UUID
+  66ff0b32-b956-4285-9618-1f5f625b78af. Canlı uygulama deploy edilmedi.
+- Doğru Fresh DB/rol/127.0.0.1:55442, owner socket/data_directory, marker,
+  kurulu eski manifest/ledger/katalog şema, Values ve ADMIN/mühür kapıları
+  geçti. Mevcut default yoktu; yalnız default+tek doğru audit tek transaction
+  ile commit edildi. Başka kayıt değişmedi; rollback gerekmedi.
+- Öncesinde root-private yedek:
+  /srv/mikrotik-manager-v2-fresh-pilot/backups/preferences-default-66ff0b32-b956-4285-9618-1f5f625b78af/
+  dump SHA256 b85df24bccd76be53ee6caff36fc7019a0576461bcd787002e9ff16f3f3f4105.
+  Export snapshot/dump/list/fsync ve dizin0700/dump0600 doğrulandı. Canlı
+  restore provası yapılmadı; yedek/sır içeriği Git'e veya yerel kopyaya alınmadı.
+- Hazır araç HTTP200 +iki ardışık gerçek ADMIN preferences GET200,
+  storage_ready=true/Values geçerli ve yanıt hash'leri aynı. Okumalar arası
+  tüm uygulama tablo hash'leri/default payload-revision-zaman/audit aynı: ek
+  yazma yok. Tek default ve doğru actor/previous/new/result/operation/backup
+  audit'i doğrulandı; diğer ADMIN/abone/kişisel ayar/audit dahil tüm mevcut
+  kayıtların hash'leri ön-imajla aynı.
+- Gerçek9/9 envanter kimlik/model/RouterOS ve9 sağlık örneği/CPU/RAM/zaman
+  korundu; örnek yaşı339sn V2.5 sınırında eski, online iddiası yok. Timer5dk
+  enabled/active/waiting, unit hash ve active-enter aynı; doğal son tetik
+  19:35:08+03. Manuel aktarım veya timer değişikliği yok.
+- V1 PID1173; eski V2 API429918/DB387726; Fresh API857737/DB843217: PID/
+  start timestamp aynı. Frontend index aynı, API DB bağlı/device adaptörleri
+  kapalı. Deploy/restart/reload/migration, V1/eski V2 DB, cihaz/router/RADIUS/
+  PPPoE/IPsec veya kapsam dışı veri/rol/yetki işlemi yok.
+- Anonim preferences401. Hazır araç ve kabul oturumları kapandı; son
+  logout200/me401/preferences401. Cookie/parola yalnız bellekte.
+- Bu görev7 yeni hedefli test PASS (5 sahiplik,1 CookieJar başlangıcı,
+  1 mutlak owner/backup transport) ve1 bağlı onay kapısı kontrolü PASS;
+  önceki25 veri testi kaydı korundu, başarılı veri testleri tekrarlanmadı.
+  Araç önkoşullarındaki duruşlarda yazma başlamamıştı; başarılı tek yazma
+  transaction'ı yukarıdaki UUID'dir. Manifest/diff kontrolü PASS.
+- Gerçek özel kanıt .local/deployment/preferences-live-repair-accepted/
+  REPORT.md/live-receipt.json ve invocation.json; uzak receipt LIVE_ACCEPTED.
+  Güvenli plan güncellendi; yalnız yerel kod/test/manifest/dokümantasyon
+  Git kapsamındadır. Önceki dar canlı onay uygulandı; yeni canlı onay istenmedi.
+- Sonraki somut adım: ev bilgisayarında origin/main-guncel son commit'ini
+  alarak bu tamamlanmış kayıttan devam etmek. 503 için başka işlem gerekmez;
+  V2.6 dağıtımı bu görevin parçası değildir ve yeniden başlatılmadı.
