@@ -81,3 +81,14 @@ Hata sonrası kalıntıları/yedekleri koru; reset/drop/down/adoption yoktur. Ge
 yalnız yeni API unit'ini onaylı kapsamda durdur; eski sistemi restart etme veya
 trafik geçirme. DB/yedekler silinmez. Restore için ayrı, boş recovery hedefi ve
 ayrı onay gerekir. Ayrıntılı koşullar docs/FRESH_V2_PILOT_SETUP.md içindedir.
+
+## Sunum tercihleri — boş hedef kurulum bütünlüğü
+
+Yeni kurulum migration 005 sonrasında `settings_records/default` kaydını
+`Values` sözleşmesiyle aynı kurulum transaction'ında oluşturur. Doğrulama
+bu kaydın varlığını ve payload geçerliliğini de denetler. Çakışma reddedilir;
+mevcut hedefe yeniden kurulum veya okuma sırasında otomatik onarım yapılmaz.
+Bu düzeltme mevcut pilotu onarmaz. Migration SQL/checksum'ları değişmez;
+`manage.py` asset hash'i ve dolayısıyla yeni paket manifest kimliği değişir.
+Yeni manifest eski kurulum receipt'i yerine kullanılamaz; mevcut pilotun
+veri onarımı ve paket geçişi ayrı açık onaylı çalışma gerektirir.

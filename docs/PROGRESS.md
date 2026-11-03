@@ -3295,3 +3295,40 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Runner exit=0 olsa da esas receipt status=FAIL olarak korunur.
 - Sonraki tek adım: ayrı onaylı salt okunur kapsamda preferences 503 nedenini
   belirlemek. İkinci dağıtım şimdilik önerilmez. Yalnız bu kayıt commit edilir.
+
+## Preferences 503 — yerel kök neden incelemesi — 2026-11-03
+
+- BLOCKED: canlı 503 kök nedeni BELİRSİZ; yerel Fresh Pilot kurulum
+  eksikliği KANITLANDI. Başlangıç ffed693/main-guncel temizdi.
+- Zincir: App oturum/60sn/focus tercihler GET -> api.ts -> auth dependency
+  -> system.preferences -> effective -> doğrulanmış V2 READ ONLY snapshot
+  -> default/personal payload. App catch HTTP hatasını yutar: pageerror
+  olmadan 503 mümkündür. Kabulün sıfır HTTP hata beklentisi korunur.
+- Eski fresh migration 005 tabloları/marker'ı oluşturuyor, fakat kurulum
+  zorunlu default satırını eklemiyordu. record(default) eksikse global
+  DemoStorageUnavailable handler 503 verir. SQLAlchemy/storage arızası da
+  genel 503, bozuk payload route ValueError üzerinden farklı 503 üretir.
+- Yerel düzeltme: yalnız yeni boş kurulumun migration 005 sonrasına Values
+  INSERT eklendi; ADMIN/audit/ledger ile aynı transaction. Verify eksik/bozuk
+  default'u reddeder. Çakışmada overwrite/onarım/fallback yok. manage.py
+  asset checksum güncellendi; SQL migration/checksum değişmedi. Manifest
+  kimliği değişir; eski receipt yerine kullanılamaz. Mevcut pilot onarılmadı.
+- PASS: 3 hedefli sentetik test (eksik default 503/açık kurulum 200 ve
+  sonraki salt okunur erişim; bozuk veri/üzerine yazmama; boş hedef/sıra),
+  offline manifest check ve diff. Sandbox TestClient takılması sonlandırılıp
+  yalnız ilgili test dosyası izinli çalıştırıldı; genel test/build yok.
+- Kaydedilmiş iki preferences 503 için body/header/traceback/row durumu
+  yok. SSH tüneli doğrudan pilot loopback API'ye; Vite proxy zincirde yok.
+  Uygulama kaynaklı eksik default en güçlü aday, canlı atıf kanıtlanmadı.
+  Auth 200 genel kalıcı DB kesintisini desteklemez; geçici/kısmi hata mümkün.
+- 374sn sampled_at yaşı V2.5 >300sn sınırında eski: 5dk aktarım yeni ölçüm
+  üretmez. Kaynak örneği yaşı + aktarım aralığı/çalışma gecikmesi nedeniyle
+  bu değer mümkündür. Timer arızası veya 503 ile nedensellik ilan edilmedi.
+- Yerel ayrıntı: .local/deployment/v25-readonly-diagnostics-faf473d/
+  PREFERENCES-ROOT-CAUSE.md. Canlı/SSH/DB/router erişimi, deploy/restart,
+  migration/veri/timer işlemi yok; kullanıcı değişikliği yoktu.
+- Tek sonraki adım: ayrı dar salt okunur onayla yalnız Fresh Pilot üzerinde
+  bir preferences GET güvenli yanıt sınıfı, ilgili V2 hata sınıfı ve default
+  kaydının varlık/Values-geçerlilik booleanlarını doğrulamak; geçici ADMIN
+  logout/401 ile kapatılır. İkinci dağıtım önerilmez. Bu düzeltme ve ffed693
+  origin/main-guncel'e normal push kapsamındadır; force yok.

@@ -123,6 +123,7 @@ def verify(c, manifest_bytes, manifest):
     need(execute(c, "SELECT count(*) FROM v2_demo.first_admin_setup s JOIN v2_demo.users u ON u.id=s.admin_id WHERE s.singleton=1 AND u.account_origin='LOCAL'").scalar_one() == 1, 'ADMIN_SEAL_REJECTED')
     need(execute(c, "SELECT first_admin_initialized AND identity_initialized FROM v2_demo.schema_state WHERE version=1").scalar_one() is True, 'ADMIN_SEAL_REJECTED')
     need(execute(c, "SELECT count(*) FROM v2_demo.user_audit WHERE operation='FIRST_ADMIN_CREATE' AND result='SUCCESS'").scalar_one() == 1, 'ADMIN_AUDIT_REJECTED')
+    verify_preferences(c)
     need(execute(c, "SELECT NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND rolcanlogin FROM pg_roles WHERE rolname=:role", {'role':APP}).scalar_one() is True, 'APP_ROLE_UNSAFE')
     need(execute(c, "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname IN ('public','v2_demo','v2_router_workspace','v2_subscriber_workspace','v2_migrations') AND r.rolname<>:owner", {'owner':OWNER}).scalar_one() == 0, 'OBJECT_OWNER_REJECTED')
     need(execute(c, "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE n.nspname IN ('public','v2_demo','v2_router_workspace','v2_subscriber_workspace','v2_migrations') AND a.grantee=0").scalar_one() == 0, 'PUBLIC_TABLE_PRIVILEGES_UNSAFE')
@@ -140,6 +141,8 @@ def migrate(c, manifest_bytes, manifest, sql, payload, uid, app_password):
     from app.services.first_admin import create_local_admin
     for item, content in zip(manifest['migrations'], sql):
         execute_script(c, content)
+        if item['position'] == 5:
+            initialize_preferences(c)
         if item['position'] == 9:
             create_local_admin(c, payload, uid)
         execute(c, 'INSERT INTO v2_migrations.applied(position,revision,sha256) VALUES (:position,:revision,:sha256)', item)
@@ -158,6 +161,24 @@ def migrate(c, manifest_bytes, manifest, sql, payload, uid, app_password):
     execute(c, 'INSERT INTO v2_migrations.installation VALUES (1,:profile,:manifest,:schema,clock_timestamp())',
         dict(profile='fresh-v2-pilot', manifest=digest(manifest_bytes), schema=schema_hash(c)))
     verify(c, manifest_bytes, manifest)
+
+
+def initialize_preferences(c):
+    # Called only after require_empty, inside the install/ADMIN/audit transaction.
+    # A plain INSERT rejects conflicts; this is neither repair nor read fallback.
+    from app.services.system_settings import Values
+    execute(c, "INSERT INTO v2_demo.settings_records(id,payload) VALUES ('default',CAST(:values AS jsonb))",
+            {'values': Values().model_dump_json()})
+
+
+def verify_preferences(c):
+    # Table/schema checks alone do not prove the required preferences row exists.
+    from app.services.system_settings import record
+    from app.services.demo_subscriptions import DemoStorageUnavailable
+    try:
+        record(c, 'default')
+    except (ValueError, DemoStorageUnavailable):
+        raise Blocked('DEFAULT_PREFERENCES_REJECTED') from None
 
 
 def secure_runtime():
