@@ -3224,3 +3224,44 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   alınmaz. Yalnız bu dokümantasyon normal commit/push kapsamındadır.
 - Tek sonraki adım: son kabul hatası ayrıntısını kaydedecek yeni kontrollü
   deneme için kullanıcıdan yeniden dağıtım onayı almak; mevcut V2.5 korunur.
+
+## V2.6 — Rollback kök neden incelemesi ve yerel kabul tanısı — 2026-11-03
+
+- PASS (yerel analiz/düzeltme); tarihsel rollback kök nedeni BELİRSİZ.
+  491f444 kaydı, .local/deployment/v26-fresh-1c9bfcd içindeki receipt/rollback
+  kanıtları ve dört masaüstü/mobil PNG ile o denemenin /tmp kabul kaynağı
+  incelendi. Son dört PASS kaydı, veri/render/yenileme kontrollerinin bitmiş
+  olduğunu gösterir; görüntüler çalışma zamanı hata listelerini kanıtlamaz.
+- Aday iki assertion, kaynakta ardışık:
+  assert.deepEqual(errors, []); assert.deepEqual(failures, []).
+  İlkinde pageerror listesi, ikincide HTTP >=400 listesi boş beklenir. Receipt
+  yalnız failure=AssertionError tuttuğundan hangi listenin dolu olduğu ve
+  neden dolduğu geri kazanılamıyor. İkisi de doluysa ilk assertion durdururdu;
+  fakat bunu gösteren kayıt yok. Belirli HTTP yolu/statüsü veya ürün hatası
+  kanıtlanmadı; önceki FAIL/ROLLBACK sonucu değiştirilmedi.
+- KANITLI kabul aracı hatası: pageerror dinleyicisi yalnız hata adını tutuyor;
+  catch bloğu e.name dışında step/message/actual/expected ve iki hata listesini
+  receipt'e aktarmıyordu. Tanı kaybı bu koddan doğrudan doğrulandı.
+- Geçici kabul kaynağı deploy/v1-inventory/v26-browser-acceptance.mjs olarak
+  sürümlendi; ürün kontrol mantığı korunup adlandırılmış adımlar ve ortak
+  browser/acceptance-diagnostics.mjs eklendi. Son kontroller ayrı
+  browser.page_errors / browser.http_failures adlarıyla hata verir. Receipt
+  hata adı/kodu/güvenli assertion mesajı ile iki olay listesini, olayın oluştuğu
+  adımı ve HTTP kaynak yolu/statüsünü saklar. Konsol da aynı hata adımını gösterir.
+- Sırlar kaydedilmez: URL kimlik bilgileri/query/fragment, raw assertion diff'i,
+  yanıt gövdesi, cookie ve bilinmeyen browser mesajları dışarıda bırakılır.
+  Bilinen tarayıcı mesajı ve bundle satır/sütun konumu güvenli biçimde tutulur;
+  dinamik API yol parçaları maskelenir. Hiçbir HTTP/pageerror hatası yok sayılmaz.
+- PASS: yalnız dört sentetik tanı testi (--test-isolation=none): pageerror,
+  yalnız HTTP hatası, her ikisi birden olduğunda olayları koruma, sır sızıntısı
+  önleme ve diğer assertion adımlarını saklama. Runner syntax + diff kontrolü
+  PASS. Tarayıcı/tam kabul, frontend build, SSH/tünel, Fresh Pilot/VDS/V1/eski
+  V2/PostgreSQL/router/snapshot timer erişimi veya ikinci dağıtım yapılmadı.
+- Ürün kodu değişmedi. Runner açık --approved-read-only ve özel V26_EVIDENCE
+  ister; bu bayrak canlı kullanıcı onayının yerine geçmez. Eski /tmp yardımcı
+  kendiliğinden değiştirilmedi/çalıştırılmadı; olası onaylı yeni kabulün
+  sürümlü runner'a bağlanması gerekir. Mevcut tarihsel kanıtlar korunur.
+- Git kapsamı yalnız kabul runner'ı, tanı yardımcısı, hedefli test ve bu kayıt;
+  normal origin/main-guncel commit/push. İkinci dağıtıma hazır: HAYIR; gerçek
+  hatanın kaynağı henüz kanıtlanmadı. Tek sonraki adım: yeni açık canlı onay
+  kapsamında ayrıntılı tanıyla kontrollü kabul planının değerlendirilmesi.
