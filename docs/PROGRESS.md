@@ -3627,3 +3627,27 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   assertion bilinmiyor; üçüncü dağıtım için teknik engel HAYIR, kalkmadı.
   Sonraki adım mevcut özgün frame/stack artefaktını kurtarmak veya aynı
   uyuşmazlığı dağıtım yapmadan operandlarıyla yakalamaktır. Tahmini FIXED yok.
+
+## V2.6 — dağıtımsız Dashboard kabul kanıtı — 2026-11-03
+
+- BLOCKED (tarihsel kök neden); main-guncel/d733ba8 temiz başlangıç.
+  Yeni sürüm-uygun V2.5 readonly runner aynı snapshot/frame tanısını kullanır;
+  dört sayaç/>5dk sözleşmesi V2.6 beş sağlık sayacı/>10dk'dan ayrıdır.
+- Tek ADMIN salt okunur Dashboard oturumu: ilk ve doğal 60sn sonraki frame
+  PASS. Gerçek9/9 metrik/zaman/provenance, kaynak/is_demo=false, preferences200,
+  yeni sayısal ve eski substring metrik kontrolleri 9/9. Sayaçlar
+  9/0/9/0 → 9/9/0/0; generation1→2, API okuma farkı60036ms, max_active1.
+  HTTP/pageerror/requestfailure yok. Frame'ler assertion öncesi saklandı;
+  tam SHA256 ve saatler docs/V26_HEALTH_ACCEPTANCE.md içinde.
+- Logout200/me401; browser/tünel temizlendi. Sırlar yalnız bellek/stdin'de.
+  Private kanıt .local/v26-dashboard-evidence-d733ba8/; Git dışı.
+- V2.6'ya özgü canlı karşılaştırma mevcut V2.5'te desteklenmez. Yalnız izole
+  sentetik healthComparison browser: sayaç/snapshot, asenkron yanıt ve demo
+  kaynak ayrımı PASS. İki yeni V2.5 adapter regresyonu ve syntax/diff PASS.
+  UI/ürün kodu değişmedi; build/genel suite tekrarı yok.
+- Yeni uyuşmazlık oluşmadı; tarihsel hata operandları bu başarılı örneklerle
+  doldurulmadı. Ürün/test/asenkron/kaynak atfı kesinleşmedi, FIXED denmedi.
+  Üçüncü dağıtım engeli HAYIR, kaldırılmış sayılmaz. Dağıtım/DB yazma/
+  migration/restart/cihaz/V1/eski V2 değişikliği ve yeni 503 araştırması yok.
+- Sonraki somut ihtiyaç tarihsel başarısız frame/operand kanıtıdır; mevcut
+  V2.5'te aynı sağlıklı kontrolü tekrar çalıştırmak bu boşluğu gidermez.

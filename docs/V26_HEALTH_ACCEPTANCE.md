@@ -265,3 +265,56 @@ ve gözlem risklerini giderir; tarihsel Dashboard kök nedeni FIXED değildir.
 Yeni yayını denemek bu kanıt boşluğunu kapatmanın yerine geçmez. Sonraki
 somut adım, varsa asıl başarısız API/DOM/stack artefaktını kurtarmak veya
 ürün/dağıtım değişikliği olmadan aynı uyuşmazlığı operandlarıyla yakalamaktır.
+
+## d733ba8 — sürüme uygun salt okunur kabul kanıtı — 2026-11-03
+
+**SONUÇ: BLOCKED (eski Dashboard hatasının kesin kök nedeni).**
+Bu görevde yeni bir Dashboard uyuşmazlığı oluşmadı. Başarılı yeni örnekler,
+operandları eksik tarihsel FAIL'i açıklamaz ve FIXED kanıtı sayılmaz.
+
+- Yeni `v25-dashboard-readonly.mjs`, d733ba8'in observer/frame/operand
+  mekanizmasını kullanır. V2.5'in dört sayacı ve >5dk güncellik sözleşmesi
+  ayrı adapter ile doğrulanır. V2.6'nın beş sağlık sayacı, eşikleri, >10dk
+  sınıflandırması ve öncelikli uyarıları bu canlı sürümde **çalıştırılamaz**.
+  İki sözleşmeyi birbirine uygulamak veya sonuçlarını eşitlemek yasaktır.
+- Tek gerçek ADMIN oturumu, yalnız GET tarayıcı ağı; preferences200 /
+  storage_ready, gerçek V1_INVENTORY_EXPORT / is_demo=false, 9/9 kimlik,
+  kaynak/CPU/RAM/İstanbul ölçüm zamanı ve dört sayaç PASS. Doğal 60sn
+  yenilemede tam bir yeni okuma ve max_active=1 PASS; manuel snapshot/timer
+  tetiklenmedi. İki response readAt farkı 60036ms.
+
+| Private frame | API okuma UTC / generation | Router / son5dk / eski / yok | SHA256 |
+|---|---|---|---|
+| frame-0.json | 17:54:29.847 / 1 | 9 / 0 / 9 / 0 | `21061bbe9c1212fb3906abad58fb5e82ffb27b9bed7c4b120f95e43d1c7095cf` |
+| frame-1.json | 17:55:29.883 / 2 | 9 / 9 / 0 / 0 | `b71e082b10d9b3abc1563cd7096dfc9c2df1246a9e78902b4cabd9476e226b6c` |
+
+- Her frame assertion öncesi0600 kaydedildi; API verisi, response generation,
+  gerçek değerlendirme tick'i alt/üst zamanı, DOM textContent ve innerText,
+  sayaçlar aynı referansta. Yeni sayısal metrik karşılaştırması ve eski
+  satır `includes(cpu + RAM)` kontrolü **her iki frame'de 9/9 eşleşti**.
+  Değişen sayaçlar ayrı snapshot'larla karıştırılmadı. Pageerror, beklenmeyen
+  HTTP ve requestfailure yok; receipt V25_READ_ONLY/PASS ve
+  v26_live_acceptance=false / UNSUPPORTED_ON_V25 olarak saklandı.
+- ADMIN logout200 ve aynı oturumla me401; browser ve yalnız görev tüneli
+  kapandı. Cookie/parola stdin/bellek dışında tutulmadı. Kanıt dizini:
+  `.local/v26-dashboard-evidence-d733ba8/` (Git dışı); receipt + cleanup var.
+- V2.6 için yalnız yerel, izole, üretilmiş fixture ile mevcut
+  `healthComparison.browser.mjs` çalıştırıldı: beş sayaç/satır karşılaştırması,
+  tutulan asenkron yanıt ve kaynak geçişinde demo isteği yokluğu PASS.
+  Bu sentetik sonuç gerçek V2.6 9/9 canlı kabul değildir. Receipt
+  `.local/browser-acceptance/v26-comparison/result.json` içinde ayrı tutulur.
+- İki yeni V2.5 adapter regresyonu PASS: doğru dört-sayaç/5dk sınırı;
+  V2.5 ve V2.6 sözleşmelerinin birbirini reddetmesi; yanlış metrik/sayaçta
+  güvenli tam alan adı ve beklenen/gerçek operand kaydı. Eski substring
+  kontrolü farklı sonuç verirse bunun bool operandı da kaydedilir.
+  Syntax/diff PASS. UI/ürün kodu değişmedi; önceki build/genel testler
+  tekrarlanmadı. Kanıtlanan yeni ürün veya karşılaştırma kusuru yok.
+- Dağıtım, DB doğrudan erişim/yazma/migration, servis restartı veya
+  router/RADIUS/PPPoE/V1/eski V2 değişikliği yapılmadı. Preferences 503
+  yeniden araştırılmadı. Önceki rollback incelemesi tekrarlanmadı.
+
+**Teknik karar:** üçüncü dağıtım engeli kaldırılmış sayılmaz. Mevcut
+V2.5 ortak kontrolleri ve izole V2.6 kontrolleri PASS, tarihsel Dashboard
+hatasının ürün/test/asenkron/kaynak ayrımı atfı hâlâ kanıtsızdır. Başarısız
+karşılaştırma oluşmadığı için yeni bir başarısız beklenen/gerçek çifti yoktur.
+Yeni canlı dağıtımla bunu denemek bu görevin kapsamı dışındadır.

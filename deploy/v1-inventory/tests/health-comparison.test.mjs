@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {expectedHealth,frameStable,compareHealthFrame,states} from '../browser/health-comparison.mjs';
+import {expectedHealth,frameStable,compareHealthFrame,compareV25DashboardFrame,states} from '../browser/health-comparison.mjs';
 import {acceptanceDiagnostics} from '../browser/acceptance-diagnostics.mjs';
 const now=Date.parse('2026-11-03T10:00:00Z');
 const row={id:'synthetic-1',name:'SYNTHETIC',health_source:'V1_ROUTER_HEALTH_SAMPLES',health_sample_id:'synthetic-sample',sampled_at:new Date(now-60000).toISOString(),cpu_load_percent:13,memory_used_percent:4.7};
@@ -33,4 +33,21 @@ test('unsafe operands, raw DOM and arbitrary data never enter diagnostic compari
  const e=new Error('SYNTHETIC_SECRET');e.comparison={name:'dashboard.row_0.metrics',actual:'SYNTHETIC_SECRET',expected:{cpu:13,ram:4.7}};
  const r=acceptanceDiagnostics().failure(e);assert.equal(r.failure.comparison,undefined);assert.ok(!JSON.stringify(r).includes('SYNTHETIC_SECRET'));
  const f=frame();f.rows[0].cells[2]='SYNTHETIC_SECRET';try{compareHealthFrame(f);}catch(err){const r=acceptanceDiagnostics().failure(err);assert.ok(!JSON.stringify(r).includes('SYNTHETIC_SECRET'));assert.deepEqual(r.failure.comparison.actual,{format:'INVALID_METRICS'});}
+});
+
+function v25Frame(){
+ const f=frame();f.rows[0].cells[5]='Son bilinen ölçüm';f.counts={'Routerlar':'1','Son 5 dk ölçüm':'1','Eski ölçümler':'0','Ölçüm yok':'0'};return f;
+}
+test('V2.5 adapter enforces its own four counters and 5-minute boundary, rejects V2.6 contract',()=>{
+ const f=v25Frame();f.data.items[0].sampled_at=new Date(now-300000).toISOString();assert.equal(compareV25DashboardFrame(f)['Son 5 dk ölçüm'],1);
+ f.clock={lower:now+1,upper:now+1};f.rows[0].cells[5]='Güncel değil';f.counts['Son 5 dk ölçüm']='0';f.counts['Eski ölçümler']='1';assert.equal(compareV25DashboardFrame(f)['Eski ölçümler'],1);
+ assert.throws(()=>compareV25DashboardFrame(frame()));assert.throws(()=>compareHealthFrame(v25Frame()));
+});
+test('V2.5 failure retains exact safe numeric operands, frame comparison never retries bad metrics',()=>{
+ const f=v25Frame();f.rows[0].cells[2]='12% / 4.7%';let error;try{compareV25DashboardFrame(f);}catch(e){error=e;}
+ const failure=acceptanceDiagnostics().failure(error).failure;
+ const legacy=new Error();legacy.comparison={name:'dashboard.row_0.v25_legacy_metric_match',expected:true,actual:false};
+ assert.deepEqual(acceptanceDiagnostics().failure(legacy).failure.comparison,{...legacy.comparison,source:'same_browser_inventory_response',snapshot_bound:true});
+ assert.equal(failure.comparison.name,'dashboard.row_0.metrics');assert.deepEqual(failure.comparison.expected,{cpu:13,ram:4.7});assert.deepEqual(failure.comparison.actual,{cpu:12,ram:4.7});
+ f.rows[0].cells[2]='13% / 4.7%';f.counts['Routerlar']='0';assert.throws(()=>compareV25DashboardFrame(f),e=>acceptanceDiagnostics().failure(e).failure.comparison.name==='dashboard.v25_counts');
 });

@@ -17,9 +17,9 @@ function apiPath(raw){
  return '<unrecognized-api-path>';
 }
 function safeComparison(value){
- if(!value||!/^((dashboard|center)\.row_\d+\.(identity|provenance|numeric_schema|metrics|cpu_load_percent|memory_used_percent|istanbul_time|status|reason)|dashboard\.(five_counts|priority_order)|source\.(real_contract|identities))$/.test(value.name))return undefined;
- const keys=new Set(['cpu','ram','format','Normal','Dikkat','Kritik','Eski veri','Veri yok']);
- const words=new Set(['Normal','Dikkat','Kritik','Eski veri','Veri yok','INVALID_METRICS','INVALID_STATUS']);
+ if(!value||!/^((dashboard|center)\.row_\d+\.(identity|provenance|numeric_schema|metrics|cpu_load_percent|memory_used_percent|istanbul_time|status|reason|v25_clock_stable|v25_freshness|v25_legacy_metric_match)|dashboard\.(five_counts|priority_order|v25_counts|v25_counter_contract)|source\.(real_contract|identities))$/.test(value.name))return undefined;
+ const keys=new Set(['cpu','ram','format','Routerlar','Son 5 dk ölçüm','Eski ölçümler','Ölçüm yok','Normal','Dikkat','Kritik','Eski veri','Veri yok']);
+ const words=new Set(['Normal','Dikkat','Kritik','Eski veri','Veri yok','INVALID_METRICS','INVALID_STATUS','Güncel değil','Son bilinen ölçüm']);
  const safe=v=>typeof v==='boolean'||typeof v==='number'&&Number.isFinite(v)||typeof v==='string'&&words.has(v)||v&&typeof v==='object'&&!Array.isArray(v)&&Object.entries(v).every(([k,n])=>keys.has(k)&&(typeof n==='number'&&Number.isFinite(n)||k==='format'&&n==='INVALID_METRICS'));
  if(!safe(value.actual)||!safe(value.expected))return undefined;
  return {name:value.name,expected:value.expected,actual:value.actual,source:'same_browser_inventory_response',snapshot_bound:true};

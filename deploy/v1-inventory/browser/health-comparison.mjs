@@ -49,7 +49,7 @@ export async function captureHealthFrame(page,kind='dashboard'){
   const frame=await page.evaluate(kind=>{
    const s=window.__v26,selector=kind==='dashboard'?'.dashboard-real-table tbody tr':'.inventory-table tbody tr';
    return {data:s.data,readAt:s.readAt,generation:s.generation,active:s.active,clock:s.clock,
-    rows:[...document.querySelectorAll(selector)].map(tr=>({cells:[...tr.cells].map(td=>td.textContent),status:tr.cells[tr.cells.length-1].querySelector('strong')?.textContent,reason:tr.cells[tr.cells.length-1].querySelector('small')?.textContent})),
+    rows:[...document.querySelectorAll(selector)].map(tr=>({cells:[...tr.cells].map(td=>td.textContent),visibleCells:[...tr.cells].map(td=>td.innerText),renderedText:tr.innerText,status:tr.cells[tr.cells.length-1].querySelector('strong')?.textContent,reason:tr.cells[tr.cells.length-1].querySelector('small')?.textContent})),
     counts:Object.fromEntries([...document.querySelectorAll('.dashboard-real-health .metric-card')].map(c=>[c.querySelector('.metric-card-top>span').textContent,c.querySelector('.metric-value-row strong').textContent])),
     alerts:[...document.querySelectorAll('.health-alerts li')].map(li=>({name:li.querySelector('a')?.textContent,status:li.querySelector('strong')?.textContent})),
     stamps:s.data?.items.map(r=>r.sampled_at?new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Istanbul'}).format(new Date(r.sampled_at)):null)};
@@ -94,5 +94,32 @@ export function compareHealthFrame(frame,{kind='dashboard',expectedNames}={}){
   ranked.sort((a,b)=>['Kritik','Dikkat','Eski veri','Veri yok'].indexOf(a.status)-['Kritik','Dikkat','Eski veri','Veri yok'].indexOf(b.status)||a.name.localeCompare(b.name,'tr'));
   check('dashboard.priority_order',JSON.stringify(frame.alerts)===JSON.stringify(ranked.slice(0,5)),true);
  }
+ return counts;
+}
+
+// V2.5 has four freshness counters and a 5-minute limit. Never run the V2.6
+// five-state acceptance against that contract or label this as V2.6 acceptance.
+export function compareV25DashboardFrame(frame,{expectedNames}={}){
+ assert.ok(frameStable(frame),'Capture must be stable before comparison');
+ const {data,rows,clock}=frame;
+ check('source.real_contract',data.source==='V1_INVENTORY_EXPORT'&&data.is_demo===false,true);
+ if(expectedNames)check('source.identities',JSON.stringify(data.items.map(r=>r.name).sort())===JSON.stringify([...expectedNames].sort()),true);
+ const counts={'Routerlar':data.items.length,'Son 5 dk ölçüm':0,'Eski ölçümler':0,'Ölçüm yok':0};
+ for(let i=0;i<data.items.length;i++){
+  const r=data.items[i],actual=rows[i],t=Date.parse(r.sampled_at);
+  check(`dashboard.row_${i}.identity`,actual.cells[0]===r.name,true);
+  check(`dashboard.row_${i}.provenance`,r.health_source==='V1_ROUTER_HEALTH_SAMPLES'&&!!r.health_sample_id?.trim()&&Number.isFinite(t)&&t<=clock.lower,true);
+  check(`dashboard.row_${i}.numeric_schema`,[r.cpu_load_percent,r.memory_used_percent].every(v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=100),true);
+  check(`dashboard.row_${i}.metrics`,metrics(actual.cells[2]),{cpu:r.cpu_load_percent,ram:r.memory_used_percent});
+  check(`dashboard.row_${i}.istanbul_time`,actual.cells[4]===frame.stamps[i],true);
+  const stale=clock.lower-t>300000;
+  check(`dashboard.row_${i}.v25_clock_stable`,stale,clock.upper-t>300000);
+  const freshness=stale?'Güncel değil':'Son bilinen ölçüm';
+  check(`dashboard.row_${i}.v25_freshness`,['Güncel değil','Son bilinen ölçüm','Veri yok'].includes(actual.cells[5])?actual.cells[5]:'INVALID_STATUS',freshness);
+  counts[stale?'Eski ölçümler':'Son 5 dk ölçüm']++;
+ }
+ const actual=Object.fromEntries(Object.keys(counts).map(s=>[s,/^\d+$/.test(frame.counts[s])?Number(frame.counts[s]):-1]));
+ check('dashboard.v25_counter_contract',JSON.stringify(Object.keys(frame.counts).sort())===JSON.stringify(Object.keys(counts).sort()),true);
+ check('dashboard.v25_counts',actual,counts);
  return counts;
 }
