@@ -3453,3 +3453,18 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   test etmek; canlı izinlerini değiştirmemek veya kontrolü kaldırmamak.
   Ardından yedekli dar onarım/gerçek kabul tamamlanmalı. Bu görev yalnız
   dokümantasyon commit/push kapsamıyla biter; 503 açık kalır.
+
+## Preferences onarımı — güvenli sahiplik sözleşmesi düzeltildi — 2026-11-03
+
+- Başlangıç 7bfe36b/main-guncel temiz. Önceki yanlış root-only varsayımı
+  düzeltildi: database.env root veya tanımlı DB servis hesabı + doğru grup
+  ve 0400/0600/0440/0640 izinleriyle doğrulanır; group-read yalnız API grubu.
+  Handoff root:root0400/0600 kalır. Config yolu/owner/group/2750 izin alt
+  kümesi ve ayrı nonroot/nologin OS hesapları doğrulanır. Symlink/hardlink,
+  yanlış resolved yol, beklenmeyen owner/group ve geniş/special izinler STOP.
+- PASS: 5 yeni metadata güvenlik testi ve değişen stream için 1 açık onay
+  kapısı testi; offline manifest check. Önceki 25 veri testi tekrarlanmadı;
+  onarım/audit/rollback servisi değişmedi. Manifest asset hash güncellendi.
+- Bu kayıt aşamasında canlı onarım henüz yapılmadı. Mevcut açık kullanıcı
+  onayıyla aynı dar yedek/default+audit/gerçek kabul kapsamı sürdürülecek.
+  Canlı chown/chmod, deploy, restart, migration veya kapsam dışı yazma yok.

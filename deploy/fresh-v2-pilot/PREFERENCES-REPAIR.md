@@ -1,6 +1,6 @@
 # Preferences 503 — hazırlanan kalıcı çözüm ve canlı onarım
 
-Durum: **LIVE BLOCKED — 2026-11-03 onaylı deneme sahiplik kapısında durdu**.
+Durum: **OWNERSHIP FIX LOCAL PASS / LIVE RETRY PENDING — 2026-11-03**.
 Yerel 25 PASS kaydı korunur; gerçek 503 kabulü henüz geçmedi. Bu belge tek başına canlı uygulama yetkisi değildir.
 503 kapanışı ancak mevcut Fresh Pilot üzerinde aşağıdaki gerçek kabul geçince
 verilebilir. V2.6 veya başka dağıtım bu çalışmanın parçası değildir.
@@ -156,3 +156,20 @@ Sonraki tek iş, araçtaki sahiplik sözleşmesini mevcut izole DB owner/app
 group kurulumu ile uyumlu doğrulayacak hedefli düzeltme ve testtir. Mevcut
 canlı dosyayı root'a chown etmek veya güvenlik kapısını kaldırmak bu planın
 çözümü değildir. Hazır araç düzeltilmeden onarım/HTTP200 kabulü tamamlanamaz.
+
+## Sahiplik sözleşmesi düzeltmesi — 2026-11-03
+
+Bakım aracı mevcut kurulumla uyumlu hale getirildi. `database.env` yalnız
+root veya tanımlı `mikrotik-v2-fresh-db` sahibi, root/API servis grubu ve
+0400/0600/0440/0640 izinleriyle kabul edilir. Grup okuması varsa grup yalnız
+`mikrotik-v2-fresh` olmalıdır. ADMIN handoff root:root 0400/0600 kalır.
+Config dizininde yalnız root/DB owner ve root/API grup, 2750'nin izinlerinin
+alt kümesi kabul edilir. Servis hesapları ayrı, root olmayan, nologin
+hesaplar olmalıdır. Symlink/hardlink, yanlış resolved yol, geniş erişim veya
+yazma/execute/special bit'leri reddedilir. İzin/sahiplik değiştiren kod yoktur.
+
+Beş yeni hedefli test tüm geçerli/tehlikeli metadata durumlarını geçti;
+stream'in açık onaydan önce bağlantıyı reddetme testi de geçti. Önceki
+25 hedefli test kaydı korunur; atomik onarım/audit/rollback kodu değişmedi,
+başarılı veri testleri tekrarlanmadı. Manifest asset checksum güncellendi.
+Canlı doğrulama bu yeni kontrolle ve önceki dar onay kapsamında yapılacaktır.

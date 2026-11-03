@@ -25,6 +25,37 @@ SCHEMAS = ('public', 'v2_demo', 'v2_router_workspace', 'v2_subscriber_workspace'
 EXPECTED_VALUES_SCHEMA_SHA256 = None  # Set only by the reviewed local bundle.
 
 
+def validate_secret_files():
+    """Match the installer principals, never change live ownership/permissions."""
+    import pwd
+    from app.services.preferences_repair import require
+    db = pwd.getpwnam('mikrotik-v2-fresh-db')
+    app = pwd.getpwnam('mikrotik-v2-fresh')
+    require(db.pw_uid > 0 and app.pw_uid > 0 and db.pw_uid != app.pw_uid
+            and db.pw_gid > 0 and app.pw_gid > 0 and db.pw_gid != app.pw_gid,
+            'SECRET_ACCOUNT_REJECTED')
+    require(db.pw_shell in ('/usr/sbin/nologin', '/sbin/nologin')
+            and app.pw_shell in ('/usr/sbin/nologin', '/sbin/nologin'), 'SECRET_ACCOUNT_REJECTED')
+    # stage-approved.py creates config DB-owned, setgid to the API group.
+    config = ROOT/'config'
+    info = config.lstat()
+    require(stat.S_ISDIR(info.st_mode) and config.resolve() == config
+            and info.st_uid in (0, db.pw_uid) and info.st_gid in (0, app.pw_gid)
+            and not stat.S_IMODE(info.st_mode) & ~0o2750, 'SECRET_DIRECTORY_REJECTED')
+    for p in (ROOT/'admin-handoff.json', config/'database.env'):
+        info = p.lstat()
+        require(p.resolve() == p and stat.S_ISREG(info.st_mode) and info.st_nlink == 1,
+                'SECRET_FILE_REJECTED')
+        mode = stat.S_IMODE(info.st_mode)
+        if p == ROOT/'admin-handoff.json':
+            require(info.st_uid == info.st_gid == 0 and mode in (0o400, 0o600),
+                    'SECRET_FILE_REJECTED')
+        else:
+            require(info.st_uid in (0, db.pw_uid) and mode in (0o400, 0o600, 0o440, 0o640)
+                    and info.st_gid in (0, app.pw_gid)
+                    and (not mode & 0o040 or info.st_gid == app.pw_gid), 'SECRET_FILE_REJECTED')
+
+
 def main(argv=None):
     from sqlalchemy import create_engine, text
     from sqlalchemy.engine import make_url
@@ -43,9 +74,7 @@ def main(argv=None):
     require(os.geteuid() == 0, 'ROOT_OPERATOR_REQUIRED')
     for p in [ROOT, ROOT/'app', ROOT/'config', ROOT/'backups']:
         require(p.is_dir() and not p.is_symlink() and p.resolve() == p and not p.stat().st_mode & 0o022, 'PATH_REJECTED')
-    for p in [ROOT/'admin-handoff.json', ROOT/'config/database.env']:
-        info = p.lstat()
-        require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_uid == 0 and not info.st_mode & 0o007, 'SECRET_FILE_REJECTED')
+    validate_secret_files()
     jar = http.cookiejar.CookieJar()
     class NoRedirect(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, *a, **k):
