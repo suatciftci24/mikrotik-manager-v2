@@ -13,7 +13,7 @@ const {chromium}=await import(pathToFileURL(resolve(root,'.local/browser-tools/n
 const output=process.env.V26_EVIDENCE,base='http://127.0.0.1:18996';
 const states=['Normal','Dikkat','Kritik','Eski veri','Veri yok'];
 const expectedNames=['Riverside','Garden','Hill','Granada','Nature','Walley','ExodusResidance','bay-toprak','CEBECI_TOWERS'].sort();
-const results={version:'1c9bfcd',real_nine_router_acceptance:false,checks:[]};
+const results={version:'fffac4a',real_nine_router_acceptance:false,checks:[]};
 const ok=s=>{results.checks.push(s);console.log('PASS: '+s);};
 const diagnostics=acceptanceDiagnostics();
 let browser;
@@ -34,11 +34,14 @@ try{
  const cookie=JSON.parse(fs.readFileSync(output+'/session.json','utf8'));
  await context.addCookies([{...cookie,url:base+'/api',httpOnly:true,sameSite:'Strict'}]);
  const page=await context.newPage();
+ const apiReads=[],transportFailures=[];
+ page.on('requestfailed',()=>transportFailures.push({step:'browser.transport',message:'Request failed; raw URL omitted'}));
  page.on('pageerror',e=>diagnostics.pageError(e));
  page.on('response',r=>{if(r.url().includes('/api/')&&r.status()>=400)diagnostics.httpFailure(r.url(),r.status());});
  await context.route('**/*',async route=>{
   const u=new URL(route.request().url());assert.equal(u.origin,base,'Loopback only');
   assert.equal(route.request().method(),'GET','Read-only browser acceptance');
+  if(u.pathname.startsWith('/api/'))apiReads.push(u.pathname);
   await route.continue();
  });
  await page.addInitScript(()=>{
@@ -51,27 +54,35 @@ try{
  });
  diagnostics.setStep('auth.admin');
  const me=await context.request.get(base+'/api/v1/auth/me');assert.equal(me.status(),200);assert.equal((await me.json()).role_code,'ADMIN');
+ diagnostics.setStep('preferences.valid');
+ const preferences=await context.request.get(base+'/api/v1/preferences');assert.equal(preferences.status(),200);const preferenceData=await preferences.json();assert.equal(preferenceData.storage_ready,true);assert.equal(preferenceData.values.timezone,'Europe/Istanbul');results.preferences={http:200,storage_ready:true};ok('authenticated preferences HTTP 200 and valid timezone; full Values validation in remote pre/post checks');
  diagnostics.setStep('dashboard.desktop');
  await page.goto(base+'/#module=dashboard&dashboard_source=V1_INVENTORY');
  const table=page.getByRole('region',{name:'Gerçek V1 Dashboard sağlık tablosu'});
  await table.locator('tbody tr').nth(8).waitFor();
  async function inspectDashboard(){
   const {data,readAt}=await page.evaluate(()=>window.__v26);const now=await page.evaluate(()=>Date.now());
+  diagnostics.setStep('dashboard.source_contract');
   assert.equal(data.source,'V1_INVENTORY_EXPORT');assert.equal(data.is_demo,false);assert.equal(data.items.length,9);
   assert.deepEqual(data.items.map(r=>r.name).sort(),expectedNames);
   const counts=Object.fromEntries(states.map(s=>[s,0]));for(const r of data.items)counts[classify(r,now)[0]]++;
   const cards=await page.locator('.dashboard-real-health .metric-card').evaluateAll(cards=>Object.fromEntries(cards.map(c=>[c.querySelector('.metric-card-top>span').textContent,c.querySelector('.metric-value-row strong').textContent])));
+  diagnostics.setStep('dashboard.five_counts');
   assert.deepEqual(cards,Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,String(v)])));
   const domRows=await table.locator('tbody tr').allInnerTexts();
   for(let i=0;i<9;i++){
    const r=data.items[i],text=domRows[i],status=classify(r,now);
+   diagnostics.setStep('dashboard.row_'+i+'.identity_status_reason');
    assert.ok(text.includes(r.name));assert.ok(text.includes(status[0]));assert.ok(text.includes(status[1]));
-   assert.ok(text.includes(`${r.cpu_load_percent}% / ${r.memory_used_percent}%`));assert.ok(text.includes(stamp(r)));
+   diagnostics.setStep('dashboard.row_'+i+'.metrics');assert.ok(text.includes(`${r.cpu_load_percent}% / ${r.memory_used_percent}%`));
+   diagnostics.setStep('dashboard.row_'+i+'.istanbul_time');assert.ok(text.includes(stamp(r)));
    assert.equal(r.health_source,'V1_ROUTER_HEALTH_SAMPLES');assert.ok(r.health_sample_id);
   }
+  diagnostics.setStep('dashboard.priority_order');
   const ranked=data.items.map(r=>({r,status:classify(r,now)[0]})).filter(x=>x.status!=='Normal').sort((a,b)=>['Kritik','Dikkat','Eski veri','Veri yok'].indexOf(a.status)-['Kritik','Dikkat','Eski veri','Veri yok'].indexOf(b.status)||a.r.name.localeCompare(b.r.name,'tr')).slice(0,5);
   const alerts=await page.locator('.health-alerts li').allInnerTexts();assert.equal(alerts.length,ranked.length);
   for(let i=0;i<alerts.length;i++){assert.ok(alerts[i].includes(ranked[i].r.name));assert.ok(alerts[i].includes(ranked[i].status));}
+  diagnostics.setStep('dashboard.source_labels');
   const body=await page.locator('.dashboard-real-health').innerText();assert.ok(body.includes('Ölçüm zamanı değildir'));assert.ok(body.includes('Son başarılı API yenileme:'));
   assert.equal(await page.locator('.overview-status-grid').count(),0);assert.equal(await page.locator('.sidebar .nav-count').count(),0);
   fs.writeFileSync(output+'/dashboard-api.json',JSON.stringify({data,readAt,counts}));
@@ -112,6 +123,10 @@ try{
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.screenshot({path:output+'/dashboard-mobile.png',fullPage:true});
  ok('single mobile 390px pass: both actual views have no document overflow and center reasons fit');
+ diagnostics.setStep('source.isolation');
+ assert.ok(apiReads.length>0);assert.ok(apiReads.every(p=>['/api/v1/auth/me','/api/v1/preferences','/api/v1/v1-inventory'].includes(p)),'Real source must not request demo resources');
+ assert.match(await page.locator('.demo-banner').innerText(),/Gerçek V1 aktarımı/);ok('real source uses only auth/preferences/inventory; demo resources remain unmounted');
+ diagnostics.setStep('browser.transport');assert.equal(transportFailures.length,0,'Expected 0 failed network requests');
  diagnostics.assertRuntimeClean();
  diagnostics.setStep('evidence.write');
  results.status='PASS';results.real_nine_router_acceptance=true;

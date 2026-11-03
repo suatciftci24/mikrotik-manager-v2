@@ -37,3 +37,9 @@ test('other assertion failure keeps its step and error code without raw diff; cl
  assert.match(r.failure.message,/AssertionError at dashboard.desktop/);
  assert.equal(r.status,'FAIL');
 });
+
+test('runner assertion location preserves only fixed basename and numeric position',()=>{
+ const d=acceptanceDiagnostics(),e=new Error('SYNTHETIC_SECRET');
+ e.stack='Error: SYNTHETIC_SECRET\n at inspectDashboard (file:///private/SYNTHETIC_SECRET/v26-browser-acceptance.mjs:74:11)';
+ const r=d.failure(e);assert.equal(r.failure.location,'v26-browser-acceptance.mjs:74:11');assert.ok(!JSON.stringify(r).includes('SYNTHETIC_SECRET'));
+});

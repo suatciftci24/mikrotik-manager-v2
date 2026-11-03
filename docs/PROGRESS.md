@@ -3547,3 +3547,46 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Git kapsamı runner + kabul raporu + bu kayıt; normal origin/main-guncel
   commit/push. Sonraki adım: yalnız frontend yayın + yedekli rollback ve
   gerçek ADMIN kabul planına açık canlı kullanıcı onayı.
+
+
+## V2.6 — onaylı Fresh Pilot frontend denemesi ve geri dönüş — 2026-11-03
+
+- ROLLBACK; başlangıç main-guncel/fffac4a temiz. Açık onay yalnız frontend,
+  yedek/kabul/rollback için kullanıldı. Ürün kodu ve önceki build korunur.
+- Önkoşullar PASS: gerçek LOCAL ADMIN preferences200/storage_ready/Values,
+  gerçek9/9 envanter+CPU/RAM/zaman/kaynaklı sağlık, anonim401, API DB bağlı /
+  cihaz adaptörleri kapalı. Timer enabled/active/waiting; V1/eski V2/Fresh
+  PID ve start/active-enter metadata kaydedildi.
+- Doğrulanmış frontend yedeği:
+  /srv/mikrotik-manager-v2-fresh-pilot/backups/v26-fffac4a-20261103T165947Z-q52gigww
+  dist-before.tar SHA256
+  3cd20b5fe94c4d6ab97b73fd58afbd9e96de99b02c3632de72c53a521f96ccfa.
+  İçerik/metadata/manifest doğrulandı; eski yedeklere dokunulmadı.
+- İlk kapı frontend yazmadan PREIMAGE_CHANGED ile durdu. Dar karşılaştırma
+  yalnız timer'ın doğal v1-inventory.json/health-transfer-status.json
+  çıktılarını gösterdi; frontend ve unit alanları aynıydı. Yalnız bu iki
+  veri çıktısı sabit config karşılaştırmasından ayrıldı. Başarılı önkoşul/
+  yedek tekrarı ve güvenlik gevşetme yok. Ardından tek frontend yayını:
+  dokuz dosya HTTP hash eşleşmesi, assetler önce/atomik index son PASS.
+- Gerçek browser auth ADMIN/preferences200 PASS. dashboard.desktop
+  AssertionError; pageErrors=[]/httpFailures=[]. Hangi alt assertion olduğu
+  receipt'te yok; ürün/araç ayrımı kanıtlanmadı. Sayaçlar/60sn/Router Merkezi/
+  mobil tam canlı kabulü verilmedi. Başarısızlıkta ikinci dağıtım yapılmadı.
+- Yalnız frontend rollback: tam içerik/uid/gid/mode/mtime_ns ve tüm eski
+  dosyaların HTTP hash'leri ön-imajla aynı, yeni assetler kaldırıldı.
+  Uzak rollback.json ROLLBACK_VERIFIED. Fresh Pilot eski V2.5 üzerindedir.
+- Son preferences200/Values/storage_ready, sağlık9/9; anonim401. ADMIN
+  logout200/me401; browser/tünel ve yerel cookie/session materyali temizlendi.
+  PID/start alanları aynı: V1 1173, eski V2 API429918/DB387726, Fresh
+  API857737/DB843217. Timer ve backend/sabit config/unit hash'leri korundu.
+- DB doğrudan erişim/yazma/migration, restart/reload, V1/eski V2 dosya yazma,
+  router/PPPoE/RADIUS/IPsec veya timer ayar/tetikleme işlemi yapılmadı.
+  Özel yerel kanıt .local/deployment/v26-approved-fffac4a/; Git dışıdır.
+- Yerel runner sürüm/preferences/source-isolation/transport kontrolüyle
+  güncellendi. Başarısız deneme sonrası güvenli assertion konumu ve alt
+  adım tanısı eklendi; canlı tekrar çalışmadı. 1 yeni +4 mevcut sentetik
+  diagnostics kontrolü PASS; syntax/diff PASS. Başarılı ürün test/build
+  tekrarı yok. Ayrıntı docs/V26_HEALTH_ACCEPTANCE.md içinde.
+- Git kapsamı yalnız dokümantasyon ve yerel kabul tanı araç/testleri;
+  origin/main-guncel normal commit/push. Tek açık engel Dashboard assertion
+  nedeninin belirsiz olmasıdır; V2.6 CANLI KABUL HAYIR.

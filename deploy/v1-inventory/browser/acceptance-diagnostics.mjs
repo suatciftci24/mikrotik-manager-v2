@@ -37,7 +37,8 @@ export function acceptanceDiagnostics(){
   },
   failure(error){
    const name=errorNames.has(error.name)?error.name:'Error';
-   return {status:'FAIL',failure:{step,name,...(error.code==='ERR_ASSERTION'?{code:error.code}:{}),
+   const assertionFrame=String(error.stack??'').match(/\/v26-browser-acceptance\.mjs:(\d+):(\d+)/);
+   return {status:'FAIL',failure:{step,name,...(assertionFrame?{location:'v26-browser-acceptance.mjs:'+assertionFrame[1]+':'+assertionFrame[2]}:{}),...(error.code==='ERR_ASSERTION'?{code:error.code}:{}),
     message:assertionMessage??`${name} at ${step}; untrusted error operands/message omitted.`},
     diagnostics:{pageErrors:[...pageErrors],httpFailures:[...httpFailures]}};
   }
