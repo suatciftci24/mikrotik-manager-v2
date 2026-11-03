@@ -12,7 +12,7 @@ cd /home/suatpc/Codex-Projects/mikrotik-manager-v2
 
 Open `http://127.0.0.1:5173`. Before first ADMIN setup, `demo@local.test` is accepted as a login alias for the bootstrap demo user. The synthetic demo account is `demo` / `demo-only` (profile email `demo@local.test`). After setup only LOCAL accounts can log in. The login form never pre-fills credentials. Dashboard, Router Center, and Subscriber Center retain their synthetic data. The browser API is served by FastAPI at loopback; `/api/health` reports local demo storage connectivity and device-adapter isolation.
 
-The first run prepares V2-specific Python/frontend dependencies. First-time dependency installation needs normal package-registry access. Demo persistence uses the existing SQLAlchemy/psycopg stack and locally installed PostgreSQL 16; no additional Python/npm package is introduced. The explicit `--prepare-demo` maintenance command starts only a repo-owned development PostgreSQL cluster and applies/seeds only the isolated demo schema. Normal `./dev.sh` startup neither connects to the DB nor runs migrations; API reads/writes connect on demand. The original `001_initial_v2.sql` domain design is not applied by demo setup.
+The first run prepares V2-specific Python/frontend dependencies. First-time dependency installation needs normal package-registry access. Demo persistence uses the existing SQLAlchemy/psycopg stack and locally installed PostgreSQL 16; no additional Python/npm package is introduced. The explicit `--prepare-demo` maintenance command starts only a repo-owned development PostgreSQL cluster and applies/seeds only the isolated demo schema. Normal `./dev.sh` startup resumes only an existing repo-owned demo PostgreSQL cluster and checks its schema/marker/permissions read-only. Missing DB/schema or invalid credentials stop startup; no automatic creation, migration or seed occurs. API reads/writes connect on demand. The original `001_initial_v2.sql` domain design is not applied by demo setup.
 
 The optional V2 database URL is restricted to loopback and a non-default local port; it defaults to the separate database name `mikrotik_manager_v2` on port `55432`. Do not point it at V1 or production. See [AGENTS.md](AGENTS.md) for isolation and architecture rules.
 
@@ -198,7 +198,7 @@ inside this newly created, repo-owned development cluster.
 
 Migration `002_demo_storage.sql` and its `.down.sql` rollback are explicit development
 artifacts. Setup runs in a transaction and refuses to overwrite/reseed an existing
-marked schema. Normal application startup performs no SQL or migration. Rollback
+marked schema. Application import performs no SQL or migration; the local dev launcher checks the existing demo DB read-only. Rollback
 removes only `v2_demo` and requires exporting demo state first; it is never automatic.
 No V1/production schema, migration, router or RADIUS endpoint is used.
 
@@ -759,10 +759,19 @@ DB during development in the restricted session.
 
 ## Explicit local V2 database repair
 
-Normal `./dev.sh` starts only the API/UI; it does not start PostgreSQL or initialize
-the demo schema. After a WSL restart, the separate repo-owned PostgreSQL cluster
-may therefore be stopped while login/UI still work. With the existing V2 `dev.sh`
-session running, execute this single command in a **normal WSL terminal**:
+Normal `./dev.sh` (also `--refresh-owned`) now resumes an existing
+`.local/postgres-v2-demo` PostgreSQL 16 cluster on `127.0.0.1:55432` before
+starting API/UI. It verifies destination, ownership, existing cluster version,
+actual data directory, demo schema marker and privileges. It never creates a DB,
+changes credentials, initializes schema or seeds records. An occupied port or
+missing/incompatible schema stops startup. It does not manage system services;
+after WSL restarts, run the usual `./dev.sh` again. `--ui-only` and acceptance
+launchers keep their existing behavior. A completed first ADMIN setup continues
+to disable legacy demo login; use the existing LOCAL ADMIN account.
+
+The following **explicit maintenance** command additionally prepares missing
+schema/examples and exercises writes. Do not use it for a connection-only repair
+or when schema/seed/write operations have not been authorized:
 
 ```bash
 cd ~/Codex-Projects/mikrotik-manager-v2 && ./repair-demo.sh --check-writes

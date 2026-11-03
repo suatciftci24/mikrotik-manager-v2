@@ -37,11 +37,14 @@ if [[ "${1:-}" == '--prepare-demo' ]]; then
   PYTHONPATH=backend .venv/bin/python -m app.demo_storage init --examples
   exit 0
 fi
-if [[ "${1:-}" == '--refresh-owned' ]]; then
-  [[ $# -eq 1 ]] || { printf 'Geçersiz refresh argümanı.\n' >&2; exit 1; }
-  PYTHONPATH=backend .venv/bin/python -m app.local_refresh
-elif [[ $# -ne 0 ]]; then
+# Validate arguments before any normal-start database action.
+if [[ $# -gt 0 && ( $# -ne 1 || "$1" != '--refresh-owned' ) ]]; then
   printf 'Geçersiz dev.sh argümanı.\n' >&2; exit 1
+fi
+# Resume only an existing project demo cluster; no initdb, CREATE, migration or seed.
+PYTHONPATH=backend .venv/bin/python -m app.local_demo_database
+if [[ "${1:-}" == '--refresh-owned' ]]; then
+  PYTHONPATH=backend .venv/bin/python -m app.local_refresh
 fi
 # Normal dev and acceptance share the same ownership/readiness/log lifecycle.
 export PYTHONPATH="$PROJECT_ROOT/backend"

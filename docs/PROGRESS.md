@@ -3139,3 +3139,40 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Git kapsamı yalnız ilgili frontend kaynak/test/stil, README ve bu ilerleme
   kaydıdır; origin/main-guncel için force kullanmadan normal push hedeflenir.
 - Tek sonraki adım: yerel V2.6 Dashboard ve Router Merkezi kullanıcı görsel kabulü.
+
+## V2.6 — Ofis WSL yerel demo DB bağlantısı ve güvenli başlangıç — 2026-11-03
+
+- PASS (DB onarımı): API/UI loopback'te hazırken bu deponun
+  .local/postgres-v2-demo PostgreSQL 16 kümesi durmuştu (pg_ctl status=3,
+  SQL OperationalError). Normal dev.sh DB başlatmadığından hata oluşuyordu.
+  Sistem 16/main:5432 kümesi de down görüldü; ona dokunulmadı.
+- Standart V2 hedefi/sahiplik doğrulandıktan sonra yalnız mevcut proje kümesi
+  127.0.0.1:55432 üzerinde başlatıldı. DB/şema/yetki/saklama marker ve gerçek
+  data_directory doğrulandı; mevcut 11 abone okundu. initdb, CREATE DATABASE,
+  migration, şema onarımı, reseed, kullanıcı/parola/rol değişikliği yapılmadı.
+- dev.sh normal/--refresh-owned başlangıcı mevcut kümeyi güvenle devam ettirir;
+  hedef/sahiplik/sürüm ve port kontrolü sonrasında mevcut şema/yetkiler salt
+  okunur doğrulanır. Başka port sahibi, eksik küme/şema veya yanlış kimlikte
+  güvenle durur; hiçbir otomatik kurulum/fallback yok. Sistem PostgreSQL unit
+  veya WSL açılış ayarı değişmedi; WSL açılınca olağan dev.sh komutu yeterlidir.
+- PASS: 6 yeni başlangıç güvenlik testi + doğrudan bağlı 7 onarım testi,
+  toplam 13 unittest; bash -n ve git diff --check. Frontend değişmediği için
+  tekrar frontend build veya genel test suite çalıştırılmadı.
+- Gerçek yerel dev.sh --refresh-owned akışıyla yalnız bu deponun PID/UID/argv
+  doğrulanan API/UI süreçleri yenilendi; PostgreSQL restart edilmedi. API/UI
+  ve UI proxy READY, /api/health database_connected=true,
+  device_adapters_connected=false. Kullanıcı/parola, abone/olay/istek ve kurulum
+  kayıtları dahil yedi demo tablosunun başlangıç sonrası/sonrası SHA256 özetleri
+  aynı. İş verisi yazılmadı; 11 mevcut abone korunuyor.
+- BLOCKED (oturum sonrası görsel kabul): gerçek Chromium formunda demo e-posta
+  girişi HTTP401. Yerel DB'de ilk ADMIN mühürü kapalı, users_ready=true ve yalnız
+  bir aktif LOCAL hesap var; demo-user yok. Kullanıcı adı demo da 401. Bu mevcut
+  güvenlik davranışıdır; yeniden demo hesap açılmadı, parola tahmini/reseti veya
+  oturum/yetki bypass yapılmadı. Mevcut LOCAL ADMIN kimliği bu görevde bulunmadığı
+  için başarılı giriş/Dashboard/Router Merkezi görsel kabulü iddia edilmez.
+  İki API'nin oturumsuz 401 davranışı ve API DB sağlığı doğrulandı.
+- V1/eski V2/VDS/Fresh Pilot/canlı PostgreSQL/MikroTik/PPPoE/RADIUS veya
+  servis/timer yapılandırması erişimi/değişikliği yok. Git kapsamı yalnız
+  başlangıç kodu/test, README ve bu kayıt; normal origin/main-guncel push.
+- Tek sonraki adım: http://127.0.0.1:5173 üzerinde mevcut yerel LOCAL ADMIN
+  hesabıyla giriş yapıp Dashboard ve Router Merkezi'ni görsel onaylamak.
