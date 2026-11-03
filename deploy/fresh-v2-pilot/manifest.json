@@ -61,7 +61,7 @@
     "stage-approved.py": "d8b554d816023470b72191510321bd0b5ae7dd366bd256642398563d4dcb7636",
     "accept-approved.py": "bf139aff5d1ee7f7b9da59b8f274ea2aadfd77a6847c39b55a5db4301b2e4f43",
     "runtime_check.py": "be8b5affe79fac393f6ab8746cd73baaddd36f025dd59366e2dfcebe31bc869d",
-    "preferences-repair-approved.py": "4ac05db3529c4d3243a343e051a8f46985d4b76fe823962b014be9430a728439",
+    "preferences-repair-approved.py": "d2b14cde70fac1277b75b9f7d3ef46c3b957daf3d330629115bb260c4358a30a",
     "prepare-preferences-repair.py": "f0450061d56a8ebfb60a95dda99c1abca1fb18bd3f0819a6d13e62c6dc9449da"
   }
 }

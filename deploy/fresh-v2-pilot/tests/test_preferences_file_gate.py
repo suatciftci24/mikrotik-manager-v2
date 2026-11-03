@@ -81,3 +81,36 @@ class SecretFilesContract(TestCase):
         self.assertEqual(result,2)
         manifest.assert_called_once();connect.assert_not_called();request.assert_not_called()
         self.assertEqual(json.loads(output.getvalue())['status'],'BLOCKED')
+
+    def test_owner_and_backup_transport_use_absolute_runuser_with_minimal_environment(self):
+        import ast
+        import hashlib
+        import json
+        import subprocess
+        import tempfile
+        import os
+        from sqlalchemy import text
+        source=ast.parse((ROOT/'deploy/fresh-v2-pilot/preferences-repair-approved.py').read_text())
+        main=next(n for n in source.body if isinstance(n,ast.FunctionDef) and n.name=='main')
+        functions=[n for n in main.body if isinstance(n,ast.FunctionDef) and n.name in ('owner_metadata','backup')]
+        calls=[]
+        def run(command,**kwargs):
+            calls.append((command,kwargs))
+            if command[-1].startswith('SELECT jsonb_build_object'):
+                value={'identity':['mikrotik_manager_v2_fresh_pilot','v2_fresh_owner','55442',str(executor.ROOT/'postgres')],'role_safe':True}
+                return SimpleNamespace(returncode=0,stdout=json.dumps(value))
+            if len(command)>4 and 'pg_dump' in command[4]:kwargs['stdout'].write(b'synthetic-custom-archive')
+            return SimpleNamespace(returncode=0)
+        from unittest.mock import MagicMock
+        connection=MagicMock();connection.execute.return_value.scalar_one.return_value='synthetic-snapshot'
+        with tempfile.TemporaryDirectory(prefix='v2-repair-transport-') as directory:
+            scope={'ROOT':executor.ROOT,'os':os,'text':text,'json':json,'subprocess':subprocess,'hashlib':hashlib,'evidence':Path(directory),'require':lambda ok,code: None if ok else (_ for _ in ()).throw(AssertionError(code))}
+            for function in functions:exec(compile(ast.Module(body=[function],type_ignores=[]),'<reviewed-transport>','exec'),scope)
+            with patch('subprocess.run',side_effect=run):
+                scope['owner_metadata']();digest=scope['backup'](connection)
+            self.assertEqual(digest,hashlib.sha256(b'synthetic-custom-archive').hexdigest())
+        self.assertEqual(len(calls),3)
+        for command,options in calls[:2]:
+            self.assertEqual(command[0],'/usr/sbin/runuser')
+            self.assertEqual(options['env']['PATH'],'/usr/bin:/bin')
+            self.assertNotIn('PGPASSWORD',options['env'])

@@ -151,7 +151,7 @@ def main(argv=None):
             'installation',(SELECT jsonb_build_array(profile,manifest_sha256) FROM v2_migrations.installation WHERE singleton=1),
             'ledger',(SELECT jsonb_agg(jsonb_build_array(position,revision,sha256) ORDER BY position) FROM v2_migrations.applied),
             'role_safe',(SELECT NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND rolcanlogin FROM pg_roles WHERE rolname='v2_fresh_app'))::text;"""
-        command = ['runuser','-u','mikrotik-v2-fresh-db','--','/usr/lib/postgresql/16/bin/psql',
+        command = ['/usr/sbin/runuser','-u','mikrotik-v2-fresh-db','--','/usr/lib/postgresql/16/bin/psql',
                    '-X','-A','-t','--set=ON_ERROR_STOP=1','-h',str(ROOT/'socket'),'-p','55442',
                    '-U','v2_fresh_owner','-d','mikrotik_manager_v2_fresh_pilot','-c',sql]
         r = subprocess.run(command,capture_output=True,text=True,timeout=15,
@@ -166,7 +166,7 @@ def main(argv=None):
         snapshot = c.execute(text('SELECT pg_export_snapshot()')).scalar_one()
         output = evidence/'database-before.dump'
         # Existing owner peer transport only. No DB password in file/env/argv.
-        command = ['runuser', '-u', 'mikrotik-v2-fresh-db', '--', '/usr/lib/postgresql/16/bin/pg_dump',
+        command = ['/usr/sbin/runuser', '-u', 'mikrotik-v2-fresh-db', '--', '/usr/lib/postgresql/16/bin/pg_dump',
                    '-h', str(ROOT/'socket'), '-p', '55442', '-U', 'v2_fresh_owner', '-d', 'mikrotik_manager_v2_fresh_pilot',
                    '--format=custom', '--snapshot='+snapshot]
         with output.open('xb') as f:

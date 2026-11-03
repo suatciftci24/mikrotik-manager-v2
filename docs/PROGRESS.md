@@ -3474,3 +3474,10 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   saptandı; DB açılmadan durdu. CookieJar doğrudan import ile düzeltildi.
   Yalnız bu başlangıcın manifest kapısına IO olmadan ulaştığını sınayan
   1 yeni hedefli test PASS; onarım/audit transaction kodu değişmedi.
+
+- Dar önkoşul kontrolünde kurulu manifest PASS. Sonraki araç hatası:
+  temiz PATH=/usr/bin:/bin içinde runuser yok, /usr/sbin/runuser mevcut.
+  Owner SELECT/backup komutları mutlak yola sabitlendi; PATH veya yetkiler
+  genişletilmedi. Yalnız ilgili transport komut/env testi PASS (ilk test
+  fixture eksik bağımlılığı düzeltildi, yalnız başarısız test tekrarlandı).
+  Bu duruşta da DB bağlantısı/yedek/yazma başlamadı.
