@@ -3176,3 +3176,51 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   başlangıç kodu/test, README ve bu kayıt; normal origin/main-guncel push.
 - Tek sonraki adım: http://127.0.0.1:5173 üzerinde mevcut yerel LOCAL ADMIN
   hesabıyla giriş yapıp Dashboard ve Router Merkezi'ni görsel onaylamak.
+
+## V2.6 — Onaylı Fresh Pilot frontend denemesi ve doğrulanmış geri dönüş — 2026-11-03
+
+- ROLLBACK: açık kullanıcı onayıyla temiz main-guncel/74f11c8 kontrol edildi.
+  V2.6 frontend kaynakları 1c9bfcd ile aynı; tam bu commit'ten izole tsc/Vite
+  build alındı. Ürün testleri tekrarlanmadı. Mevcut StaticFiles sunumu doğrulandı;
+  backend/DB yerel başlangıç düzeltmesi dağıtıma alınmadı.
+- Başlangıç: Fresh API PID 857737, DB PID 843217; ilgili snapshot timer
+  enabled/active. Mevcut ADMIN teslim kimliği yalnız hedefte okunarak 9/9
+  envanter adları ve salt okunur gerçek kaynak dağıtımdan önce doğrulandı.
+  İlk hazırlık yardımcısında değişken hatası frontend/yedek/oturum yazılmadan
+  durdu; yalnız yardımcı düzeltildi. Bu bir dağıtım denemesi değildi.
+- Yedek: root-private
+  /srv/mikrotik-manager-v2-fresh-pilot/backups/v26-1c9bfcd-20261103T075013Z-a619k1gq
+  altında dist-before.tar, before.json, candidate.json, attempted.json ve
+  deployed.json. Mevcut tüm frontend dosyalarının içerik/owner/group/mode/mtime
+  manifesti ve arşiv içindeki her dosyanın hash'i doğrulandı. Backend/config/
+  ADMIN teslim dosyası ve dört ilgili unit dosyası için başlangıç özetleri alındı.
+- Tek denemede dokuz frontend build dosyası yayınlandı; hash'li assetler önce,
+  index atomik olarak son yazıldı. Eski assetler korundu. Sunulan dokuz dosyanın
+  tamamı onaylı payload ile eşleşti. Restart/reload/migration yapılmadı.
+- Yetkili gerçek Chromium oturumunda Dashboard ve Router Merkezi'nin 9/9
+  ad/CPU/RAM/durum/gerekçe/Europe-Istanbul ölçüm zamanı/güncellik karşılaştırması
+  API ile geçti. Beş sayaç: Normal 7, Dikkat 2, Kritik 0, Eski veri 0, Veri yok 0.
+  Öncelikli uyarı sırası ve kaynak/demo ayrımı geçti. Gerçek 60sn beklemede
+  tam bir yenileme, max_active=1; API saati ölçüm zamanı yerine kullanılmadı.
+  Masaüstü ve tek 390px mobil geçişte iki ekran taşmasız; gerekçeler hücreye sığdı.
+- Ancak kabul aracının son pageerror/HTTP hata listesi kontrolü AssertionError
+  ile başarısız oldu. Araç bu son hatanın ayrıntısını receipt'e kaydetmedi;
+  hangi istemci/HTTP hatası olduğu belirlenemedi, ürün hatası veya başarılı
+  bütünsel 9/9 kabulü sonucu çıkarılmadı. Kabul sonucu FAIL olarak korunur.
+- Kullanıcı talimatıyla hemen yalnız frontend geri alındı. Yeni aday assetler
+  kaldırıldı; tüm eski dosyaların içerik/owner/group/mode/mtime bilgileri yedekle
+  eşleşti. rollback.json ROLLBACK_VERIFIED; son HTTP index ve giriş scriptleri
+  de eski yedekle karşılaştırıldı. İkinci dağıtım veya yeni canlı teşhis yok.
+- API/DB PID ve başlangıç zamanları aynı. Snapshot timer enabled/active ve
+  ActiveEnterTimestampMonotonic aynı; backend/config/ADMIN ve unit özetleri
+  değişmedi. Snapshot doğal aktarımı dışında kaynak üzerinde işlem yapılmadı.
+  V1/eski V2 hedeflenmedi; MikroTik/PPPoE/RADIUS/Hotspot/IPsec, PostgreSQL
+  veri/rol/yetki/şema, servis/timer ayarı veya restart/reload değişikliği yok.
+- ADMIN kabul oturumu logout edildi; uzak ve yerel geçici session.json dosyaları
+  kaldırıldı. Browser kapatıldı, yalnız görevin SSH tüneli sonlandırıldı.
+- Yerel kanıt: .local/deployment/v26-fresh-1c9bfcd/ içinde ui-receipt.json (FAIL),
+  rollback.json, rollback-http-verified.json, Dashboard/Router Merkezi masaüstü
+  ve mobil PNG'leri; görüntüler görsel incelendi. Kanıt ve gerçek satırlar Git'e
+  alınmaz. Yalnız bu dokümantasyon normal commit/push kapsamındadır.
+- Tek sonraki adım: son kabul hatası ayrıntısını kaydedecek yeni kontrollü
+  deneme için kullanıcıdan yeniden dağıtım onayı almak; mevcut V2.5 korunur.
