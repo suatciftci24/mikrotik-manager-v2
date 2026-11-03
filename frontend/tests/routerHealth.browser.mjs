@@ -8,7 +8,7 @@ import {build} from 'esbuild';
 import {selectBrowser} from './browserRuntime.mjs';
 const {chromium}=await import('../../.local/browser-tools/node_modules/playwright/index.mjs');
 const temp=mkdtempSync(join(tmpdir(),'v26-health-')),output=resolve('../.local/browser-acceptance/v26-health');mkdirSync(output,{recursive:true});
-const layoutOnly=process.argv.includes('--layout-only');
+const layoutOnly=process.argv.includes('--layout-only'),viewerOnly=process.argv.includes('--viewer-only');
 const fixed=new Date('2026-11-02T10:00:00Z'),stamp=seconds=>new Date(fixed.getTime()-seconds*1000).toISOString();
 const rows=Array.from({length:9},(_,i)=>({id:String(i+1),name:'Fixture V1 router '+(i+1),identity:null,model:'Fixture model',routeros_version:'7.fixture',status:'NO_DATA',health_source:i<6?'V1_ROUTER_HEALTH_SAMPLES':null,health_sample_id:i<6?String(i+1):null,connection_status:i%2?'LAST_PROBE_FAILED':'LAST_PROBE_SUCCEEDED',sampled_at:stamp(i<3?60:i<6?601:30),cpu_load_percent:i===0?0:i===1?70:i===2?90:20,memory_used_percent:35,freshness:'RECENT'}));
 const inventory={source:'V1_INVENTORY_EXPORT',is_demo:false,availability:'AVAILABLE',items:rows};
@@ -36,6 +36,7 @@ try{
  const table=()=>page.getByRole('region',{name:'Gerçek V1 Dashboard sağlık tablosu'});
  const count=title=>page.locator('.dashboard-real-health .metric-card').filter({hasText:title}).locator('.metric-value-row strong');
 
+ if(!viewerOnly){
  await page.goto(base+'/#module=dashboard&dashboard_source=V1_INVENTORY');hold=false;release();await table().waitFor();
  const counts=async()=>Promise.all(['Normal','Dikkat','Kritik','Eski veri','Veri yok'].map(s=>count(s).innerText()));
  assert.deepEqual(await counts(),['1','1','1','3','3']);
@@ -67,7 +68,11 @@ try{
  await page.goto(base+'/#module=dashboard&dashboard_source=V1_INVENTORY');await table().waitFor();
  hold=true;gate=new Promise(r=>release=r);await page.clock.fastForward(60000);await page.getByText('Veriler yükleniyor…',{exact:true}).waitFor();await demo().click();await page.getByRole('button',{name:'Tüm routerları göster',exact:true}).waitFor();hold=false;release();const after=calls.filter(p=>p.endsWith('/v1-inventory')).length;await page.clock.fastForward(60000);assert.equal(calls.filter(p=>p.endsWith('/v1-inventory')).length,after);assert.equal(await page.locator('.health-alerts').count(),0);
  ok('source change clears pending real warnings and stops real polling; demo stays separate');
- viewer=true;const viewerPage=await context.newPage();const prior=calls.length;await viewerPage.goto(base+'/#module=dashboard&dashboard_source=V1_INVENTORY');await viewerPage.getByText('Bu kaynak için merkezi yönetici yetkisi gerekli. Veri gösterilmiyor.',{exact:true}).waitFor();assert.ok(calls.slice(prior).every(p=>p.includes('/auth/')||p.endsWith('/preferences')));
  }
- assert.deepEqual(errors,[]);writeFileSync(join(output,layoutOnly?'layout-result.json':'result.json'),JSON.stringify({status:'PASS',checks,synthetic_only:true,real_nine_router_acceptance:false},null,2));
+ }
+ if(!layoutOnly){
+ await page.close();hold=false;release();
+ viewer=true;const viewerPage=await context.newPage();viewerPage.on('pageerror',error=>errors.push(error.message));const prior=calls.length;await viewerPage.goto(base+'/#module=dashboard&dashboard_source=V1_INVENTORY');await viewerPage.getByText('Bu kaynak için merkezi yönetici yetkisi gerekli. Veri gösterilmiyor.',{exact:true}).waitFor();assert.ok(calls.slice(prior).every(p=>p.includes('/auth/')||p.endsWith('/preferences')),JSON.stringify(calls.slice(prior)));assert.equal(await viewerPage.getByRole('button',{name:'Gerçek V1 · Salt Okunur',exact:true}).isDisabled(),true);assert.equal(await viewerPage.locator('.health-alerts').count(),0);ok('isolated VIEWER page denies real source without data requests or demo fallback');
+ }
+ assert.deepEqual(errors,[]);writeFileSync(join(output,viewerOnly?'viewer-result.json':layoutOnly?'layout-result.json':'result.json'),JSON.stringify({status:'PASS',scope:viewerOnly?'VIEWER_ONLY':layoutOnly?'LAYOUT':'FULL',checks,synthetic_only:true,real_nine_router_acceptance:false},null,2));
 }finally{if(browser)await browser.close();server.close();rmSync(temp,{recursive:true,force:true});}

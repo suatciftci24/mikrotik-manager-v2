@@ -3524,3 +3524,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Sonraki somut adım: ev bilgisayarında origin/main-guncel son commit'ini
   alarak bu tamamlanmış kayıttan devam etmek. 503 için başka işlem gerekmez;
   V2.6 dağıtımı bu görevin parçası değildir ve yeniden başlatılmadı.
+
+## V2.6 — kesin kabul hazırlığı — 2026-11-03
+
+- LOCAL PASS: main-guncel/4890735 temiz başlangıç; mevcut V2.6 ürün kodu
+  korundu. Eşikler, beş sayaç, 10dk, gerçek/demo ve 60sn davranışı doğrulandı.
+- PASS: routerHealth/dashboardV1Health/v1Inventory üç hedefli test dosyası
+  (16 tanımlı kontrol), TypeScript/Vite build. Mevcut bundle boyut uyarısı var.
+- Sentetik Chromium ilk beş kabul grubu PASS: sayaç/öncelik, tema ve
+  1440/390/320px, yenileme/yaşlanma, hata/boş/detay/mobil, kaynak iptali.
+  Son VIEWER kontrolünde açık ADMIN demo sayfası ortak istek listesini
+  kirletiyordu. Runner ADMIN sayfasını önce kapatır; yalnız başarısız
+  --viewer-only kapsamı tekrarlandı ve PASS. Full-run PASS diye sunulmaz.
+  Ayrı scope receipt, VIEWER pageerror/disabled/uyarı yokluğu kontrolleri eklendi.
+- Masaüstü Dashboard ve mobil Router Merkezi PNG'leri görsel incelendi.
+  Kanıt .local/browser-acceptance/v26-health altında; yalnız sentetik veri.
+- Kabul matrisi ve yedek/checksum/atomik index/koşullu rollback/gerçek kabul
+  planı docs/V26_HEALTH_ACCEPTANCE.md içinde. Açık ürün hatası saptanmadı.
+- Preferences 503 tamamlanmış onarım kaydı esas alındı; yeni araştırma yok.
+  DB/ADMIN/abone/seed/V1/eski V2/Fresh Pilot/router/RADIUS/timer veya servis
+  erişimi/değişikliği yok. Canlı dağıtım ve yeni gerçek 9/9 kabulü yapılmadı.
+- Git kapsamı runner + kabul raporu + bu kayıt; normal origin/main-guncel
+  commit/push. Sonraki adım: yalnız frontend yayın + yedekli rollback ve
+  gerçek ADMIN kabul planına açık canlı kullanıcı onayı.
