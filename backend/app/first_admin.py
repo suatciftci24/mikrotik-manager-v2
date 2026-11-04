@@ -66,7 +66,7 @@ def collect_input():
     return payload
 
 
-def main(argv=None):
+def main(argv=None, *, v26=False):
     argv = sys.argv[1:] if argv is None else argv
     # Do not echo unknown args: an operator may accidentally supply a secret.
     if argv not in (['--create'], ['--status']):
@@ -74,11 +74,15 @@ def main(argv=None):
         return 1
     engine = None
     try:
-        uid = local_owner()
+        if v26:
+            from app.services.v26_identity import owner, V26FirstAdminStore
+            uid = owner()
+        else:
+            uid = local_owner()
         if argv == ['--create']:
             require_tty()  # Stop before DB IO/prompts if input/output is redirected.
         from app.core.database import engine
-        store = FirstAdminStore(engine)
+        store = V26FirstAdminStore(engine) if v26 else FirstAdminStore(engine)
         state = store.status()
         if argv == ['--status']:
             print('FIRST_ADMIN_SETUP_CLOSED' if state.closed else 'FIRST_ADMIN_SETUP_NOT_COMPLETED')

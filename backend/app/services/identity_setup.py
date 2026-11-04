@@ -14,7 +14,8 @@ class IdentitySetup:
 
 
 def schema_name(value):
-    if value!='v2_demo' and not re.fullmatch(r'v2_demo_test_[a-f0-9]{32}',value):raise DemoStorageUnavailable()
+    if not isinstance(value,str):raise DemoStorageUnavailable()
+    if value not in ('v2_demo', 'v26_acceptance') and not re.fullmatch(r'v2_demo_test_[a-f0-9]{32}',value):raise DemoStorageUnavailable()
     return value
 
 
@@ -28,6 +29,7 @@ def inspect_setup(connection,schema='v2_demo'):
     closed=row.get('first_admin_initialized') is True
     if closed and not initialized:raise DemoStorageUnavailable()
     if initialized and not users:raise DemoStorageUnavailable()
+    if users and not connection.execute(text('SELECT to_regclass(:table)'),{'table':schema+'.user_audit'}).scalar_one():raise DemoStorageUnavailable()
     if modern:
         if not users or not connection.execute(text('SELECT to_regclass(:table)'),{'table':schema+'.first_admin_setup'}).scalar_one():raise DemoStorageUnavailable()
         marker=connection.execute(text(f'SELECT admin_id FROM {schema}.first_admin_setup WHERE singleton=1')).scalar_one_or_none()

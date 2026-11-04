@@ -79,7 +79,7 @@ class BootstrapSQL:
         if 'SELECT to_jsonb(s)' in sql:
             value = deepcopy(self.row)
         elif 'SELECT to_regclass' in sql:
-            exists = self.ready if p['table'].endswith('.users') else self.setup_table
+            exists = self.ready if p['table'].endswith(('.users', '.user_audit')) else self.setup_table
             value = p['table'] if exists else None
         elif 'SELECT admin_id FROM' in sql:
             value = self.marker
@@ -288,7 +288,7 @@ class FirstAdminTransactions(TestCase):
             self.db.row, self.db.marker, self.db.setup_table, self.db.users = before
 
     def test_demo_login_and_existing_session_revoked_after_seal_real_admin_available(self):
-        adapter = SimpleNamespace(engine=self.db, _verify=Mock())
+        adapter = SimpleNamespace(schema='v2_demo',engine=self.db, _verify=Mock())
         with patch.object(identity, 'adapter', return_value=adapter):
             token = security.login_demo('demo', 'demo-only')
             self.addCleanup(security.logout_demo, token)

@@ -129,8 +129,10 @@ class FirstAdminStore:
         # Callers cannot bypass validation with a model constructed without validators.
         payload = FirstAdminInput.model_validate({**payload.model_dump(), 'password': payload.password})
         with self.engine.begin() as connection:
-            self._check(connection)
+            # Serialize before reading schema_state: a second reader must not hold
+            # an ACCESS SHARE lock while the first setup needs ALTER TABLE.
             connection.execute(text("SELECT pg_advisory_xact_lock(hashtext('v2-user-management'))"))
+            self._check(connection)
             connection.execute(text(f'SELECT version FROM {self.schema}.schema_state WHERE version=1 FOR UPDATE'))
             state = inspect_setup(connection, self.schema)
             require(not state.closed, 'FIRST_ADMIN_SETUP_CLOSED')

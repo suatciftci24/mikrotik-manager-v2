@@ -62,7 +62,7 @@ class IdentityTests(TestCase):
         self.assertNotIn(secret,response.body.decode());self.assertEqual(response.status_code,422)
 
     def test_missing_initialized_identity_table_never_restores_legacy_admin(self):
-        adapter=MagicMock();connection=adapter.engine.connect.return_value.__enter__.return_value
+        adapter=MagicMock();adapter.schema='v2_demo';connection=adapter.engine.connect.return_value.__enter__.return_value
         connection.execute.return_value.scalar_one.side_effect=[None,'true']
         with patch.object(identity,'adapter',return_value=adapter):
             from app.services.demo_subscriptions import DemoStorageUnavailable

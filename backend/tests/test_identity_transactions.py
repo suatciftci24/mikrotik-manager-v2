@@ -38,11 +38,11 @@ class SQL:
 
 class IdentityTransactions(TestCase):
     def setUp(self):
-        self.db=SQL();self.adapter=SimpleNamespace(engine=self.db,_verify=Mock())
+        self.db=SQL();self.adapter=SimpleNamespace(schema='v2_demo',engine=self.db,_verify=Mock())
         self.patch=patch.object(identity,'adapter',return_value=self.adapter);self.patch.start();self.addCleanup(self.patch.stop)
         from app.services.identity_setup import IdentitySetup
         self.state=IdentitySetup(self.db.ready)
-        state=patch.object(identity,'inspect_setup',side_effect=lambda _:self.state)
+        state=patch.object(identity,'inspect_setup',side_effect=lambda *_:self.state)
         state.start();self.addCleanup(state.stop)
     def create(self,**extra):
         return identity.UserCreate(request_id=extra.get('request_id',str(uuid4())),name='Synthetic New User',email='new@local.test',username='test.'+uuid4().hex[:10],password='private-test-password-123',role='VIEWER',active=True,permissions={},expected_revision=0,confirmed=True)
@@ -89,7 +89,7 @@ class IdentityTransactions(TestCase):
             value=str(ROOT/'.local/postgres-v2-demo') if 'SHOW data_directory' in sql else 'true' if 'to_jsonb' in sql else 'v2_demo.users'
             return SimpleNamespace(scalar_one=lambda:value,scalars=lambda:[identity.bootstrap()['permissions']])
         connection.execute.side_effect=execute
-        with patch.object(identity,'adapter',return_value=SimpleNamespace(engine=engine,_verify=Mock())),patch('app.demo_repair.preflight'):
+        with patch.object(identity,'adapter',return_value=SimpleNamespace(schema='v2_demo',engine=engine,_verify=Mock())),patch('app.demo_repair.preflight'):
             identity.initialize_users()
         self.assertFalse(any('INSERT INTO v2_demo.users' in sql for sql in calls))
 

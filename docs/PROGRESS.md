@@ -3695,3 +3695,33 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   URL/upstream ve uzak başlangıç commit'i doğrulandı; normal push hedefidir.
 - Sonraki adım bu yerel testi gerektiğinde aynı frontend komutuyla kullanmak;
   canlı kabul veya dağıtım bu görev kapsamında başlatılmaz.
+
+## V2.6 — izole kimlik şeması ve ilk ADMIN düzeltmesi — 2026-11-04
+
+- LOCAL PASS; başlangıç main-guncel/11eeaed. identity.py/identity_setup.py'deki
+  iki manuel v26 allowlist değişikliği incelendi ve korunarak tamamlandı;
+  .v26-backup bulunmadı. Eski Dashboard BLOCKED/ROLLBACK kayıtları değişmedi.
+- Kök neden: adaptör v26_acceptance seçerken identity SQL/inspect_setup v2_demo
+  kullanıyor; yalnız storage tabloları mevcutken 004/009 kimlik yükseltmesi ve
+  ilk ADMIN mührü eksik. Eski CLI yalnız ofis DB/PGDATA hedefini destekliyordu.
+- Kimlik/login/yönetim/audit sorguları doğrulanan adaptör şemasını kullanır.
+  Yeni app.v26_first_admin yalnız tam kabul profili/127.0.0.1:55433/özel DB-rol,
+  gerçek kabul kökü, sahip UID ve kök altındaki güvenli PGDATA ile çalışır.
+  Gerçek TTY/gizli parola/son onay korunur; demo seed/terfi yapılmaz.
+- Mevcut sürümlü 004/009 yalnız gerekli durumda tek transaction içinde uygulanır;
+  ayrı LOCAL ADMIN + audit + kalıcı mühür birlikte commit olur. Kapalı mühre
+  tekrar yazılmaz; bozuk mühür/audit veya eksik kurulum güvenli ret verir.
+  Demo/local davranışı korunur; demo init V2.6 şemasında açıkça engellenir.
+- Gerçek PG testi eşzamanlı ilk kurulumda ALTER TABLE kilit sırası hatası buldu:
+  advisory kilit şema okumasından önceye taşındı; aynı başarısız test PASS.
+- PASS: 51 mevcut hedefli regresyon ve 5 yeni geçici PostgreSQL16 senaryosu.
+  HTTP health200/login503 → kurulum → login200/me200/demo401, dolu sentetik
+  storage snapshot korunması, tekrar çalıştırma, rollback, eşzamanlı tek ADMIN,
+  bozuk mühürde503, yönetim/audit, TTY/profil/hedef/kök korumaları doğrulandı.
+  Test aracı SQL yüzde işleme hatası düzeltildi; güvenlik/test gevşetilmedi.
+- PASS: diff kontrolü. Genel test/build yok. Geçici yerel küme kapatılıp silindi;
+  VDS/V1/V2.5/Fresh Pilot/gerçek DB/router/RADIUS/PPPoE/abone işlemi yapılmadı.
+- Prosedür/kabul: docs/V26_IDENTITY_SETUP.md. Git kapsamı bu düzeltme ve hedefli
+  test/dokümanlar; main-guncel normal commit/push. Sonraki somut adım yalnız
+  yeni açık VDS onayıyla izole kabul kopyasında belgeli kurulum ve gerçek HTTP
+  kabulü. VDS503 bu görevde çözülmüş sayılmaz; canlı kurulum UYGULANMADI.
