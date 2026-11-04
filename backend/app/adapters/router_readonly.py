@@ -4,7 +4,7 @@ import re
 from app.adapters.cebeci_api_ssl import ApiSslStop,_Wire
 
 DETAIL_FIELDS=MappingProxyType({
- '/interface':('.id','name','type','disabled','running'),
+ '/interface':('.id','type','disabled','running'),
  '/ip/route':('dst-address','gateway','active','disabled'),
  '/ppp/secret':('.id','service','disabled'),
  '/ip/hotspot/user':('.id','disabled'),
@@ -15,7 +15,17 @@ class RegistryReadWire(_Wire):
         if menu not in DETAIL_FIELDS:raise ApiSslStop('READ_SCOPE_REJECTED')
         fields=DETAIL_FIELDS[menu];self.send((menu+'/print','=.proplist='+','.join(fields)));rows=[]
         while True:
-            words=self.sentence()
+            try:
+                words=self.sentence()
+            except ApiSslStop as exc:
+                if str(exc) in ('INVALID_TEXT','SENTENCE_LIMIT'):
+                    raise ApiSslStop(str(exc)+'_SCOPE_'+{
+                        '/interface':'INTERFACE',
+                        '/ip/route':'ROUTE',
+                        '/ppp/secret':'PPP',
+                        '/ip/hotspot/user':'HOTSPOT'
+                    }[menu]) from None
+                raise
             if words==['!done']:return rows
             if not words or words[0]!='!re':raise ApiSslStop('READ_ONLY_RESPONSE_REJECTED')
             row={}
@@ -34,7 +44,10 @@ class RegistryReadWire(_Wire):
             if len(rows)>128:raise ApiSslStop('ROW_LIMIT')
 
 def snapshot(wire,metadata,resource,password):
-    rows={menu:wire.fixed_read(menu) for menu in DETAIL_FIELDS}
+    # Read only bounded infrastructure metadata.
+    # Subscriber counts are unknown until a separate safe counting
+    # mechanism is implemented; never fetch the full subscriber lists.
+    rows={menu:wire.fixed_read(menu) for menu in ('/interface','/ip/route')}
     if any(password in str(value) for group in rows.values() for row in group for value in row.values()):raise ApiSslStop('SENSITIVE_METADATA_REJECTED')
     try:
         cpu=int(resource['cpu-load']);total=int(resource['total-memory']);free=int(resource['free-memory'])
@@ -42,10 +55,10 @@ def snapshot(wire,metadata,resource,password):
         uptime=resource['uptime']
         if not uptime or len(uptime)>80:raise ValueError()
     except (ValueError,KeyError,TypeError):raise ApiSslStop('RESOURCE_METRICS_REJECTED') from None
-    ppp=rows['/ppp/secret'];explicit=sum(r['service']=='pppoe' for r in ppp);ambiguous=sum(r['service']=='any' for r in ppp)
+    explicit=None;ambiguous=None
     from datetime import datetime,timezone
     return dict(**metadata,cpu_percent=cpu,memory_percent=round((total-free)*100/total,2),uptime=uptime,
         captured_at=datetime.now(timezone.utc).isoformat(),interfaces=rows['/interface'],
         default_routes=[r for r in rows['/ip/route'] if r['dst-address']=='0.0.0.0/0'],wan_ip=None,
-        pppoe_count=None if ambiguous else explicit,pppoe_explicit_count=explicit,ppp_any_count=ambiguous,
-        hotspot_count=len(rows['/ip/hotspot/user']),is_demo=False,read_only=True)
+        pppoe_count=None,pppoe_explicit_count=None,ppp_any_count=None,
+        hotspot_count=None,is_demo=False,read_only=True)

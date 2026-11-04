@@ -5,7 +5,7 @@ from pydantic import BaseModel,ConfigDict,Field,field_validator
 class InterfaceSnapshot(BaseModel):
     model_config=ConfigDict(extra='forbid')
     id:str=Field(alias='.id',max_length=80)
-    name:str=Field(max_length=160)
+    name:str|None=Field(default=None,max_length=160)
     type:str=Field(max_length=160)
     disabled:bool
     running:bool
@@ -28,9 +28,9 @@ class ReadOnlySnapshot(BaseModel):
     default_routes:list[DefaultRouteSnapshot]=Field(max_length=128)
     wan_ip:None=None
     pppoe_count:int|None=Field(ge=0,le=128)
-    pppoe_explicit_count:int=Field(ge=0,le=128)
-    ppp_any_count:int=Field(ge=0,le=128)
-    hotspot_count:int=Field(ge=0,le=128)
+    pppoe_explicit_count:int|None=Field(default=None,ge=0,le=128)
+    ppp_any_count:int|None=Field(default=None,ge=0,le=128)
+    hotspot_count:int|None=Field(default=None,ge=0,le=128)
     is_demo:Literal[False]=False
     read_only:Literal[True]=True
     @field_validator('captured_at')
