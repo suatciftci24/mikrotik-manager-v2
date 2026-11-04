@@ -53,6 +53,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Starting isolated V2.6 acceptance on 127.0.0.1:$PORT"
+export V2_V1_INVENTORY_FILE="/tmp/mikrotik-v26-acceptance/config/v1-inventory.json"
 PYTHONPATH="$ROOT/backend" "$ROOT/.venv/bin/python" -m uvicorn app.pilot_panel:create_app \
   --factory --host 127.0.0.1 --port "$PORT" --no-access-log --no-proxy-headers &
 SERVER_PID=$!
