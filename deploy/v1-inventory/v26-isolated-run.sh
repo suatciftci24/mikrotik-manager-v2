@@ -14,6 +14,12 @@ if [[ -z "${V2_DATABASE_URL:-}" ]]; then
   exit 1
 fi
 
+# Fail closed before launching any process.
+if [[ -L "$ROOT" ]]; then
+  echo "BLOCKED: Symlink root"
+  exit 1
+fi
+
 export V2_DEPLOYMENT_PROFILE=v26-isolated-acceptance
 export V2_ENVIRONMENT=v26-acceptance
 export V2_API_HOST=127.0.0.1
@@ -21,6 +27,13 @@ export V2_API_PORT="$PORT"
 export V2_ROUTER_ONBOARDING_ENABLED=false
 export V2_CEBECI_API_SSL_ENABLED=false
 export V2_ROUTER_ONBOARDING_OPERATOR_IDS=
+
+PYTHONPATH="$ROOT/backend" python3 - <<'CHECK'
+from pathlib import Path
+from app.core.v26_acceptance import validate
+validate(root=Path.cwd())
+print("PASS: Isolated runtime preflight")
+CHECK
 
 cleanup() {
   if [[ -n "${SERVER_PID:-}" ]]; then
