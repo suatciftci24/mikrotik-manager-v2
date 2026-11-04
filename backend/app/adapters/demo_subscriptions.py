@@ -23,15 +23,28 @@ class PostgresDemoStore:
 
     def __init__(self, engine, schema='v2_demo'):
         url = engine.url
-        from app.core import fresh_pilot
+        import os
+        from app.core import fresh_pilot, v26_acceptance
+        profile = os.environ.get('V2_DEPLOYMENT_PROFILE')
         fresh = fresh_pilot.active()
+        v26 = profile == v26_acceptance.PROFILE
         if fresh:
             fresh_pilot.validate()
-        target = (fresh_pilot.PORT, fresh_pilot.DB, fresh_pilot.ROLE) if fresh else (55432, 'mikrotik_manager_v2', 'v2_local')
-        if (url.drivername != 'postgresql+psycopg' or url.host not in ('127.0.0.1', 'localhost', '::1')
+        if v26:
+            from app.core.pilot_runtime import validate_runtime
+            from app.core.v26_acceptance import ROOT
+            validate_runtime(ROOT)
+        target = ((55433, 'mikrotik_v26_acceptance', 'v26_acceptance') if v26
+                  else (fresh_pilot.PORT, fresh_pilot.DB, fresh_pilot.ROLE) if fresh
+                  else (55432, 'mikrotik_manager_v2', 'v2_local'))
+        allowed_host = ('127.0.0.1',) if v26 else ('127.0.0.1', 'localhost', '::1')
+        if (url.drivername != 'postgresql+psycopg' or url.host not in allowed_host
                 or (url.port, url.database, url.username) != target):
             raise DemoStorageUnavailable()
-        if schema != 'v2_demo' and not re.fullmatch(r'v2_demo_test_[a-f0-9]{32}', schema):
+        if v26:
+            if schema != 'v26_acceptance':
+                raise ValueError('Invalid V2.6 acceptance schema')
+        elif schema != 'v2_demo' and not re.fullmatch(r'v2_demo_test_[a-f0-9]{32}', schema):
             raise ValueError('Invalid isolated demo schema')
         self.engine, self.schema = engine, schema
 
