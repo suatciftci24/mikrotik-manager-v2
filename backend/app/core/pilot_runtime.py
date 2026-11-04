@@ -62,7 +62,10 @@ def validate_target(target, username):
 
 def validate_runtime(root, environment=None):
     values = os.environ if environment is None else environment
-    from app.core import fresh_pilot
+    from app.core import fresh_pilot, v26_acceptance
+    if values.get("V2_DEPLOYMENT_PROFILE") == v26_acceptance.PROFILE:
+        v26_acceptance.validate(values)
+        return
     if fresh_pilot.active(values):
         fresh_pilot.validate(values, root)
         return
