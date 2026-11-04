@@ -42,6 +42,9 @@ print("PASS: Isolated runtime preflight")
 CHECK
 
 cleanup() {
+  if [[ -n "${WATCHDOG_PID:-}" ]]; then
+    kill "$WATCHDOG_PID" 2>/dev/null || true
+  fi
   if [[ -n "${SERVER_PID:-}" ]]; then
     kill "$SERVER_PID" 2>/dev/null || true
     wait "$SERVER_PID" 2>/dev/null || true
@@ -54,4 +57,15 @@ PYTHONPATH="$ROOT/backend" python3 -m uvicorn app.pilot_panel:create_app \
   --factory --host 127.0.0.1 --port "$PORT" --no-access-log --no-proxy-headers &
 SERVER_PID=$!
 
-wait "$SERVER_PID"
+
+# Maximum runtime: 15 minutes.
+(
+  sleep 900
+  kill "$SERVER_PID" 2>/dev/null || true
+) &
+WATCHDOG_PID=$!
+
+wait "$SERVER_PID" || SERVER_EXIT=$?
+kill "$WATCHDOG_PID" 2>/dev/null || true
+wait "$WATCHDOG_PID" 2>/dev/null || true
+exit "${SERVER_EXIT:-0}"
