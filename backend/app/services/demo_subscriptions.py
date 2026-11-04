@@ -102,7 +102,10 @@ class ConfiguredDemoStore:
             if self._adapter is None:
                 from app.core.database import engine
                 from app.adapters.demo_subscriptions import PostgresDemoStore
-                self._adapter = PostgresDemoStore(engine)
+                from app.core.v26_acceptance import PROFILE
+                import os
+                schema = 'v26_acceptance' if os.environ.get('V2_DEPLOYMENT_PROFILE') == PROFILE else 'v2_demo'
+                self._adapter = PostgresDemoStore(engine, schema=schema)
             return self._adapter
 
     def list_items(self):
