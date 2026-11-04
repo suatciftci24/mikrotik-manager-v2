@@ -3725,3 +3725,23 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   test/dokümanlar; main-guncel normal commit/push. Sonraki somut adım yalnız
   yeni açık VDS onayıyla izole kabul kopyasında belgeli kurulum ve gerçek HTTP
   kabulü. VDS503 bu görevde çözülmüş sayılmaz; canlı kurulum UYGULANMADI.
+
+## V2.6 — onaylı VDS kimlik kurulum ön kontrolü — 2026-11-04
+
+- BLOCKED: main-guncel/aa77855 temiz başlangıç; GitHub tam commit doğrulandı.
+  AGENTS.md, son ilerleme ve docs/V26_IDENTITY_SETUP.md okundu. Önceki yerel
+  testler tekrar edilmedi; yalnız mevcut VDS hedefi salt okunur doğrulandı.
+- Kabul kökü mikadmin/0700, backend+migrations0775; yeni kurulum modülleri
+  VDS'de yok. 127.0.0.1:55433 dinliyor; 18996 API dinleyicisi bulunmuyor.
+- 55433/mikrotik_v26_acceptance üzerinde READ ONLY transaction + ROLLBACK:
+  DB/şema sahibi v26_acceptance, mevcut dört storage tablosu doğrulandı.
+  Gerçek PGDATA /var/lib/postgresql/16/v26; aa77855 yalnız kabul kökü altındaki
+  aynı OS UID'sine ait PGDATA'yı destekliyor. Belgelenen cluster hedefi uyuşmuyor.
+- Kullanıcının hedef uyuşmazlığında dur talimatı uygulandı. Koruma gevşetilmedi;
+  VDS dosya aktarımı/değişikliği, DB yazımı/migration/ADMIN/parola oluşturma,
+  API başlatma/restart veya V1/V2.5/router/RADIUS/PPPoE/abone işlemi yok.
+- Kanıt/kabul: docs/V26_VDS_IDENTITY_ACCEPTANCE.md. HTTP login200/envanter
+  kabulü yapılmadı; HTTP503 çözülmüş sayılmaz. Sonraki tek ihtiyaç gerçek
+  izole PGDATA düzeni için dar güvenli kurulum desteğine ilişkin yeni talimat.
+- Yalnız bu iki yerel doküman commit/normal push kapsamındadır; içerik ve
+  diff kontrolü yeterli, uygulama test/build veya başka VDS tanı döngüsü yok.
