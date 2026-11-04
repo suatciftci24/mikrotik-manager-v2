@@ -53,7 +53,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Starting isolated V2.6 acceptance on 127.0.0.1:$PORT"
-PYTHONPATH="$ROOT/backend" python3 -m uvicorn app.pilot_panel:create_app \
+PYTHONPATH="$ROOT/backend" "$ROOT/.venv/bin/python" -m uvicorn app.pilot_panel:create_app \
   --factory --host 127.0.0.1 --port "$PORT" --no-access-log --no-proxy-headers &
 SERVER_PID=$!
 
