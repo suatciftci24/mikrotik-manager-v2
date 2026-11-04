@@ -20,6 +20,12 @@ if [[ -L "$ROOT" ]]; then
   exit 1
 fi
 
+
+if [[ "${V2_DATABASE_URL}" != postgresql+psycopg://v26_acceptance:*@127.0.0.1:55433/mikrotik_v26_acceptance ]]; then
+  echo "BLOCKED: Non-isolated database"
+  exit 1
+fi
+
 export V2_DEPLOYMENT_PROFILE=v26-isolated-acceptance
 export V2_ENVIRONMENT=v26-acceptance
 export V2_API_HOST=127.0.0.1
