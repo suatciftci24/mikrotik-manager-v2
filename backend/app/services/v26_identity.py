@@ -33,13 +33,15 @@ class V26FirstAdminStore(FirstAdminStore):
                 'V26_DATABASE_REJECTED')
         directory = Path(connection.execute(text('SHOW data_directory')).scalar_one())
         root = v26_acceptance.ROOT
-        require(directory.is_absolute() and root in directory.parents
+        # Explicitly authorized isolated PostgreSQL 16 cluster.
+        # Never accept arbitrary PGDATA or a symlink.
+        import pwd
+        expected = Path('/var/lib/postgresql/16/v26')
+        require(directory == expected and directory.is_absolute()
                 and directory == directory.resolve(), 'V26_CLUSTER_REJECTED')
-        # Do not accept an aliased cluster or an insecure parent directory.
-        for path in (directory, *directory.parents):
-            if path == root:
-                break
-            info = path.lstat()
-            require(not path.is_symlink() and path.is_dir() and info.st_uid == uid
-                    and not info.st_mode & 0o022, 'V26_CLUSTER_REJECTED')
+        info = directory.lstat()
+        postgres_uid = pwd.getpwnam('postgres').pw_uid
+        require(directory.is_dir() and not directory.is_symlink()
+                and info.st_uid == postgres_uid
+                and not info.st_mode & 0o077, 'V26_CLUSTER_REJECTED')
         self.store._verify(connection)
