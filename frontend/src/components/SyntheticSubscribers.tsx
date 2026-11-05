@@ -25,7 +25,7 @@ export function SyntheticSubscriberEditor({item,onClose,onSaved}:{item?:CenterSu
  const [review,setReview]=useState(false);
  const [consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
  useEffect(()=>{const origin=document.activeElement as HTMLElement|null;ref.current?.showModal();return()=>{ref.current?.close();if(origin?.isConnected)origin.focus({preventScroll:true});};},[]);
- const change=(key:keyof typeof form,value:string)=>{setForm(previous=>({...previous,[key]:value}));requestId.current=crypto.randomUUID();setConsent(false);};
+ const change=(key:keyof typeof form,value:string)=>{setForm(previous=>({...previous,[key]:value}));requestId.current=crypto.randomUUID();setConsent(false);setError('');};
  async function save(event:FormEvent){event.preventDefault();if(sending.current)return;
 if(item&&!Object.entries(form).some(([key,value])=>
 String(item[key as keyof CenterSubscriber]??'')!==String(value??''))){
