@@ -73,7 +73,7 @@ export function Subscribers({ onToast }: { onToast: (message:string)=>void }) {
  disabled={row.can_manage_pppoe!==true || !centralAdmin}
  onClick={event=>{
   event.stopPropagation();
-  navigation.open(row.id);
+  setQuick([row]);
  }}
 >Düzenle</button><button className="icon-button row-menu" aria-label={`${row.customer_name} Hızlı İşlemler`} disabled={row.can_manage_pppoe!==true} onClick={e=>{e.stopPropagation();setQuick([row]);}}><MoreHorizontal size={17}/></button></td></tr>)}</tbody></table>{!resource.loading&&!error&&filtered.length===0&&<div className="table-empty">Filtrelerle eşleşen abone bulunamadı.</div>}</div><div className="table-footer" hidden={resource.loading || !!error}><span><span className="authority-lock"><RadioTower size={12}/></span> Kaynak belirsizliğinde değişiklik yapılmaz.</span><span>{filtered.length} kayıt <button disabled>‹</button><button disabled>›</button></span></div></section>
     <div className="source-note"><span className="source-note-icon">i</span><span><strong>Yetkili kaynak güvencesi</strong> — LOCAL, router üzerindeki yerel kullanıcı kaydını; RADIUS, FreeRADIUS kullanıcı kaydını yetkili kaynak olarak belirtir. Bu ekran sentetik kayıtları gösterir. Aynı hesap için iki kaynak birlikte etkinleştirilmez.</span><button onClick={()=>onToast('Kaynak devri audit kaydı ve doğrulama gerektirir; akış Phase 2 kapsamında.')}>Kaynak modelini incele <ArrowRight size={14}/></button></div>
