@@ -1,0 +1,10 @@
+
+.current-plan-highlight {
+ display: inline-block;
+ margin: 4px 8px;
+ padding: 4px 10px;
+ border-radius: 6px;
+ background: #facc15;
+ color: #1f2937;
+ font-weight: 700;
+}
