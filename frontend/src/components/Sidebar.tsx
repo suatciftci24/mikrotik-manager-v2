@@ -1,3 +1,4 @@
+import type {WorkspaceContext} from '../lib/workspaceContext';
 import {pilotOperatorView,type PilotIdentity} from '../lib/pilotOperator';
 import {
   Activity, ArrowDownUp, ChevronDown, CircleHelp, Command, Gauge, LayoutDashboard,
@@ -18,8 +19,8 @@ const nav: { key: ScreenKey; label: string; icon: LucideIcon; group: string }[] 
   { key: 'system', label: 'Sistem ve Kullanıcı', icon: Settings2, group: 'SİSTEM' },
 ];
 
-export function Sidebar({ active, onNavigate, user, onLogout, realInventory=false }: {
-  active: ScreenKey; onNavigate: (key: ScreenKey) => void; user: User; onLogout: () => void; realInventory?:boolean;
+export function Sidebar({ active, onNavigate, user, onLogout, realInventory=false, context, panelAddress }: {
+  context?:WorkspaceContext; panelAddress?:string; active: ScreenKey; onNavigate: (key: ScreenKey) => void; user: User; onLogout: () => void; realInventory?:boolean;
 }) {
   const operator=pilotOperatorView(user.pilot_identity);
   let group = '';
@@ -29,7 +30,7 @@ export function Sidebar({ active, onNavigate, user, onLogout, realInventory=fals
       <span className="brand-copy"><strong>mikrotik<span>.</span></strong><small>MANAGER <b>V2</b></small></span>
       <ChevronDown className="brand-caret" size={15} />
     </button>
-    <button className="workspace-switch"><span className="workspace-dot" /><span><strong>{realInventory?'Gerçek V1 · Salt okunur':'Demo çalışma alanı'}</strong><small>Yerel geliştirme</small></span><ChevronDown size={15} /></button>
+    <div className="workspace-switch" aria-label="Seçili veri ortamı"><span className="workspace-dot" /><span><strong>{context?.label??(realInventory?'Gerçek V1 · Salt okunur':'Demo çalışma alanı')}</strong><small>{panelAddress??'V2 çalışma alanı'}</small></span></div>
     <div className="side-label">ÇALIŞMA ALANI</div>
     <div className="nav-list">{nav.filter(item=>item.key!=='system'||user.can_manage_users===true).map(item => {
       const first = item.group !== group; group = item.group;
@@ -38,13 +39,12 @@ export function Sidebar({ active, onNavigate, user, onLogout, realInventory=fals
         <button className={`nav-item ${active === item.key ? 'active' : ''}`} onClick={() => onNavigate(item.key)}>
           <Icon size={17} strokeWidth={active === item.key ? 2 : 1.75} /><span>{item.label}</span>
           {item.key === 'mikajani' && <i className="nav-spark">✦</i>}
-          {item.key === 'routers' && !realInventory && <span className="nav-count">4</span>}
         </button>
         {item.key==='dashboard'&&<a className="nav-item internet-report-entry" href="#module=dashboard&view=INTERNET_REPORT"><ArrowDownUp size={17}/><span>İnternet Kullanım ve Bağlantı Raporları</span></a>}
       </div>;
     })}</div>
     <div className="sidebar-bottom">
-      <div className="system-status"><span className="pulse-dot" /><span><strong>Yerel ortam hazır</strong><small>Harici bağlantılar kapalı</small></span><ShieldCheck size={16} /></div>
+      <div className="system-status"><span className="pulse-dot" /><span><strong>V2 oturumu açık</strong><small>{context?.access??'Yetkiye bağlı erişim'}</small></span><ShieldCheck size={16} /></div>
       <button className="help-link"><CircleHelp size={16} /><span>Yardım merkezi</span><span className="kbd">?</span></button>
       <div className="profile">
         <div className="avatar">{user.name.split(' ').slice(0, 2).map(x => x[0]).join('')}</div>

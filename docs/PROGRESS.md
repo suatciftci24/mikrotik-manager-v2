@@ -3770,3 +3770,34 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Kanıt/kabul: docs/V26_PPPOE_SUBSCRIBER_ACCEPTANCE.md. origin URL/upstream
   main-guncel ve uzak 85c4849 doğrulandı; yalnız görev dosyaları normal commit/push
   kapsamıdır. Sonraki somut adım gerekirse ayrı yerel tarayıcı görsel kabulüdür.
+
+## V2 — beş yönetim merkezi arayüz sadeleştirme — 2026-11-05
+
+- LOCAL PASS; başlangıç main-guncel/3cb542b. Kurallar, geçmiş ve ilgili kabul
+  kayıtları incelendi. Mevcut yedekler/izlenmeyen kullanıcı bileşeni korundu.
+- Router/Abone kaynak sekmeleri ortak açılır seçime geçti. Dört router kaynağı
+  ve üç abone görünümü, ayrı depolar/URL'ler/işlevlerle korunur. Pilot hazırlığı
+  yalnız kayıtlı cihaz kaynağında işlem grubudur; V1 salt okunur görünümde yazma
+  düğmesi yok. Yetkisiz ileri kaynak hash'i açık ret verir. Abone ileri kaynağı
+  eski demo listesine gereksiz sorgu başlatmaz.
+- Operasyon'da merkezi alarm, MikAjanı'nda özet/olaylar önceliklidir; mevcut
+  ayrıntılar native açılır bölümlerde korunur. RADIUS hazırlık kapsamı sadeleşti;
+  yeni canlı işlev iddiası yok. RADIUS hash/reload gezinmesi düzeltildi.
+- Üst/yan/mobil alan seçili veri kaynağı ve yetki kapsamını ortak gösterir;
+  gerçek panel host'u görünür. Deployment sınıfı tahmin edilmez; koşulsuz
+  yerel/hazır/harici kapalı ve sabit router sayısı iddiaları kaldırıldı.
+- PASS: yedi hedefli frontend test dosyası; tam App sentetik Chromium'da sekiz
+  kabul grubu, kaynak/yetki/VIEWER/kanıt/yenileme akışları, beş ekranda 1440/375 px
+  Beyaz/Gece taşma ve mobil kaynak etiketi; son TypeScript/Vite build ve diff.
+  Browser'da tüm GET API yanıtları sentetik; mutation/harici istek/hata yok.
+  Mevcut bundle boyutu uyarısı sürer. Backend/DB testleri kapsam değişmediği için
+  tekrarlanmadı. Gerçek login/API/DB/cihaz kabulü iddia edilmez.
+- Kaynak haritası, güvenli birleşmeme kararları ve kanıt:
+  docs/V26_MANAGEMENT_UI_ACCEPTANCE.md. .local/browser-acceptance/management-centers
+  altındaki summary/screenshots Git dışıdır. İlk seçici/fixture hataları araçta
+  düzeltildi; güvenlik veya test beklentisi gevşetilmedi.
+- 14 demo abone/DB, V1/V2.5/V2.6 VDS/router/RADIUS/servislere müdahale,
+  migration/restart/deploy yok. Tarihsel PGDATA BLOCKED ve ROLLBACK kayıtları sürer.
+- origin URL/upstream main-guncel ve uzak başlangıç 3cb542b doğrulandı; yalnız bu
+  görev dosyaları normal commit/push kapsamıdır. Sonraki adım yerel kullanıcı
+  incelemesidir; canlı dağıtım ayrı açık onay olmadan başlatılmaz.

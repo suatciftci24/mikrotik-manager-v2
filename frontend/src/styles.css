@@ -270,3 +270,21 @@ input::placeholder{color:var(--muted);opacity:1}
 .dashboard-real-health .overview-section{grid-template-columns:minmax(0,1fr)}.dashboard-real-health .table-scroll{min-width:0}
 .health-alerts{margin:0;padding-left:20px;display:grid;gap:10px;overflow-wrap:anywhere}.health-alerts small,.inventory-table td:last-child small{display:block;color:var(--text-secondary);white-space:normal;margin-top:4px}.dashboard-real-health .metric-grid{grid-template-columns:repeat(5,minmax(0,1fr))}@media(max-width:900px){.dashboard-real-health .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:900px){.inventory-table td{height:auto;min-height:53px}.inventory-table caption{display:block;width:100%}}
+
+
+/* Shared source selection and secondary detail disclosure in management centers. */
+.source-picker{padding:16px 20px;margin-bottom:18px}
+.source-picker-controls{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.source-picker .form-label{margin:0;min-width:min(100%,280px)}
+.source-picker select{max-width:100%}
+.source-picker p{margin:10px 0 0;color:var(--text-secondary);line-height:1.6}
+.source-actions summary,.center-disclosure>summary{cursor:pointer;font-weight:600;padding:12px 0}
+.source-actions>div{display:flex;flex-wrap:wrap;gap:8px;padding:12px 0}
+.center-disclosure{padding:8px 20px}
+.center-disclosure>summary:focus-visible,.source-actions>summary:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+.workspace-context small{display:block;margin-top:5px}
+.workspace-context .demo-banner-tag{display:block;white-space:normal;text-align:right}
+.sidebar .workspace-switch{cursor:default}
+@media(max-width:640px){.source-picker-controls{align-items:stretch;flex-direction:column}.source-picker .form-label{min-width:0;width:100%}.workspace-context{align-items:flex-start;flex-direction:column;gap:8px}.workspace-context .demo-banner-tag{text-align:left}}
+
+.sidebar .workspace-switch{height:auto;min-height:54px}.workspace-switch strong,.workspace-switch small{overflow-wrap:anywhere}.topbar .live-pill{max-width:240px}

@@ -1,5 +1,6 @@
 import { Activity, CircleDollarSign, Database, RadioTower, Settings2, ShieldCheck, Sparkles, UserRoundCog, Workflow } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { PageHeading } from '../components/PageHeading';
 import { EmptyModule } from '../components/Status';
 import type { ScreenKey } from '../components/Sidebar';
 
@@ -11,5 +12,5 @@ const content: Partial<Record<ScreenKey,{title:string;description:string;icon:Re
 };
 export function ModuleScreen({screen}:{screen:ScreenKey}) {
  const value=content[screen]; if(!value) return null;
- return <div className="screen-stack"><section className="page-heading-row"><div><div className="eyebrow"><span className="eyebrow-line"/>V2 DOMAIN MODULE</div><h1>{value.title}</h1><p>Bağımsız alan arayüzü · fazlı geliştirme</p></div><span className="phase-pill"><Sparkles size={14}/> FAZ 1 İSKELETİ</span></section><div className="module-layout"><section className="panel module-overview"><EmptyModule icon={value.icon} title={`${value.title} hazırlanıyor`} description={value.description}/></section><aside className="panel module-scope"><span className="eyebrow">ALAN SINIRI</span><h3>Bu modülde</h3><div className="scope-list">{value.features.map((feature,i)=><div key={feature}><span className="scope-number">0{i+1}</span><span>{feature}</span></div>)}</div><div className="scope-note"><ShieldCheck size={15}/>Modül sınırları V2 API ve adaptör sözleşmeleriyle korunur.</div></aside></div><div className="module-integrations"><span className="eyebrow">BAĞLANTI DURUMU</span><div className="integration-list"><span><RadioTower size={15}/>FreeRADIUS <i>Bağlı değil</i></span><span><Database size={15}/>V2 PostgreSQL <i>Faz 1'de kullanılmıyor</i></span><span><Settings2 size={15}/>Harici çalışma <i>Kapalı</i></span><span><CircleDollarSign size={15}/>Üretim verisi <i>Kullanılmıyor</i></span></div></div></div>;
+ return <div className="screen-stack"><PageHeading title={screen==='radius'?'RADIUS Merkezi':value.title} eyebrow="HAZIRLIK · BAĞLANTI YOK" description={value.description}/><section className="panel module-overview"><EmptyModule icon={value.icon} title={`${value.title} hazırlanıyor`} description="Bu ekranda canlı veri veya yönetim işlemi bulunmuyor."/></section><details className="panel center-disclosure"><summary>Planlanan kapsam ve bağlantı sınırları</summary><ul>{value.features.map(feature=><li key={feature}>{feature}</li>)}</ul><p>LOCAL / RADIUS yetkili kaynak ayrımı korunur. FreeRADIUS bağlantısı ve NAS yönetimi bu ekranda etkin değildir.</p><p>Bu hazırlık ekranı herhangi bir veritabanının çalışma durumunu doğrulamaz.</p></details></div>;
 }

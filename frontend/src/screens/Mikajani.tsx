@@ -24,7 +24,7 @@ export function Mikajani() {
   const event=selected?data?.events.find(e=>e.id===selected):undefined;
   const names=Object.fromEntries(data?.health.map(r=>[r.router_id,r.name])??[]);
   return <div className="screen-stack mikajani-center">
-    <PageHeading title="MikAjanı V2" eyebrow="SALT OKUNUR · KURAL TABANLI · SENTETİK" description="Ağ sağlığı, açıklanabilir olay analizi ve operatör önerileri." actions={<button className="button-secondary" disabled={resource.loading} onClick={resource.retry}>Analizi yenile</button>}/>
+    <PageHeading title="MikAjanı" eyebrow="SALT OKUNUR · KURAL TABANLI · SENTETİK" description="Ağ sağlığı, açıklanabilir olay analizi ve operatör önerileri." actions={<button className="button-secondary" disabled={resource.loading} onClick={resource.retry}>Analizi yenile</button>}/>
     <section className="panel mika-panel"><label className="form-label">Analiz kaynağı<select value={scenario} onChange={e=>{setScenario(e.target.value);setSelected(null);setRouter('');}}><option value="">Kayıtlı V2 demo verisi</option>{scenarios.data?.items.map(s=><option key={s.key} value={s.key}>SENARYO · {s.name}</option>)}</select></label>{scenarios.error&&<p role="alert">Senaryo listesi: {scenarios.error}</p>}
       <p>DEMO / SENTETİK. Öneriler otomatik uygulanmaz. Gerçek AI API çağrısı yoktur.</p>{scenario&&<p className="demo-save-notice">Ayrı sentetik senaryo seçili; kayıtlı aboneler veya routerlar değiştirilmez. Senaryo saati sabittir.</p>}
     </section>
@@ -33,7 +33,7 @@ export function Mikajani() {
       <section className="panel mika-panel"><h2>Operasyonel özet</h2><p>{data.operational_summary}</p><p>Kaynak: {data.source} · Değerlendirme: {dateTime(data.evaluated_at)} · Yanıt: {dateTime(data.generated_at)}</p>
         <div className="mika-counts">{['P1','P2','P3','P4'].map(p=><button className="button-secondary" key={p} onClick={()=>{setPriority(p as typeof priorities[number]);setState('ACTIVE');}}>{p} · {data.summary[p]??0}</button>)}<span>Çözülen: {data.summary.resolved} · Sağlığı belirsiz: {data.summary.uncertain}</span></div>
       </section>
-      <section className="panel mika-panel"><h2>Merkezi ağ sağlığı</h2><p>İyi gözlem canlı bağlantı garantisi değildir. IPsec kaynağı yoksa Bilinmiyor gösterilir.</p><div className="mika-health">{data.health.map(r=><article key={r.router_id}><h3>{r.name}</h3><p>{mikaStatus[r.health]} · {mikaStatus[r.reliability]}</p><small>{dateTime(r.latest_observed_at)}</small><dl>{Object.entries(r.signals).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{mikaStatus[v]??v}</dd></div>)}</dl>{r.reliability!=='CURRENT'&&<p>Öneri: yeni zaman damgalı gözlem sağlayın.</p>}</article>)}</div></section>
+      <details className="panel mika-panel center-disclosure"><summary>Router sağlık ayrıntıları</summary><h2>Merkezi ağ sağlığı</h2><p>İyi gözlem canlı bağlantı garantisi değildir. IPsec kaynağı yoksa Bilinmiyor gösterilir.</p><div className="mika-health">{data.health.map(r=><article key={r.router_id}><h3>{r.name}</h3><p>{mikaStatus[r.health]} · {mikaStatus[r.reliability]}</p><small>{dateTime(r.latest_observed_at)}</small><dl>{Object.entries(r.signals).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{mikaStatus[v]??v}</dd></div>)}</dl>{r.reliability!=='CURRENT'&&<p>Öneri: yeni zaman damgalı gözlem sağlayın.</p>}</article>)}</div></details>
       <section className="panel mika-panel"><h2>Olaylar ve geçmiş</h2><div className="mika-filters">
         <label>Olay ara<input value={query} onChange={e=>setQuery(e.target.value)}/></label>
         <label>Öncelik<select aria-label="MikAjanı öncelik filtresi" value={priority} onChange={e=>setPriority(e.target.value as typeof priorities[number])}>{['ALL','P1','P2','P3','P4'].map(v=><option key={v} value={v}>{v==='ALL'?'Tümü':v}</option>)}</select></label>
@@ -41,7 +41,7 @@ export function Mikajani() {
         <label>Router<select value={router} onChange={e=>setRouter(e.target.value)}><option value="">Tümü</option>{data.health.map(r=><option key={r.router_id} value={r.router_id}>{r.name}</option>)}</select></label>
         <label>Alan<select value={domain} onChange={e=>setDomain(e.target.value)}>{['ALL','ROUTER','WAN','IPSEC','PPPOE','MONITOR','DATA','CORRELATION'].map(v=><option key={v} value={v}>{v==='ALL'?'Tümü':v}</option>)}</select></label>
       </div><p role="status">{rows.length} olay · Önceliğe göre sıralı</p><div className="mika-events">{rows.map(e=><article key={e.id}><div><strong>{e.priority} · {e.title}</strong><span>{mikaStatus[e.state]} · Güven: {mikaStatus[e.confidence]}</span></div><p>{e.reason}</p><p>{e.affected_router_ids.map(id=>names[id]??id).join(', ')}</p><p>Öneri: {e.recommendation}</p><time>{dateTime(e.updated_at)}</time><button className="button-secondary" onClick={()=>setSelected(e.id)}>Kanıt ve geçmişi aç</button></article>)}</div>{rows.length===0&&<p className="table-empty">Bu filtrelerde olay yok. Eksik veri sağlıklı sonuç anlamına gelmez.</p>}</section>
-      <section className="panel mika-panel"><h2>Analiz sınırları</h2>{data.limitations.map(text=><p key={text}>{text}</p>)}</section>
+      <details className="panel mika-panel center-disclosure"><summary>Analiz sınırları ve kaynak güvencesi</summary>{data.limitations.map(text=><p key={text}>{text}</p>)}</details>
       {event&&<EventDialog event={event} names={names} onClose={()=>setSelected(null)}/>}
     </>}
   </div>;
