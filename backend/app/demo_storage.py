@@ -51,6 +51,10 @@ def snapshot_steps(detail):
         else:
             values, previous = event['new_values'], event['previous_values']
             required = {'plan', 'monthly_price'} if operation == 'PLAN_CHANGE' else {'status'}
+            if operation == 'PLAN_CHANGE' and 'expires_on' in values:
+                required = required | {'expires_on'}
+                if previous.get('expires_on') != values['expires_on']:
+                    raise ValueError('Package change cannot alter expiry')
             if operation == 'CREATE':
                 required = {'username', 'customer_name', 'router_name', 'source', 'plan', 'monthly_price', 'status', 'expires_on', 'access_type'}
             if set(values) != required or any(state.get(key) != value for key, value in values.items()):

@@ -81,9 +81,13 @@ class SubscriberWorkspace:
             if prior:
                 if prior.subscriber_id==id and prior.actor_id==actor and prior.operation=='RENEWAL' and prior.revision==row.revision and prior.changes.get('expires_on')=={'previous':old,'new':new} and prior.changes.get('_renewal')=={'days':command.days,'expected_source':command.expected_source,'expected_revision':command.expected_revision} and row.fields['expires_on']==new:return account_view(row,router)
                 raise WorkspaceError(409,'Uzatma isteği başka işleme veya eski revizyona ait.')
-            if row.revision!=command.expected_revision or row.source!=command.expected_source or row.fields['expires_on']!=old:raise WorkspaceError(409,'Abone veya bitiş tarihi değişti. Güncel kaydı yeniden inceleyin.')
+            if row.revision!=command.expected_revision or row.source!=command.expected_source or row.fields.get('source')!=row.source or row.fields.get('router_id')!=row.router_id or row.fields['expires_on']!=old:raise WorkspaceError(409,'Abone veya bitiş tarihi değişti. Güncel kaydı yeniden inceleyin.')
             today=datetime.now(ZoneInfo('Europe/Istanbul')).date()
-            if command.days and (old is None or max(date.fromisoformat(old),today)+timedelta(days=command.days)!=command.expires_on):raise WorkspaceError(409,'Uzatma önizlemesi değişti veya eski tarih bilinmiyor; yeniden inceleyin.')
+            if command.days:
+                if old is None:raise WorkspaceError(422,'Bitiş tarihi bilinmiyor; özel tarih seçip onaylayın.')
+                try:target=max(date.fromisoformat(old),today)+timedelta(days=command.days)
+                except (ValueError,OverflowError):raise WorkspaceError(422,'Kayıtlı tarih veya uzatma aralığı geçersiz.') from None
+                if target!=command.expires_on:raise WorkspaceError(409,'Uzatma önizlemesi değişti; yeniden inceleyin.')
             if command.expires_on<today or (old is not None and new<=old):raise WorkspaceError(422,'Uzatma tarihi Türkiye bugününden önce olamaz ve mevcut bitişten ileri olmalı.')
             before=row.fields;row.fields={**row.fields,'expires_on':new};row.revision+=1
             self.audit(session,row,actor,before,str(command.request_id),'RENEWAL',{'days':command.days,'expected_source':command.expected_source,'expected_revision':command.expected_revision})
@@ -91,6 +95,9 @@ class SubscriberWorkspace:
     @staticmethod
     def audit(session,row,actor,before,request_id,operation=None,renewal=None):
         changes={key:{'previous':before.get(key),'new':value} for key,value in row.fields.items() if before.get(key)!=value}
+        if before and ('plan' in changes or 'expires_on' in changes):
+            for key in ('plan','expires_on'):
+                changes[key]={'previous':before.get(key),'new':row.fields.get(key)}
         changes['_router_id']=row.router_id
         if renewal is not None:changes['_renewal']=renewal
         session.add(Event(id=request_id,subscriber_id=row.id,actor_id=actor,revision=row.revision,operation=operation or ('UPDATE' if before else 'CREATE'),occurred_at=datetime.now(timezone.utc).isoformat(),changes=changes))
@@ -107,8 +114,20 @@ def legacy_center(detail):
         ip_address=item.get('ip_address') if item.get('ip_address') not in ('','Veri yok','Bilinmiyor') else None,last_seen_at=item.get('last_seen')),
         source='LEGACY_DEMO',persistence=detail.get('persistence','process-memory'),history=[legacy_event(e) for e in detail.get('history',[])[:50]])
 
+LEGACY_AUDIT_FIELDS={'customer_name','username','router_name','router_id','access_type','source','plan','monthly_price','status','expires_on'}
+
+def legacy_audit_values(event):
+    # Merge older flat receipts with structured fields; never infer from today's account.
+    previous={k:v for k,v in (event.get('previous_values') or {}).items() if k in LEGACY_AUDIT_FIELDS}
+    values={k:v for k,v in (event.get('new_values') or {}).items() if k in LEGACY_AUDIT_FIELDS}
+    for key in ('plan','status','expires_on'):
+        if key in event:
+            previous.setdefault(key,event.get('previous_'+key))
+            values.setdefault(key,event[key])
+    return previous,values
+
 def legacy_event(event):
-    previous=event.get('previous_values',{});values=event.get('new_values',{})
+    previous,values=legacy_audit_values(event)
     has_date='expires_on' in values or 'expires_on' in event
     old=previous.get('expires_on',event.get('previous_expires_on'))
     new=values.get('expires_on',event.get('expires_on'))

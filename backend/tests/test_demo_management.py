@@ -83,7 +83,7 @@ class DemoManagementRules(TestCase):
             item={**SUBSCRIBERS[0], 'revision':0,'source':source}
             changed, event=calculate_management_change(item,self.command(item),'demo-user')
             self.assertEqual(changed['plan'],'Fiber 500'); self.assertEqual(changed['monthly_price'],849.90)
-            self.assertEqual(event['previous_values'],{'plan':item['plan'],'monthly_price':item['monthly_price']})
+            self.assertEqual(event['previous_values'],{'plan':item['plan'],'monthly_price':item['monthly_price'],'expires_on':item.get('expires_on')})
             for key in ('source','username','router_name','expires_on','status'): self.assertEqual(changed[key],item[key])
             disabled, event=calculate_management_change(changed,self.command(changed,'STATUS_CHANGE','PAUSED'),'demo-user')
             enabled, event=calculate_management_change(disabled,self.command(disabled,'STATUS_CHANGE','ACTIVE'),'demo-user')
@@ -106,7 +106,7 @@ class DemoManagementRules(TestCase):
                              ({'is_demo':True,'role':'Sistem Yöneticisi'},'expiry')]:
             with self.assertRaises(HTTPException): current_demo_account_mutator(user,header)
         with patch('app.services.demo_subscriptions.store',DemoSubscriptionStore(SUBSCRIBERS)):
-            with self.assertRaises(HTTPException) as error: create_demo_subscriber(self.create(),{'id':'demo-user'})
+            with self.assertRaises(HTTPException) as error: create_demo_subscriber(self.create(),{'id':'demo-user','role_code':'ADMIN','permissions':{'demo-router-001':{'can_view':True,'can_manage_pppoe':True}}})
             self.assertEqual(error.exception.status_code,503)
 
     def test_mixed_history_roundtrip_keeps_expiry_and_reconstructs_requests(self):

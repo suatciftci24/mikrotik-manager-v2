@@ -9,7 +9,7 @@ import {safeSubscriberCenter,subscriberRouterHash,subscriberCenterTabs} from '..
 const data={source:'PERSISTENT_WORKSPACE',is_demo:true,device_connection_started:false,persistence:'local-postgresql-workspace',item:{id:'demo-managed-sub-fixture',username:'test.ev',customer_name:'Sentetik Abone',router_id:'demo-managed-router-fixture',router_name:'TEST-EV-V2',router_source:'PERSISTENT_DEMO',access_type:'HOTSPOT',source:'LOCAL',plan:'Demo 100',status:'ACTIVE',expires_on:null,revision:1,ip_address:null,last_seen_at:null,last_connected_at:null,session_status:'UNKNOWN'},history:[],connection_history:[]};
 const require=createRequire(import.meta.url);
 const hooks={...React,useEffect:()=>{},useRef:value=>({current:value}),useState:value=>[typeof value==='function'?value():value,()=>{}]};
-const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/SubscriberDeviceCenter.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/SubscriberDeviceCenter.tsx',import.meta.url))],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
 const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
 const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.children).flatMap(nodes)]:[];
 test('five tabs render account and session separately; expire and connection gaps stay unknown',()=>{
@@ -29,18 +29,19 @@ test('router links use exact ID and source; a matching display name never create
 test('Hotspot edit preserves locked identity and submits only synthetic fields with explicit consent',async()=>{
  const slots=[];let cursor=0;const calls=[];let saved=null;
  const mockReact={...hooks,useCallback:fn=>fn,useRef:value=>{const i=cursor++;slots[i]??={current:value};return slots[i];},useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;const value=slots[i];if(value?.path)return [{...value,loading:false,data:{items:[{id:data.item.router_id,fields:{name:'TEST-EV-V2'}}]}},()=>{}];return [value,next=>{slots[i]=typeof next==='function'?next(slots[i]):next;}];}};
- const built=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/SyntheticSubscribers.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+ const built=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/SyntheticSubscribers.tsx',import.meta.url))],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
  const module={exports:{}};new Function('require','module','exports',built)(name=>name==='react'?mockReact:require(name),module,module.exports);
  const original=globalThis.fetch,originalWindow=globalThis.window;globalThis.window={dispatchEvent:()=>{}};globalThis.fetch=async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>data.item};};
  const render=()=>{cursor=0;return module.exports.SyntheticSubscriberEditor({item:data.item,onClose:()=>{},onSaved:id=>{saved=id;}});};
  try{
   let tree=render();const fields=nodes(tree).filter(n=>n.type==='input'||n.type==='select');
   for(const value of [data.item.username,data.item.router_id,'HOTSPOT','LOCAL'])assert.equal(fields.find(n=>n.props.value===value).props.disabled,true);
-  await nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});tree=render();assert.match(renderToStaticMarkup(tree),/Önceki → Yeni/);assert.equal(calls.length,0);
+  fields.find(n=>n.props.value===data.item.plan).props.onChange({target:{value:'Demo 200'}});
+  tree=render();await nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});tree=render();assert.match(renderToStaticMarkup(tree),/Önceki → Yeni/);assert.equal(calls.length,0);
   nodes(tree).find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});
   tree=render();await nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});
   assert.equal(calls.length,1);assert.equal(calls[0].url,'/api/v1/subscriber-workspace/'+data.item.id);
-  const payload=JSON.parse(calls[0].init.body);assert.equal(payload.fields.access_type,'HOTSPOT');assert.equal(payload.fields.router_id,data.item.router_id);assert.equal(payload.expected_revision,1);assert.equal(payload.confirmed,true);assert.equal(calls[0].init.headers['X-V2-Demo-Action'],'subscriber-workspace');assert.equal('password' in payload.fields,false);assert.equal(saved,data.item.id);
+  const payload=JSON.parse(calls[0].init.body);assert.equal(payload.fields.plan,'Demo 200');assert.equal(payload.fields.access_type,'HOTSPOT');assert.equal(payload.fields.router_id,data.item.router_id);assert.equal(payload.expected_revision,1);assert.equal(payload.confirmed,true);assert.equal(calls[0].init.headers['X-V2-Demo-Action'],'subscriber-workspace');assert.equal('password' in payload.fields,false);assert.equal(saved,data.item.id);
  }finally{globalThis.fetch=original;globalThis.window=originalWindow;}
 });
 
@@ -59,4 +60,11 @@ test('missing router keeps subscriber detail and renders no invented router link
 test('failed per-record audit stays failed and never claims the business value changed',()=>{
  const changed={...data,history:[{operation:'STATUS',occurred_at:'2026-10-29T12:00:00Z',actor_id:'demo-user',revision:1,previous_expires_on:null,expires_on:null,date_changed:false,result:'FAILED',error:'Revizyon değişti',router_id:data.item.router_id,previous_values:{},new_values:{}}]};
  const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:changed,tab:'history',onTab:()=>{}}));assert.match(html,/Başarısız · Kayıt değiştirilmedi/);assert.match(html,/Revizyon değişti/);assert.doesNotMatch(html,/Sonuç: Uygulandı/);
+});
+
+
+test('history shows package context together with changed expiry and Istanbul actor time',()=>{
+ const history=[{operation:'RENEWAL',occurred_at:'2026-11-05T21:30:00Z',actor_id:'synthetic.operator',revision:2,date_changed:true,previous_expires_on:'2026-11-01',expires_on:'2026-12-06',previous_values:{plan:'Historical 100',expires_on:'2026-11-01'},new_values:{plan:'Historical 100',expires_on:'2026-12-06'},result:'APPLIED'}];
+ const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,history},tab:'history',onTab(){}}));
+ assert.match(html,/Historical 100/);assert.match(html,/synthetic.operator/);assert.match(html,/6 Kas 2026/);assert.match(html,/00:30/);assert.match(html,/İstanbul/);assert.match(html,/Eski bitiş:/);assert.match(html,/Yeni bitiş:/);
 });

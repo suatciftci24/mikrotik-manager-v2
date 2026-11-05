@@ -66,15 +66,21 @@ class SubscriberOperationsService:
             elif command.operation=='EXTEND':
                 old=row.fields.get('expires_on');today=datetime.now(ZoneInfo('Europe/Istanbul')).date()
                 if not old or old!=command.expected_expires_on or command.days not in (30,60,90):raise WorkspaceError(409,'Bitiş tarihi bilinmiyor/değişti veya uzatma süresi geçersiz.')
-                expected=(max(date.fromisoformat(old),today)+timedelta(days=command.days)).isoformat()
+                try:expected=(max(date.fromisoformat(old),today)+timedelta(days=command.days)).isoformat()
+                except (ValueError,OverflowError):raise WorkspaceError(422,'Kayıtlı tarih veya uzatma aralığı geçersiz.') from None
                 if value!=expected:raise WorkspaceError(409,'Türkiye gününe göre uzatma önizlemesi değişti; yeniden inceleyin.')
             old=row.fields.get(field)
             if old==value:raise WorkspaceError(422,'Yeni değer mevcut değerden farklı olmalı.')
+            before=row.fields
             previous_router=row.router_id;row.fields={**row.fields,field:value}
             if field=='router_id':row.router_id=value
             row.revision+=1;stamp=datetime.now(timezone.utc).isoformat()
-            receipt=dict(item_id=row.id,request_id=str(command.request_id),success=True,recorded=True,operation=command.operation,actor_id=actor,router_id=row.router_id,previous_router_id=previous_router,previous={field:old},values={field:value},occurred_at=stamp,revision=row.revision,error=None)
-            self.audit(session,command,actor,row.revision,{field:{'previous':old,'new':value}},receipt)
+            previous={field:old};values={field:value}
+            if field in ('plan','expires_on'):
+                previous.update({key:before.get(key) for key in ('plan','expires_on')})
+                values.update({key:row.fields.get(key) for key in ('plan','expires_on')})
+            receipt=dict(item_id=row.id,request_id=str(command.request_id),success=True,recorded=True,operation=command.operation,actor_id=actor,router_id=row.router_id,previous_router_id=previous_router,previous=previous,values=values,occurred_at=stamp,revision=row.revision,error=None)
+            self.audit(session,command,actor,row.revision,{key:{'previous':previous[key],'new':values[key]} for key in values},receipt)
             return receipt
     @staticmethod
     def audit(session,command,actor,revision,changes,receipt):

@@ -64,6 +64,9 @@ def calculate_management_change(item, command, actor_id):
     values = {field: command.value}
     previous = {field: item[field]}
     if field == 'plan':
+        previous['expires_on'] = item.get('expires_on')
+        values['expires_on'] = item.get('expires_on')
+    if field == 'plan':
         values['monthly_price'] = plan_price(command.value)
         previous['monthly_price'] = item['monthly_price']
     elif command.value not in ('ACTIVE', 'PAUSED'):

@@ -47,7 +47,9 @@ def calculate_change(item, change: ExpiryChange, actor_id: str, items=None):
     updated = {**item, 'expires_on': new, 'revision': item['revision'] + 1}
     event = {'id': request_id, 'occurred_at': datetime.now(timezone.utc).isoformat(),
              'previous_expires_on': old, 'expires_on': new, 'operation': change.operation,
-             'source': item['source'], 'actor_id': actor_id, 'is_demo': True}
+             'source': item['source'], 'actor_id': actor_id, 'is_demo': True,
+             'previous_values': {'plan': item['plan'], 'expires_on': old},
+             'new_values': {'plan': item['plan'], 'expires_on': new}}
     return updated, event
 
 
@@ -183,10 +185,13 @@ def calculate_quick(item, change, actor_id, items=None):
     if change.action == 'EXTEND' and change.days:
         if not old:
             raise DemoChangeError(422, 'Bitiş bilinmiyor; özel tarih seçin.')
-        target = max(date.fromisoformat(old), today) + timedelta(days=change.days)
+        try:
+            target = max(date.fromisoformat(old), today) + timedelta(days=change.days)
+        except (ValueError, OverflowError):
+            raise DemoChangeError(422, 'Kayıtlı tarih veya uzatma aralığı geçersiz; özel tarih seçin.') from None
         if target != new_date:
             raise DemoChangeError(409, 'Uzatma önizlemesi değişmiş; tekrar onaylayın.')
-    if (creating or change.action == 'EXTEND') and (new_date is None or new_date < today or (not creating and new_date.isoformat() == old)):
+    if (creating or change.action == 'EXTEND') and (new_date is None or new_date < today or (not creating and old is not None and new_date.isoformat() == old)):
         raise DemoChangeError(422, 'Geçerli ve farklı bitiş tarihi seçin.')
     if change.action in ('PLAN', 'STATUS') and (new_date.isoformat() if new_date else None) != old:
         raise DemoChangeError(422, 'Bu işlem bitiş tarihini değiştiremez.')
@@ -210,5 +215,7 @@ def calculate_quick(item, change, actor_id, items=None):
                  previous_expires_on=old, expires_on=updated['expires_on'], operation='RENEWAL' if change.days else 'DATE_EDIT',
                  source=item['source'], actor_id=actor_id, is_demo=True, action=change.action,
                  previous_plan=None if creating else item['plan'], plan=updated['plan'],
-                 previous_status=None if creating else item['status'], status=updated['status'], router_name=item['router_name'], router_id=change.router_id)
+                 previous_status=None if creating else item['status'], status=updated['status'], router_name=item['router_name'], router_id=change.router_id,
+                 previous_values={'plan': item['plan'], 'expires_on': old},
+                 new_values={'plan': updated['plan'], 'expires_on': updated['expires_on']})
     return updated, event

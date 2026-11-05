@@ -3745,3 +3745,28 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   izole PGDATA düzeni için dar güvenli kurulum desteğine ilişkin yeni talimat.
 - Yalnız bu iki yerel doküman commit/normal push kapsamındadır; içerik ve
   diff kontrolü yeterli, uygulama test/build veya başka VDS tanı döngüsü yok.
+
+## V2.6 — PPPoE paket / uzatma / geçmiş tutarlılığı — 2026-11-05
+
+- LOCAL PASS; başlangıç main-guncel/85c4849. AGENTS.md, güncel ilerleme ve
+  docs/SUBSCRIBER_CENTER.md okundu; mevcut operatör yedekleri/izlenmeyen bileşen
+  korundu. Önceki VDS kimlik PGDATA BLOCKED ve Dashboard ROLLBACK kayıtları sürer.
+- Paket/tarih audit'i eski/yeni paket ve bitişi birlikte saklar. Eski düz ve
+  structured alanlar güvenli ortak projeksiyonda birleşir; detay/merkezi geçmiş
+  güncel hesabı tarihsel kanıt yerine kullanmaz. Tarih değişince paket gizlenmez.
+- Türkiye gününe göre uzatma, bilinmeyen tarihte özel tarih/onay, kaynak/revizyon,
+  idempotency ve merkezi yetki korunur; tarih taşması kontrollü ret verir.
+  Eski DATE_EDIT ve API/UI sözleşmeleri korunur; migration gerektirmez.
+- PASS: 40 mevcut hedefli backend kontrolü (başarısız 18 kapsam düzeltme sonrası
+  geçti), sekiz yeni SQLite/disposable PostgreSQL16 API/atomiklik kontrolü,
+  beş frontend test dosyası, TypeScript/Vite build ve diff. SQL audit INSERT
+  hata enjeksiyonu rollback/retry, aktör/UTC ve İstanbul gece yarısı gösterimi
+  doğrulandı. Build'in mevcut bundle boyutu uyarısı sürer.
+- Eski ek test_demo_expiry import'u eksik httpx2 nedeniyle çalışmadı; PASS değil.
+  Yeni ASGI testleri harici HTTP istemcisi gerektirmeden gerçek middleware/route
+  zincirini sınadı. Gerçek login/socket ve tarayıcı görsel kabulü iddia edilmez.
+- Mevcut 14 demo aboneye, V1/V2.5/V2.6 VDS/gerçek DB/cihaz/RADIUS/servislere
+  dokunulmadı; migration/seed/deploy yok. Yeni geçici test kümesi temizlendi.
+- Kanıt/kabul: docs/V26_PPPOE_SUBSCRIBER_ACCEPTANCE.md. origin URL/upstream
+  main-guncel ve uzak 85c4849 doğrulandı; yalnız görev dosyaları normal commit/push
+  kapsamıdır. Sonraki somut adım gerekirse ayrı yerel tarayıcı görsel kabulüdür.

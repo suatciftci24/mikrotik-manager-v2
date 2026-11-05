@@ -132,13 +132,8 @@ class PostgresDemoStore:
         receipts = []
         for row in rows:
             event = row['payload']
-            previous = dict(event.get('previous_values') or {})
-            values = dict(event.get('new_values') or {})
-            if not previous and not values:
-                for key in ('plan', 'status', 'expires_on'):
-                    if key in event:
-                        previous[key] = event.get('previous_'+key)
-                        values[key] = event.get(key)
+            from app.services.subscriber_center import legacy_audit_values
+            previous, values = legacy_audit_values(event)
             receipts.append(dict(
                 item_id=row['subscriber_id'], request_id=str(event['id']), success=True, recorded=True,
                 operation=event.get('action') or event.get('operation') or 'UPDATE',

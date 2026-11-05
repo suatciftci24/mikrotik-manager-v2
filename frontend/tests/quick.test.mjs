@@ -15,3 +15,9 @@ test('audit labels distinguish all quick operations and legacy expiry operations
   for(const [action,label] of Object.entries({CREATE:'Abone oluşturma',PLAN:'Paket değişikliği',STATUS:'Durum değişikliği',EXTEND:'Abonelik uzatma'})) assert.equal(operationLabel({action}),label);
   assert.equal(operationLabel({operation:'RENEWAL'}),'Yenileme');
 });
+
+
+test('invalid dates and overflowing or invalid durations require explicit correction',()=>{
+ for(const old of ['2026-02-30','invalid','9999-12-31'])assert.equal(extensionDate(old,'2026-11-05',30),'');
+ for(const days of [0,-1,1.5,Number.MAX_SAFE_INTEGER])assert.equal(extensionDate('2026-11-05','2026-11-05',days),'');
+});
