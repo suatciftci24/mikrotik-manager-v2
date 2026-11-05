@@ -56,9 +56,13 @@ try:
         print('store_version_records=' + json.dumps(versions), flush=True)
     else:
         print('store_version_records=UNAVAILABLE', flush=True)
+    legacy = [name for name in missing if name.startswith('public.')]
+    active = [name for name in missing if not name.startswith('public.')]
+    print('legacy_schema_missing=' + json.dumps(legacy), flush=True)
+    print('active_workspace_missing=' + json.dumps(active), flush=True)
     print('migration_revision_checksum_ledger=NO_REPOSITORY_CONTRACT', flush=True)
-    print('target=7bb617c4838c1bd94b8cbe612981cabe5186b6b1 object_presence=' + ('INCOMPLETE' if missing else 'PASS') + ' full_schema_compatibility=UNVERIFIED', flush=True)
-    print('BLOCKED reason=' + ('LEGACY_SCHEMA_EVIDENCE_INCOMPLETE' if missing else 'LEGACY_MIGRATION_HISTORY_UNVERIFIABLE'), flush=True)
+    print('full_schema_compatibility=UNVERIFIED', flush=True)
+    print('BLOCKED reason=' + ('ACTIVE_WORKSPACE_MISSING' if active else 'MIGRATION_HISTORY_UNVERIFIABLE'), flush=True)
     sys.exit(2)
 except Exception:
     print('BLOCKED reason=' + REASON + '; no secrets printed', flush=True)
