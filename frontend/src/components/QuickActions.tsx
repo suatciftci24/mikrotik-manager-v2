@@ -52,7 +52,7 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
     finally {invalidateResources(['/subscribers','/routers','/dashboard','/subscribers/demo-history']);sending.current=false;setPending(false);}
   }
   return <dialog ref={dialog} className="expiry-dialog" aria-labelledby="quick-title" onCancel={e=>{e.preventDefault();if(!sending.current)onClose();}}>
-    <h2 id="quick-title" tabIndex={-1}>Hızlı İşlemler · DEMO / SENTETİK</h2>
+    <h2 id="quick-title" tabIndex={-1}>Abone İşlemleri · Demo</h2>
     <p>Yalnız V2 demo kayıtları ve denetim geçmişi güncellenir. Paket seçimi kayıtlı demo fiyatını da günceller.</p>
      {rows.length===1&&<div className="quick-preview">
        <strong>Abone: {rows[0].customer_name}</strong>
