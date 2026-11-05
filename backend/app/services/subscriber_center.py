@@ -112,7 +112,7 @@ def legacy_event(event):
     has_date='expires_on' in values or 'expires_on' in event
     old=previous.get('expires_on',event.get('previous_expires_on'))
     new=values.get('expires_on',event.get('expires_on'))
-    return dict(operation=event.get('operation','UNKNOWN'),occurred_at=event['occurred_at'],actor_id=event['actor_id'],previous_expires_on=old,expires_on=new,date_changed=has_date and old!=new,result='APPLIED')
+    return dict(operation=event.get('operation','UNKNOWN'),occurred_at=event['occurred_at'],actor_id=event['actor_id'],revision=event.get('revision'),subscriber_id=event.get('subscriber_id'),router_id=event.get('router_id'),previous_values=previous,new_values=values,previous_expires_on=old,expires_on=new,date_changed=has_date and old!=new,result='FAILED' if event.get('result')=='FAILED' else 'APPLIED',error=event.get('error'))
 
 def center_event(event):
     from app.services.subscriber_operations import event_receipt

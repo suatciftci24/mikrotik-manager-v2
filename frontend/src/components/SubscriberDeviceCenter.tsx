@@ -1,3 +1,4 @@
+import {auditActionLabels,auditChanges} from '../lib/subscriberAuditDisplay';
 import {dailyLabels} from '../lib/subscriberManagementCenter';
 import {expiryDate} from '../lib/expiry';
 import {useEffect,useRef,useState,type KeyboardEvent,type ReactNode} from 'react';
@@ -39,15 +40,7 @@ Günlük İşlemler
  {tab==='overview'?<><Facts items={[["Kayıt kimliği",r.id],["Router ID",r.router_id??'Bilinmiyor'],['Veri deposu',data.persistence],['Revizyon',r.revision]]}/><p>PPPoE ve Hotspot erişim türleri ayrı saklanır. Tek yetkili kaynak LOCAL veya RADIUS'tur; gerçek kaynakta işlem yapılmaz.</p>{legacy&&<details onToggle={e=>setExpanded(e.currentTarget.open)}><summary>Mevcut demo işlemleri ve raporları</summary>{expanded&&legacy}</details>}</>
  :tab==='package'?<><Facts items={[["Profil / Paket",r.plan],['Hesap durumu',accountStatus(r.status)],['Erişim türü',r.access_type??'Bilinmiyor']]}/><p>Bu alan sentetik hesap tanımıdır; gerçek cihaz veya RADIUS profili uygulanmaz.</p></>
  :tab==='expiry'?<><ExpirySummary expiresOn={r.expires_on} today={today}/><p>EXPIRE yalnız kaydedilmiş sentetik takvim tarihidir. Eksik tarih katılım veya bağlantı zamanından türetilmez.</p>{data.source==='PERSISTENT_WORKSPACE'&&onRenew&&<button className="button-primary" onClick={()=>onRenew(r)}>Hızlı İşlemler · Aboneliği uzat</button>}</>
- :tab==='history'?<>{data.history.length?<ol className="registry-history">{data.history.map((e,index)=><li key={index}><strong>{dailyLabels[e.operation]??(e.operation==='CREATE'?'Sentetik kayıt eklendi':e.operation==='UPDATE'?'Sentetik kayıt düzenlendi':e.operation==='RENEWAL'?'Abonelik uzatıldı':e.operation==='DATE_EDIT'?'Bitiş tarihi düzenlendi':'Kaydedilmiş demo işlemi')}</strong><span>{dateTime(e.occurred_at)} · {e.actor_id}</span>{e.date_changed&&<span>Eski bitiş: {expiryDate(e.previous_expires_on)} → Yeni bitiş: {expiryDate(e.expires_on)}</span>}<span>Sonuç: {e.result==='FAILED'?'Başarısız · Kayıt değiştirilmedi':'Uygulandı · Sentetik kayıt'}</span>{e.router_id&&<span>Router: {e.router_id}</span>}{e.new_values&&Object.keys(e.new_values).length>0&&!e.date_changed&&<div className="registry-history-changes">
-{Object.entries(e.new_values).map(([field,value])=><div key={field}>
-<strong>{({
-plan:'Paket',profile:'Profil',status:'Hesap durumu',
-expires_on:'EXPIRE / Bitiş tarihi',source:'Abone kaynağı',
-access_type:'Bağlantı türü'
-} as Record<string,string>)[field]??field}</strong>: {String((e.previous_values as Record<string,unknown>|undefined)?.[field]??'Belirtilmemiş')} → {String(value??'Belirtilmemiş')}
-</div>)}
-</div>}{e.error&&<span>{e.error}</span>}{e.revision!==null&&<span>Revizyon {e.revision}</span>}</li>)}</ol>:<p>Kayıtlı işlem geçmişi bulunmuyor.</p>}<p>En fazla son 50 kayıt işlemi; bağlantı geçmişi değildir. Zamanlar Türkiye saatinde (Europe/Istanbul) gösterilir.</p></>
+ :tab==='history'?<>{data.history.length?<ol className="registry-history">{data.history.map((e,index)=><li key={index}><strong>{auditActionLabels[e.operation]??dailyLabels[e.operation]??(e.operation==='CREATE'?'Sentetik kayıt eklendi':e.operation==='UPDATE'?'Sentetik kayıt düzenlendi':e.operation==='RENEWAL'?'Abonelik uzatıldı':e.operation==='DATE_EDIT'?'Bitiş tarihi düzenlendi':'İşlem türü bilinmiyor')}</strong><span>{dateTime(e.occurred_at)} · {e.actor_id}</span>{e.date_changed&&<span>Eski bitiş: {expiryDate(e.previous_expires_on)} → Yeni bitiş: {expiryDate(e.expires_on)}</span>}<span>Sonuç: {e.result==='FAILED'?'Başarısız · Kayıt değiştirilmedi':'Uygulandı · Sentetik kayıt'}</span>{e.router_id&&<span>Router: {e.router_id}</span>}{e.new_values&&Object.keys(e.new_values).length>0&&<div className="registry-history-changes">{auditChanges(e.previous_values??{},e.new_values).map(change=><div key={change.field}><strong>{change.field}</strong>: {change.before} → {change.after}</div>)}</div>}{e.error&&<span>{e.error}</span>}{e.revision!==null&&<span>Revizyon {e.revision}</span>}</li>)}</ol>:<p>Kayıtlı işlem geçmişi bulunmuyor.</p>}<p>En fazla son 50 kayıt işlemi; bağlantı geçmişi değildir. Zamanlar Türkiye saatinde (Europe/Istanbul) gösterilir.</p></>
  :<p className="missing-data">Ölçülmedi. Bağlantı/oturum açılış-kapanış kaynağı bağlı değil; sentetik hesap veya audit kaydından oturum üretilmez.</p>}
  </section></>;
 }
