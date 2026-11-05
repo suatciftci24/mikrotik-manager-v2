@@ -104,6 +104,52 @@ class PostgresDemoStore:
         return items,audits,total,[dict(row) for row in groups]
 
     @storage_errors
+    def operation_history(self, item_id='', operation='ALL', result='ALL', page=1, page_size=25, allowed_ids=None):
+        """Read committed legacy-demo events; no writes and no external connections."""
+        ids = list(allowed_ids or [])
+        if not ids:
+            return dict(items=[], total=0, page=page, page_size=page_size, is_demo=True)
+        conditions = ["e.subscriber_id = ANY(CAST(:ids AS text[]))"]
+        params = dict(ids=ids, limit=page_size, offset=(page-1)*page_size)
+        if item_id:
+            conditions.append('e.subscriber_id=:item_id')
+            params['item_id'] = item_id
+        if operation != 'ALL':
+            conditions.append("COALESCE(e.payload->>'action',e.payload->>'operation')=:operation")
+            params['operation'] = operation
+        if result == 'FAILED':
+            return dict(items=[], total=0, page=page, page_size=page_size, is_demo=True)
+        where = ' AND '.join(conditions)
+        base = f' FROM {self.schema}.events e WHERE {where}'
+        with self.engine.connect().execution_options(isolation_level='REPEATABLE READ') as connection:
+            with connection.begin():
+                connection.execute(text('SET TRANSACTION READ ONLY'))
+                self._verify(connection)
+                total = connection.execute(text('SELECT count(*)'+base), params).scalar_one()
+                events = connection.execute(text('SELECT e.payload, e.subscriber_id, e.revision'+base+
+                    " ORDER BY (e.payload->>'occurred_at')::timestamptz DESC, e.id DESC LIMIT :limit OFFSET :offset"), params).mappings()
+                rows = list(events)
+        receipts = []
+        for row in rows:
+            event = row['payload']
+            previous = dict(event.get('previous_values') or {})
+            values = dict(event.get('new_values') or {})
+            if not previous and not values:
+                for key in ('plan', 'status', 'expires_on'):
+                    if key in event:
+                        previous[key] = event.get('previous_'+key)
+                        values[key] = event.get(key)
+            receipts.append(dict(
+                item_id=row['subscriber_id'], request_id=str(event['id']), success=True, recorded=True,
+                operation=event.get('action') or event.get('operation') or 'UPDATE',
+                actor_id=event.get('actor_id') or 'Bilinmiyor',
+                router_id=event.get('router_id'), previous_router_id=None,
+                previous={k:str(v) if v is not None else None for k,v in previous.items()},
+                values={k:str(v) if v is not None else None for k,v in values.items()},
+                occurred_at=event['occurred_at'], revision=row['revision'], error=None))
+        return dict(items=receipts, total=total, page=page, page_size=page_size, is_demo=True)
+
+    @storage_errors
     def ping(self):
         with self.engine.connect() as connection:
             self._verify(connection)

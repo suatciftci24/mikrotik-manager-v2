@@ -49,7 +49,7 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
     sending.current=true;setPending(true);setError('');
     try {const response=await api<{results:Result[]}>('/subscribers/demo-quick',{method:'POST',headers:{'X-V2-Demo-Action':'expiry'},body:JSON.stringify({entries:review})});setResults(response.results);if(response.results.some(result=>result.success))onSaved?.();}
     catch(e){setError(e instanceof Error?e.message:'İşlem sonucu alınamadı.');}
-    finally {invalidateResources(['/subscribers','/routers','/dashboard']);sending.current=false;setPending(false);}
+    finally {invalidateResources(['/subscribers','/routers','/dashboard','/subscribers/demo-history']);sending.current=false;setPending(false);}
   }
   return <dialog ref={dialog} className="expiry-dialog" aria-labelledby="quick-title" onCancel={e=>{e.preventDefault();if(!sending.current)onClose();}}>
     <h2 id="quick-title" tabIndex={-1}>Hızlı İşlemler · DEMO / SENTETİK</h2>

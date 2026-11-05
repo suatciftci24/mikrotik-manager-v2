@@ -1,5 +1,5 @@
 from app.core.authorization import items_for,routers_for,public_item,public_detail,subscriber_for,require_router,require_feature
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from app.schemas.details import SubscriberDetail, SubscriberList, QuickBatchResponse
 from app.services.details import subscriber_detail
 from app.core.security import current_demo_user, current_demo_mutator, current_demo_account_mutator
@@ -30,6 +30,21 @@ def demo_options(_user: dict = Depends(current_demo_user)):
     demo_subscriptions.store.ping()
     return {'plans': demo_plans(), 'routers': [{'id': r['id'], 'name': r['name']} for r in routers_for(_user,'can_manage_pppoe') if r['is_demo']],
             'is_demo': True, 'persistence': 'local-postgresql-demo'}
+
+
+@router.get('/demo-history')
+def demo_history(item_id: str = Query('', max_length=100),
+                 operation: str = Query('ALL', pattern='^(ALL|EDIT|PLAN|STATUS|EXPIRE|EXTEND|ROUTER|CREATE|UPDATE|RENEWAL|PLAN_CHANGE|STATUS_CHANGE|DATE_EDIT)$'),
+                 result: str = Query('ALL', pattern='^(ALL|SUCCESS|FAILED)$'),
+                 page: int = Query(1, ge=1, le=1000000),
+                 page_size: int = Query(25, ge=1, le=100),
+                 user: dict = Depends(current_demo_user)):
+    from app.core.security import current_admin
+    current_admin(user)
+    allowed = items_for(demo_subscriptions.store.list_items(), user)
+    return demo_subscriptions.store.operation_history(
+        item_id, operation, result, page, page_size,
+        allowed_ids=[item['id'] for item in allowed])
 
 
 @router.post('/demo-create', response_model=SubscriberDetail)

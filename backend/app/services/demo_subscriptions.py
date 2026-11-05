@@ -134,6 +134,9 @@ class ConfiguredDemoStore:
         from app.adapters.alarm_actions import mutate
         return mutate(self._get(), *args)
 
+    def operation_history(self, *args, **kwargs):
+        return self._get().operation_history(*args, **kwargs)
+
     def ping(self):
         return self._get().ping()
 
