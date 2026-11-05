@@ -1,3 +1,4 @@
+import '../styles/subscriber-edit-highlight.css';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { api, type Router, type Subscriber, type DemoOptions, type SubscriberDetailData } from '../lib/api';
 import { useResource } from '../lib/useResource';
@@ -63,7 +64,8 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
       {action==='STATUS'&&<label className="form-label"><span id={`${fieldId}-status`}>Yeni durum</span><select aria-labelledby={`${fieldId}-status`} value={status} onChange={e=>setStatus(e.target.value)}><option value="ACTIVE">Etkin</option><option value="PAUSED">Devre dışı (duraklatıldı)</option></select></label>}
       {action==='EXTEND'&&<label className="form-label"><span id={`${fieldId}-extension`}>Uzatma</span><select aria-labelledby={`${fieldId}-extension`} value={days} onChange={e=>setDays(e.target.value)}><option value="7">7 gün</option><option value="15">15 gün</option><option value="30">30 gün</option><option value="60">60 gün</option><option value="90">90 gün</option><option value="CUSTOM">Özel bitiş tarihi</option></select></label>}
       {(action==='CREATE'||action==='EXTEND'&&days==='CUSTOM')&&<label className="form-label">Yeni bitiş tarihi<input required type="date" min={today} value={custom} onChange={e=>setCustom(e.target.value)}/></label>}
-      <p>Uzatma, bitiş henüz dolmadıysa mevcut bitişten; dolduysa Türkiye bugününden hesaplanır. Özel tarih doğrudan yeni bitiştir.</p>
+      {rows.length===1&&<p>Mevcut paket: <strong className="current-plan-highlight">{rows[0].plan}</strong></p>}
+       <p>Uzatma, bitiş henüz dolmadıysa mevcut bitişten; dolduysa Türkiye bugününden hesaplanır. Özel tarih doğrudan yeni bitiştir.</p>
       <button className="button-primary" disabled={routers.loading||!!routers.error||((action==='PLAN'||action==='CREATE')&&(options.loading||!!options.error))}>Önizle ve gözden geçir</button>
     </form>:<>
       <h3>Eski → Yeni · {({EXTEND:'Abonelik uzatma',PLAN:'Paket değiştirme',STATUS:'Durum değiştirme',CREATE:'Abone oluşturma'} as Record<string,string>)[action]}</h3>
