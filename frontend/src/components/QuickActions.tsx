@@ -54,6 +54,12 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
   return <dialog ref={dialog} className="expiry-dialog" aria-labelledby="quick-title" onCancel={e=>{e.preventDefault();if(!sending.current)onClose();}}>
     <h2 id="quick-title" tabIndex={-1}>Hızlı İşlemler · DEMO / SENTETİK</h2>
     <p>Yalnız V2 demo kayıtları ve denetim geçmişi güncellenir. Paket seçimi kayıtlı demo fiyatını da günceller.</p>
+     {rows.length===1&&<div className="quick-preview">
+       <strong>Abone: {rows[0].customer_name}</strong>
+       <p>Kullanıcı adı: {rows[0].username}</p>
+       <p>Mevcut paket: <strong className="current-plan-highlight">{rows[0].plan}</strong></p>
+       <p>Mevcut aylık ücret: {rows[0].monthly_price.toLocaleString('tr-TR')} TL</p>
+     </div>}
     {!review?<form onSubmit={prepare}>
       {(routers.loading||((action==='PLAN'||action==='CREATE')&&options.loading))&&<p role="status">Router/paket bilgileri yükleniyor…</p>}
       {routers.error&&<p role="alert" className="form-error">Router bilgileri alınamadı: {routers.error} <button type="button" className="text-link" onClick={routers.retry}>Routerları yeniden yükle</button></p>}
@@ -64,7 +70,7 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
       {action==='STATUS'&&<label className="form-label"><span id={`${fieldId}-status`}>Yeni durum</span><select aria-labelledby={`${fieldId}-status`} value={status} onChange={e=>setStatus(e.target.value)}><option value="ACTIVE">Etkin</option><option value="PAUSED">Devre dışı (duraklatıldı)</option></select></label>}
       {action==='EXTEND'&&<label className="form-label"><span id={`${fieldId}-extension`}>Uzatma</span><select aria-labelledby={`${fieldId}-extension`} value={days} onChange={e=>setDays(e.target.value)}><option value="7">7 gün</option><option value="15">15 gün</option><option value="30">30 gün</option><option value="60">60 gün</option><option value="90">90 gün</option><option value="CUSTOM">Özel bitiş tarihi</option></select></label>}
       {(action==='CREATE'||action==='EXTEND'&&days==='CUSTOM')&&<label className="form-label">Yeni bitiş tarihi<input required type="date" min={today} value={custom} onChange={e=>setCustom(e.target.value)}/></label>}
-      {rows.length===1&&<p>Mevcut paket: <strong className="current-plan-highlight">{rows[0].plan}</strong></p>}
+
        <p>Uzatma, bitiş henüz dolmadıysa mevcut bitişten; dolduysa Türkiye bugününden hesaplanır. Özel tarih doğrudan yeni bitiştir.</p>
       <button className="button-primary" disabled={routers.loading||!!routers.error||((action==='PLAN'||action==='CREATE')&&(options.loading||!!options.error))}>Önizle ve gözden geçir</button>
     </form>:<>
