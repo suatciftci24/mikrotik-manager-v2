@@ -114,6 +114,19 @@ class SubscriberOperationsService:
             # Persistence is unavailable or request ID conflicts: never claim a saved receipt.
             return dict(item_id=command.item_id,request_id=str(command.request_id),success=False,recorded=False,operation=command.operation,actor_id=actor,router_id=None,previous_router_id=None,previous={},values={},occurred_at=datetime.now(timezone.utc).isoformat(),revision=0,error=failure.detail)
     @boundary
+    def request_result(self,request_id,actor):
+        with self.sessions() as session:
+            if session.bind.dialect.name=='postgresql':
+                session.connection(execution_options={'isolation_level':'REPEATABLE READ','postgresql_readonly':True})
+            self.check(session)
+            result={'request_id':str(request_id),'status':'UNKNOWN','response':None}
+            prior=session.get(Event,str(request_id))
+            if not prior or prior.actor_id!=actor:return result
+            receipt=prior.changes.get('_management',{}).get('receipt')
+            if not receipt or receipt.get('recorded') is not True or receipt.get('request_id')!=str(request_id) or receipt.get('item_id')!=prior.subscriber_id or receipt.get('actor_id')!=actor:return result
+            return {**result,'status':'SUCCESS' if receipt['success'] else 'FAILED','response':receipt}
+
+    @boundary
     def history(self,item_id='',operation='ALL',result='ALL',page=1,page_size=25):
         with self.sessions() as session:
             self.check(session);clauses=[]

@@ -3963,3 +3963,31 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   canlı router/RADIUS/IPsec/gerçek veri/sır/migration/deploy/restart yok.
 - Sonraki yerel hedef: günlük toplu işlem ve tekil uzatmadaki sonuç alma
   akışlarını da salt okunur UUID receipt sorgusuna geçirmek.
+
+
+## V2.6 — toplu işlem ve tekil uzatmada salt okunur GET recovery — 2026-11-06
+
+- Başlangıç main-guncel/159c50b. AGENTS/güncel ilerleme ve abone kabulü okundu.
+  İlk açık POST'tan sonra kayıp/timeout/bozuk/eşleşmeyen sonuç için aynıUUID
+  ile yalnız GET yapılır. Komut alanları sabit, otomatik ikinci POST/polling yok.
+- Toplu mevcut _management.receipt SUCCESS/FAILED/UNKNOWN olarak okunur;
+  kesin satırlar korunur, yalnız belirsiz UUID'ler en fazla5 eşzamanlı GET ile
+  sorgulanır. Bozuk/eksik/yetkisiz/abort sonucu bilinen başarıyı veya hatayı silmez.
+- Tekil uzatma özgün yanıtı aynı business/audit transaction'ında mevcut JSON'a
+  kaydeder. Sonraki editten sonra da özgün receipt okunur. GET yazma/replay/execute
+  çağırmaz; PG readonly transaction ve güncel merkezi ADMIN/aynı aktör korunur.
+  Eski receipt eksikse UNKNOWN, migration/backfill yok. Create/edit güvenliği
+  ve shared recovery hook değiştirilmedi.
+- Liste/detay/geçmiş/günlük yönetim özeti/Dashboard/router/rapor invalidation
+  aynı bağımlılık setinden yapılır. Eksik GET ilk yazmayı başarısız saydırmaz;
+  kesin istemci reddi ve kalıcı FAILED receipt ayrı gösterilir.
+- PASS: 7 yeni backend SQLite kontrolü ve 16 değişen/yeni frontend handler/helper
+  senaryosu, TypeScript/son Vite build ve diff. Eski POST-replay beklentileri GET
+  sözleşmesine uyarlandı; başarısız fixture/tarih/username/cwd/Node import araç
+  hataları düzeltildi, yalnız ilgili kapsamlar tekrarlandı. Son GET değer eşleşme
+  sağlamlaştırmasından sonra helper3 ve son build tekrarlandı. Bundle uyarısı var.
+- Gerçek PG/HTTP/browser PASS iddiası yok. ADMIN PASS, gerçek PostgreSQL/HTTP
+  kabulü BLOCKED korunur. V1/V2.5/VDS/SSH/router/RADIUS/IPsec/gerçek veri/sır/
+  deploy/migration/restart yok. Kullanıcının PROGRESS değişiklikleri korundu,
+  commit dışında tutuldu. Sonraki yerel hedef: sayfa/sekme yenilemesinde bekleyen
+  işlem UUID'sini koruyan, aktöre bağlı istemci recovery devamlılığı.

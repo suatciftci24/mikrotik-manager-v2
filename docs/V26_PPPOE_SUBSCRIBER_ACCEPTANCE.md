@@ -121,3 +121,34 @@ ve TypeScript/Vite build PASS, diff PASS. Önceki PASS testleri tekrarlanmadı.
 Yeni backend kontrolleri 6+2+1 olarak yalnız eklenen kapsamlarla çalıştırıldı.
 Mevcut >500kB bundle uyarısı sürer. ADMIN PASS, gerçek PG/HTTP BLOCKED korunur.
 V1/V2.5/VDS/SSH/gerçek router/RADIUS/IPsec/veri/parola/migration/restart/deploy yok.
+
+
+## Toplu işlem ve tekil uzatmada yalnız GET receipt — 2026-11-06
+
+Başlangıç159c50b. İki akışın kayıp/timeout/bozuk HTTP yanıtından sonra aynı UUID
+ile yeniden POST gönderme davranışı kaldırıldı; yalnız aktöre/yetkiye bağlı GET
+sonuçları kullanılır. Toplu işlem kesin satırları korur, yalnız belirsizleri en
+fazla5 eşzamanlı GET ile okur. Tekil uzatma özgün yanıtı mevcut audit JSON'una
+aynı transaction'da kaydeder; sonraki edit sonrası da orijinal sonuç okunur.
+Yeni tablo/migration/backfill yok; oluşturma/düzenleme recovery kodu değişmedi.
+
+PASS: 7 yeni backend senaryosu: uzatma özgün receipt/replay/sonraki edit;
+foreign/unknown/başka tipUUID; aynıUUID farklı komut/aktör reddi; receipt UPDATE
+arızasında tarih/revizyon/audit rollback; toplu SUCCESS/FAILED/UNKNOWN salt okunur
+okuma; uzatma SELECT-only/tip ayrımı; güncel ADMIN/aktör route kontrolü.
+Disposable SQLite kullanıldı; gerçek PG veya socket sonucu değildir.
+
+PASS: 16 değişen/yeni frontend senaryosu: 7 uzatma recovery (6 eski POST-replay
+beklentisi GET'e uyarlandı + timeout1), uzatma önizleme/GET1, toplu kesin sonuçta
+tekrar göndermeme1, toplu kayıp/bozuk/yanlış receipt/timeout4, kısmi sonuç/bozuk
+GET/en fazla5 concurrency-abort3. Gövdesiz GET, sabitUUID, tekPOST, doğru durumlar
+ve kaynak invalidation kanıtlandı. Genel eski suite/PGDATA/ADMIN/create-edit
+PASS testleri tekrarlanmadı. TypeScript ve son Vite build/diff PASS.
+Mevcut >500kB bundle uyarısı sürer.
+
+İlk backend fixture'ında strict tarih alanına date nesnesi ve editte farklı
+username verilmesi araç hatasıydı; fixture düzeltildi, yalnız başarısız testler
+tekrarlandı. Eski frontend beklentilerini güncelleyen ilk komut yanlış cwd'de
+çalışmadı; yollar düzeltildi. Native Node extensionless TS import aracı esbuild
+ile düzeltildi. Test beklentileri yeni GET sözleşmesine uyarlandı, gevşetilmedi.
+ADMIN PASS; gerçek PostgreSQL/HTTP kabulü BLOCKED; canlı sistem/SSH işlemi yok.

@@ -241,3 +241,37 @@ belirsizken aynı pencere üzerinden sorgulama tamamlanmalıdır.
 Yeni tablo, migration, HTTP bootstrap veya dış adaptör yoktur. Receipt'in ham
 `_save` metadatası genel audit/detay yanıtına taşınmaz. PostgreSQL sonuç okumaları
 read-only transaction kullanır; SQLite testleri gerçek PostgreSQL kabulü sayılmaz.
+
+
+### Toplu işlem ve tekil uzatmada yalnız GET recovery — V2.6
+
+Önceki POST replay UI'sinin yerine, ilk açık onaydan sonraki tüm sonuç aramaları
+aynı UUID ile salt okunur GET kullanır. Önizlemenin tam istek alanları korunur;
+şüpheli yanıt yeni komut veya yeni UUID üretmez. İstemci 15sn timeout/abort,
+kayıp/bozuk veya kimliği/değeri uyuşmayan yanıtta işlemi başarısız saymaz.
+
+- `GET /api/v1/subscriber-workspace/management/requests/{UUID}` mevcut
+  `_management.receipt` kaydını okur. Güncel merkezi ADMIN ve aynı aktör gerekir.
+  Kalıcı receipt SUCCESS veya FAILED; eksik/yabancı/başka işlem UNKNOWN döner.
+  Başarı da başarısızlık da aynı business/audit sonucu olarak korunur.
+- `GET /api/v1/subscriber-workspace/renewals/requests/{UUID}` yeni uzatmanın
+  audit transaction'ında `_renewal_response` olarak saklanan özgün yanıtını okur.
+  Sonradan kayıt değişse bile özgün sonuç korunur. Eski receipt metadatası yoksa
+  UNKNOWN kalır; geçmiş veriler backfill edilmez. Replay aktör/hedef/önceki-yeni
+  tarih/kaynak/revizyon/gün kontrollerini korur; GET replay çağırmaz.
+
+Toplu işlemin her satırının UUID'si ayrıdır. İlk POST'ta veya sonraki GET'lerde
+kesinleşen satırlar korunur; yalnız belirsizler sorgulanır. En fazla beş GET
+aynı anda çalışır, tüm deneme aynı 15sn iptal sinyalini kullanır. Eksik sonuç,
+GET401/403/503 veya abort diğer satırların kaydedilmiş sonucunu silmez ve ilk
+POST'un başarısızlığı diye gösterilmez. Otomatik polling/POST retry yoktur.
+Tüm satırlar kesinleşince tekrar düğmesi kapalıdır. İlk POST'un kesin istemci
+reddi ayrı gösterilir; yeni işlem için güncel veriden yeni önizleme gerekir.
+
+Her gönderim/sorgu sonunda liste, detay, işlem geçmişi, günlük yönetim özeti,
+Dashboard ve ilgili router/rapor kaynakları invalidate edilir. Günlük özet
+mevcut subscribers/workspace/router bağımlılıkları üzerinden yenilenir.
+Oluşturma/düzenlemenin GET receipt güvenliği ve API'leri değişmez. GET'ler PG'de
+read-only transaction kullanır; işlem/audit/receipt yazma veya execute çağrısı yoktur.
+Kurtarma açık pencerenin belleğine bağlıdır; sayfa/sekme kapanması sonrası
+otomatik devam özelliği bu kapsamda eklenmedi.
