@@ -1,5 +1,50 @@
 # V2.6 HTTP401 son ayrım
 
+## Güncel değerlendirme — 2026-11-06 / b9683e8 sonrası
+
+- ADMIN mevcut; kullanıcı doğrulaması ve önceki LOCAL/ADMIN/active/sealed,
+  PASSWORD_MATCH/ID_REREAD sonuçları kabul edilir, tekrarlanmaz.
+- 2026-11-04 kaydındaki503 kimlik tabloları/kurulum eksikliğine aittir. Bu eski
+  gözlem bugünkü DB'nin eksik olduğu anlamına gelmez. Yeni503 kanıtı yoktur.
+- Sonraki401 için kesin neden bulunmadı; son başarılı doğrudan kimlik
+  tanısından sonra aynı çalışan API/build ve istekle yeniden üretilmiş sonuç
+  kaydı yok. Disk hash eşitliği yüklenmiş süreç kodunun eşitliği değildir.
+- En yeni beş yerel `accept-api-*/api.log` dosyasında kayıtlı login200 ve
+  /me200 var. Örneğin `accept-api-vtdkolo2/api.log` son değişim zamanı
+  2026-11-05 21:10:46 UTC; login200:1, me200:130, me401:3. Bu access logları
+  hesap origin/ADMIN, DB/şema veya build kanıtı içermez; güncel V2.6 kabulüne
+  bağlanamaz. /me401, POST login401 ile aynı olay değildir. Ham log/kimlik
+  bilgisi rapora alınmadı; API veya DB bağlantısı kurulmadı.
+- Kaynakta yeni ürün hatası kanıtlanmadı. Kimlik/parola/cookie kuralları
+  değiştirilmedi; eski PASS testleri yeniden çalıştırılmadı.
+
+### Eksik tek kabul kanıtı ve en kısa salt okunur kontrol
+
+Eksik kanıt, **hedefi/build'i doğrulanmış çalışan V2.6 API'de mevcut ADMIN
+oturumunun gerçek HTTP üzerinden yetkili ve kimlik deposuna bağlı olduğudur**.
+Mevcut ADMIN oturumu açık olan izinli yerel istemcide aynı API origin'inde
+tek `GET /api/v1/auth/me` yanıtının HTTP200 ve `account_origin=LOCAL`,
+`role_code=ADMIN`, `active=true`, `bootstrap_closed=true`,
+`can_manage_users=true` verdiği kaydedilmelidir. Hedef/build kimliği henüz
+doğrulanmamışsa aynı origin'den bir `GET /api/ready` ile repo/build/port kimliği
+eşleştirilir; ready tek başına DB kabulü değildir. Cookie/token/parola/yanıt
+gövdesi kaydedilmez; yalnız HTTP kodu ve bu koşulların boolean sonucu gerekir.
+Ready DB/şema göstermez; sonuç önceki doğrulanmış v26 DB/şema hedefiyle
+eşleştirilemiyorsa o atıf BLOCKED kalır, yeni SQL/kurulum denenmez.
+
+Bu kontrol yalnız GET ve mevcut oturumu kullanır; login/logout, yeni oturum,
+hesap/DB yazımı, kurulum veya servis işlemi yapmaz. Mevcut oturum yoksa ya da
+hedef doğrulanamıyorsa BLOCKED kalır; otomatik login/kurulum denenmez. GET401
+parolanın yanlışlığını kanıtlamaz,503 depolama/kimlik hazırlığı sınıfıdır.
+GET200 bu oturumun güncel kabulüdür; eski POST401'in kök nedenini veya genel
+abone işlem/UUID/PostgreSQL kabulünü tek başına kapatmaz.
+
+Burada socket kontrolü veya HTTP isteği yapılmadı. Hedef VDS ise bu görevde
+kontrol yapılmaz; yeni açık VDS izni gerekir. Aşağıdaki eski POST login/logout
+tanısı ayrı kapsamdır; bu görevde salt okunur GET kontrolünün yerine çalıştırılmaz.
+
+## Tarihsel süreç/istek tanısı — bu görevde çalıştırılmadı
+
 7c30737 sonrası kullanıcı tanısı: aynı disk hash'leri, v26 şeması, bulunan
 aktif LOCAL ADMIN, kapalı mühür, PASSWORD_MATCH ve ID yeniden okuması başarılı.
 Bu kontroller tekrarlanmadı. Önceki HTTP401 güncel tanıdan sonra yeniden üretilmedi.

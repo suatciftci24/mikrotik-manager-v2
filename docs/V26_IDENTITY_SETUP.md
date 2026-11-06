@@ -1,5 +1,21 @@
 # V2.6 kimlik kurulumu ve yerel kabul
 
+## Güncel durum — mevcut ADMIN, 2026-11-06 / b9683e8 sonrası
+
+Kullanıcı ADMIN'in bugün dahil daha önce oluşturulduğunu doğruladı. LOCAL ADMIN,
+aktiflik, kapalı mühür, PASSWORD_MATCH ve ID yeniden okuması önceki başarılı
+kanıtlardır; yeniden kurulum gerekçesi değildir. Güncel HTTP kabulü BLOCKED;
+ADMIN'in yokluğu veya yanlış parola bu durumdan çıkarılamaz.
+
+Bu görevde aşağıdaki tarihsel `--create`, migration/kurulum ve disposable
+HTTP kabul komutları çalıştırılmaz. Disposable araç yeni sentetik ADMIN ve
+test şeması oluşturur; mevcut ADMIN'in giriş kabulü yerine geçmez. Hesap,
+parola, mühür veya DB değişikliği yapılmayacak. VDS için yeni işlem izni yok.
+
+Eksik güncel kanıt ve en kısa salt okunur kontrol:
+[V26_HTTP_LOGIN_FINAL_CHECK.md](V26_HTTP_LOGIN_FINAL_CHECK.md).
+Aşağıdaki 2026-11-04 kurulum planı ve test sonuçları tarihsel kapsamda korunur.
+
 ## Kök neden ve kapsam
 
 `/api/health` kimlik tablolarının/mührünün hazır olduğunu doğrulamaz. Dört temel
@@ -21,9 +37,10 @@ ALTER TABLE için birbirini kilitlemesi önlenir. Tamamlanmış kurulum tekrar
 çalıştırıldığında `FIRST_ADMIN_SETUP_CLOSED` ile yazmadan durur. Mühür silinmesi,
 çelişkili işaretler veya eksik audit deposu otomatik tamir/reset edilmez.
 
-## VDS prosedürü — HENÜZ UYGULANMADI
+## Tarihsel VDS ilk kurulum prosedürü — mevcut ADMIN için tekrarlanmayacak
 
-Bu bölüm yalnız hazırlıktır. Kod aktarımı, VDS migration/DB yazımı, ilk ADMIN
+Bu bölüm yazıldığı tarihte yalnız hazırlıktı; güncel ADMIN durumu üsttedir.
+Kod aktarımı, VDS migration/DB yazımı, ilk ADMIN
 oluşturma ve gerekiyorsa süreç yenileme için yeni, açık, işlem kapsamına özgü
 kullanıcı onayı gerekir. V1/V2.5/Fresh Pilot servislerine işlem yapılmaz.
 

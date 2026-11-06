@@ -4033,3 +4033,29 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   main-guncel tek kez doğrulanacak; güvenli normal push dışında işlem yok.
   Push PASS olmadan yeni geliştirme yok. Sonraki kabul hedefi izinli yerelde
   belgeli tek komut; mevcut PG/HTTP BLOCKED kapanmış sayılmaz.
+
+
+## V2.6 — mevcut ADMIN ve HTTP401/503 kabul kanıtı ayrımı — 2026-11-06
+
+- Başlangıç main-guncel/b9683e8, origin kaydı aynı. AGENTS/Altın Kurallar,
+  kimlik kurulumu, ADMIN401, son HTTP ayrımı ve güncel kabul kayıtları okundu.
+  Kullanıcının ADMIN'in bugün dahil mevcut olduğu doğrulaması esas alındı;
+  LOCAL/active/sealed/PASSWORD_MATCH/ID_REREAD PASS kontrolleri tekrarlanmadı.
+- Eski503 kaydı o tarihte eksik kimlik şemasıdır; bugünkü DB için yeni kanıt
+  değildir. Güncel POST401 kök nedeni kanıtlanmadı. Kaynak401 credential veya
+  session/ID okuması, storage/kurulum hatası503, doğrulama422 ayrımı korunur.
+- Son beş yerel API logunun yalnız auth HTTP kodları ve sabit hata sınıfları
+  incelendi. 2026-11-05 tarihli vtdkolo2 logunda login200:1/me200:130/me401:3;
+  ADMIN/schema/build atfı yok. Güncel V2.6 HTTP PASS olarak sunulmadı.
+- Ürün hatası kanıtı yok; varsayımsal kod/güvenlik değişikliği yapılmadı.
+  Kurulum belgesi mevcut ADMIN için tarihsel prosedürün tekrarlanmayacağını
+  açıklar; disposable yeni ADMIN/şema aracı bu görevin dışında tutuldu.
+- Eksik kanıt: doğrulanmış çalışan API/build üzerinde mevcut ADMIN oturumuyla
+  gerçek HTTP me200 ve LOCAL/ADMIN/active/sealed/merkezi yetki koşulları.
+  En kısa salt okunur kontrol aynı origin'de tek GET /api/v1/auth/me;
+  hedef kimliği bilinmiyorsa yalnız GET /api/ready ile ön koşul doğrulanır.
+  Eski POST401 kök nedeni ve genel abone/UUID kabulü bundan ayrı kalır.
+- Belge/diff kontrolü PASS; eski test/build/PG/socket/HTTP denemesi yok.
+  Gerçek HTTP kabulü BLOCKED. Hesap/parola/DB/migration/restart/deploy/SSH/
+  VDS/V1/V2.5/gerçek abone veya cihaz işlemi yapılmadı. Mevcut PROGRESS
+  içeriği ve yedi izlenmeyen dosya korunur; yalnız bu görev belgeleri commit.
