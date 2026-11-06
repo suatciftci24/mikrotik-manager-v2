@@ -3825,3 +3825,24 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - VDS/V1/V2.5/gerçek cihaz/RADIUS/IPsec/abone/sır erişimi, migration, DB yazımı,
   deploy veya restart yok. Sonraki tek adım ayrı onaylı, izole VDS salt okunur
   güncel ön kontroldür; yazma/izin değiştirme/restart yetkisi içermez.
+
+
+## V2.6 — ADMIN login401 koşullarının ağsız ayrıştırılması — 2026-11-06
+
+- Başlangıç main-guncel/9980701. Kurallar/güncel ilerleme/kimlik kabulü okundu;
+  kullanıcının mevcut PROGRESS değişiklikleri korundu ve commit dışında tutuldu.
+  SSH/loopback denemesi, VDS/hesap/parola/DB/servis değişikliği yok.
+- Kullanıcı health200, LOCAL ADMIN active, iki initialized bayrağı ve doğrudan
+  PASSWORD_MATCH bildirdi. Bunlar aynı API kodu/şeması/girdisiyle login kanıtı
+  değildir. Kaynak401: kullanıcı bulunamaması/filtrelenmesi, pasiflik veya parola
+  doğrulamasının false olması; route ID yeniden okuması da401 üretebilir.
+  SQL/şema/mühür tutarsızlığı normalde503; Secure cookie ilk POST401 nedeni değil.
+- PASS: beş yeni ağsız test gerçek find_user/inspect_setup/login route + ID
+  okumasını sentetik SQL ve N131072 hash ile doğruladı. Tam username eşitliği,
+  pasif/yanlış parola/non-LOCAL401 ve storage hatası ayrımı korundu.
+  Önceki PASS testleri tekrarlanmadı; gerçek PG/HTTP/VDS PASS iddiası yok.
+- Ürün kusuru yeniden üretilemedi; kanıtsız düzeltme/güvenlik gevşetmesi yok.
+  Kesin VDS kök nedeni BLOCKED. docs/V26_ADMIN_LOGIN_DIAGNOSIS.md açıklama,
+  kaynak hash'leri ve tek VDS salt okunur tanı komutunu içerir. Komut syntax
+  kontrolü PASS; VDS'de çalıştırılmadı. Sonraki tek adım bu komutun VDS gerçek
+  TTY'sinde mevcut ADMIN bilgileriyle bir kez çalıştırılmasıdır.
