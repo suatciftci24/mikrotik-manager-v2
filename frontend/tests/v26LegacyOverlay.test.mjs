@@ -123,3 +123,59 @@ if(root!==frontend)test('every VDS file outside the 10-file overlay remains byte
  for(const [name,hash] of Object.entries(manifest.before))if(!overlayFiles.includes(name))assert.equal(manifest.after[name],hash,name);
  assert.equal(sha(fs.readFileSync(path.join(root,'package-lock.json'))),manifest.packageLockSha256);
 });
+
+for(const action of ['EXTEND','PLAN','STATUS'])test(`${action} description, retry errors and matching success refresh`,async()=>{
+ const render=dialog('QuickActions',{rows:[row],today:'2026-11-06',initialAction:action,onClose(){}});
+ const calls=[],events=[];let attempt=0,saved=0;
+ const oldFetch=globalThis.fetch,oldWindow=globalThis.window;
+ globalThis.window={dispatchEvent:e=>events.push(e)};
+ globalThis.fetch=async(url,init)=>{
+  calls.push({url,init});attempt++;
+  if(attempt===1)throw Error('Synthetic lost response');
+  if(attempt===2)return {ok:true,json:async()=>({results:[{item_id:'demo-sub-foreign',success:true,result:detail}]})};
+  const entry=JSON.parse(init.body).entries[0],c=entry.change;
+  const updated={...row,revision:2,...(action==='EXTEND'?{expires_on:c.expires_on}:action==='PLAN'?{plan:c.plan,monthly_price:35}:{status:c.status})};
+  return {ok:true,json:async()=>({results:[{item_id:row.id,success:true,result:{...detail,item:updated}}]})};
+ };
+ try{
+  let tree=render({onSaved(){saved++;}}),text=html(tree);
+  if(action==='EXTEND')assert.match(text,/Uzatma, bitiş henüz/);
+  else {assert.doesNotMatch(text,/Uzatma, bitiş henüz/);assert.match(text,action==='PLAN'?/paket ve kayıtlı aylık ücret/:/Yalnız hesap aktifliği/);}
+  if(action==='PLAN'){nodes(tree).find(n=>n.type==='select'&&n.props['aria-labelledby']?.endsWith('-plan')).props.onChange({target:{value:'Demo 200'}});tree=render();}
+  nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});assert.equal(calls.length,0);
+  const approve=()=>nodes(render({onSaved(){saved++;}})).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula');
+  await approve().props.onClick();assert.match(html(render()),/Synthetic lost response/);assert.equal(saved,0);
+  await approve().props.onClick();assert.match(html(render()),/eşleşmedi/);assert.equal(saved,0);
+  await approve().props.onClick();assert.equal(saved,1);
+  assert.equal(new Set(calls.map(c=>c.init.body)).size,1); // identical UUID/revision/consent on recovery
+  const command=JSON.parse(calls[0].init.body).entries[0].change;
+  assert.equal(command.expected_revision,1);assert.equal(command.expected_source,'LOCAL');assert.equal(command.confirmed,true);
+  if(action!=='EXTEND')assert.equal(command.expires_on,row.expires_on);
+  assert.match(html(render()),action==='PLAN'?/Güncel paket: Demo 200/:action==='STATUS'?/Güncel durum: Aktif/:/Güncel bitiş/);
+  for(const prefix of ['/subscribers','/subscriber-center','/reports','/dashboard'])assert.ok(events.at(-1).detail.includes(prefix));
+  const completed=nodes(render()).find(n=>n.type==='button'&&n.props.children==='İşlem tamamlandı');await completed.props.onClick();assert.equal(calls.length,3);
+ }finally{globalThis.fetch=oldFetch;globalThis.window=oldWindow;}
+});
+test('quick preview rejects unauthorized, unknown-source and missing-router subscribers',()=>{
+ for(const patch of [{can_manage_pppoe:false},{source:null},{source:'UNKNOWN'},{router_id:'demo-router-foreign'}]){
+  const render=dialog('QuickActions',{rows:[{...row,...patch}],today:'2026-11-06',initialAction:'STATUS',onClose(){}});
+  nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
+  assert.ok(nodes(render()).some(n=>n.props?.role==='alert'));
+  assert.doesNotMatch(html(render()),/Onayla ve uygula/);
+ }
+});
+
+test('rejected requests and per-record revision errors keep preview and never report success',async()=>{
+ for(const failure of ['permission','revision']){
+  const render=dialog('QuickActions',{rows:[row],today:'2026-11-06',initialAction:'STATUS',onClose(){},onSaved(){throw Error('must not claim success');}});
+  const oldFetch=globalThis.fetch,oldWindow=globalThis.window;
+  globalThis.window={dispatchEvent(){}};
+  globalThis.fetch=async()=>failure==='permission'?{ok:false,status:403,json:async()=>({detail:'Synthetic permission denied'})}:{ok:true,json:async()=>({results:[{item_id:row.id,success:false,status:409,error:'Synthetic stale revision'}]})};
+  try{
+   nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
+   await nodes(render()).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();
+   const text=html(render());assert.match(text,failure==='permission'?/Synthetic permission denied/:/Synthetic stale revision/);
+   assert.match(text,/Eski → Yeni/);assert.doesNotMatch(text,/Kaydedildi|İşlem tamamlandı/);
+  }finally{globalThis.fetch=oldFetch;globalThis.window=oldWindow;}
+ }
+});

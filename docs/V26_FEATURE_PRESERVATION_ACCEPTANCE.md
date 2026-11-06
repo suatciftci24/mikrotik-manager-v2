@@ -160,3 +160,42 @@ doğrulanmış sayılmaz. Yayın öncesi bu sınır ayrıca kontrol edilmelidir.
 
 VDS bağlantısı, dağıtım, servis/DB/ADMIN/parola/migration ve gerçek cihaz
 işlemi yapılmadı. Genel PostgreSQL/UUID kabul boşlukları bu UI testiyle kapanmaz.
+
+
+## e6e4aff sonrası üç LEGACY işlem kabulü ve seçici güncelleme — 2026-11-06
+
+Kullanıcı kanıtı: VDS'de önceki 10 dosyalık entegrasyon/build ve üç pencerenin
+ açılması PASS. Bu çalışmada VDS'ye bağlanılmadı; kullanıcı kanıtı gerçek kayıt
+kabulü olarak genişletilmedi. Yerel başlangıç e6e4aff/main-guncel.
+
+- QuickActions açıklamaları EXTEND/PLAN/STATUS/CREATE için ayrı. Paket ve
+  durum başarısı kendi yeni değerini gösterir; uzatma sonucu tarih gösterir.
+- Önizleme, ayrı onay düğmesi, aynı UUID/body ile tekrar, kaynak/revizyon/router
+  alanları korundu. Preview öncesi abone PPPoE yetkisi ve LOCAL/RADIUS allowlist
+  kontrolü eklendi. Sunucu yetkileri veya endpoint sözleşmesi değiştirilmedi.
+- Eksik/fazla/tekrarlı/yabancı abone sonucu veya yanlış başarı veri şekli
+  başarı sayılmaz. Sonuçların listede döndüğü sıradan bağımsız abone adı
+  kullanılır. Hata sonrası aynı önizleme ve istek korunur; bağlı ekranlar yenilenir.
+- VDS tabanlı yeni aday: .local/v26-legacy-actions. Önceki
+  .local/v26-legacy-review ile kaynak/config/public karşılaştırması yalnız
+  src/components/QuickActions.tsx farkını doğruladı. Orijinal snapshot'taki
+  overlay dışı 103 kaynak byte düzeyinde aynı. Yeni dependency yok.
+- PASS: yerel 16 frontend, VDS tabanlı aday 15 frontend, 9 backend bellek
+  deposu testi; güncelleme aracında 9 sentetik dosya sistemi testi. Üç işlemde
+  kayıt/list/detail/audit ve eski revizyon/kaynak reddi, başarısız yanıt,
+  onaysız preview, aynı UUID idempotency ve bağlı resource yenilemesi doğrulandı.
+  Backend doğrudan servis/route testidir; gerçek HTTP/PG kabulü değildir.
+- Yerel ve VDS tabanlı aday TypeScript/Vite build PASS; mevcut >500 kB uyarısı.
+- deploy/v26-frontend/update.py: pack/check/apply/verify/rollback tek araç;
+  tam kaynak/config/public ve eski dist hash kapısı, bir kaynak dosyalık
+  izinli değişim, eski hashed asset koruması, doğrulanmış yedek, Linux atomik
+  dist exchange, otomatik hata rollback ve kesinti sonrası geri dönüş.
+  Apply/rollback ayrı açık onay + CLI bayrağı ister; burada yalnız geçici
+  sentetik dizinlerde çalıştırıldı. İşletim yöntemi aynı klasörde README.md.
+- Yerel .local/v26-legacy-update-final paketinin manifesti kaynak ve build
+  hash'lerini içerir. Paket ve build çıktıları Git dışıdır. VDS kaynağı/config/
+  dist farklıysa araç durur; kullanıcı farkları korunmadan yayın yapılamaz.
+- Push BLOCKED: git ls-remote origin refs/heads/main-guncel GitHub DNS
+  çözümleme hatası verdi. Uzak dal doğrulanamadığından push denenmedi.
+- VDS deploy/restart/Nginx/migration, DB, V1/V2.5, cihaz/RADIUS/IPsec veya
+  gerçek abone işlemi yok. Önceki kullanıcı PROGRESS ekleri/yedekleri korundu.

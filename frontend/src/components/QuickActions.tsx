@@ -26,7 +26,7 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
   useEffect(()=>{if(review)dialog.current?.querySelector<HTMLElement>('h2')?.focus();},[review]);
   function prepare(e:FormEvent) {
     e.preventDefault(); setError('');
-    if (rows.some(r=>r.is_demo!==true || !r.source)) {setError('Yalnız kaynağı bilinen sentetik demo aboneleri seçin.');return;}
+    if (rows.some(r=>r.is_demo!==true || r.can_manage_pppoe!==true || !['LOCAL','RADIUS'].includes(r.source??''))) {setError('Yalnız kaynağı bilinen sentetik demo aboneleri seçin.');return;}
     if (new Set(rows.map(r=>r.router_name)).size>1) {setError('Toplu işlem için aynı router üzerindeki aboneleri seçin.');return;}
     if (!routers.data || routers.error) {setError('Router kimliği doğrulanamadı; pencereyi yeniden açın.');return;}
     const routerItems=routers.data.items;
@@ -48,7 +48,7 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
   async function save() {
     if (!review||sending.current||results?.every(result=>result.success)) return;
     sending.current=true;setPending(true);setError('');
-    try {const response=await api<{results:Result[]}>('/subscribers/demo-quick',{method:'POST',headers:{'X-V2-Demo-Action':'expiry'},body:JSON.stringify({entries:review})});setResults(response.results);if(response.results.some(result=>result.success))onSaved?.();}
+    try {const response=await api<{results:Result[]}>('/subscribers/demo-quick',{method:'POST',headers:{'X-V2-Demo-Action':'expiry'},body:JSON.stringify({entries:review})});if(!Array.isArray(response.results)||response.results.length!==review.length||new Set(response.results.map(r=>r.item_id)).size!==review.length||response.results.some(r=>!review.some(e=>e.item_id===r.item_id)||typeof r.success!=='boolean'||r.success&&r.result?.item.id!==r.item_id))throw new Error('İşlem sonuçları onaylanan abonelerle eşleşmedi; aynı istekle sonucu yeniden alın.');setResults(response.results);if(response.results.some(result=>result.success))onSaved?.();}
     catch(e){setError(e instanceof Error?e.message:'İşlem sonucu alınamadı.');}
     finally {invalidateResources([...subscriberSaveDependencies]);sending.current=false;setPending(false);}
   }
@@ -79,12 +79,12 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
       {action==='EXTEND'&&<label className="form-label"><span id={`${fieldId}-extension`}>Uzatma</span><select aria-labelledby={`${fieldId}-extension`} value={days} onChange={e=>setDays(e.target.value)}><option value="7">7 gün</option><option value="15">15 gün</option><option value="30">30 gün</option><option value="60">60 gün</option><option value="90">90 gün</option><option value="CUSTOM">Özel bitiş tarihi</option></select></label>}
       {(action==='CREATE'||action==='EXTEND'&&days==='CUSTOM')&&<label className="form-label">Yeni bitiş tarihi<input required type="date" min={today} value={custom} onChange={e=>setCustom(e.target.value)}/></label>}
 
-       <p>Uzatma, bitiş henüz dolmadıysa mevcut bitişten; dolduysa Türkiye bugününden hesaplanır. Özel tarih doğrudan yeni bitiştir.</p>
+       <p>{({EXTEND:'Uzatma, bitiş henüz dolmadıysa mevcut bitişten; dolduysa Türkiye bugününden hesaplanır. Özel tarih doğrudan yeni bitiştir.',PLAN:'Seçilen paket ve kayıtlı aylık ücret güncellenir. Bitiş tarihi ve hesap durumu korunur.',STATUS:'Yalnız hesap aktifliği güncellenir. Paket ve bitiş tarihi korunur; hesap durumu canlı oturum kanıtı değildir.',CREATE:'Yeni sentetik abone seçilen router, kaynak, paket ve bitiş tarihiyle kaydedilir.'} as Record<QuickAction,string>)[action]}</p>
       <button className="button-primary" disabled={routers.loading||!!routers.error||((action==='PLAN'||action==='CREATE')&&(options.loading||!!options.error))}>Önizle ve gözden geçir</button>
     </form>:<>
       <h3>Eski → Yeni · {({EXTEND:'Abonelik uzatma',PLAN:'Paket değiştirme',STATUS:'Durum değiştirme',CREATE:'Abone oluşturma'} as Record<string,string>)[action]}</h3>
       {review.map((entry,i)=><section key={entry.item_id} className="quick-preview"><strong>{rows[i]?.customer_name??name} · {rows[i]?.username??username}</strong><p>{String(entry.change.router_name)} ({String(entry.change.router_id)}) · {String(entry.change.expected_source)}</p><p>Abone kimliği: {entry.item_id}</p><p>Bitiş: {expiryDate(rows[i]?.expires_on??null)} → {expiryDate(entry.change.expires_on as string|null)}</p>{(action==='PLAN'||action==='CREATE')&&<p>Paket: {rows[i]?.plan??'Yok'} → {plan} · Aylık tutar: {rows[i]?.monthly_price??0} → {options.data?.plans.find(p=>p.name===plan)?.monthly_price??'Bilinmiyor'} TL</p>}{(action==='STATUS'||action==='CREATE')&&<p>Durum: {rows[i]?.status??'Yok'} → {status}</p>}</section>)}
-      {results&&<div role="status">{results.filter(r=>r.success).length} başarılı / {results.filter(r=>!r.success).length} başarısız{results.map((r,i)=><p key={r.item_id}>{rows[i]?.customer_name??name}: {r.success?`Kaydedildi · Güncel bitiş: ${expiryDate(r.result?.item.expires_on??null)}`:r.error??'İşlem uygulanmadı.'}</p>)}</div>}
+      {results&&<div role="status">{results.filter(r=>r.success).length} başarılı / {results.filter(r=>!r.success).length} başarısız{results.map(r=><p key={r.item_id}>{rows.find(row=>row.id===r.item_id)?.customer_name??name}: {r.success?(action==='PLAN'?`Kaydedildi · Güncel paket: ${r.result?.item.plan} · Aylık tutar: ${r.result?.item.monthly_price} TL`:action==='STATUS'?`Kaydedildi · Güncel durum: ${r.result?.item.status==='ACTIVE'?'Aktif':'Pasif'}`:`Kaydedildi · Güncel bitiş: ${expiryDate(r.result?.item.expires_on??null)}`):r.error??'İşlem uygulanmadı.'}</p>)}</div>}
       <p>Yanıt kaybolursa aynı onayı tekrar gönderin; başarılı kayıt ikinci kez uygulanmaz.</p>
       <div className="expiry-editor-actions"><button className="button-secondary" disabled={pending} onClick={()=>{onClose();}}>Kapat ve güncel listeden yeniden seç</button><button className="button-primary" disabled={pending||!!results?.every(r=>r.success)} onClick={save}>{pending?'Kaydediliyor…':results?.every(r=>r.success)?'İşlem tamamlandı':results?'Aynı istekle eksik sonuçları getir':'Onayla ve uygula'}</button></div>
     </>}

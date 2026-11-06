@@ -4157,3 +4157,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Önceden kullanıcıya ait PROGRESS satırları commit dışında bırakılır; yalnız
   bu görev kaydı ve ilgili dosyalar commit kapsamıdır. VDS/SSH/deploy/servis/
   migration/V1/V2.5/DB/gerçek abone/MikroTik/RADIUS/IPsec işlemi yapılmadı.
+
+
+## V2.6 — LEGACY işlem açıklamaları, sentetik tutarlılık ve güvenli araç — 2026-11-06
+
+- Başlangıç e6e4aff/main-guncel. Kurallar ve son seçici entegrasyon kabulü
+  okundu. Kullanıcı VDS 10 dosya/build/pencere kabulü esas alındı; tekrarlanmadı.
+- QuickActions: işleme özel açıklama/başarı sonucu; preview yetki/kaynak
+  reddi; eksik/yabancı/tekrarlı işlem yanıtında başarı reddi; sonuçlar ID ile
+  eşleşir. UUID/onay/revizyon/router ve sunucu güvenliği korunur.
+- Yeni VDS tabanlı aday .local/v26-legacy-actions; önceki adayla yalnız
+  QuickActions.tsx farkı. Pinli snapshot overlay dışı 103 kaynak aynı.
+- PASS: yerel 16 frontend, aday 15 frontend, 9 backend bellek tutarlılık,
+  9 geçici filesystem updater testi; iki TypeScript/Vite build ve diff check.
+  Mevcut bundle uyarısı sürer. Gerçek DB/HTTP/yazma kabulü iddiası yok.
+- Tek araç deploy/v26-frontend/update.py ve README: kaynak/config/dist
+  bütünlüğü, seçici paket, yedek, atomik dist geçişi, rollback ve salt okunur
+  yayın doğrulaması. Yerel paket .local/v26-legacy-update-final. VDS'de
+  çalıştırılmadı; apply/rollback yeni açık onay gerektirir.
+- BLOCKED: GitHub ls-remote DNS hatası; uzak dal doğrulanamadığından push yok.
+  VDS/V1/V2.5/DB/canlı abone/cihaz/RADIUS/IPsec/Nginx/restart/deploy/migration
+  işlemi yapılmadı. Kullanıcının önceki PROGRESS ekleri ve yedekleri korunur.
+- Sonraki tek adım: ağ erişimi sağlanınca uzak main-guncel doğrulaması ve
+  normal push; VDS yayını ayrıca onay bekler.

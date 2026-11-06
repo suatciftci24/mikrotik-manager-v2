@@ -126,3 +126,39 @@ class QuickActionsTests(TestCase):
             self.change(row,confirmed=False)
         with self.assertRaises(ValidationError):
             self.change(row,expires_on='2026-02-30')
+
+    def test_three_operations_list_detail_and_audit_are_atomic_and_replay_safe(self):
+        # In-memory synthetic service only: never connect to a database or device.
+        from app.services.subscriber_center import legacy_center
+        row = self.store.list_items()[0]
+        for action, extra in [('EXTEND', {}), ('PLAN', {'plan':'Fiber 500'}),
+                              ('STATUS', {'status':'PAUSED'}), ('STATUS', {'status':'ACTIVE'})]:
+            before = self.store.detail(row['id'])
+            command = self.change(row, action=action, **extra)
+            if action != 'EXTEND':
+                command = command.model_copy(update={'days':None, 'expires_on':command.expected_expires_on})
+            with patch('app.services.demo_subscriptions.store', self.store):
+                response = quick_batch(QuickBatch(entries=[{'item_id':row['id'],'change':command}]), self.user)
+            self.assertTrue(response['results'][0]['success'])
+            after = self.store.detail(row['id'])
+            current = after['item']
+            self.assertEqual(next(r for r in self.store.list_items() if r['id']==row['id']), current)
+            self.assertEqual(current['revision'], row['revision']+1)
+            self.assertEqual(len(after['history']), len(before['history'])+1)
+            event = after['history'][0]
+            self.assertEqual(event['actor_id'],self.user['id'])
+            self.assertEqual(event['action'],action)
+            self.assertEqual(event['id'],str(command.request_id))
+            for field in ('plan','status','expires_on'):
+                if field != {'EXTEND':'expires_on','PLAN':'plan','STATUS':'status'}[action]:
+                    self.assertEqual(current[field],row[field])
+            center = legacy_center(after)
+            self.assertEqual(center.item.revision,current['revision'])
+            self.assertEqual(center.history[0].result,'APPLIED')
+            self.assertEqual(self.store.change_expiry(row['id'],command,self.user['id']),after)
+            # Failed stale/source requests publish neither record nor success audit.
+            for updates in [{'expected_revision':999},{'expected_source':'RADIUS'}]:
+                bad=command.model_copy(update={**updates,'request_id':uuid4()})
+                with self.assertRaises(DemoChangeError):self.store.change_expiry(row['id'],bad,self.user['id'])
+                self.assertEqual(self.store.detail(row['id']),after)
+            row=current

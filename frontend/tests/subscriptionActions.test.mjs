@@ -7,7 +7,7 @@ import * as React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {expiryDate} from '../src/lib/expiry.ts';
 const require=createRequire(import.meta.url);
-const row={id:'demo-sub-fixture',username:'test.ev',customer_name:'Test User',router_id:'demo-router-001',router_name:'Merkez',source:'LOCAL',plan:'Demo',status:'ACTIVE',expires_on:'2026-10-01',revision:1,is_demo:true,monthly_price:10};
+const row={id:'demo-sub-fixture',username:'test.ev',customer_name:'Test User',router_id:'demo-router-001',router_name:'Merkez',source:'LOCAL',plan:'Demo',status:'ACTIVE',expires_on:'2026-10-01',revision:1,is_demo:true,can_manage_pppoe:true,monthly_price:10};
 const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.children).flatMap(nodes)]:[];
 test('quick preview keeps old/new date and success receipt shows server date; completed retry is disabled',async()=>{
  const slots=[];let cursor=0,saves=0;const calls=[];
