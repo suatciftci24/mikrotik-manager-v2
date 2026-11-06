@@ -4088,3 +4088,24 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   bu görev belgeleri commit kapsamıdır; VDS/V1/V2.5/gerçek abone/router/
   RADIUS/IPsec erişimi veya değişikliği yok. Tek kontrol komutu:
   docs/V26_HTTP_LOGIN_FINAL_CHECK.md; burada çalıştırılmadı.
+
+
+## V2.6 — kullanıcı doğrulamalı izole VDS ADMIN giriş/oturum kabulü — 2026-11-06
+
+- Kanıt kaynağı: kullanıcının terminal çıktıları; kayıt tarihi 2026-11-06,
+  testlerin kesin saati bildirilmedi. Codex testleri yeniden çalıştırmadı ve
+  VDS'ye bağlanmadı. Yerel başlangıç main-guncel/811cbcd; bu SHA, VDS'de
+  ölçülen sürüm SHA'sı olarak ileri sürülmez.
+- PASS (kullanıcı doğrulaması): yalnız VDS izole kabul ortamı 127.0.0.1:18996;
+  GET /api/ready HTTP 200; çalışan build ve disk SHA eşit; mevcut ADMIN ile
+  POST /api/v1/auth/login HTTP 200; oturum çerezi VAR; aynı oturumla
+  GET /api/v1/auth/me HTTP 200. ADMIN giriş/oturum kabulü PASS.
+- Eski 401 bu testlerde tekrarlanmadı; tarihsel 401 kök nedeni bilinmiyor.
+  Kök neden teşhisi veya kod düzeltmesi iddiası yok. Önceki HTTP BLOCKED
+  kayıtları tarihseldir; bu kanıt yalnız ADMIN giriş/oturum kapsamını kapatır.
+  Genel PostgreSQL/abone işlemleri/UUID recovery kabulünü veya ayrıca
+  bildirilmeyen yetki alanlarını PASS yapmaz.
+- İlgili kabul kaydı: docs/V26_HTTP_LOGIN_FINAL_CHECK.md. Mevcut PROGRESS
+  içeriği ve kullanıcı/yedek dosyaları korundu. Yalnız dokümantasyon değişti;
+  test/build, VDS/V1/V2.5, canlı router/RADIUS/IPsec, ADMIN/parola/DB/servis
+  değişikliği yapılmadı. Commit ve GitHub push sonucu teslimde ayrıca bildirilir.

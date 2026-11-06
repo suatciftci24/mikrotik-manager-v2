@@ -1,6 +1,32 @@
 # V2.6 HTTP401 son ayrım
 
-## Güncel değerlendirme — 2026-11-06 / b9683e8 sonrası
+## Güncel kabul sonucu — 2026-11-06
+
+**ADMIN giriş/oturum kabulü: PASS (kullanıcı terminal doğrulaması).**
+Kanıt kullanıcı tarafından bildirilmiştir; Codex tarafından yeniden çalıştırılan
+HTTP testleri değildir. Kayıt tarihi 2026-11-06; testlerin kesin saati bildirilmedi.
+Kapsam yalnız VDS üzerindeki izole kabul ortamı `127.0.0.1:18996`:
+
+| Kullanıcının doğruladığı kontrol | Sonuç |
+| --- | --- |
+| `GET /api/ready` | HTTP 200 |
+| Çalışan build ile disk SHA karşılaştırması | Eşit |
+| Mevcut ADMIN ile `POST /api/v1/auth/login` | HTTP 200 |
+| Oturum çerezi | VAR |
+| Aynı oturumla `GET /api/v1/auth/me` | HTTP 200 |
+
+Eski 401 bu testlerde tekrarlanmadı; **tarihsel 401 kök nedeni bilinmiyor**.
+Bu sonuç kök neden teşhisi veya kod düzeltmesi kanıtı değildir. Ölçülen SHA'nın
+somut değeri ve ayrıca yetki alanlarının yanıt değerleri bildirilmedi; eklenmedi.
+Genel PostgreSQL/abone işlemleri/UUID recovery kabulü bu sonuçla kapanmaz.
+Codex bu kayıt görevinde VDS'ye bağlanmadı; test, hesap/parola, veritabanı,
+servis, V1/V2.5 veya canlı router/RADIUS/IPsec değişikliği yapmadı.
+
+Aşağıdaki önceki değerlendirmeler ve hazırlanmış komut tarihsel kayıttır.
+Önceki gerçek HTTP kabulü BLOCKED ifadeleri, yukarıdaki güncel ADMIN
+giriş/oturum PASS sonucunu geçersiz kılmaz; komutun yeniden çalıştırılması istenmez.
+
+## Tarihsel değerlendirme — 2026-11-06 / b9683e8 sonrası
 
 - ADMIN mevcut; kullanıcı doğrulaması ve önceki LOCAL/ADMIN/active/sealed,
   PASSWORD_MATCH/ID_REREAD sonuçları kabul edilir, tekrarlanmaz.
