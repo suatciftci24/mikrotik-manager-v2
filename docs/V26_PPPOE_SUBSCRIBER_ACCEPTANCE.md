@@ -91,3 +91,33 @@ gerçek DB/HTTP/browser PASS değildir. İlk yeni test dosyası yanlış çalı�
 diziniyle yazılamadı; yol düzeltildi ve yalnız eksik yeni altı test çalıştırıldı.
 Önceki günlük/PGDATA/ADMIN PASS testleri tekrarlanmadı. Bundle >500kB uyarısı sürer.
 ADMIN doğrulaması PASS, gerçek PostgreSQL/HTTP kabulü BLOCKED korunur.
+
+
+## Oluşturma/düzenlemede gerçek receipt sorgulama — 2026-11-06
+
+Başlangıç d0a1e03. İki editör de UUID/hedef/tam JSON'u önizlemede sabitler;
+belirsizlikte yalnız GET ile aynı UUID receipt'i sorgulanır. Kaybolan/15sn timeout/
+bozuk/uyuşmayan yanıt başarısız sayılmaz; formu değiştirerek yeni POST kapalıdır.
+İlk POST'un kesin istemci reddi FAILED, eşleşen receipt SUCCESS, eksik/okunamayan
+sonuç UNKNOWN/UNCERTAIN'dir. Read401/403 ilk POST'un sonucu olarak yorumlanmaz.
+
+Kalıcı sentetik save yanıtı aynı transaction'da mevcut audit JSON'una kaydedilir;
+UUID+aktör+hedef+komut fingerprint'i farklı isteği reddeder, özgün receipt sonraki
+editlerden sonra da okunur. Legacy requests/events yanıtı yeniden kullanılır.
+İki GET güncel yetkiyi ve aktörü kontrol eder; legacy router scope ve rapor geçmişi
+projeksiyonu korunur. Eski auditler değiştirilmez; eksik receipt bilinmiyor kalır.
+
+PASS: 15 yeni frontend handler/SSR testi (iki depo x create/edit x kayıp/bozuk/
+uyuşmayan yanıt =12; UNKNOWN/read403, kesin422, abort timeout =3). Tek POST,
+manuel GET, sabitUUID, çift tıklama engeli, başarı sonrası yazmama ve bağlı
+Dashboard/liste/detay/geçmiş invalidation doğrulandı. 9 yeni backend kontrolü:
+özgün create/edit receipt ve replay; başka aktör/UUID/komut; audit rollback;
+merkezi ADMIN; legacy readonly SQL ve scope; VIEWER; receipt UPDATE arızası
+rollback; SELECT-only lookup; legacy izin iptali. Workspace disposable SQLite,
+legacy SQL mock'tur. Gerçek PostgreSQL/socket/tarayıcı PASS iddiası yoktur.
+
+TypeScript kontrolündeki generic undefined daraltması düzeltildi; sonraki kontrol
+ve TypeScript/Vite build PASS, diff PASS. Önceki PASS testleri tekrarlanmadı.
+Yeni backend kontrolleri 6+2+1 olarak yalnız eklenen kapsamlarla çalıştırıldı.
+Mevcut >500kB bundle uyarısı sürer. ADMIN PASS, gerçek PG/HTTP BLOCKED korunur.
+V1/V2.5/VDS/SSH/gerçek router/RADIUS/IPsec/veri/parola/migration/restart/deploy yok.

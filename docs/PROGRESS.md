@@ -3935,3 +3935,31 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   V1/V2.5/VDS/SSH/router/RADIUS/IPsec/gerçek veri/kimlik bilgisi/migration/
   deploy/servis restartı yok. Sonraki yerel hedef: abone oluşturma/düzenlemede
   kayıp yanıt sonrası aynı kimlikli güvenli sonuç alma davranışını tamamlamak.
+
+
+## V2.6 — abone create/edit için salt okunur UUID recovery — 2026-11-06
+
+- Başlangıç main-guncel/d0a1e03. AGENTS/güncel ilerleme ve abone/kabul
+  sözleşmeleri okundu; önceki PGDATA/ADMIN/günlük/uzatma PASS testleri tekrarlanmadı.
+- Legacy ve kalıcı sentetik editör önizlemede tam komut/hedef/UUID'yi sabitler.
+  İlk POST sonrası timeout/kayıp/bozuk/uyuşmayan yanıtta yalnız GET receipt
+  sorgusu yapılır; otomatik ikinci POST, yeni UUID veya form düzeltme yoktur.
+  Kesin POST reddi FAILED, eksik/okunamayan receipt UNKNOWN, doğrulanan sonuç
+  SUCCESS'tir. Query401/403 ilk yazmanın başarısız olduğu diye sunulmaz.
+- Workspace save mevcut audit JSON'unda aktör/hedef/komut fingerprint ve özgün
+  yanıtı aynı transaction'da saklar; sonraki editten sonra da gerçek sonuç
+  okunur. Legacy mevcut requests/events kullanır. Güncel merkezi ADMIN/aktör,
+  legacy router kapsamı ve rapor projeksiyonu korunur. GET readonly; migration
+  veya eski veri backfill yok. Genel audit'e ham receipt metadata sızmaz.
+- Liste/detay/geçmiş/router/Dashboard/rapor kaynakları her deneme sonunda
+  invalidate edilir. 15sn istemci abortu sonucu başarısız saymaz. Recovery
+  açık editör belleğine bağlıdır; sayfa/pencere kapanınca otomatik işlem yoktur.
+- PASS: 15 yeni frontend handler/SSR + 9 yeni backend (6+2+1) kontrolü,
+  TypeScript ve Vite build, diff. Backend SQLite/legacy SQL mock; gerçek
+  PostgreSQL/HTTP/browser PASS değildir. İlk generic undefined typecheck hatası
+  düzeltildi; sonraki kontrol PASS. Mevcut bundle >500kB uyarısı sürer.
+- Kullanıcının PROGRESS değişiklikleri korundu, commit dışında tutuldu.
+  ADMIN PASS; gerçek PostgreSQL/HTTP kabulü BLOCKED kalır. V1/V2.5/VDS/SSH/
+  canlı router/RADIUS/IPsec/gerçek veri/sır/migration/deploy/restart yok.
+- Sonraki yerel hedef: günlük toplu işlem ve tekil uzatmadaki sonuç alma
+  akışlarını da salt okunur UUID receipt sorgusuna geçirmek.

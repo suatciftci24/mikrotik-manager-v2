@@ -204,3 +204,40 @@ alınınca uyarı kalkar ve tekrar uygulama düğmesi kapanır. Backend idempote
 409 revizyon/çakışma koruması değişmez; sonradan düzenlenmiş kayda eski uzatma
 isteği otomatik yeni UUID ile uygulanmaz. Pencereyi kapatmadan aynı istekle
 sonuç almak gerekir; kapanma/yeniden açılma için kalıcı istemci receipt deposu yoktur.
+
+
+### Oluşturma/düzenlemede UUID ile salt okunur sonuç alma — V2.6
+
+Hem mevcut demo CREATE/PLAN_CHANGE/STATUS_CHANGE editörü hem kalıcı sentetik
+PPPoE/Hotspot oluşturma/düzenleme editörü, önizlemede hedefi ve tam JSON komutunu
+sabitler. İlk açık onay tek POST gönderir. 15 saniyelik timeout, kopan yanıt,
+bozuk JSON veya onaylanan kayda uymayan yanıt UNCERTAIN'dir; düzeltme/new UUID
+kontrolü bu durumda kapalıdır. Otomatik tekrar yoktur. Aynı UUID ile sonuç
+sorgulama yalnız GET yapar; yeniden oluşturma/düzenleme POST'u göndermez.
+
+- `GET /api/v1/subscriber-workspace/requests/{UUID}`: güncel merkezi ADMIN ve
+  receipt aktörü aynı olmalı. Yeni save işlemleri mevcut Event.changes JSON'unda
+  `_save` fingerprint + özgün yanıtı business/audit ile tek transaction'da saklar.
+  Sonraki düzenlemeler özgün sonucu değiştirmez. Aynı UUID'nin farklı komuta,
+  hedefe veya aktöre taşınması409'dur; hiçbir kayıt yeniden uygulanmaz.
+- `GET /api/v1/subscribers/demo-requests/{UUID}`: mevcut requests/events receipt'i
+  kullanılır. Güncel ADMIN + can_manage_pppoe + ilgili router kapsamı ve aktör
+  doğrulanır. Rapor yetkisi olmayan kullanıcıya geçmiş açılmaz.
+
+Sonuç SUCCESS veya UNKNOWN + aynı request_id ve doğrulanan özgün response'tur.
+Başka aktör, bulunamayan veya eski `_save` metadatası bulunmayan workspace audit'i
+UNKNOWN döner; geçmiş kayıtlar yeniden yazılmaz. UNKNOWN, DB erişim hatası veya
+sonuç okumasındaki401/403, asıl işlemin başarısız olduğunu kanıtlamaz. İlk POST'un
+kesin400/401/403/404/409/422 reddi FAILED gösterilir; düzeltilmiş yeni önizleme
+oluşturulabilir. Kaybolan başarısız yanıt için receipt yoksa UNKNOWN korunur.
+
+Her deneme sonunda liste, detay, işlem geçmişi, router ve ilgili Dashboard/rapor/
+alarm okumaları invalidate edilir. Başarı yalnız kaydın ID/revizyonu ve onaylanan
+alanları eşleştiğinde gösterilir; otomatik ikinci POST ve otomatik retry yoktur.
+Recovery açık editörün belleğindeki UUID/önizlemeye bağlıdır; sayfa yenileme veya
+pencere kapatma sonrası otomatik recovery/yeniden gönderme yapılmaz. Sonuç
+belirsizken aynı pencere üzerinden sorgulama tamamlanmalıdır.
+
+Yeni tablo, migration, HTTP bootstrap veya dış adaptör yoktur. Receipt'in ham
+`_save` metadatası genel audit/detay yanıtına taşınmaz. PostgreSQL sonuç okumaları
+read-only transaction kullanır; SQLite testleri gerçek PostgreSQL kabulü sayılmaz.

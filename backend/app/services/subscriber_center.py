@@ -1,4 +1,5 @@
 """Synthetic workspace persistence and read-only legacy projection, no provisioning IO."""
+import hashlib,json
 from datetime import datetime,timezone,date,timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy import select,func,or_
@@ -49,10 +50,15 @@ class SubscriberWorkspace:
     @boundary
     def save(self,command,actor,id=None):
         values=command.fields.model_dump(mode='json');target=id or 'demo-managed-sub-'+str(command.request_id)
+        fingerprint=hashlib.sha256(json.dumps([actor,id,command.model_dump(mode='json')],sort_keys=True,separators=(',',':')).encode()).hexdigest()
         with self.sessions.begin() as session:
             self.check(session);router=self.parent(session,values['router_id']);row=session.get(Account,target,with_for_update=True)
             prior=session.get(Event,str(command.request_id))
             if prior:
+                saved=prior.changes.get('_save')
+                if saved:
+                    if prior.actor_id!=actor or prior.subscriber_id!=target or saved.get('fingerprint')!=fingerprint:raise WorkspaceError(409,'İstek kimliği başka bir işleme ait.')
+                    return CenterSubscriber.model_validate(saved['response'])
                 if prior.subscriber_id==target and prior.actor_id==actor and row and row.fields==values and row.revision==prior.revision:return account_view(row,router)
                 raise WorkspaceError(409,'İstek kimliği başka bir işleme veya eski revizyona ait.')
             if id and not row:raise WorkspaceError(404,'Sentetik abone bulunamadı.')
@@ -66,8 +72,26 @@ class SubscriberWorkspace:
             before=row.fields if row else {}
             if not row:row=Account(id=target,router_id=values['router_id'],username_key=values['username'].casefold(),access_type=values['access_type'],source=values['source'],revision=0);session.add(row)
             row.fields=values;row.revision+=1
+            response=account_view(row,router)
             self.audit(session,row,actor,before,str(command.request_id))
-            return account_view(row,router)
+            session.flush()
+            audit=session.get(Event,str(command.request_id))
+            audit.changes={**audit.changes,'_save':{'fingerprint':fingerprint,'response':response.model_dump(mode='json')}}
+            return response
+    @boundary
+    def save_result(self,request_id,actor):
+        # Read-only receipt; missing/foreign/older receipts do not prove failure.
+        with self.sessions() as session:
+            if session.bind.dialect.name=='postgresql':
+                session.connection(execution_options={'isolation_level':'REPEATABLE READ','postgresql_readonly':True})
+            self.check(session)
+            prior=session.get(Event,str(request_id))
+            result={'request_id':str(request_id),'status':'UNKNOWN','response':None}
+            if not prior or prior.actor_id!=actor or prior.operation not in ('CREATE','UPDATE'):return result
+            saved=prior.changes.get('_save')
+            if not saved:return result
+            return {**result,'status':'SUCCESS','response':CenterSubscriber.model_validate(saved['response'])}
+
     @boundary
     def renew(self,id,command,actor):
         with self.sessions.begin() as session:

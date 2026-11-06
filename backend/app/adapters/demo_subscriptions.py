@@ -212,6 +212,21 @@ class PostgresDemoStore:
         return response
 
     @storage_errors
+    def subscriber_save_result(self, request_id, actor_id, router_ids):
+        from app.core.authorization import router_id
+        result={'request_id':str(request_id),'status':'UNKNOWN','response':None}
+        with self.engine.connect().execution_options(isolation_level='REPEATABLE READ') as connection:
+            with connection.begin():
+                connection.execute(text('SET TRANSACTION READ ONLY'))
+                self._verify(connection)
+                row=connection.execute(text(f"SELECT r.response,e.payload FROM {self.schema}.requests r JOIN {self.schema}.events e ON e.id=r.id WHERE r.id=:id"),{'id':str(request_id)}).mappings().one_or_none()
+                if not row:return result
+                event=row['payload'];response=row['response']
+                if event.get('actor_id')!=actor_id or event.get('operation') not in ('CREATE','PLAN_CHANGE','STATUS_CHANGE'):return result
+                if router_id(response['item']) not in router_ids:return result
+                return {**result,'status':'SUCCESS','response':response}
+
+    @storage_errors
     def create_subscriber(self, command, actor_id):
         from app.services.demo_management import calculate_create
         fingerprint = request_fingerprint('create-subscriber', actor_id, command)

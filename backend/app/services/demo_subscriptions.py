@@ -110,6 +110,9 @@ class ConfiguredDemoStore:
                 self._adapter = PostgresDemoStore(engine, schema=schema)
             return self._adapter
 
+    def subscriber_save_result(self, *args):
+        return self._get().subscriber_save_result(*args)
+
     def list_items(self):
         return self._get().list_items()
 

@@ -101,3 +101,9 @@ class RouterSubscriberList(SubscriberWorkspaceList):
     total:int|None
     source:Literal['PERSISTENT_WORKSPACE','LEGACY_DEMO','REGISTERED']
     availability:Literal['AVAILABLE','PREPARING']='AVAILABLE'
+
+
+class SubscriberSaveResult(BaseModel):
+    request_id:UUID
+    status:Literal['SUCCESS','UNKNOWN']
+    response:CenterSubscriber|None=None
