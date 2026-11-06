@@ -3801,3 +3801,18 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - origin URL/upstream main-guncel ve uzak başlangıç 3cb542b doğrulandı; yalnız bu
   görev dosyaları normal commit/push kapsamıdır. Sonraki adım yerel kullanıcı
   incelemesidir; canlı dağıtım ayrı açık onay olmadan başlatılmaz.
+
+
+## V2.6 — izole yerel PostgreSQL/HTTP kabul ön kontrolü — 2026-11-06
+
+- BLOCKED; başlangıç main-guncel/78e2c1d. Bildirilen 9eca386 yerelde yok;
+  GitHub sürüm eşitliği doğrulanamadı. Kurallar ve önceki kabul/engeller okundu.
+- Tek loopback bind denemesi errno1 Operation not permitted; PG/API başlatma
+  ve aynı başarısız deneme tekrarlanmadı. Önceki PASS testleri çalıştırılmadı.
+- Gerçek HTTP ADMIN/yetki/UUID sonuç/create-edit-extend/bulk kabulü çalışmadı;
+  ürün hatası kanıtlanmadı, kod düzeltmesi yok. Kanıt:
+  docs/V26_LOCAL_HTTP_ACCEPTANCE.md. Tarihsel VDS/Dashboard engelleri sürer.
+- Önceki PROGRESS içeriği ve izlenmeyen kullanıcı dosyaları korundu. DB yazımı,
+  migration/SSH/deploy/restart/parola/gerçek cihaz veya canlı veri işlemi yok.
+- DNS tek denemede başarısız; uzak SHA doğrulanamadı, push uygulanmadı.
+  Sonraki tek hedef izinli izole yerelde eksik PostgreSQL/HTTP kabulüdür.
