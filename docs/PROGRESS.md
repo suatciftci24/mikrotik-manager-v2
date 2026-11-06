@@ -3801,3 +3801,27 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - origin URL/upstream main-guncel ve uzak başlangıç 3cb542b doğrulandı; yalnız bu
   görev dosyaları normal commit/push kapsamıdır. Sonraki adım yerel kullanıcı
   incelemesidir; canlı dağıtım ayrı açık onay olmadan başlatılmaz.
+
+
+## V2.6 — canlı pilot hazırlığı / kaynak-kayıt uzlaştırması — 2026-11-06
+
+- LOCAL PASS / CANLI BLOCKED; başlangıç main-guncel/9a7c47f. İstenen beş
+  talimat/kabul belgesi ve ilgili kimlik/PPPoE/yönetim/sağlık kayıtları okundu.
+  Kullanıcının mevcut PROGRESS eklemesi korundu ve commit kapsamından ayrıldı.
+  ACK/READ kimlik düzeltmesi yeniden açılmadı.
+- PGDATA desteği 8cd3a48 ile zaten kaynakta mevcut; eski belge/test fixture'ı
+  önceki kabul-kökü/aynı-UID düzeninde kalmış. Güncel sabit VDS yolu, postgres
+  sahibi, özel izin, canonical yol/symlink kapıları korunur. Metadata erişim
+  hatasına güvenli statik V26_CLUSTER_METADATA_UNAVAILABLE tanısı eklendi.
+- VDS kayıtlı login503 nedeni kimlik tabloları eksikliği; API18996 yokluğu,
+  CLI modüllerinin kabul kopyasında olmaması ve 0775 kaynak izinleri ayrı
+  engellerdir. Yeni VDS gözlemi veya güncel 503 çözümü iddiası yok.
+- PASS: 3 yeni ağsız cluster guard testi ve diff kontrolü. Önceki PASS
+  kontrolleri/genel suite/build/DB/API testleri tekrarlanmadı. Eski opt-in PG
+  fixture uyumsuzluğu açıkça belgelendi; güncel gerçek PG/HTTP PASS yok.
+- Pilot ön koşulları ve eksik kabul kanıtları docs/V26_PILOT_READINESS.md;
+  kurulum/ön-kontrol belgeleri güncellendi. Tarihsel Dashboard BLOCKED ve
+  ROLLBACK_VERIFIED sürer; errno=1 kanıtı korunur, yeni loopback denemesi yok.
+- VDS/V1/V2.5/gerçek cihaz/RADIUS/IPsec/abone/sır erişimi, migration, DB yazımı,
+  deploy veya restart yok. Sonraki tek adım ayrı onaylı, izole VDS salt okunur
+  güncel ön kontroldür; yazma/izin değiştirme/restart yetkisi içermez.

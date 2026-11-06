@@ -30,9 +30,13 @@ kullanıcı onayı gerekir. V1/V2.5/Fresh Pilot servislerine işlem yapılmaz.
 1. Onaydan sonra doğrulanmış commit'i yalnız `/tmp/mikrotik-v26-acceptance`
    kabul kopyasına alın. Kaynak `backend/` ve `migrations/`, mevcut izole venv
    kullanılmalı; çalışma dizini tam bu kök olmalıdır. Symlink kabul edilmez.
-2. Root olmayan aynı OS sahibi ile çalışın. Kök, backend, migrations ve PGDATA
-   sahibi bu UID olmalı; grup/diğer yazma kapalı olmalıdır. PGDATA yalnız bu
-   kökün altında gerçek bir dizin olabilir. API'nin açık transaction/istekleri
+2. Root olmayan kabul kopyası sahibi ile çalışın. Kök, backend ve migrations
+   bu UID'ye ait olmalı; grup/diğer yazma kapalı olmalıdır. `8cd3a48` itibarıyla
+   PGDATA yalnız `/var/lib/postgresql/16/v26`, gerçek `postgres` OS hesabı
+   sahibi ve grup/diğer erişimleri kapalı gerçek dizin olabilir. Canonical yol
+   eşitliği ve symlink reddi korunur; kabul kökü altındaki PGDATA reddedilir.
+   Metadata okunamıyorsa durun; izin/sahip değiştirerek kapıyı atlamayın.
+   API'nin açık transaction/istekleri
    varken yükseltme yapmayın; gerekli durdurma da ayrıca onay kapsamında olmalı.
 3. Mevcut izole yapılandırmayı güvenli yoldan yükleyin; shell tracing, parola
    argv'si, terminale DSN yazdırma kullanmayın. Zorunlu değerler:
@@ -74,13 +78,18 @@ veya diğer PostgreSQL instance'larına yönelerek login sağlamayın.
 
 ## Yerel doğrulama
 
-Ofis deposu terminalinde opt-in test, yalnız bu makinede geçici sentetik
-PG16 cluster oluşturur. `/tmp/mikrotik-v26-acceptance` zaten varsa dokunmadan
-reddeder; başka kabul ortamının çalıştığı makinede kullanılmaz:
+Güncel sabit VDS PGDATA kapısı için ofis deposunda ağsız hedefli test:
 
 ```bash
-PYTHONPATH=backend V2_RUN_V26_IDENTITY_TESTS=1 .venv/bin/python -m unittest backend.tests.test_v26_identity_postgres -q
+PYTHONPATH=backend .venv/bin/python -m unittest backend.tests.test_v26_cluster_guard -v
 ```
+
+Eski `test_v26_identity_postgres` disposable fixture'ı kabul kökü altında
+`postgres-test` oluşturur. Bu düzen `8cd3a48` sonrası sabit VDS kapısıyla
+uyumlu değildir; aşağıdaki 2026-11-04 PASS kaydı önceki commit'e aittir.
+Güncel kaynak için bu eski testin PASS olduğu veya gerçek PostgreSQL/HTTP
+kabulünün yenilendiği iddia edilmez. Test uğruna üretim kapısına alternatif
+PGDATA/UID eklenmez. Bu görevde ağ/DB testi çalıştırılmadı.
 
 Yerel 503→kurulum→200 doğrulaması VDS'nin düzeldiği anlamına gelmez.
 VDS migration ve gerçek giriş kabulü bu görevde yapılmadı.
