@@ -31,7 +31,7 @@ test('Hotspot edit preserves locked identity and submits only synthetic fields w
  const mockReact={...hooks,useCallback:fn=>fn,useRef:value=>{const i=cursor++;slots[i]??={current:value};return slots[i];},useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;const value=slots[i];if(value?.path)return [{...value,loading:false,data:{items:[{id:data.item.router_id,fields:{name:'TEST-EV-V2'}}]}},()=>{}];return [value,next=>{slots[i]=typeof next==='function'?next(slots[i]):next;}];}};
  const built=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/SyntheticSubscribers.tsx',import.meta.url))],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
  const module={exports:{}};new Function('require','module','exports',built)(name=>name==='react'?mockReact:require(name),module,module.exports);
- const original=globalThis.fetch,originalWindow=globalThis.window;globalThis.window={dispatchEvent:()=>{}};globalThis.fetch=async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>data.item};};
+ const original=globalThis.fetch,originalWindow=globalThis.window;globalThis.window={dispatchEvent:()=>{}};globalThis.fetch=async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({...data.item,...JSON.parse(init.body).fields,revision:data.item.revision+1})};};
  const render=()=>{cursor=0;return module.exports.SyntheticSubscriberEditor({item:data.item,onClose:()=>{},onSaved:id=>{saved=id;}});};
  try{
   let tree=render();const fields=nodes(tree).filter(n=>n.type==='input'||n.type==='select');
@@ -67,4 +67,54 @@ test('history shows package context together with changed expiry and Istanbul ac
  const history=[{operation:'RENEWAL',occurred_at:'2026-11-05T21:30:00Z',actor_id:'synthetic.operator',revision:2,date_changed:true,previous_expires_on:'2026-11-01',expires_on:'2026-12-06',previous_values:{plan:'Historical 100',expires_on:'2026-11-01'},new_values:{plan:'Historical 100',expires_on:'2026-12-06'},result:'APPLIED'}];
  const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,history},tab:'history',onTab(){}}));
  assert.match(html,/Historical 100/);assert.match(html,/synthetic.operator/);assert.match(html,/6 Kas 2026/);assert.match(html,/00:30/);assert.match(html,/İstanbul/);assert.match(html,/Eski bitiş:/);assert.match(html,/Yeni bitiş:/);
+});
+
+const policyCode=buildSync({entryPoints:[fileURLToPath(new URL('../src/lib/subscriberActions.ts',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs'}).outputFiles[0].text;
+const policy={exports:{}};new Function('module','exports',policyCode)(policy,policy.exports);
+test('shared action policy rejects wrong source, permission, persistence and router bindings',()=>{
+ const detail={is_demo:true,persistence:'local-postgresql-demo',item:{...data.item,id:'demo-sub-fixture',is_demo:true,can_manage_pppoe:true}};
+ assert.equal(policy.exports.canChangeLegacy(detail),true);
+ for(const patch of [{persistence:'process-memory'},{is_demo:false},{item:{...detail.item,source:null}},{item:{...detail.item,can_manage_pppoe:false}},{item:{...detail.item,router_id:null}},{item:{...detail.item,is_demo:false}}])assert.equal(policy.exports.canChangeLegacy({...detail,...patch}),false);
+ assert.equal(policy.exports.canChangeLegacy(detail,'demo-sub-other'),false);
+ assert.equal(policy.exports.canChangeWorkspace(data,true),true);
+ assert.equal(policy.exports.canChangeWorkspace(data,false),false);
+ for(const patch of [{source:null},{router_missing:true},{router_source:'UNKNOWN'},{access_type:null}])assert.equal(!!policy.exports.canChangeWorkspace({...data,item:{...data.item,...patch}},true),false);
+});
+test('workspace actions remain reachable from summary, package and expiry tabs',()=>{
+ const calls=[];
+ const props={data,onTab(){},onEdit:r=>calls.push(['edit',r.id]),onRenew:r=>calls.push(['renew',r.id]),onManage:r=>calls.push(['manage',r.id])};
+ for(const tab of ['overview','package','expiry']){
+  const tree=module.exports.SubscriberDeviceCenterView({...props,tab});
+  for(const label of ['Abonelik Süresini Uzat','Günlük İşlemler']){
+   const button=nodes(tree).find(n=>n.type==='button'&&renderToStaticMarkup(n).includes(label));assert.ok(button);button.props.onClick();
+  }
+ }
+ assert.equal(calls.filter(([kind])=>kind==='renew').length,3);
+ assert.equal(calls.filter(([kind])=>kind==='manage').length,3);
+ const denied=module.exports.SubscriberDeviceCenterView({...props,data:{...data,item:{...data.item,source:null}},tab:'overview'});
+ assert.doesNotMatch(renderToStaticMarkup(denied),/Abonelik Süresini Uzat|Günlük İşlemler/);
+});
+test('legacy detail exposes existing quick action surface without hiding it in demo disclosure',()=>{
+ const legacy={...data,source:'LEGACY_DEMO',persistence:'local-postgresql-demo',item:{...data.item,id:'demo-sub-fixture',router_id:'demo-router-fixture',router_source:'STATIC_DEMO'}};
+ const tree=module.exports.SubscriberDeviceCenterView({data:legacy,tab:'overview',onTab(){}});
+ const surface=nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='LegacySubscriberActions');
+ assert.ok(surface);assert.equal(surface.props.id,legacy.item.id);
+});
+
+test('legacy toolbar routes three actions to QuickActions and blocks unauthorized records',()=>{
+ const built=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/LegacySubscriberActions.tsx',import.meta.url))],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+ let action=null,allowed=true;
+ const detail={is_demo:true,persistence:'local-postgresql-demo',item:{...data.item,id:'demo-sub-fixture',is_demo:true,can_manage_pppoe:true}};
+ const mock={...hooks,useCallback:fn=>fn,useState:initial=>{
+  if(initial?.path)return [{...initial,loading:false,data:{...detail,item:{...detail.item,can_manage_pppoe:allowed}}},()=>{}];
+  if(initial===null)return [action,value=>{action=value;}];
+  return [initial,()=>{}];
+ }};
+ const mod={exports:{}};new Function('require','module','exports',built)(name=>name==='react'?mock:require(name),mod,mod.exports);
+ const render=()=>mod.exports.LegacySubscriberActions({id:detail.item.id});
+ for(const [label,expected] of [['Abonelik Süresini Uzat','EXTEND'],['Paket değiştir','PLAN'],['Aktif / Pasif','STATUS']]){
+  const button=nodes(render()).find(n=>n.type==='button'&&renderToStaticMarkup(n).includes(label));assert.ok(button);button.props.onClick();
+  const dialog=nodes(render()).find(n=>typeof n.type==='function'&&n.type.name==='QuickActions');assert.ok(dialog);assert.equal(dialog.props.initialAction,expected);assert.equal(dialog.props.rows[0].id,detail.item.id);
+ }
+ allowed=false;assert.equal(nodes(render()).filter(n=>n.type==='button').length,0);assert.equal(nodes(render()).some(n=>typeof n.type==='function'&&n.type.name==='QuickActions'),false);
 });

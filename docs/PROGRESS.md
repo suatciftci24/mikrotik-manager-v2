@@ -4109,3 +4109,22 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   içeriği ve kullanıcı/yedek dosyaları korundu. Yalnız dokümantasyon değişti;
   test/build, VDS/V1/V2.5, canlı router/RADIUS/IPsec, ADMIN/parola/DB/servis
   değişikliği yapılmadı. Commit ve GitHub push sonucu teslimde ayrıca bildirilir.
+
+## V2.6 — kalıcı özellik koruma ve abone işlem bütünleştirme — 2026-11-06
+
+- Başlangıç main-guncel/8abfd51; Altın Kurallar, güncel kabul ve Git geçmişi
+  okundu. Özellik envanteri ve kalıcı koruma sözleşmesi eklendi:
+  docs/V26_FEATURE_PRESERVATION_ACCEPTANCE.md.
+- LEGACY detayda QuickActions üzerinden uzatma/paket/aktif-pasif doğrudan
+  görünür. Workspace yenileme/günlük işlemleri ve iki kaynakta audit korundu.
+  Ortak uygunluk politikası ve QuickActions ortak yenileme bağımlılıkları;
+  sunucu yetki/kaynak/revizyon/onay sınırları değişmedi.
+- Yerel PASS: 53 hedefli frontend test, TypeScript/Vite build. Mevcut bundle
+  boyutu uyarısı var. Fixture eski başarılı yanıt yerine yeni alan/revizyon
+  döndürecek şekilde düzeltildi; güvenlik veya test beklentileri gevşetilmedi.
+- BLOCKED: VDS kaynak hash karşılaştırması SSH socket sandbox reddi; uzak
+  Git kontrolü DNS github.com çözümlenemedi. Push yapılmadı. VDS klasöründe
+  .git varsayılmadı; çalışan sürümle eşitlik iddiası yok.
+- Kullanıcının yedi izlenmeyen dosyası korundu. V1/V2.5/canlı DB/abone/cihaz,
+  RADIUS/IPsec/migration/servis/deploy işlemi yok. Sonraki adım ağ erişimiyle
+  salt okunur VDS diff ve uzak dal doğrulaması sonrası normal push.

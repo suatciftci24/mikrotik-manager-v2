@@ -97,3 +97,14 @@ Her göreve başlarken AGENTS.md, docs/PROGRESS.md dosyasının güncel bölüm�
 10. Kullanıcıya komut vermek gerekirse önce hangi bilgisayar ve terminalde çalışacağını belirt. V2 ofis yolu: `/home/suatpc/Codex-Projects/mikrotik-manager-v2`.
 11. Gerçek bir engelde nedenini ve gereken tek eylemi kısa bildir. Gereksiz deneme döngüsüne girme.
 12. Her görev sonunda tamamlananları, kontrol sonucunu, commit kimliğini ve sıradaki işi kısa bildir. Kaldığımız noktayı mevcut proje ilerleme belgesine kaydet; böyle bir belge yoksa `docs/PROGRESS.md` oluştur.
+
+## V2.6 kalıcı özellik koruma
+
+Abone işlemleri değişirken `docs/V26_FEATURE_PRESERVATION_ACCEPTANCE.md`
+envanterini esas al. LEGACY_DEMO ve PERSISTENT_WORKSPACE için süre uzatma,
+paket/durum işlemleri ve audit görünürlüğünü birlikte koru. Mevcut QuickActions,
+SubscriberDailyActions ve SubscriberRenewal akışlarını yeniden kullan; detay
+uygunluk politikasını `subscriberActions.ts`, yenileme bağımlılıklarını
+`subscriberSaveDependencies` üzerinden tut. Yeni işlem yüzeyi eklerken kaynak,
+yetki, kalıcı depo ve router bağı reddi ile başarılı işlem erişimini hedefli
+regresyonda doğrula. Sunucu yetkilerini veya kaynak güvenliğini gevşetme.

@@ -1,3 +1,4 @@
+import {canChangeLegacy} from '../lib/subscriberActions';
 import {PppoeObservations} from '../components/PppoeObservations';
 import {detailOperationHash} from '../lib/operationReport';
 import { unknownDetail } from '../lib/detailCenter';
@@ -91,7 +92,7 @@ export function SubscriberDetails({detail, onQuick}: {detail: SubscriberDetail; 
   const today = useTurkeyToday();
   const unknownSource = subscriberSource(s.source)==='UNKNOWN';
   const persistent = detail.persistence==='local-postgresql-demo';
-  const canChange = !unknownSource && persistent && s.can_manage_pppoe===true;
+  const canChange = canChangeLegacy(detail);
   return <div className="detail-grid subscriber-detail"><SubscriberWarnings subscriber={s} today={today}/>
     <DetailSection title={detailText(s.customer_name)}>
       <p><span className="demo-chip">SENTETİK</span> V2 demo abone kaydı</p>
