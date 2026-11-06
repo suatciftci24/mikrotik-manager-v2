@@ -3846,3 +3846,23 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   kaynak hash'leri ve tek VDS salt okunur tanı komutunu içerir. Komut syntax
   kontrolü PASS; VDS'de çalıştırılmadı. Sonraki tek adım bu komutun VDS gerçek
   TTY'sinde mevcut ADMIN bilgileriyle bir kez çalıştırılmasıdır.
+
+
+## V2.6 — HTTP401 son süreç/istek ayrımı — 2026-11-06
+
+- Başlangıç main-guncel/7c30737. AGENTS ve ilgili kabul/güncel ilerleme okundu.
+  Kullanıcının bildirdiği v26/LOCAL ADMIN/active/sealed/PASSWORD_MATCH/ID_REREAD
+  ve aynı disk SHA kanıtları kabul edildi; başarılı kontroller tekrarlanmadı.
+- HTTP401 yeni tanıdan sonra henüz yeniden üretilmedi. Kaynakta CORS dışında
+  auth middleware yok; payload doğrulaması422, storage503. Cookie politikası
+  ilk POST401'i açıklamaz. Disk hash eşitliği süreç import'unda yakalanan build
+  kimliğiyle eşitlik kanıtı değildir. Kesin kök neden BLOCKED.
+- Ürün kodu veya parola/kimlik güvenlik davranışı değiştirilmedi. Yeni test
+  suite çalıştırılmadı. Tek VDS komutu docs/V26_HTTP_LOGIN_FINAL_CHECK.md:
+  listener PID/start kimliği ve /api/ready build karşılaştırması, gizli TTY
+  girdisiyle birebir JSON tek POST login, sabit401 kategori ayrımı ve bellek
+  oturum temizliği. Secret/argv/env/payload/yanıt gövdesi çıktısı yok.
+- Komut syntax ve diff kontrolü PASS; VDS'de çalıştırılmadı, gerçek HTTP PASS
+  yok. SSH/DB bağlantısı/deploy/migration/restart/parola/veri/cihaz işlemi yok.
+  Mevcut kullanıcı PROGRESS değişiklikleri korundu ve commit dışında tutuldu.
+- Sonraki tek adım VDS gerçek TTY'sinde belgelenen HTTP tanısını çalıştırmak.
