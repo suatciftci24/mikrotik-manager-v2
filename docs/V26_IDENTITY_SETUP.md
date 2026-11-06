@@ -84,12 +84,27 @@ Güncel sabit VDS PGDATA kapısı için ofis deposunda ağsız hedefli test:
 PYTHONPATH=backend .venv/bin/python -m unittest backend.tests.test_v26_cluster_guard -v
 ```
 
-Eski `test_v26_identity_postgres` disposable fixture'ı kabul kökü altında
-`postgres-test` oluşturur. Bu düzen `8cd3a48` sonrası sabit VDS kapısıyla
-uyumlu değildir; aşağıdaki 2026-11-04 PASS kaydı önceki commit'e aittir.
-Güncel kaynak için bu eski testin PASS olduğu veya gerçek PostgreSQL/HTTP
-kabulünün yenilendiği iddia edilmez. Test uğruna üretim kapısına alternatif
-PGDATA/UID eklenmez. Bu görevde ağ/DB testi çalıştırılmadı.
+`test_v26_identity_postgres` geçici fixture'ı güncel sabit VDS kapısından
+ayrıldı: yalnız test süresince `verify_cluster` yerine, bu testin yeni oluşturduğu
+`postgres-test` dizininin mutlak/canonical yolu, aynı non-root UID, özel izinleri,
+PG16 sürümü ve başlangıçta yakalanan device/inode kimliğini doğrulayan test-only
+`DisposableClusterGuard` kullanılır. Alternatif VDS yolu/UID ürün koduna eklenmez.
+DB/rol/port, profil, çalışma dizini/owner, sentetik marker, transaction ve HTTP
+assertion'ları korunur. Root `mkdir` ile exclusive oluşturulur; mevcut kabul
+ortamında test başlamaz. Patch class cleanup ile kaldırılır. Tam fixture yalnız
+ayrı izinli yerel disposable PG koşullarında çalıştırılmalıdır; VDS'de çalıştırılmaz.
+
+Yeni test-only sınırın ağsız doğrulaması:
+
+```bash
+PYTHONPATH=backend .venv/bin/python -m unittest backend.tests.test_v26_disposable_fixture -v
+```
+
+2026-11-06: altı yeni ağsız kontrol PASS (5 + son eklenen bağlantı testi1).
+Gerçek PG kümesi/HTTP açılmadı; mevcut errno=1 engeli yeniden denenmedi.
+Aşağıdaki 2026-11-04 gerçek PG PASS kaydı tarihsel commit'e aittir; güncel
+fixture ile gerçek PG/HTTP kabulü BLOCKED olarak kalır. Ağsız fixture PASS,
+VDS PGDATA kapısının veya canlı login'in kabulü değildir.
 
 Yerel 503→kurulum→200 doğrulaması VDS'nin düzeldiği anlamına gelmez.
 VDS migration ve gerçek giriş kabulü bu görevde yapılmadı.

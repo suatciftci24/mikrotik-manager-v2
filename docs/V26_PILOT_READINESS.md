@@ -35,9 +35,10 @@ korunur. Hata halinde migration veya hesap oluşturulmaz.
 | Dashboard / sağlık | [Sağlık kabulü](V26_HEALTH_ACCEPTANCE.md): yerel PASS, V2.5 salt okunur örnek PASS | Tarihsel başarısız assertion operandları/kök nedeni BLOCKED; ROLLBACK_VERIFIED sürer. V2.5 dört sayaç sonucu V2.6 beş sayaç/9-router kabulü değildir. |
 
 Bu boşluklar yeni özellik gereksinimi veya kanıtlanmış ürün hatası değildir.
-Eski PASS testleri tekrarlanmadı. Eski opt-in PG testi güncel sabit VDS yolu
-ile uyumsuzdur; VDS yolunu test için genişletmek veya testin eski PASS sonucunu
-güncele taşımak yoktur. Loopback errno=1 kanıtı korunur; yeni bağlantı denemesi yok.
+Eski PASS testleri tekrarlanmadı. Opt-in PG testindeki eski yol uyumsuzluğu test-only disposable cluster
+guard ile ayrıldı (2026-11-06); ürünün sabit VDS kapısı değişmedi. Altı yeni
+ağsız fixture testi PASS, gerçek PG/HTTP fixture çalışması henüz BLOCKED.
+Ayrıntı V26_IDENTITY_SETUP.md; tarihsel PG PASS güncele taşınmadı. Loopback errno=1 kanıtı korunur; yeni bağlantı denemesi yok.
 
 ## Bu görevin doğrulaması
 

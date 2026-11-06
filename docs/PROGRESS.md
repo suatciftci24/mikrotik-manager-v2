@@ -3866,3 +3866,25 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   yok. SSH/DB bağlantısı/deploy/migration/restart/parola/veri/cihaz işlemi yok.
   Mevcut kullanıcı PROGRESS değişiklikleri korundu ve commit dışında tutuldu.
 - Sonraki tek adım VDS gerçek TTY'sinde belgelenen HTTP tanısını çalıştırmak.
+
+
+## V2.6 — sıradaki yerel açık: disposable kimlik kabul fixture'ı — 2026-11-06
+
+- Başlangıç main-guncel/96dc8d6. AGENTS, güncel ilerleme, proje/entegrasyon
+  kapsamı ve kimlik/pilot kabul kayıtları okundu. ADMIN doğrulaması kullanıcı
+  kanıtıyla PASS, gerçek HTTP BLOCKED kabul edildi; tanı/testleri tekrarlanmadı.
+- Yerel somut açık V26_IDENTITY_SETUP ve V26_PILOT_READINESS kayıtlarından
+  seçildi: eski PG fixture'ı postgres-test kullanırken güncel kaynak yalnız
+  sabit postgres-owned VDS PGDATA kabul ediyordu. Yeni özellik eklenmedi.
+- Fixture yalnız kendi exclusive oluşturduğu geçici kümenin test-only guard'ını
+  kullanır: tam canonical yol, non-root owner/izin, PG16 ve yakalanmış dev/inode.
+  Değişmiş/başka/symlink dizin reddedilir. Patch class cleanup ile kaldırılır;
+  ürün guard'ı, DB/rol/port/profil/cwd/marker ve iş assertion'ları değişmedi.
+- PASS: 6 yeni ağsız fixture testi (ilk5 + eklenen store bağlantı testi1), değişen
+  Python syntax ve diff kontrolü. Testler yalnız yeni private temp dosyaları
+  kullanır; PG süreci/socket/DB/migration/servis başlatılmadı. Önceki başarılı
+  suite/build tekrarı yok; gerçek PG/HTTP fixture kabulü hâlâ BLOCKED.
+- İki mevcut kabul belgesi güncellendi. Kullanıcının mevcut PROGRESS eklemeleri
+  korundu, commit dışında tutuldu. V1/V2.5/VDS/SSH/router/RADIUS/IPsec/gerçek veri/
+  parola/deploy/restart işlemi yok. Sonraki ihtiyaç ağ erişimi olan izinli yerel
+  ortamda güncel disposable PG kabulüdür; bu görevde çalıştırılmış sayılmaz.
