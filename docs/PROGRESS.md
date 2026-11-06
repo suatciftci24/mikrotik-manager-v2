@@ -4059,3 +4059,32 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Gerçek HTTP kabulü BLOCKED. Hesap/parola/DB/migration/restart/deploy/SSH/
   VDS/V1/V2.5/gerçek abone veya cihaz işlemi yapılmadı. Mevcut PROGRESS
   içeriği ve yedi izlenmeyen dosya korunur; yalnız bu görev belgeleri commit.
+
+
+## V2.6 — HTTP401 için tek salt okunur VDS kontrol komutu — 2026-11-06
+
+- Başlangıç main-guncel/a65290a, origin kaydı aynı. Kurallar, güncel ilerleme,
+  ADMIN401/503/kimlik ve kabul yapılandırması okundu. Mevcut ADMIN ve önceki
+  LOCAL/active/sealed/PASSWORD_MATCH/ID_REREAD kanıtları esas alındı.
+- Frontend login JSON/yol/credentials, backend tam username/scrypt/aktiflik/
+  LOCAL-mühür/ID okuması, v26 şema seçimi ve süreç build kimliği incelendi.
+  Yeni ürün kusuru kanıtlanmadı; ürün kodu değişmedi. Tarihsel şema503 ile
+  güncel401 ayrıldı; önceki log/PASS testleri ve socket tanısı tekrarlanmadı.
+- Eski POST login/logout tanı komutu salt okunur sınıra uymuyordu; mevcut
+  belgede tek GET-only VDS komutuyla değiştirildi. Yalnız hazırlandı, VDS'ye
+  bağlantı veya gerçek HTTP isteği yapılmadı. Yeni ADMIN/login/logout, parola,
+  SQL/DB yazımı, migration/servis/deploy veya cihaz işlemi yok.
+- Komut listener/cwd/owner/PID-start, başlangıç v26 DB hedefi ve running=disk=
+  incelenen build eşitliğini doğrular. Sonra mevcut ADMIN cookie'si gizli
+  TTY'den alınır, yalnız GET /auth/me yapılır; cookie/env/DB sırrı/hash/body
+  çıktısı yok. Hedef/build uyuşmazlığında cookie sorulmaz, retry yapılmaz.
+- PASS: yeni komutun Python/bash syntax ve diff kontrolü; beş yeni ağsız
+  mock akışı (ADMIN200,401,503,build mismatch,session yokluğu), GET-only ve
+  sır/kimlik hash'i çıktı kontrolü. Yeni testler gerçek VDS/HTTP kabulü değildir.
+- BLOCKED: eski POST401'in kesin kök nedeni ve gerçek HTTP kabulü. GET200
+  mevcut oturum okumasını doğrular, yeni parola girişini/eski401 nedenini
+  kanıtlamaz; GET401 parola hatası,503 eski şema eksikliği ilan edilmez.
+- Önceki PROGRESS içeriği ve yedi izlenmeyen dosya hash ile korundu. Yalnız
+  bu görev belgeleri commit kapsamıdır; VDS/V1/V2.5/gerçek abone/router/
+  RADIUS/IPsec erişimi veya değişikliği yok. Tek kontrol komutu:
+  docs/V26_HTTP_LOGIN_FINAL_CHECK.md; burada çalıştırılmadı.
