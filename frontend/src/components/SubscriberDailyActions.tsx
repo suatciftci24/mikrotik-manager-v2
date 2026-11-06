@@ -1,3 +1,4 @@
+import {rememberPending,forgetPending} from '../lib/pendingSubscriberOperations';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {api,ApiError} from '../lib/api';
 import {operationReceiptMatches,readOperationResults,unknownOperation} from '../lib/subscriberOperationRecovery';
@@ -28,13 +29,16 @@ export function SubscriberDailyActions({rows,onClose}:{rows:CenterSubscriber[];o
    let receipts:OperationReceipt[];
    if(query)receipts=await readOperationResults(command.entries,results??[],controller.signal);
    else{
+    for(const entry of command.entries)rememberPending(entry.request_id,'/subscriber-workspace/management/requests/'+entry.request_id);
     const data=await api<{results:OperationReceipt[]}>('/subscriber-workspace/management/execute',{method:'POST',signal:controller.signal,headers:{'X-V2-Demo-Action':'subscriber-workspace'},body:command.body});
     if(!Array.isArray(data?.results)||data.results.length!==command.entries.length||new Set(data.results.map(r=>r?.request_id)).size!==command.entries.length||data.results.some(r=>!command.entries.some(e=>operationReceiptMatches(e,r))))throw new Error('İşlem sonuçları onaylanan kayıtlarla eşleşmedi.');
     receipts=data.results;
    }
+   for(const receipt of receipts)if(receipt.recorded)forgetPending(receipt.request_id);
    setResults(receipts);setUncertain(receipts.some(r=>!r.recorded));
   }catch(e){
    const failed=!query&&e instanceof ApiError&&[400,401,403,404,409,422].includes(e.status);
+   if(failed)for(const entry of command.entries)forgetPending(entry.request_id);
    setRejected(failed);setUncertain(!failed);
    if(!failed)setResults(command.entries.map(entry=>results?.find(r=>r.recorded&&operationReceiptMatches(entry,r))??unknownOperation(entry)));
    setError(e instanceof Error?e.message:'Sonuç alınamadı.');
