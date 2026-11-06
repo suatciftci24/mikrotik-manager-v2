@@ -8,7 +8,6 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 
@@ -24,6 +23,11 @@ SOURCE = Path(__file__).resolve().parents[2]
 
 @unittest.skipUnless(os.environ.get('V2_RUN_V26_IDENTITY_TESTS') == '1', 'Explicit disposable cluster opt-in required')
 class V26IdentityPostgres(unittest.TestCase):
+    @classmethod
+    def make_client(cls, app):
+        from fastapi.testclient import TestClient
+        return TestClient(app)
+
     @classmethod
     def setUpClass(cls):
         cls.root = v26_acceptance.ROOT
@@ -78,7 +82,7 @@ class V26IdentityPostgres(unittest.TestCase):
         adapter_patch.start()
         cls.addClassCleanup(adapter_patch.stop)
         from app.main import app
-        cls.client = TestClient(app)
+        cls.client = cls.make_client(app)
         cls.addClassCleanup(cls.client.close)
 
     def setUp(self):

@@ -109,6 +109,12 @@ VDS PGDATA kapısının veya canlı login'in kabulü değildir.
 Yerel 503→kurulum→200 doğrulaması VDS'nin düzeldiği anlamına gelmez.
 VDS migration ve gerçek giriş kabulü bu görevde yapılmadı.
 
+Gerçek HTTP socket ve workspace/UUID kabulü için hazırlanmış tek yerel komut
+ve kapsam: [V26_LOCAL_HTTP_ACCEPTANCE.md](V26_LOCAL_HTTP_ACCEPTANCE.md).
+Bu yeni yol `TestClient`/httpx kullanmaz; önceki fixture'ın aynı exclusive
+kümesini kullanır, yalnız yeni senaryoyu seçer. Hazırlık/ağsız PASS, gerçek
+PostgreSQL/HTTP PASS değildir; izin engeli nedeniyle çalıştırılmadı.
+
 ## Kabul sonucu — 2026-11-04
 
 - LOCAL PASS: 51 hedefli mevcut kimlik/yetki/ilk-admin testi; değişiklikten

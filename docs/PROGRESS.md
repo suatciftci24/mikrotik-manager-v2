@@ -4006,3 +4006,30 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   migration/SSH/deploy/restart/parola/gerçek cihaz veya canlı veri işlemi yok.
 - DNS tek denemede başarısız; uzak SHA doğrulanamadı, push uygulanmadı.
   Sonraki tek hedef izinli izole yerelde eksik PostgreSQL/HTTP kabulüdür.
+
+
+## V2.6 — ağsız profil düzeltmesi ve tek disposable HTTP kabul adımı — 2026-11-06
+
+- Başlangıç main-guncel/d9370e9; origin kaydı aynı. Kurallar, kimlik/disposable
+  fixture, PPPoE, pending recovery ve yerel HTTP kabul kayıtları incelendi.
+  Bilinen loopback errno1 kontrolü ve önceki PASS suite/build tekrarlanmadı.
+- Yeni ağsız test, workspace guard'ın V2.6 profiliyle v2_demo seçerek
+  Invalid V2.6 acceptance schema verdiğini kanıtladı. Yalnız profil şema
+  seçimi mevcut adaptörle eşitlendi; URL/DB/rol/port/kapı/marker retleri korunur.
+- PASS: üç yeni ağsız profil/marker/yerel-demo sınırı kontrolü. İlk yeni test
+  düzeltme öncesi hata verdi, düzeltme sonrası yalnız ilgili kapsam PASS.
+  Yeni HTTP kabul aracının altı ağsız güvenlik/transport kontrolü PASS.
+- Tek yeni opt-in komut docs/V26_LOCAL_HTTP_ACCEPTANCE.md içinde. Mevcut
+  exclusive PG16 fixture ve test-only PGDATA kimliği kullanılır; gerçek
+  uvicorn/HTTP cookie ADMIN, create/edit/renew/bulk ve readonly aktör UUID
+  receipt kontrolleri hazırlanır. Auth override/no-op guard yoktur. Eski beş
+  PASS senaryosu seçilmez. TestClient import'u eski istemci fabrikasına
+  taşındı; yeni yol kurulu olmayan httpx'i gerektirmez. Paket kurulmadı.
+- BLOCKED: gerçek PG/HTTP komutu çalıştırılmadı; syntax/ağsız PASS gerçek
+  entegrasyon kabulü değildir. DB/süreç/socket/migration/servis/SSH/VDS/V1/
+  V2.5/router/RADIUS/IPsec/gerçek veri veya parola değişikliği yapılmadı.
+- Kullanıcının önceki PROGRESS içeriği ve yedi izlenmeyen dosyası hash ile
+  korundu. Yalnız görev dosyaları commit kapsamıdır. Commit sonrası uzak
+  main-guncel tek kez doğrulanacak; güvenli normal push dışında işlem yok.
+  Push PASS olmadan yeni geliştirme yok. Sonraki kabul hedefi izinli yerelde
+  belgeli tek komut; mevcut PG/HTTP BLOCKED kapanmış sayılmaz.

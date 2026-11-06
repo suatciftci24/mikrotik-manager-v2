@@ -14,7 +14,10 @@ class WorkspaceError(Exception):
     def __init__(self,status,detail):self.status=status;self.detail=detail
 
 def guard(session):
-    PostgresDemoStore(session.get_bind())._verify(session.connection())
+    import os
+    from app.core.v26_acceptance import PROFILE
+    schema='v26_acceptance' if os.environ.get('V2_DEPLOYMENT_PROFILE')==PROFILE else 'v2_demo'
+    PostgresDemoStore(session.get_bind(),schema=schema)._verify(session.connection())
 
 def boundary(method):
     @wraps(method)
