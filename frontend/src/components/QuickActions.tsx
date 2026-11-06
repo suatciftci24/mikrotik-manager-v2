@@ -1,4 +1,4 @@
-import {subscriberSaveDependencies} from '../lib/useSubscriberSave';
+import {subscriberSaveDependencies} from '../lib/subscriberDependencies';
 import '../styles/subscriber-edit-highlight.css';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { api, type Router, type Subscriber, type DemoOptions, type SubscriberDetailData } from '../lib/api';

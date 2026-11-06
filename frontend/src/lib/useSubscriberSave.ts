@@ -3,7 +3,8 @@ import {useEffect,useRef,useState} from 'react';
 import {api,ApiError} from './api';
 import {invalidateResources} from './resourceEvents';
 
-export const subscriberSaveDependencies=['/subscribers','/subscriber-workspace','/subscriber-center','/router-workspace/routers','/router-center','/routers','/dashboard','/reports','/alarms','/mikajani'];
+import {subscriberSaveDependencies} from './subscriberDependencies';
+export {subscriberSaveDependencies} from './subscriberDependencies';
 export type SubscriberSaveAttempt<T>={requestId:string;path:string;resultPath:string;body:string;header:string;matches:(result:T)=>boolean};
 type State='IDLE'|'SENDING'|'UNCERTAIN'|'FAILED'|'SUCCESS';
 export function useSubscriberSave<T>(onSaved:(result:T)=>void){

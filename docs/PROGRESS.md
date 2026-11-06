@@ -4128,3 +4128,32 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Kullanıcının yedi izlenmeyen dosyası korundu. V1/V2.5/canlı DB/abone/cihaz,
   RADIUS/IPsec/migration/servis/deploy işlemi yok. Sonraki adım ağ erişimiyle
   salt okunur VDS diff ve uzak dal doğrulaması sonrası normal push.
+
+
+## V2.6 — kopyalanmış VDS frontend ile LEGACY seçici entegrasyonu — 2026-11-06
+
+- Başlangıç main-guncel/ac90735, origin kaydı aynı. AGENTS/Altın Kurallar,
+  güncel ilerleme ve kalıcı özellik koruma envanteri okundu. Kullanıcının
+  önceki 27 satırlık PROGRESS ekleri ve yedi izlenmeyen dosyası korundu.
+- v26-vds-reference/src içindeki 109 kaynak dosyasının tamamı Git 189a717 ile
+  birebir eşleşir; bu commit ac90735'in atasıdır. ac90735 ile 22 değişmiş/9
+  eklenmiş tracked frontend yolu var. VDS snapshot'ı değiştirilmedi.
+- Mevcut LEGACY üçlü detay işlemleri seçici VDS adayına entegre edildi.
+  QuickActions yenileme bağımlılıkları recovery hook'undan ayrıldı; eski
+  useSubscriberSave export'u korunur. Yeni npm paketi/lockfile değişikliği yok.
+- Yeni yerel hazırlık aracı pinli 109 dosya hash'ini kontrol eder; driftte veya
+  mevcut çıktı dizininde durur. 10 dosyalık overlay, 103 VDS dosyasını byte
+  düzeyinde korur. App/liste/filtre/rapor/workspace/diğer merkezler korunur;
+  api.ts ve backend değiştirilmedi. Araç git/SSH/network süreci başlatmaz.
+- PASS: yerel 43 hedefli test, VDS tabanlı aday 10 test; iki ortamda TypeScript/
+  Vite build. Mevcut >500 kB bundle uyarısı sürer. CSS loader ve eski POST
+  retry beklentili test harness'ları mevcut GET receipt sözleşmesine uyarlandı;
+  yeni router-link testi nested Facts HTML'ini okuyacak şekilde düzeltildi.
+  İş assertion'ları gevşetilmedi; yalnız başarısız kapsam yeniden çalıştırıldı.
+- Kanıt/10 dosya/dependency ve güvenli güncelleme planı:
+  docs/V26_FEATURE_PRESERVATION_ACCEPTANCE.md. Yerel aday .local/v26-legacy-review;
+  preservation.json ve build-acceptance.json Git dışıdır. Sadece sentetik
+  handler/SSR testi; gerçek HTTP/DB/VDS tarayıcı kabulü veya deploy iddiası yok.
+- Önceden kullanıcıya ait PROGRESS satırları commit dışında bırakılır; yalnız
+  bu görev kaydı ve ilgili dosyalar commit kapsamıdır. VDS/SSH/deploy/servis/
+  migration/V1/V2.5/DB/gerçek abone/MikroTik/RADIUS/IPsec işlemi yapılmadı.

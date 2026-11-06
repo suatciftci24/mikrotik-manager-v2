@@ -58,3 +58,105 @@ okunur; depolar birleştirilmez.
 
 Kalan somut adım: ağ erişimi olan ortamda VDS kaynaklarını salt okunur hash/diff
 ile karşılaştırmak ve uzak dal doğrulamasından sonra normal push yapmak.
+
+## Kopyalanmış VDS kaynaklarıyla gerçek karşılaştırma — ac90735 sonrası
+
+2026-11-06: `/home/suat/Codex-Projects/v26-vds-reference/src` yerelde okundu.
+109 dosyanın tamamı `189a717357a7136c83ccf5958a7d136c3f90303f` Git içeriğiyle
+birebir eşleşiyor; bu commit ac90735'in ortak atasıdır. ac90735'e göre 22
+değişmiş ve 9 eklenmiş tracked kaynak yolu bulunuyor. Yalnız kullanıcıya ait
+izlenmeyen SubscriberAuditChanges.tsx bu Git karşılaştırmasına dahil değildir.
+Kaynak kopyası değiştirilmedi; önceki SSH BLOCKED bu yerel karşılaştırmayı
+artık engellemiyor. VDS'nin şu anda aynı kaynakları sunduğu iddia edilmez.
+
+LEGACY detay işlemleri ac90735'te zaten mevcut. Bunları VDS tabanına taşımak
+için tüm frontend'i geri almak veya güncellemek gerekmedi. `QuickActions`
+yalnız yenileme listesi için recovery hook'una bağımlıydı; liste yeni
+`subscriberDependencies.ts` modülüne ayrıldı. Hook eski export'u korur.
+Böylece eski VDS `api.ts` üzerinde bulunmayan ApiError/pending recovery
+zinciri seçici pakete zorunlu bağımlılık olmaz. Yeni npm paketi veya lockfile
+değişikliği yok; aday yerel kilitli paketlerle derlendi.
+
+### Seçici aday ve özellik koruması
+
+Yeni `frontend/scripts/prepare-v26-legacy.mjs` yalnız yerel `.local` altında
+yeni bir aday oluşturur. Pinli `v26-vds-reference.json` 109 SHA256 değerini
+doğrular; farklı/eksik/ek dosyada, symlink'te veya mevcut çıktı dizininde durur.
+Git, SSH, npm install, backend veya DB süreci başlatmaz. Source/manifest
+kontrolü bitmeden dosya kopyalamaz; referansı ve mevcut çıktıları değiştirmez.
+
+Overlay'in tamamı (6 mevcut dosya güncellenir,4 dosya eklenir):
+
+```text
+components/SubscriberDeviceCenter.tsx
+components/LegacySubscriberActions.tsx
+components/QuickActions.tsx
+screens/Details.tsx
+lib/subscriberActions.ts
+lib/subscriberDependencies.ts
+lib/quick.ts
+lib/resourceEvents.ts
+lib/useResource.ts
+styles/subscriber-edit-highlight.css
+```
+
+| Korunan VDS özelliği | Kanıt / entegrasyon |
+| --- | --- |
+| Liste, kaynak sekmeleri, filtreler, seçim, oluşturma, raporlar | Subscribers/App kaynakları dahil overlay dışındaki 103 dosya byte düzeyinde aynı. |
+| Workspace PPPoE/Hotspot edit, günlük/toplu işlemler ve yenileme | SyntheticSubscribers, SubscriberEditor, SubscriberDailyActions ve SubscriberRenewal VDS sürümleri aynı; güncel paket ve 7/15/30/60/90/özel tarih regresyonu PASS. |
+| Router/Operasyon/alarm/MikAjanı/sistem ekranları | Bu kaynaklar değiştirilmedi; adayın tüm kaynak ağacı derlendi. |
+| Abone beş sekme/router bağı/legacy rapor açılır bölümü | DeviceCenter/Details regresyonu; workspace edit/renew/manage callback'leri mevcut toolbar'da kalır. Eski yinelenen header edit düğmesinin işlevi toolbar üzerinden korunur. |
+| LEGACY süre/paket/aktif-pasif | Yetkili canonical detaydan QuickActions; source/router/revision/onay korunur. Mevcut demo-quick, demo-options, routers ve subscriber GET sözleşmeleri kullanılır; yeni backend endpoint'i yok. |
+| Audit | Paket+tarih birlikte, eski/yeni değerler, aktör/İstanbul saati ve başarısız sonuç korunur. |
+| Bağlı veri yenilemesi | Ayrı dependency modülü ve query'li kaynak invalidation; detay/liste/router/Dashboard/rapor yenilenir. |
+
+Aday: `.local/v26-legacy-review`. `preservation.json` önce/sonra kaynak ve
+overlay hash'lerini, lockfile hash'ini içerir; `build-acceptance.json` yerel
+sonuçları ve üretilen dist hash'lerini kaydeder. Bu dosyalar Git dışındadır.
+Referans dışında index/public/Vite yapılandırması sağlanmadığından aday bunlar
+için yerel frontend girdilerini kullanır; VDS HTML/public/config eşitliği
+doğrulanmış sayılmaz. Yayın öncesi bu sınır ayrıca kontrol edilmelidir.
+
+### Hedefli kabul
+
+- Yerel frontend: 43 hedefli test PASS; yeni entegrasyon/dependency, detay,
+  QuickActions, yenileme, GET save recovery, kaynak yetkisi ve invalidation.
+- VDS tabanlı seçici aday: 10 test PASS; üç gerçek React handler akışı,
+  yetki/kaynak reddi, beş sekme, audit, workspace yenileme, dosya koruma ve
+  drift/mevcut çıktı dizini reddi. Ağ istekleri sentetik fetch mock'udur.
+- Her iki ağaçta `npm run build` (TypeScript + Vite) PASS; mevcut >500 kB
+  bundle uyarısı sürer. Gerçek HTTP/DB veya VDS browser kabulü yapılmadı.
+- Eski subscriptionActions harness'ına CSS loader eklendi; eski ikinci POST
+  beklentisi mevcut tekPOST+UUID GET receipt sözleşmesine uyarlandı. Bir yeni
+  link assertion'ı nested Facts render'ına düzeltildi. Yalnız başarısız
+  kapsamlar tekrar çalıştırıldı; ürün güvenliği/test assertion'ları gevşetilmedi.
+
+### Güvenli VDS güncelleme yöntemi — burada uygulanmadı
+
+1. Ayrı dağıtım onayı sonrası yalnız V2.6 frontend'in güncel kaynak hash'lerini
+   `preservation.json.before` ile karşılaştırın. Fark varsa durun; yeni
+   snapshot üzerinde entegrasyon gerekir. V1/V2.5 kökleri ve webroot'ları
+   bu yayın hedefi olamaz. index/public/base-path ve mevcut API sözleşmesini
+   ayrıca salt okunur karşılaştırın; bu görevde bunların VDS kopyası yoktu.
+2. Yeni bir yerel aday üretip aynı test/build'i çalıştırın. Referans klasörüne
+   ve kullanıcı dosyalarına yazmayın. Örnek **Ev WSL proje kökü** komutu:
+
+   ```bash
+   node frontend/scripts/prepare-v26-legacy.mjs --reference /home/suat/Codex-Projects/v26-vds-reference/src --output /home/suat/Codex-Projects/mikrotik-manager-v2/.local/v26-legacy-new
+   ```
+
+3. Yalnız test edilmiş adayın statik `dist` çıktısını ve bütünlük manifestini
+   ayrı sürümlü V2.6 frontend release dizinine hazırlayın; mevcut statik
+   sürümü rollback için koruyun. Dizin, sunum yolu ve dosya hash'leri
+   doğrulandıktan sonra mevcut hosting düzeninin desteklediği atomik webroot
+   geçişini kullanın. Kaynak dosyalarını tek tek canlıya kopyalamayın; tam
+   repo pull'ı, backend aktarımı, servis restartı, migration veya DB değişimi
+   bu güncellemenin parçası değildir. HTML/public farkı varsa körlemesine
+   yerel index/public kullanmayın; önce aday girdileriyle uzlaştırın.
+4. Yayın sonrası mevcut yetkili oturumla salt okunur görünüm/asset ve kaynak
+   doğrulaması yapın. Beklenmeyen eksiklikte önceki statik release'e dönün;
+   gerçek abone/cihaz üzerinde test yazımı yapmayın. Gerçek yazma senaryoları
+   yalnız ayrıca izinli sentetik kabul hedefinde doğrulanabilir.
+
+VDS bağlantısı, dağıtım, servis/DB/ADMIN/parola/migration ve gerçek cihaz
+işlemi yapılmadı. Genel PostgreSQL/UUID kabul boşlukları bu UI testiyle kapanmaz.
