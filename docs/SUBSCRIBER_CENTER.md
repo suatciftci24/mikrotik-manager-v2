@@ -175,3 +175,18 @@ korunan 7/15/30 gün seçeneklerine ekler.
 türü, router değişimi, 30/60/90, bulk partial result, retry, audit ve rollback
 senaryolarını içerir. Mevcut business kayıtlarına seed/UPDATE yapmaz. Sandbox
 nedeniyle bu kabul çalıştırılmadığında unit/SSR testleri PG/browser PASS sayılmaz.
+
+
+### Yanıt kaybında günlük işlem sonucu — V2.6
+
+Günlük işlem POST'u sırasında yanıt kaybolursa, JSON okunamazsa veya sonuç
+kimlikleri önizlemeyle eşleşmezse arayüz başarı/başarısızlık uydurmaz. İşlemin
+uygulanmış olabileceğini açıkça söyler; düğme aynı isteklerin kayıtlı sonuçlarını
+getirir. Önizleme, revizyonlar ve UUID'ler korunur; otomatik retry yapılmaz.
+Geçerli sonuç alınca belirsizlik mesajı kaldırılır.
+
+Her gönderim denemesinin sonunda bağlı liste/detay/geçmiş kaynakları invalidate
+edilir; yanıt alınamaması verinin değişmediği anlamına gelmez. Ortak read hook'u
+sorgu parametreli sayfalı listeleri kaynak yoluna göre eşleştirir; benzer isimli
+başka yollar veya legacy/workspace ayrımı genişletilmez. Bu davranış yerel
+sentetik UI'dır; kalıcı backend sonucu için mevcut idempotent receipt gerekir.

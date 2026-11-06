@@ -3888,3 +3888,28 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   korundu, commit dışında tutuldu. V1/V2.5/VDS/SSH/router/RADIUS/IPsec/gerçek veri/
   parola/deploy/restart işlemi yok. Sonraki ihtiyaç ağ erişimi olan izinli yerel
   ortamda güncel disposable PG kabulüdür; bu görevde çalıştırılmış sayılmaz.
+
+
+## V2.6 — günlük yönetimde kayıp yanıt sonrası güvenli sonuç alma — 2026-11-06
+
+- Başlangıç main-guncel/963c453. AGENTS, güncel ilerleme, pilot/PPPoE kabulü
+  ve SUBSCRIBER_CENTER günlük yönetim sözleşmesi okundu. PGDATA/6 PASS ve
+  ADMIN tanısı tekrarlanmadı; ADMIN PASS, gerçek PG/HTTP BLOCKED korunur.
+- Sözleşmedeki sonucu doğrulanamayan işlem şartının UI açığı tamamlandı:
+  kayıp yanıt/bozuk JSON/uyuşmayan receipt belirsiz diye gösterilir; kullanıcı
+  aynı önizleme/revizyon/UUID'lerle sonuç alır, yeni uygulama/otomatik retry yok.
+  Başarılı yanıtla belirsizlik temizlenir. Her deneme bağlı okumaları invalidate
+  eder; sonuç kaybı verinin değişmediği varsayımına dönüştürülmez.
+- Doğrudan bağlı ortak hook hatası giderildi: query içeren sayfalı listeler
+  kaynak yolu üzerinden invalidate olur. Yol segmenti ve legacy/workspace
+  ayrımı korunur; detay/geçmiş bağımlılıkları aynı kurala bağlıdır.
+- PASS: 3 yeni kayıp/bozuk/yanlış sonuç React handler/SSR testi + 2 yeni yol
+  sınırı testi, TypeScript/Vite build ve diff. İlk Node isolation çıktısı yalnız
+  dosya özeti verdiğinden mevcut --test-isolation=none yöntemiyle üç assertion
+  sonucu tek tek doğrulandı. Typecheck yeni hook değişikliği sonrası tekrarlandı.
+  Eski PASS suite ve backend/PG testleri tekrarlanmadı. Bundle >500kB uyarısı var.
+- Sentetik fetch/receipt testidir, gerçek browser/HTTP/PG PASS değildir.
+  V1/V2.5/VDS/SSH/router/RADIUS/IPsec/gerçek veri/sır/migration/restart/deploy yok.
+  Kullanıcının PROGRESS değişiklikleri korundu, commit dışında bırakıldı.
+- Sonraki yerel hedef: tekil abonelik uzatma akışında kayıp yanıt sonrası aynı
+  güvenli sonuç alma ve bağlı görünüm yenilemesini tamamlamak.

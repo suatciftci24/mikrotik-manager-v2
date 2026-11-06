@@ -56,3 +56,21 @@ V1, V2.5 pilot, V2.6 VDS, router/RADIUS, mevcut DB/veriler, servis ve deploy
 PGDATA uyuşmazlığı ve tarihsel Dashboard BLOCKED/ROLLBACK kayıtları değişmedi.
 Sonraki adım gerekirse ayrı yetkili tarayıcı görsel kabulüdür; canlıya geçiş bu
 paketin tamamlanma koşulu veya yetkilendirmesi değildir.
+
+
+## Günlük işlemde belirsiz sonuç ve bağlı görünüm yenilemesi — 2026-11-06
+
+Başlangıç 963c453. Yerel UI eksikliği: kayıp/bozuk POST yanıtında yalnız hata
+metni kalıyor, düğme yeniden uygula diyordu ve bağlı kaynaklar invalidate
+edilmiyordu. İşlem sunucuda uygulanmış olabileceğinden açık belirsizlik mesajı
+ve aynı UUID'lerle sonuç alma eklendi; her deneme sonunda kaynaklar yenilenir.
+Sayfalı liste adreslerinin query yüzünden invalidate olmaması da düzeltildi.
+
+PASS: üç yeni gerçek React handler/SSR senaryosu (kayıp yanıt, bozuk JSON,
+uyuşmayan receipt), iki yeni kaynak yolu sınırı testi; TypeScript ve Vite build,
+diff kontrolü. Retry gövdesi birebir aynı, otomatik retry yok, sahte receipt
+modelinde tek uygulama ve belirsizliğin sonuç alınca kalkması doğrulandı.
+Fetch/receipt sentetiktir; gerçek DB atomikliği, socket veya tarayıcı kabulü
+değildir. Eski başarılı testler tekrarlanmadı; typecheck yeni hook değişikliğinden
+sonra tekrarlandı. Mevcut >500kB bundle uyarısı sürer. Canlı/SSH/DB/servis yok.
+ADMIN doğrulaması PASS, gerçek PostgreSQL/HTTP kabulü BLOCKED kalır.
