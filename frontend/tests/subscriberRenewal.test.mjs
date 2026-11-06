@@ -14,7 +14,7 @@ test('renewal validates date, previews without writing and retries the identical
  const today=turkeyToday(),item={id:'demo-managed-sub-fixture',customer_name:'Sentetik',username:'demo',source:'RADIUS',revision:1,expires_on:today,status:'ACTIVE'};
  const render=()=>{cursor=0;return nodes(module.exports.SubscriberRenewal({item,onClose(){}}));};
  const originalFetch=globalThis.fetch,originalWindow=globalThis.window;globalThis.window={dispatchEvent(){}};
- globalThis.fetch=async(url,init)=>{calls.push({url,body:JSON.parse(init.body)});if(calls.length===1)throw Error('Yanıt kayboldu');return{ok:true,json:async()=>({...item,expires_on:calls[0].body.expires_on})};};
+ globalThis.fetch=async(url,init)=>{calls.push({url,body:JSON.parse(init.body)});if(calls.length===1)throw Error('Yanıt kayboldu');return{ok:true,json:async()=>({...item,revision:item.revision+1,expires_on:calls[0].body.expires_on})};};
  try{
   let tree=render();tree.find(n=>n.type==='select').props.onChange({target:{value:'CUSTOM'}});
   tree=render();tree.find(n=>n.type==='input').props.onChange({target:{value:today}});

@@ -190,3 +190,17 @@ edilir; yanıt alınamaması verinin değişmediği anlamına gelmez. Ortak read
 sorgu parametreli sayfalı listeleri kaynak yoluna göre eşleştirir; benzer isimli
 başka yollar veya legacy/workspace ayrımı genişletilmez. Bu davranış yerel
 sentetik UI'dır; kalıcı backend sonucu için mevcut idempotent receipt gerekir.
+
+
+### Tekil uzatmada kayıp yanıt
+
+Tekil uzatma önizlemesi UUID, abone ID, önceki bitiş, kaynak ve revizyonu
+sabitler. Sonraki ekran yenilemesi aynı UUID ile başka bir komut göndermez.
+Kayıp/bozuk veya onaylanan ID/tarih/kaynak/revizyonla eşleşmeyen yanıt başarı
+sayılmaz; işlem uygulanmış olabilir mesajı ve aynı istekle sonuç alma korunur.
+Her gönderim sonunda bağlı liste/detay/geçmiş kaynakları invalidate edilir.
+Otomatik tekrar yoktur, eşzamanlı çift tıklama tek gönderimdir. Eşleşen sonuç
+alınınca uyarı kalkar ve tekrar uygulama düğmesi kapanır. Backend idempotency ve
+409 revizyon/çakışma koruması değişmez; sonradan düzenlenmiş kayda eski uzatma
+isteği otomatik yeni UUID ile uygulanmaz. Pencereyi kapatmadan aynı istekle
+sonuç almak gerekir; kapanma/yeniden açılma için kalıcı istemci receipt deposu yoktur.

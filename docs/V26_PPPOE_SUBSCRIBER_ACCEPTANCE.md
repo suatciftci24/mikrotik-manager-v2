@@ -74,3 +74,20 @@ Fetch/receipt sentetiktir; gerçek DB atomikliği, socket veya tarayıcı kabul�
 değildir. Eski başarılı testler tekrarlanmadı; typecheck yeni hook değişikliğinden
 sonra tekrarlandı. Mevcut >500kB bundle uyarısı sürer. Canlı/SSH/DB/servis yok.
 ADMIN doğrulaması PASS, gerçek PostgreSQL/HTTP kabulü BLOCKED kalır.
+
+
+## Tekil uzatmada güvenli sonuç alma — 2026-11-06
+
+Başlangıç cfe1638. Önizleme istek alanlarını sabitler; kayıp/bozuk/eşleşmeyen
+sonuç belirsiz gösterilir. Sonuç ID/tarih/kaynak/artan revizyonla doğrulanır;
+bağlı görünümler başarısız yanıt dahil her gönderimden sonra invalidate edilir.
+
+PASS: altı yeni React handler/SSR kurtarma senaryosu (yanıt kaybı, bozuk JSON,
+yanlış abone/tarih/kaynak/revizyon); doğrudan etkilenen mevcut tek uzatma testi1;
+TypeScript/Vite build ve diff. Eski fixture yanıtı gerçek backend sözleşmesindeki
+artan revizyonla düzeltildi. Yenilenen props'a rağmen retry body aynı; otomatik
+retry/çift tıklamayla ikinci gönderim yok. Receipt modeli tek uygulama gösterir;
+gerçek DB/HTTP/browser PASS değildir. İlk yeni test dosyası yanlış çalışma
+diziniyle yazılamadı; yol düzeltildi ve yalnız eksik yeni altı test çalıştırıldı.
+Önceki günlük/PGDATA/ADMIN PASS testleri tekrarlanmadı. Bundle >500kB uyarısı sürer.
+ADMIN doğrulaması PASS, gerçek PostgreSQL/HTTP kabulü BLOCKED korunur.

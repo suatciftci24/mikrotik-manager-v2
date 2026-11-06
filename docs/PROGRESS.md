@@ -3913,3 +3913,25 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Kullanıcının PROGRESS değişiklikleri korundu, commit dışında bırakıldı.
 - Sonraki yerel hedef: tekil abonelik uzatma akışında kayıp yanıt sonrası aynı
   güvenli sonuç alma ve bağlı görünüm yenilemesini tamamlamak.
+
+
+## V2.6 — tekil uzatmada kayıp yanıt sonrası güvenli sonuç alma — 2026-11-06
+
+- Başlangıç main-guncel/cfe1638. Kurallar/güncel ilerleme ve uzatma sözleşmesi
+  okundu. Günlük yönetim sonrası kaydedilmiş hedef tamamlandı; PGDATA/ADMIN
+  tanısı ve önceki günlük testleri tekrarlanmadı.
+- Önizleme UUID/abone/önceki bitiş/kaynak/revizyonu sabitler. Props yenilense de
+  aynı istek kimliğiyle farklı payload gönderilmez. Kayıp/bozuk/ID-tarih-kaynak-
+  revizyonu uyuşmayan yanıt belirsiz gösterilir; aynı istekle sonuç alınır.
+  Her deneme bağlı liste/detay/geçmişi invalidate eder. Eşleşen başarı uyarıyı
+  kaldırır ve yeniden uygulama düğmesini kapatır; backend korumaları değişmedi.
+- PASS: 6 yeni kurtarma testi + doğrudan etkilenen 1 uzatma regresyonu;
+  TypeScript/Vite build ve diff. Mevcut fixture yanıtının revision alanı gerçek
+  backend artışına uyarlandı. İlk yeni test dosyası çalışma dizini hatasıyla
+  yazılamadı; yol düzeltildikten sonra yalnız eksik altı test çalıştırıldı.
+  Sentetik fetch/receipt ve React handler/SSR; gerçek browser/HTTP/PG PASS yok.
+  Mevcut bundle >500kB uyarısı sürer. ADMIN PASS, gerçek PG/HTTP BLOCKED korunur.
+- Kullanıcının PROGRESS değişiklikleri korundu ve commit dışında tutuldu.
+  V1/V2.5/VDS/SSH/router/RADIUS/IPsec/gerçek veri/kimlik bilgisi/migration/
+  deploy/servis restartı yok. Sonraki yerel hedef: abone oluşturma/düzenlemede
+  kayıp yanıt sonrası aynı kimlikli güvenli sonuç alma davranışını tamamlamak.
