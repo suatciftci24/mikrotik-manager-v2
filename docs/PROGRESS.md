@@ -3803,6 +3803,196 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   incelemesidir; canlı dağıtım ayrı açık onay olmadan başlatılmaz.
 
 
+## V2.6 — canlı pilot hazırlığı / kaynak-kayıt uzlaştırması — 2026-11-06
+
+- LOCAL PASS / CANLI BLOCKED; başlangıç main-guncel/9a7c47f. İstenen beş
+  talimat/kabul belgesi ve ilgili kimlik/PPPoE/yönetim/sağlık kayıtları okundu.
+  Kullanıcının mevcut PROGRESS eklemesi korundu ve commit kapsamından ayrıldı.
+  ACK/READ kimlik düzeltmesi yeniden açılmadı.
+- PGDATA desteği 8cd3a48 ile zaten kaynakta mevcut; eski belge/test fixture'ı
+  önceki kabul-kökü/aynı-UID düzeninde kalmış. Güncel sabit VDS yolu, postgres
+  sahibi, özel izin, canonical yol/symlink kapıları korunur. Metadata erişim
+  hatasına güvenli statik V26_CLUSTER_METADATA_UNAVAILABLE tanısı eklendi.
+- VDS kayıtlı login503 nedeni kimlik tabloları eksikliği; API18996 yokluğu,
+  CLI modüllerinin kabul kopyasında olmaması ve 0775 kaynak izinleri ayrı
+  engellerdir. Yeni VDS gözlemi veya güncel 503 çözümü iddiası yok.
+- PASS: 3 yeni ağsız cluster guard testi ve diff kontrolü. Önceki PASS
+  kontrolleri/genel suite/build/DB/API testleri tekrarlanmadı. Eski opt-in PG
+  fixture uyumsuzluğu açıkça belgelendi; güncel gerçek PG/HTTP PASS yok.
+- Pilot ön koşulları ve eksik kabul kanıtları docs/V26_PILOT_READINESS.md;
+  kurulum/ön-kontrol belgeleri güncellendi. Tarihsel Dashboard BLOCKED ve
+  ROLLBACK_VERIFIED sürer; errno=1 kanıtı korunur, yeni loopback denemesi yok.
+- VDS/V1/V2.5/gerçek cihaz/RADIUS/IPsec/abone/sır erişimi, migration, DB yazımı,
+  deploy veya restart yok. Sonraki tek adım ayrı onaylı, izole VDS salt okunur
+  güncel ön kontroldür; yazma/izin değiştirme/restart yetkisi içermez.
+
+
+## V2.6 — ADMIN login401 koşullarının ağsız ayrıştırılması — 2026-11-06
+
+- Başlangıç main-guncel/9980701. Kurallar/güncel ilerleme/kimlik kabulü okundu;
+  kullanıcının mevcut PROGRESS değişiklikleri korundu ve commit dışında tutuldu.
+  SSH/loopback denemesi, VDS/hesap/parola/DB/servis değişikliği yok.
+- Kullanıcı health200, LOCAL ADMIN active, iki initialized bayrağı ve doğrudan
+  PASSWORD_MATCH bildirdi. Bunlar aynı API kodu/şeması/girdisiyle login kanıtı
+  değildir. Kaynak401: kullanıcı bulunamaması/filtrelenmesi, pasiflik veya parola
+  doğrulamasının false olması; route ID yeniden okuması da401 üretebilir.
+  SQL/şema/mühür tutarsızlığı normalde503; Secure cookie ilk POST401 nedeni değil.
+- PASS: beş yeni ağsız test gerçek find_user/inspect_setup/login route + ID
+  okumasını sentetik SQL ve N131072 hash ile doğruladı. Tam username eşitliği,
+  pasif/yanlış parola/non-LOCAL401 ve storage hatası ayrımı korundu.
+  Önceki PASS testleri tekrarlanmadı; gerçek PG/HTTP/VDS PASS iddiası yok.
+- Ürün kusuru yeniden üretilemedi; kanıtsız düzeltme/güvenlik gevşetmesi yok.
+  Kesin VDS kök nedeni BLOCKED. docs/V26_ADMIN_LOGIN_DIAGNOSIS.md açıklama,
+  kaynak hash'leri ve tek VDS salt okunur tanı komutunu içerir. Komut syntax
+  kontrolü PASS; VDS'de çalıştırılmadı. Sonraki tek adım bu komutun VDS gerçek
+  TTY'sinde mevcut ADMIN bilgileriyle bir kez çalıştırılmasıdır.
+
+
+## V2.6 — HTTP401 son süreç/istek ayrımı — 2026-11-06
+
+- Başlangıç main-guncel/7c30737. AGENTS ve ilgili kabul/güncel ilerleme okundu.
+  Kullanıcının bildirdiği v26/LOCAL ADMIN/active/sealed/PASSWORD_MATCH/ID_REREAD
+  ve aynı disk SHA kanıtları kabul edildi; başarılı kontroller tekrarlanmadı.
+- HTTP401 yeni tanıdan sonra henüz yeniden üretilmedi. Kaynakta CORS dışında
+  auth middleware yok; payload doğrulaması422, storage503. Cookie politikası
+  ilk POST401'i açıklamaz. Disk hash eşitliği süreç import'unda yakalanan build
+  kimliğiyle eşitlik kanıtı değildir. Kesin kök neden BLOCKED.
+- Ürün kodu veya parola/kimlik güvenlik davranışı değiştirilmedi. Yeni test
+  suite çalıştırılmadı. Tek VDS komutu docs/V26_HTTP_LOGIN_FINAL_CHECK.md:
+  listener PID/start kimliği ve /api/ready build karşılaştırması, gizli TTY
+  girdisiyle birebir JSON tek POST login, sabit401 kategori ayrımı ve bellek
+  oturum temizliği. Secret/argv/env/payload/yanıt gövdesi çıktısı yok.
+- Komut syntax ve diff kontrolü PASS; VDS'de çalıştırılmadı, gerçek HTTP PASS
+  yok. SSH/DB bağlantısı/deploy/migration/restart/parola/veri/cihaz işlemi yok.
+  Mevcut kullanıcı PROGRESS değişiklikleri korundu ve commit dışında tutuldu.
+- Sonraki tek adım VDS gerçek TTY'sinde belgelenen HTTP tanısını çalıştırmak.
+
+
+## V2.6 — sıradaki yerel açık: disposable kimlik kabul fixture'ı — 2026-11-06
+
+- Başlangıç main-guncel/96dc8d6. AGENTS, güncel ilerleme, proje/entegrasyon
+  kapsamı ve kimlik/pilot kabul kayıtları okundu. ADMIN doğrulaması kullanıcı
+  kanıtıyla PASS, gerçek HTTP BLOCKED kabul edildi; tanı/testleri tekrarlanmadı.
+- Yerel somut açık V26_IDENTITY_SETUP ve V26_PILOT_READINESS kayıtlarından
+  seçildi: eski PG fixture'ı postgres-test kullanırken güncel kaynak yalnız
+  sabit postgres-owned VDS PGDATA kabul ediyordu. Yeni özellik eklenmedi.
+- Fixture yalnız kendi exclusive oluşturduğu geçici kümenin test-only guard'ını
+  kullanır: tam canonical yol, non-root owner/izin, PG16 ve yakalanmış dev/inode.
+  Değişmiş/başka/symlink dizin reddedilir. Patch class cleanup ile kaldırılır;
+  ürün guard'ı, DB/rol/port/profil/cwd/marker ve iş assertion'ları değişmedi.
+- PASS: 6 yeni ağsız fixture testi (ilk5 + eklenen store bağlantı testi1), değişen
+  Python syntax ve diff kontrolü. Testler yalnız yeni private temp dosyaları
+  kullanır; PG süreci/socket/DB/migration/servis başlatılmadı. Önceki başarılı
+  suite/build tekrarı yok; gerçek PG/HTTP fixture kabulü hâlâ BLOCKED.
+- İki mevcut kabul belgesi güncellendi. Kullanıcının mevcut PROGRESS eklemeleri
+  korundu, commit dışında tutuldu. V1/V2.5/VDS/SSH/router/RADIUS/IPsec/gerçek veri/
+  parola/deploy/restart işlemi yok. Sonraki ihtiyaç ağ erişimi olan izinli yerel
+  ortamda güncel disposable PG kabulüdür; bu görevde çalıştırılmış sayılmaz.
+
+
+## V2.6 — günlük yönetimde kayıp yanıt sonrası güvenli sonuç alma — 2026-11-06
+
+- Başlangıç main-guncel/963c453. AGENTS, güncel ilerleme, pilot/PPPoE kabulü
+  ve SUBSCRIBER_CENTER günlük yönetim sözleşmesi okundu. PGDATA/6 PASS ve
+  ADMIN tanısı tekrarlanmadı; ADMIN PASS, gerçek PG/HTTP BLOCKED korunur.
+- Sözleşmedeki sonucu doğrulanamayan işlem şartının UI açığı tamamlandı:
+  kayıp yanıt/bozuk JSON/uyuşmayan receipt belirsiz diye gösterilir; kullanıcı
+  aynı önizleme/revizyon/UUID'lerle sonuç alır, yeni uygulama/otomatik retry yok.
+  Başarılı yanıtla belirsizlik temizlenir. Her deneme bağlı okumaları invalidate
+  eder; sonuç kaybı verinin değişmediği varsayımına dönüştürülmez.
+- Doğrudan bağlı ortak hook hatası giderildi: query içeren sayfalı listeler
+  kaynak yolu üzerinden invalidate olur. Yol segmenti ve legacy/workspace
+  ayrımı korunur; detay/geçmiş bağımlılıkları aynı kurala bağlıdır.
+- PASS: 3 yeni kayıp/bozuk/yanlış sonuç React handler/SSR testi + 2 yeni yol
+  sınırı testi, TypeScript/Vite build ve diff. İlk Node isolation çıktısı yalnız
+  dosya özeti verdiğinden mevcut --test-isolation=none yöntemiyle üç assertion
+  sonucu tek tek doğrulandı. Typecheck yeni hook değişikliği sonrası tekrarlandı.
+  Eski PASS suite ve backend/PG testleri tekrarlanmadı. Bundle >500kB uyarısı var.
+- Sentetik fetch/receipt testidir, gerçek browser/HTTP/PG PASS değildir.
+  V1/V2.5/VDS/SSH/router/RADIUS/IPsec/gerçek veri/sır/migration/restart/deploy yok.
+  Kullanıcının PROGRESS değişiklikleri korundu, commit dışında bırakıldı.
+- Sonraki yerel hedef: tekil abonelik uzatma akışında kayıp yanıt sonrası aynı
+  güvenli sonuç alma ve bağlı görünüm yenilemesini tamamlamak.
+
+
+## V2.6 — tekil uzatmada kayıp yanıt sonrası güvenli sonuç alma — 2026-11-06
+
+- Başlangıç main-guncel/cfe1638. Kurallar/güncel ilerleme ve uzatma sözleşmesi
+  okundu. Günlük yönetim sonrası kaydedilmiş hedef tamamlandı; PGDATA/ADMIN
+  tanısı ve önceki günlük testleri tekrarlanmadı.
+- Önizleme UUID/abone/önceki bitiş/kaynak/revizyonu sabitler. Props yenilense de
+  aynı istek kimliğiyle farklı payload gönderilmez. Kayıp/bozuk/ID-tarih-kaynak-
+  revizyonu uyuşmayan yanıt belirsiz gösterilir; aynı istekle sonuç alınır.
+  Her deneme bağlı liste/detay/geçmişi invalidate eder. Eşleşen başarı uyarıyı
+  kaldırır ve yeniden uygulama düğmesini kapatır; backend korumaları değişmedi.
+- PASS: 6 yeni kurtarma testi + doğrudan etkilenen 1 uzatma regresyonu;
+  TypeScript/Vite build ve diff. Mevcut fixture yanıtının revision alanı gerçek
+  backend artışına uyarlandı. İlk yeni test dosyası çalışma dizini hatasıyla
+  yazılamadı; yol düzeltildikten sonra yalnız eksik altı test çalıştırıldı.
+  Sentetik fetch/receipt ve React handler/SSR; gerçek browser/HTTP/PG PASS yok.
+  Mevcut bundle >500kB uyarısı sürer. ADMIN PASS, gerçek PG/HTTP BLOCKED korunur.
+- Kullanıcının PROGRESS değişiklikleri korundu ve commit dışında tutuldu.
+  V1/V2.5/VDS/SSH/router/RADIUS/IPsec/gerçek veri/kimlik bilgisi/migration/
+  deploy/servis restartı yok. Sonraki yerel hedef: abone oluşturma/düzenlemede
+  kayıp yanıt sonrası aynı kimlikli güvenli sonuç alma davranışını tamamlamak.
+
+
+## V2.6 — abone create/edit için salt okunur UUID recovery — 2026-11-06
+
+- Başlangıç main-guncel/d0a1e03. AGENTS/güncel ilerleme ve abone/kabul
+  sözleşmeleri okundu; önceki PGDATA/ADMIN/günlük/uzatma PASS testleri tekrarlanmadı.
+- Legacy ve kalıcı sentetik editör önizlemede tam komut/hedef/UUID'yi sabitler.
+  İlk POST sonrası timeout/kayıp/bozuk/uyuşmayan yanıtta yalnız GET receipt
+  sorgusu yapılır; otomatik ikinci POST, yeni UUID veya form düzeltme yoktur.
+  Kesin POST reddi FAILED, eksik/okunamayan receipt UNKNOWN, doğrulanan sonuç
+  SUCCESS'tir. Query401/403 ilk yazmanın başarısız olduğu diye sunulmaz.
+- Workspace save mevcut audit JSON'unda aktör/hedef/komut fingerprint ve özgün
+  yanıtı aynı transaction'da saklar; sonraki editten sonra da gerçek sonuç
+  okunur. Legacy mevcut requests/events kullanır. Güncel merkezi ADMIN/aktör,
+  legacy router kapsamı ve rapor projeksiyonu korunur. GET readonly; migration
+  veya eski veri backfill yok. Genel audit'e ham receipt metadata sızmaz.
+- Liste/detay/geçmiş/router/Dashboard/rapor kaynakları her deneme sonunda
+  invalidate edilir. 15sn istemci abortu sonucu başarısız saymaz. Recovery
+  açık editör belleğine bağlıdır; sayfa/pencere kapanınca otomatik işlem yoktur.
+- PASS: 15 yeni frontend handler/SSR + 9 yeni backend (6+2+1) kontrolü,
+  TypeScript ve Vite build, diff. Backend SQLite/legacy SQL mock; gerçek
+  PostgreSQL/HTTP/browser PASS değildir. İlk generic undefined typecheck hatası
+  düzeltildi; sonraki kontrol PASS. Mevcut bundle >500kB uyarısı sürer.
+- Kullanıcının PROGRESS değişiklikleri korundu, commit dışında tutuldu.
+  ADMIN PASS; gerçek PostgreSQL/HTTP kabulü BLOCKED kalır. V1/V2.5/VDS/SSH/
+  canlı router/RADIUS/IPsec/gerçek veri/sır/migration/deploy/restart yok.
+- Sonraki yerel hedef: günlük toplu işlem ve tekil uzatmadaki sonuç alma
+  akışlarını da salt okunur UUID receipt sorgusuna geçirmek.
+
+
+## V2.6 — toplu işlem ve tekil uzatmada salt okunur GET recovery — 2026-11-06
+
+- Başlangıç main-guncel/159c50b. AGENTS/güncel ilerleme ve abone kabulü okundu.
+  İlk açık POST'tan sonra kayıp/timeout/bozuk/eşleşmeyen sonuç için aynıUUID
+  ile yalnız GET yapılır. Komut alanları sabit, otomatik ikinci POST/polling yok.
+- Toplu mevcut _management.receipt SUCCESS/FAILED/UNKNOWN olarak okunur;
+  kesin satırlar korunur, yalnız belirsiz UUID'ler en fazla5 eşzamanlı GET ile
+  sorgulanır. Bozuk/eksik/yetkisiz/abort sonucu bilinen başarıyı veya hatayı silmez.
+- Tekil uzatma özgün yanıtı aynı business/audit transaction'ında mevcut JSON'a
+  kaydeder. Sonraki editten sonra da özgün receipt okunur. GET yazma/replay/execute
+  çağırmaz; PG readonly transaction ve güncel merkezi ADMIN/aynı aktör korunur.
+  Eski receipt eksikse UNKNOWN, migration/backfill yok. Create/edit güvenliği
+  ve shared recovery hook değiştirilmedi.
+- Liste/detay/geçmiş/günlük yönetim özeti/Dashboard/router/rapor invalidation
+  aynı bağımlılık setinden yapılır. Eksik GET ilk yazmayı başarısız saydırmaz;
+  kesin istemci reddi ve kalıcı FAILED receipt ayrı gösterilir.
+- PASS: 7 yeni backend SQLite kontrolü ve 16 değişen/yeni frontend handler/helper
+  senaryosu, TypeScript/son Vite build ve diff. Eski POST-replay beklentileri GET
+  sözleşmesine uyarlandı; başarısız fixture/tarih/username/cwd/Node import araç
+  hataları düzeltildi, yalnız ilgili kapsamlar tekrarlandı. Son GET değer eşleşme
+  sağlamlaştırmasından sonra helper3 ve son build tekrarlandı. Bundle uyarısı var.
+- Gerçek PG/HTTP/browser PASS iddiası yok. ADMIN PASS, gerçek PostgreSQL/HTTP
+  kabulü BLOCKED korunur. V1/V2.5/VDS/SSH/router/RADIUS/IPsec/gerçek veri/sır/
+  deploy/migration/restart yok. Kullanıcının PROGRESS değişiklikleri korundu,
+  commit dışında tutuldu. Sonraki yerel hedef: sayfa/sekme yenilemesinde bekleyen
+  işlem UUID'sini koruyan, aktöre bağlı istemci recovery devamlılığı.
+
+
 ## V2.6 — izole yerel PostgreSQL/HTTP kabul ön kontrolü — 2026-11-06
 
 - BLOCKED; başlangıç main-guncel/78e2c1d. Bildirilen 9eca386 yerelde yok;

@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS v2_demo.alarm_actions (
  alarm_id text NOT NULL CHECK (alarm_id LIKE 'demo-alarm-%'),
  occurrence_id text NOT NULL,
  action text NOT NULL CHECK (action IN ('ACK','READ')),
- actor_id text NOT NULL CHECK (actor_id LIKE 'demo-%'),
+ actor_id text NOT NULL CHECK ((actor_id LIKE 'demo-%' OR actor_id LIKE 'v2-user-%')),
  owner text NOT NULL,
  source_snapshot jsonb NOT NULL,
  occurred_at timestamptz NOT NULL DEFAULT now(),

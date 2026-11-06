@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
+import { resourceInvalidated } from './resourceEvents';
 
 const NO_DEPENDENCIES: readonly string[] = [];
 type ResourceLoader<T> = (path: string, init?: RequestInit) => Promise<T>;
@@ -21,7 +22,7 @@ export function useResource<T>(path: string, loader: ResourceLoader<T> = api, in
   useEffect(() => {
     const changed = (event: Event) => {
       const prefixes: string[] = (event as CustomEvent<string[]>).detail;
-      if (prefixes.some(prefix => [path, ...invalidateOn].some(dependency => dependency === prefix || dependency.startsWith(`${prefix}/`)))) setAttempt(value => value + 1);
+      if (resourceInvalidated(path, prefixes, invalidateOn)) setAttempt(value => value + 1);
     };
     window.addEventListener('v2-resource-change', changed);
     return () => window.removeEventListener('v2-resource-change', changed);

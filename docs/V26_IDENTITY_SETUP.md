@@ -30,9 +30,13 @@ kullanıcı onayı gerekir. V1/V2.5/Fresh Pilot servislerine işlem yapılmaz.
 1. Onaydan sonra doğrulanmış commit'i yalnız `/tmp/mikrotik-v26-acceptance`
    kabul kopyasına alın. Kaynak `backend/` ve `migrations/`, mevcut izole venv
    kullanılmalı; çalışma dizini tam bu kök olmalıdır. Symlink kabul edilmez.
-2. Root olmayan aynı OS sahibi ile çalışın. Kök, backend, migrations ve PGDATA
-   sahibi bu UID olmalı; grup/diğer yazma kapalı olmalıdır. PGDATA yalnız bu
-   kökün altında gerçek bir dizin olabilir. API'nin açık transaction/istekleri
+2. Root olmayan kabul kopyası sahibi ile çalışın. Kök, backend ve migrations
+   bu UID'ye ait olmalı; grup/diğer yazma kapalı olmalıdır. `8cd3a48` itibarıyla
+   PGDATA yalnız `/var/lib/postgresql/16/v26`, gerçek `postgres` OS hesabı
+   sahibi ve grup/diğer erişimleri kapalı gerçek dizin olabilir. Canonical yol
+   eşitliği ve symlink reddi korunur; kabul kökü altındaki PGDATA reddedilir.
+   Metadata okunamıyorsa durun; izin/sahip değiştirerek kapıyı atlamayın.
+   API'nin açık transaction/istekleri
    varken yükseltme yapmayın; gerekli durdurma da ayrıca onay kapsamında olmalı.
 3. Mevcut izole yapılandırmayı güvenli yoldan yükleyin; shell tracing, parola
    argv'si, terminale DSN yazdırma kullanmayın. Zorunlu değerler:
@@ -74,13 +78,33 @@ veya diğer PostgreSQL instance'larına yönelerek login sağlamayın.
 
 ## Yerel doğrulama
 
-Ofis deposu terminalinde opt-in test, yalnız bu makinede geçici sentetik
-PG16 cluster oluşturur. `/tmp/mikrotik-v26-acceptance` zaten varsa dokunmadan
-reddeder; başka kabul ortamının çalıştığı makinede kullanılmaz:
+Güncel sabit VDS PGDATA kapısı için ofis deposunda ağsız hedefli test:
 
 ```bash
-PYTHONPATH=backend V2_RUN_V26_IDENTITY_TESTS=1 .venv/bin/python -m unittest backend.tests.test_v26_identity_postgres -q
+PYTHONPATH=backend .venv/bin/python -m unittest backend.tests.test_v26_cluster_guard -v
 ```
+
+`test_v26_identity_postgres` geçici fixture'ı güncel sabit VDS kapısından
+ayrıldı: yalnız test süresince `verify_cluster` yerine, bu testin yeni oluşturduğu
+`postgres-test` dizininin mutlak/canonical yolu, aynı non-root UID, özel izinleri,
+PG16 sürümü ve başlangıçta yakalanan device/inode kimliğini doğrulayan test-only
+`DisposableClusterGuard` kullanılır. Alternatif VDS yolu/UID ürün koduna eklenmez.
+DB/rol/port, profil, çalışma dizini/owner, sentetik marker, transaction ve HTTP
+assertion'ları korunur. Root `mkdir` ile exclusive oluşturulur; mevcut kabul
+ortamında test başlamaz. Patch class cleanup ile kaldırılır. Tam fixture yalnız
+ayrı izinli yerel disposable PG koşullarında çalıştırılmalıdır; VDS'de çalıştırılmaz.
+
+Yeni test-only sınırın ağsız doğrulaması:
+
+```bash
+PYTHONPATH=backend .venv/bin/python -m unittest backend.tests.test_v26_disposable_fixture -v
+```
+
+2026-11-06: altı yeni ağsız kontrol PASS (5 + son eklenen bağlantı testi1).
+Gerçek PG kümesi/HTTP açılmadı; mevcut errno=1 engeli yeniden denenmedi.
+Aşağıdaki 2026-11-04 gerçek PG PASS kaydı tarihsel commit'e aittir; güncel
+fixture ile gerçek PG/HTTP kabulü BLOCKED olarak kalır. Ağsız fixture PASS,
+VDS PGDATA kapısının veya canlı login'in kabulü değildir.
 
 Yerel 503→kurulum→200 doğrulaması VDS'nin düzeldiği anlamına gelmez.
 VDS migration ve gerçek giriş kabulü bu görevde yapılmadı.

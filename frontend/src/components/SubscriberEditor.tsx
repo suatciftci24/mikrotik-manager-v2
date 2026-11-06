@@ -1,26 +1,27 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { api, type Subscriber, type SubscriberDetailData, type DemoOptions } from '../lib/api';
+import { type Subscriber, type SubscriberDetailData, type DemoOptions } from '../lib/api';
 import { useResource } from '../lib/useResource';
-import { invalidateResources } from '../lib/resourceEvents';
 import { subscriberSource } from '../lib/source';
 import { expiryDate } from '../lib/expiry';
 import { statusText } from '../lib/subscriberHistory';
 import { useTurkeyToday } from '../lib/useTurkeyToday';
 import { Facts, ResourceState } from './Resource';
+import {useSubscriberSave,type SubscriberSaveAttempt} from '../lib/useSubscriberSave';
 
 type Mode = 'CREATE' | 'PLAN_CHANGE' | 'STATUS_CHANGE';
-type Review = {request_id:string; body:Record<string,unknown>; facts:[string,string][]};
+type Review = {attempt:SubscriberSaveAttempt<SubscriberDetailData>;facts:[string,string][]};
 export function SubscriberEditor({mode, subscriber, onClose, onSaved}: {
   mode:Mode; subscriber?:Subscriber; onClose:()=>void; onSaved:(id:string)=>void;
 }) {
   const options=useResource<DemoOptions>('/subscribers/demo-options');
   const today=useTurkeyToday();
   const dialog=useRef<HTMLDialogElement>(null);
-  const sending=useRef(false);
   const [customer,setCustomer]=useState('');const [username,setUsername]=useState('');
   const [router,setRouter]=useState('');const [source,setSource]=useState<'LOCAL'|'RADIUS'>('LOCAL');
   const [plan,setPlan]=useState('');const [status,setStatus]=useState('PAUSED');const [expires,setExpires]=useState('');
-  const [review,setReview]=useState<Review|null>(null);const [pending,setPending]=useState(false);const [error,setError]=useState('');
+  const [review,setReview]=useState<Review|null>(null);const [localError,setError]=useState('');
+  const recovery=useSubscriberSave<SubscriberDetailData>(saved=>onSaved(saved.item.id));
+  const pending=recovery.busy,error=localError||recovery.error;
   useEffect(()=>{const origin=document.activeElement as HTMLElement|null;const node=dialog.current;node?.showModal();return()=>{node?.close();if(origin?.isConnected)origin.focus({preventScroll:true});};},[]);
   useEffect(()=>{dialog.current?.querySelector<HTMLElement>(review?'h2':'form input, form select')?.focus();},[review,options.loading]);
   const title=mode==='CREATE'?'Sentetik PPPoE abonesi oluştur':mode==='PLAN_CHANGE'?'Demo paket/profil değiştir':'Demo aboneyi etkinleştir / devre dışı bırak';
@@ -45,39 +46,37 @@ export function SubscriberEditor({mode, subscriber, onClose, onSaved}: {
       facts=[['Abone',subscriber.customer_name],['Kaynak',subscriber.source??'Bilinmiyor'],['Mevcut değer',mode==='PLAN_CHANGE'?old:statusText(old)],['Yeni değer',mode==='PLAN_CHANGE'?value:statusText(value)]];
       if(mode==='PLAN_CHANGE'&&selectedPlan)facts.push(['Mevcut aylık tutar',money(subscriber.monthly_price)],['Yeni aylık tutar',money(selectedPlan.monthly_price)]);
     }
-    setReview({request_id:crypto.randomUUID(),body,facts});
+    const request=crypto.randomUUID(),target=mode==='CREATE'?'demo-sub-'+request:subscriber!.id;
+    const revision=mode==='CREATE'?1:subscriber!.revision+1;
+    const path=mode==='CREATE'?'/subscribers/demo-create':`/subscribers/${encodeURIComponent(subscriber!.id)}/demo-management`;
+    setReview({facts,attempt:{requestId:request,path,resultPath:'/subscribers/demo-requests/'+request,header:'subscriber-management',body:JSON.stringify({...body,request_id:request,confirmed:true}),matches:result=>{
+      if(!result||result.persistence!=='local-postgresql-demo'||result.is_demo!==true||result.item?.id!==target||result.item.revision!==revision)return false;
+      if(mode==='CREATE')return Object.entries(body).every(([key,value])=>(result.item as unknown as Record<string,unknown>)[key]===value);
+      return result.item.source===body.expected_source&&(result.item as unknown as Record<string,unknown>)[mode==='PLAN_CHANGE'?'plan':'status']===body.value;
+    }}});
   };
-  const save=async()=>{
-    if(!review||sending.current)return;
-    sending.current=true;setPending(true);setError('');
-    try{
-      const path=mode==='CREATE'?'/subscribers/demo-create':`/subscribers/${encodeURIComponent(subscriber!.id)}/demo-management`;
-      const result=await api<SubscriberDetailData>(path,{method:'POST',headers:{'X-V2-Demo-Action':'subscriber-management'},body:JSON.stringify({...review.body,request_id:review.request_id,confirmed:true})});
-      if(result.persistence!=='local-postgresql-demo'||result.is_demo!==true)throw new Error('Kalıcı sentetik kayıt doğrulanamadı. Güncel kaydı kontrol edin.');
-      onSaved(result.item.id);
-    }catch(failure){setError(failure instanceof Error?failure.message:'Demo işlemi tamamlanamadı.');}
-    finally{sending.current=false;setPending(false);}
-  };
+  const save=async()=>{if(review)await recovery.send(review.attempt);};
   const data=options.data;
   const optionError=options.error || (data&&(data.persistence!=='local-postgresql-demo'||data.is_demo!==true)?'Kalıcı sentetik demo seçenekleri doğrulanamadı; işlem kapalı.':undefined);
-  return <dialog ref={dialog} className="expiry-dialog" aria-busy={pending} aria-labelledby="subscriber-editor-title" onCancel={e=>{e.preventDefault();if(!sending.current)onClose();}}>
+  return <dialog ref={dialog} className="expiry-dialog" aria-busy={pending} aria-labelledby="subscriber-editor-title" onCancel={e=>{e.preventDefault();if(!pending)onClose();}}>
     <h2 id="subscriber-editor-title" tabIndex={-1}>{review?'Demo işlemini onaylayın':title}</h2>
     <p><strong>SENTETİK DEMO.</strong> Yalnız izole yerel V2 PostgreSQL kaydı ve işlem geçmişi değişir. Router/RADIUS üzerinde kullanıcı, parola, profil veya oturum işlemi yapılmaz.</p>
     <ResourceState {...options} error={optionError}/>
-    {data&&!options.loading&&!options.error&&data.persistence==='local-postgresql-demo'&&data.is_demo===true&&(review?<>
+    {(review||data&&!options.loading&&!options.error&&data.persistence==='local-postgresql-demo'&&data.is_demo===true)&&(review?<>
       <Facts items={review.facts}/><p>Onaydan sonra kayıt ve geçmiş birlikte kaydedilir.</p>
-      {error&&<p className="form-error" role="alert">{error} Yanıt alınamadıysa aynı onayı tekrar gönderebilirsiniz; aynı işlem ikinci kez uygulanmaz.</p>}
-      {error&&<button className="button-secondary" disabled={pending} onClick={()=>{onClose();invalidateResources(['/subscribers','/routers']);}}>Güncel kayıtları yeniden yükle</button>}
-      <div className="expiry-editor-actions"><button className="button-secondary" disabled={pending} onClick={()=>{setReview(null);setError('');}}>Düzelt</button><button className="button-primary" disabled={pending} onClick={save}>{pending?'Kaydediliyor…':'Onayla ve demo kaydını kaydet'}</button></div>
+      {error&&<p className="form-error" role="alert">{error}</p>}
+      {recovery.uncertain&&<p role="alert">Sonuç belirsiz; işlem uygulanmış olabilir. Aynı UUID ile kayıtlı sonucu sorgulayın. Yeni oluşturma veya düzenleme gönderilmeyecek.</p>}
+      {recovery.failed&&<p role="alert">İşlem reddedildi; formu düzelterek yeni önizleme oluşturabilirsiniz.</p>}
+      <div className="expiry-editor-actions"><button className="button-secondary" disabled={pending||recovery.locked} onClick={()=>{setReview(null);setError('');recovery.reset();}}>Düzelt</button><button className="button-primary" disabled={pending||recovery.state==='SUCCESS'} onClick={save}>{pending?'İşlem sonucu bekleniyor…':recovery.uncertain?'Aynı UUID ile sonucu sorgula':'Onayla ve demo kaydını kaydet'}</button></div>
     </>:<form onSubmit={prepare}>
       {mode==='CREATE'&&<>
         <label className="form-label">Abone adı<input autoFocus required minLength={2} maxLength={160} value={customer} onChange={e=>setCustomer(e.target.value)}/></label>
         <label className="form-label">PPPoE kullanıcı adı<input required maxLength={96} pattern="[A-Za-z0-9][A-Za-z0-9._@\-]*" value={username} onChange={e=>setUsername(e.target.value)}/></label>
         <p>Kullanıcı adları büyük/küçük harf ayrımı olmadan denetlenir. Aynı router'da tüm kaynaklar; RADIUS için ayrıca ortak RADIUS kapsamı kontrol edilir.</p>
         <label className="form-label">Yetkili kaynak<select value={source} onChange={e=>setSource(e.target.value as 'LOCAL'|'RADIUS')}><option value="LOCAL">LOCAL</option><option value="RADIUS">RADIUS</option></select></label>
-        <label className="form-label">Demo router<select required value={router} onChange={e=>setRouter(e.target.value)}><option value="">Router seçin</option>{data.routers.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
+        <label className="form-label">Demo router<select required value={router} onChange={e=>setRouter(e.target.value)}><option value="">Router seçin</option>{data!.routers.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
       </>}
-      {mode!=='STATUS_CHANGE'&&<label className="form-label">Yeni demo paket/profil<select required value={plan} onChange={e=>setPlan(e.target.value)}><option value="">Paket seçin</option>{data.plans.map(p=><option key={p.name} value={p.name}>{p.name} · {p.monthly_price.toLocaleString('tr-TR')} TL/ay</option>)}</select></label>}
+      {mode!=='STATUS_CHANGE'&&<label className="form-label">Yeni demo paket/profil<select required value={plan} onChange={e=>setPlan(e.target.value)}><option value="">Paket seçin</option>{data!.plans.map(p=><option key={p.name} value={p.name}>{p.name} · {p.monthly_price.toLocaleString('tr-TR')} TL/ay</option>)}</select></label>}
       {mode!=='PLAN_CHANGE'&&<label className="form-label">Yeni durum<select value={status} onChange={e=>setStatus(e.target.value)}><option value="ACTIVE">Etkin</option><option value="PAUSED">Devre dışı (duraklatıldı)</option></select></label>}
       {mode==='CREATE'&&<label className="form-label">Bitiş tarihi (isteğe bağlı, Türkiye)<input type="date" min={today} value={expires} onChange={e=>setExpires(e.target.value)}/></label>}
       {subscriber&&<p>Mevcut paket/profil: <strong>{subscriber.plan}</strong> · Mevcut durum: <strong>{statusText(subscriber.status)}</strong></p>}

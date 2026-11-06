@@ -27,3 +27,23 @@ Sonuç: **BLOCKED**, kurulum veya HTTP503 çözümü doğrulanmadı.
 - Sonraki gereken adım: gerçek izole PGDATA düzenini destekleyen dar kurulum
   tasarımının ayrıca talimatlandırılması ve doğrulanması. Mevcut korumayı
   atlayarak manuel SQL uygulamak veya cluster taşımak bu göreve eklenmedi.
+
+
+## Kaynak-kayıt uzlaştırması — 2026-11-06
+
+Yukarıdaki kayıt 2026-11-04 VDS gözlemidir; yeni VDS gözlemi değildir.
+`8cd3a48` yerel kaynakta eski aynı-UID/kabul-kökü şartını, yalnız tam
+`/var/lib/postgresql/16/v26` + postgres sahibi + özel izin + canonical yol
+şartıyla değiştirmiştir. Başlangıç `9a7c47f` bu değişikliği içerir.
+Bu nedenle PGDATA yol desteği kaynakta eksik değildir. VDS PGDATA OS sahibi
+ve izinleri eski raporda kanıtlanmamıştır; yalnız yolun eşleşmesi yeterli değildir.
+Kabul kopyasının backend/migrations 0775 olması ayrı owner kapısına aykırıdır.
+
+Kimlik tablolarının yokluğu login 503 için kayıtlı nedendir; health200 bu
+kurulumu ölçmez. Son gözlemde API18996 dinlemiyor ve yeni kurulum modülleri
+kabul kopyasında yoktu. Bu üç bulgu ayrı tutulmalıdır; güncel VDS HTTP
+sonucu veya yeni bir SQL hatası elde edilmedi. Kaynağın düzelmesi VDS kurulumu
+veya 503 çözümü değildir. Kapılar gevşetilmedi; VDS'ye bağlantı kurulmadı.
+
+Güncel pilot ön koşulları ve tek sonraki adım:
+[V26_PILOT_READINESS.md](V26_PILOT_READINESS.md).

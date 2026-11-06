@@ -1,4 +1,5 @@
 """Synthetic workspace persistence and read-only legacy projection, no provisioning IO."""
+import hashlib,json
 from datetime import datetime,timezone,date,timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy import select,func,or_
@@ -49,10 +50,15 @@ class SubscriberWorkspace:
     @boundary
     def save(self,command,actor,id=None):
         values=command.fields.model_dump(mode='json');target=id or 'demo-managed-sub-'+str(command.request_id)
+        fingerprint=hashlib.sha256(json.dumps([actor,id,command.model_dump(mode='json')],sort_keys=True,separators=(',',':')).encode()).hexdigest()
         with self.sessions.begin() as session:
             self.check(session);router=self.parent(session,values['router_id']);row=session.get(Account,target,with_for_update=True)
             prior=session.get(Event,str(command.request_id))
             if prior:
+                saved=prior.changes.get('_save')
+                if saved:
+                    if prior.actor_id!=actor or prior.subscriber_id!=target or saved.get('fingerprint')!=fingerprint:raise WorkspaceError(409,'İstek kimliği başka bir işleme ait.')
+                    return CenterSubscriber.model_validate(saved['response'])
                 if prior.subscriber_id==target and prior.actor_id==actor and row and row.fields==values and row.revision==prior.revision:return account_view(row,router)
                 raise WorkspaceError(409,'İstek kimliği başka bir işleme veya eski revizyona ait.')
             if id and not row:raise WorkspaceError(404,'Sentetik abone bulunamadı.')
@@ -66,8 +72,26 @@ class SubscriberWorkspace:
             before=row.fields if row else {}
             if not row:row=Account(id=target,router_id=values['router_id'],username_key=values['username'].casefold(),access_type=values['access_type'],source=values['source'],revision=0);session.add(row)
             row.fields=values;row.revision+=1
+            response=account_view(row,router)
             self.audit(session,row,actor,before,str(command.request_id))
-            return account_view(row,router)
+            session.flush()
+            audit=session.get(Event,str(command.request_id))
+            audit.changes={**audit.changes,'_save':{'fingerprint':fingerprint,'response':response.model_dump(mode='json')}}
+            return response
+    @boundary
+    def save_result(self,request_id,actor):
+        # Read-only receipt; missing/foreign/older receipts do not prove failure.
+        with self.sessions() as session:
+            if session.bind.dialect.name=='postgresql':
+                session.connection(execution_options={'isolation_level':'REPEATABLE READ','postgresql_readonly':True})
+            self.check(session)
+            prior=session.get(Event,str(request_id))
+            result={'request_id':str(request_id),'status':'UNKNOWN','response':None}
+            if not prior or prior.actor_id!=actor or prior.operation not in ('CREATE','UPDATE'):return result
+            saved=prior.changes.get('_save')
+            if not saved:return result
+            return {**result,'status':'SUCCESS','response':CenterSubscriber.model_validate(saved['response'])}
+
     @boundary
     def renew(self,id,command,actor):
         with self.sessions.begin() as session:
@@ -79,6 +103,10 @@ class SubscriberWorkspace:
             old=command.expected_expires_on.isoformat() if command.expected_expires_on else None
             new=command.expires_on.isoformat()
             if prior:
+                cached=prior.changes.get('_renewal_response')
+                if cached:
+                    if prior.subscriber_id!=id or prior.actor_id!=actor or prior.operation!='RENEWAL' or prior.changes.get('expires_on')!={'previous':old,'new':new} or prior.changes.get('_renewal')!={'days':command.days,'expected_source':command.expected_source,'expected_revision':command.expected_revision}:raise WorkspaceError(409,'Uzatma isteği farklı bir işleme ait.')
+                    return CenterSubscriber.model_validate(cached)
                 if prior.subscriber_id==id and prior.actor_id==actor and prior.operation=='RENEWAL' and prior.revision==row.revision and prior.changes.get('expires_on')=={'previous':old,'new':new} and prior.changes.get('_renewal')=={'days':command.days,'expected_source':command.expected_source,'expected_revision':command.expected_revision} and row.fields['expires_on']==new:return account_view(row,router)
                 raise WorkspaceError(409,'Uzatma isteği başka işleme veya eski revizyona ait.')
             if row.revision!=command.expected_revision or row.source!=command.expected_source or row.fields.get('source')!=row.source or row.fields.get('router_id')!=row.router_id or row.fields['expires_on']!=old:raise WorkspaceError(409,'Abone veya bitiş tarihi değişti. Güncel kaydı yeniden inceleyin.')
@@ -90,8 +118,24 @@ class SubscriberWorkspace:
                 if target!=command.expires_on:raise WorkspaceError(409,'Uzatma önizlemesi değişti; yeniden inceleyin.')
             if command.expires_on<today or (old is not None and new<=old):raise WorkspaceError(422,'Uzatma tarihi Türkiye bugününden önce olamaz ve mevcut bitişten ileri olmalı.')
             before=row.fields;row.fields={**row.fields,'expires_on':new};row.revision+=1
+            response=account_view(row,router)
             self.audit(session,row,actor,before,str(command.request_id),'RENEWAL',{'days':command.days,'expected_source':command.expected_source,'expected_revision':command.expected_revision})
-            return account_view(row,router)
+            session.flush()
+            audit=session.get(Event,str(command.request_id))
+            audit.changes={**audit.changes,'_renewal_response':response.model_dump(mode='json')}
+            return response
+    @boundary
+    def renewal_result(self,request_id,actor):
+        with self.sessions() as session:
+            if session.bind.dialect.name=='postgresql':
+                session.connection(execution_options={'isolation_level':'REPEATABLE READ','postgresql_readonly':True})
+            self.check(session)
+            result={'request_id':str(request_id),'status':'UNKNOWN','response':None}
+            prior=session.get(Event,str(request_id))
+            if not prior or prior.actor_id!=actor or prior.operation!='RENEWAL':return result
+            cached=prior.changes.get('_renewal_response')
+            if not cached:return result
+            return {**result,'status':'SUCCESS','response':CenterSubscriber.model_validate(cached)}
     @staticmethod
     def audit(session,row,actor,before,request_id,operation=None,renewal=None):
         changes={key:{'previous':before.get(key),'new':value} for key,value in row.fields.items() if before.get(key)!=value}

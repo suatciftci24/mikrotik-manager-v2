@@ -53,3 +53,9 @@ class OperationHistory(BaseModel):
     page:int
     page_size:int
     is_demo:Literal[True]=True
+
+
+class OperationRequestResult(BaseModel):
+    request_id:UUID
+    status:Literal['SUCCESS','FAILED','UNKNOWN']
+    response:OperationReceipt|None=None

@@ -1,5 +1,8 @@
 import {preferredPath} from './presentation.ts';
 const API = '/api/v1';
+export class ApiError extends Error {
+  constructor(message:string,public readonly status:number){super(message);this.name='ApiError';}
+}
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API}${preferredPath(path)}`, {
@@ -12,7 +15,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     const body = await response.json().catch(() => ({}));
     if(response.status===404&&(path.startsWith('/subscriber-center/')||path.startsWith('/subscriber-workspace'))&&body.detail==='Not Found')throw new Error('Abone modülü çalışan backend sürümünde bulunamadı. Yerel V2 servislerini yenileyin; kayıtlar korunur.');
     if(response.status===404&&path.startsWith('/router-workspace/')&&body.detail==='Not Found')throw new Error('Sentetik router API modülü çalışan backend sürümünde bulunamadı. Bu projenin yerel V2 servislerini yenileyin; mevcut kayıtlar silinmez.');
-    throw new Error(typeof body.detail === 'string' ? body.detail : `API yanıtı: ${response.status}`);
+    throw new ApiError(typeof body.detail === 'string' ? body.detail : `API yanıtı: ${response.status}`,response.status);
   }
   return response.json() as Promise<T>;
 }

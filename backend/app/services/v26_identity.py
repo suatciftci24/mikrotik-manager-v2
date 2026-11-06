@@ -1,11 +1,12 @@
 """Explicit isolated acceptance setup; never called by HTTP or app startup."""
 import os
+import pwd
 from pathlib import Path
 
 from sqlalchemy import text
 
 from app.core import v26_acceptance
-from app.services.first_admin import FirstAdminStore, require
+from app.services.first_admin import FirstAdminStore, SetupBlocked, require
 
 
 def owner(root=v26_acceptance.ROOT):
@@ -27,15 +28,18 @@ class V26FirstAdminStore(FirstAdminStore):
         super().__init__(engine, schema='v26_acceptance')
 
     def _check(self, connection):
-        uid = owner()
+        owner()
         row = connection.execute(text('SELECT current_database(), current_user, inet_server_port()')).one()
         require(tuple(row) == ('mikrotik_v26_acceptance', 'v26_acceptance', 55433),
                 'V26_DATABASE_REJECTED')
-        directory = Path(connection.execute(text('SHOW data_directory')).scalar_one())
-        root = v26_acceptance.ROOT
-        # Explicitly authorized isolated PostgreSQL 16 cluster.
-        # Never accept arbitrary PGDATA or a symlink.
-        import pwd
+        verify_cluster(connection.execute(text('SHOW data_directory')).scalar_one())
+        self.store._verify(connection)
+
+
+def verify_cluster(value):
+    """Fixed VDS cluster only; metadata failures expose no filesystem details."""
+    try:
+        directory = Path(value)
         expected = Path('/var/lib/postgresql/16/v26')
         require(directory == expected and directory.is_absolute()
                 and directory == directory.resolve(), 'V26_CLUSTER_REJECTED')
@@ -44,4 +48,5 @@ class V26FirstAdminStore(FirstAdminStore):
         require(directory.is_dir() and not directory.is_symlink()
                 and info.st_uid == postgres_uid
                 and not info.st_mode & 0o077, 'V26_CLUSTER_REJECTED')
-        self.store._verify(connection)
+    except (OSError, KeyError, RuntimeError):
+        raise SetupBlocked('V26_CLUSTER_METADATA_UNAVAILABLE') from None

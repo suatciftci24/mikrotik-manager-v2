@@ -17,6 +17,7 @@ from app.services import demo_subscriptions, identity
 from app.services.first_admin import FirstAdminInput, SetupBlocked
 from app.services.identity_setup import inspect_setup
 from app.services.v26_identity import V26FirstAdminStore
+from backend.tests.v26_disposable_cluster import DisposableClusterGuard
 
 SOURCE = Path(__file__).resolve().parents[2]
 
@@ -41,6 +42,13 @@ class V26IdentityPostgres(unittest.TestCase):
                         '--auth-local=trust', '--auth-host=scram-sha-256', '--pwfile='+str(pwfile)],
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         pwfile.unlink()
+        # Capture the identity of THIS newly initialized, private PG16 directory.
+        # Only the OS-specific PGDATA check is substituted; target DB/role/port,
+        # profile, cwd/owner, marker and every transaction/HTTP assertion remain.
+        cluster_guard = DisposableClusterGuard(cls.root)
+        guard_patch = patch('app.services.v26_identity.verify_cluster', side_effect=cluster_guard)
+        guard_patch.start()
+        cls.addClassCleanup(guard_patch.stop)
         subprocess.run([str(cls.pg / 'pg_ctl'), '-D', str(cls.data), '-l', str(cls.root / 'postgres.log'),
                         '-o', '-h 127.0.0.1 -p 55433 -k '+str(cls.root / 'socket'), '-w', 'start'],
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

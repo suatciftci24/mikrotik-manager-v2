@@ -67,6 +67,26 @@ def change_demo_subscriber(item_id: str, payload: SubscriberChange, user: dict =
         raise HTTPException(status_code=error.status_code, detail=error.detail) from error
 
 
+from uuid import UUID
+from pydantic import BaseModel
+from typing import Literal
+class DemoSaveResult(BaseModel):
+    request_id:UUID
+    status:Literal['SUCCESS','UNKNOWN']
+    response:SubscriberDetail|None=None
+
+@router.get('/demo-requests/{request_id}',response_model=DemoSaveResult)
+def saved_request(request_id:UUID,user:dict=Depends(current_demo_user)):
+    from app.core.security import current_demo_account_mutator
+    from app.core.authorization import allowed
+    current_demo_account_mutator(user,'subscriber-management')
+    require_feature(user,'can_manage_pppoe')
+    require_persistent_store()
+    result=demo_subscriptions.store.subscriber_save_result(request_id,user['id'],allowed(user,'can_manage_pppoe'))
+    if result['status']=='SUCCESS':result={**result,'response':public_detail(result['response'],user)}
+    return result
+
+
 @router.get('/{item_id}', response_model=SubscriberDetail)
 def get_subscriber(item_id: str, _user: dict = Depends(current_demo_user)):
     return public_detail(subscriber_for(_user,item_id),_user)

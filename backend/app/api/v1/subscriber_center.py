@@ -59,3 +59,23 @@ def pppoe_observations(router_id: str, account_id: str, source: Literal['LOCAL',
     data = router_detail(router_id, user)
     if data.item.status=='PENDING_VERIFICATION':binding=None
     return snapshot(router_id, is_demo=data.is_demo, binding=binding, source=source, account_id=account_id)
+
+
+from uuid import UUID
+from app.schemas.subscriber_center import SubscriberSaveResult
+@router.get('/subscriber-workspace/requests/{request_id}',response_model=SubscriberSaveResult)
+def saved_request(request_id:UUID,user:dict=Depends(current_admin)):
+    current_admin(user)
+    return execute(workspace.save_result,request_id,user['id'])
+
+
+from app.schemas.subscriber_management_center import OperationRequestResult
+@router.get('/subscriber-workspace/management/requests/{request_id}',response_model=OperationRequestResult)
+def operation_result(request_id:UUID,user:dict=Depends(current_admin)):
+    current_admin(user)
+    return execute(operations.request_result,request_id,user['id'])
+
+@router.get('/subscriber-workspace/renewals/requests/{request_id}',response_model=SubscriberSaveResult)
+def renewal_result(request_id:UUID,user:dict=Depends(current_admin)):
+    current_admin(user)
+    return execute(workspace.renewal_result,request_id,user['id'])
