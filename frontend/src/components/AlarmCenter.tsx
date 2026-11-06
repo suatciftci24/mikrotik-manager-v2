@@ -21,14 +21,14 @@ export function AlarmCenter({notifications=false,compact=false}:{notifications?:
  const data=resource.data,error=resource.error||(data&&data.is_demo!==true?'Sentetik kaynak doğrulanamadı.':undefined);
  return <section className="panel alarm-center" aria-label={notifications?'Panel içi alarm bildirimleri':compact?'Dashboard alarm özeti':'Merkezi Alarm Yönetimi'}>
   <div className="panel-title"><h2>{notifications?'Alarm bildirimleri':compact?'Merkezi alarm özeti':'Merkezi Alarm Yönetimi'}</h2><span className="demo-chip">SENTETİK</span></div>
-  <p>ACK yalnız operatör onayıdır; arızayı çözmez. Okundu bilgisi kişiye özeldir ve ACK’ten ayrıdır. Harici bildirim gönderilmez.</p>
+  <p>ACK arızayı çözmez. Okundu kişiseldir ve ACK’ten bağımsızdır. Harici bildirim gönderilmez.</p>
   <button className="button-secondary" disabled={resource.loading} onClick={resource.retry}>Alarmları yenile</button>
   {notifications&&<PersonalPreferences/>}
   {notifications&&!presentation.notifications_enabled&&<p role="status">Bildirim listesi kişisel/sistem tercihiyle gizli. Alarm Merkezi ve ACK durumu değişmedi.</p>}
   <ResourceState {...resource} error={error}/>
   {data&&!resource.loading&&!error&&(!notifications||presentation.notifications_enabled)&&<>
-   <p>Genel açık kritik (P1/P2, ACK ve iyileşen dahil): <strong>{data.summary.critical}</strong> · Aktif: {data.summary.active} · Okunmamış: {data.summary.unread}</p>
-   <p>Kaynak okuması: {dateTime(data.generated_at)}. {data.coverage.note}</p>
+   <p className="alarm-summary"><strong>Açık kritik (P1/P2): {data.summary.critical}</strong> · <strong>Aktif: {data.summary.active}</strong> · <strong>Okunmamış: {data.summary.unread}</strong></p>
+   <p>Kaynak zamanı: {dateTime(data.generated_at)} · {data.coverage.note}</p>
    {!data.coverage.connection_available&&<p className="missing-data">Veri yok: internet/WAN olay kaynağı bağlı değil.</p>}{!data.coverage.ipsec_available&&<p className="missing-data">IPsec gözlemi: Veri yok / bilinmiyor; alarm uydurulmaz.</p>}
    {!data.storage_ready&&<p role="status">Alarm onay/okundu deposu hazır değil; yalnız kaynak okunur. Açık yerel alarms-init bakımı gerekir.</p>}
    {!compact&&!notifications&&<div className="router-report-controls">
@@ -39,9 +39,9 @@ export function AlarmCenter({notifications=false,compact=false}:{notifications?:
     <label>Başlangıç<input type="date" aria-label="Alarm başlangıç tarihi" value={filter.start} onChange={e=>change({start:e.target.value})}/></label><label>Bitiş<input type="date" aria-label="Alarm bitiş tarihi" value={filter.end} onChange={e=>change({end:e.target.value})}/></label>
     <button className="button-secondary" onClick={()=>change(alarmFilter(''))}>Alarm filtrelerini temizle</button>
    </div>}
-   {!compact&&!notifications&&<p>Tarih filtresi son kaynak zamanına uygulanır. PPPoE bitiş gününden kesin ilk/son alarm saati türetilmez; zamanı olmayan kayıtlar tarih filtresinde gösterilmez.</p>}
+   {!compact&&!notifications&&<p>Tarih filtresi son kaynak zamanını esas alır. Zamanı olmayan kayıtlar tarih filtresinde gösterilmez; PPPoE bitiş tarihi kesin alarm saati değildir.</p>}
    {data.items.length?<div className="table-scroll" role="region" tabIndex={0} aria-label="Merkezi alarm tablosu"><table className="data-table"><thead><tr><th>ÖNEM / OLAY</th><th>ROUTER</th><th>DURUM / BİLDİRİM</th><th>İLK / SON KAYNAK ZAMANI</th><th>TEKRAR</th></tr></thead><tbody>{data.items.slice(0,compact||notifications?5:data.page_size).map(alarm=><tr key={alarm.id}><td>{compact||notifications?<a className="record-link" href={alarmHash({...alarmFilter(''),router_id:alarm.router_id},alarm.id)}>{alarm.severity} · {alarmKinds[alarm.kind]}</a>:<button className="record-link" onClick={()=>selectAlarm(alarm.id)} aria-label={`${alarm.title} · ${alarm.id} detayını aç`}>{alarm.severity} · {alarmKinds[alarm.kind]}</button>}</td><td><a href={'#'+new URLSearchParams({module:'routers',id:alarm.router_id})}>{data.routers.find(r=>r.id===alarm.router_id)?.name??alarm.router_id}</a></td><td>{alarm.source_available===false?'Son bilinen: ':''}{alarmStates[alarm.state]} · {alarm.notification_read?'Okundu':'Okunmadı'}</td><td>{dateTime(alarm.first_seen)} / {dateTime(alarm.last_seen)}</td><td>{alarm.repeat_count}</td></tr>)}</tbody></table></div>:<p className="table-empty">Bu kapsamda kaynak alarmı yok. Eksik veri sağlıklı sistem kanıtı değildir.</p>}
-   <div className="daily-links"><a className="button-secondary" href="#module=operations">Alarm Merkezi’ni aç</a>{!compact&&!notifications&&<><span>{data.total} alarm · Sayfa {filter.page}</span><button className="button-secondary" disabled={filter.page===1} onClick={()=>change({page:filter.page-1})}>Önceki alarm sayfası</button><button className="button-secondary" disabled={filter.page*data.page_size>=data.total} onClick={()=>change({page:filter.page+1})}>Sonraki alarm sayfası</button></>}</div>
+   <div className="daily-links">{(compact||notifications)&&<a className="button-secondary" href="#module=operations">Alarm Merkezi’ni aç</a>}{!compact&&!notifications&&<><span>{data.total} alarm · Sayfa {filter.page}</span><button className="button-secondary" disabled={filter.page===1} onClick={()=>change({page:filter.page-1})}>Önceki alarm sayfası</button><button className="button-secondary" disabled={filter.page*data.page_size>=data.total} onClick={()=>change({page:filter.page+1})}>Sonraki alarm sayfası</button></>}</div>
   </>}
   {notifications&&!presentation.notifications_enabled&&<a href="#module=operations">Alarm Merkezi’ni aç</a>}
   {selected&&!compact&&!notifications&&!error&&<AlarmDialog id={selected} canAck={data?.can_ack===true} storage={data?.storage_ready===true} onClose={()=>selectAlarm(null)}/>}
