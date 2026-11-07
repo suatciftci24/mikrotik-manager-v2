@@ -73,8 +73,9 @@ class Test001Workspace(TestCase):
 
     def test_four_actions_api_database_detail_audit_and_replay(self):
         self.prepare()
-        for operation,value,extra in [('EXTEND','2027-03-03',{'days':30}),('PLAN','Demo 500',{}),
-                                      ('STATUS','PAUSED',{}),('STATUS','ACTIVE',{})]:
+        for operation,value,extra in getattr(self, 'acceptance_actions', [
+                ('EXTEND','2027-03-03',{'days':30}),('PLAN','Demo 500',{}),
+                ('STATUS','PAUSED',{}),('STATUS','ACTIVE',{})]):
             with self.subTest(operation=operation,value=value):
                 before=self.snapshot();old=self.workspace.detail(self.item['id']).item
                 command=self.payload(operation,value,**extra)

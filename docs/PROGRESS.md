@@ -4219,3 +4219,22 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   commit dışında. SSH/VDS/deploy/restart/V1/V2.5/router/RADIUS/IPsec yok.
 - Sonraki tek işlem tamamen disposable yerel PG/HTTP ortamında aynı tek-abone
   senaryosunun kalıcılık/detay/audit kabulü; VDS DB kullanılmayacak.
+
+## V2.6 — Ev WSL disposable PostgreSQL + HTTP betiği — 2026-11-07
+
+- Esas main-guncel/f45f09a; AGENTS/son kabul/engeller okundu. Yeni tek komut:
+  `bash ./accept-v26-test001-http.sh` (Ev WSL, bu repo kökünde).
+- PostgreSQL16 server araçları pg_config/PATH/standart WSL dizinlerinden bulunur;
+  mevcut güvenli kabul profili nedeniyle 55433/18996 kullanılır. Dolu port,
+  mevcut geçici kök veya eksik araçta bağlantı kurmadan BLOCKED.
+- Mevcut disposable fixture ve gerçek login/HTTP kullanılır; tek v26-test-001
+  için dinamik +30 gün, paket, pasif/aktif, yeni DB bağlantısında kalıcılık,
+  API/detay/DB/audit/replay ve onay/validation/VIEWER/stale/audit rollback.
+  Yetki override veya guard gevşetmesi yok; yalnız test altyapısı değişti.
+- Başlangıçta inherited V2/PG hedefleri temizlenir; private yeni küme ve
+  sentetik kimlikler kullanılır. SIGINT/SIGTERM temizliğe yönlendirilir.
+  Kendi PG stop hatasında çalışan PGDATA silinmez; BLOCKED ve korunan yol verilir.
+- PASS yalnız statik Bash/Python AST/diff kontrolleridir. PG/HTTP bu ortamda
+  çalıştırılmadı; runtime kabul Ev WSL komutunun sonucunu bekler.
+- VDS/V1/V2.5/mevcut DB/servis/router/RADIUS/IPsec/stash@{0} korunur;
+  deploy veya canlı restart yok. GitHub push en fazla bir kez denenir.

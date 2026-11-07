@@ -24,6 +24,12 @@ SOURCE = Path(__file__).resolve().parents[2]
 @unittest.skipUnless(os.environ.get('V2_RUN_V26_IDENTITY_TESTS') == '1', 'Explicit disposable cluster opt-in required')
 class V26IdentityPostgres(unittest.TestCase):
     @classmethod
+    def remove_stopped_root(cls):
+        if (cls.root / 'postgres-test' / 'postmaster.pid').exists():
+            raise RuntimeError('OWN_CLUSTER_STILL_RUNNING_ROOT_PRESERVED')
+        shutil.rmtree(cls.root)
+
+    @classmethod
     def make_client(cls, app):
         from fastapi.testclient import TestClient
         return TestClient(app)
@@ -33,10 +39,10 @@ class V26IdentityPostgres(unittest.TestCase):
         cls.root = v26_acceptance.ROOT
         # Refuse any pre-existing acceptance environment, including symlinks.
         cls.root.mkdir(mode=0o700)
-        cls.addClassCleanup(shutil.rmtree, cls.root)
+        cls.addClassCleanup(cls.remove_stopped_root)
         for name in ('backend', 'migrations', 'socket'):
             (cls.root / name).mkdir(mode=0o700)
-        cls.pg = Path('/usr/lib/postgresql/16/bin')
+        cls.pg = getattr(cls, 'pg', Path('/usr/lib/postgresql/16/bin'))
         cls.data = cls.root / 'postgres-test'
         cls.password = secrets.token_urlsafe(32)  # Synthetic and ephemeral; never printed.
         pwfile = cls.root / 'test-password'
@@ -53,11 +59,14 @@ class V26IdentityPostgres(unittest.TestCase):
         guard_patch = patch('app.services.v26_identity.verify_cluster', side_effect=cluster_guard)
         guard_patch.start()
         cls.addClassCleanup(guard_patch.stop)
+        def stop_own_cluster():
+            if (cls.data / 'postmaster.pid').exists():
+                subprocess.run([str(cls.pg / 'pg_ctl'), '-D', str(cls.data), '-m', 'fast', '-w', 'stop'],
+                               check=True, timeout=40, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        cls.addClassCleanup(stop_own_cluster)
         subprocess.run([str(cls.pg / 'pg_ctl'), '-D', str(cls.data), '-l', str(cls.root / 'postgres.log'),
                         '-o', '-h 127.0.0.1 -p 55433 -k '+str(cls.root / 'socket'), '-w', 'start'],
-                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        cls.addClassCleanup(subprocess.run, [str(cls.pg / 'pg_ctl'), '-D', str(cls.data), '-m', 'fast', '-w', 'stop'],
-                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                       check=True, timeout=40, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run([str(cls.pg / 'createdb'), '-h', str(cls.root / 'socket'), '-p', '55433',
                         '-U', 'v26_acceptance', 'mikrotik_v26_acceptance'], check=True,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
