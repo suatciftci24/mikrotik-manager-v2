@@ -7,6 +7,12 @@ import { OperationDetails } from './OperationDetails';
 
 export function RecentOperations({data,onSubscriber}:{data:DailySummary;onSubscriber:(id:string)=>void}) {
   const [now,setNow]=useState(()=>new Date());
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.hash.slice(1));
+    if(params.get('section')==='recent-operations'){
+      document.getElementById('recent-operations')?.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+  },[]);
   const [selected,setSelected]=useState<string|null>(null);
   useEffect(()=>{
     const tick=()=>setNow(new Date());
@@ -17,7 +23,7 @@ export function RecentOperations({data,onSubscriber}:{data:DailySummary;onSubscr
   const windowData=useMemo(()=>buildOperationWindow(data.operation_history,now),[data.operation_history,now]);
   // Look up the current saved event, even if it ages out of the rolling window while open.
   const event=selected?data.operation_history.find(item=>item.id===selected):undefined;
-  return <section className="panel recent-operations" aria-labelledby="recent-operations-title">
+  return <section id="recent-operations" className="panel recent-operations" aria-labelledby="recent-operations-title">
     <div className="panel-title"><h2 id="recent-operations-title">Son 24 saat PPPoE demo yönetim işlemleri</h2><span className="demo-chip">SENTETİK</span></div>
     <p className="daily-description">Yalnız transaction ile kaydedilmiş başarılı işlemler listelenir; başarısız denemeler için audit kaynağı yok. Mevcut demo abone işlem geçmişi esas alınır; erişim türü belirtilmemiş eski kayıtlar dahildir. Takvim günü sayımı ayrıdır: bugün (Türkiye) {data.operations.today} işlem.</p>
     <p className="daily-description">Aralık: {dateTime(windowData.from)} → {dateTime(windowData.to)} (başlangıç dahil). Son kayıt okuması: {dateTime(data.generated_at)}.</p>
