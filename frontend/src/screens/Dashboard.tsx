@@ -90,6 +90,7 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
         <button className="button-secondary" onClick={()=>routers()}><RouterIcon size={17}/>Router Merkezi<ArrowRight size={14}/></button>
         <button className="button-secondary" onClick={()=>subscribers()}><Users size={17}/>Abone Merkezi<ArrowRight size={14}/></button>
         <button className="button-secondary" aria-label="Günlük Yönetim Merkezi" disabled={!reports} onClick={onReport}><LayoutDashboard size={17}/>Günlük Yönetim Merkezi<ArrowRight size={14}/></button>
+        <button className="button-secondary" disabled={!reports} onClick={onReport}><Activity size={17}/>Son 24 saat PPPoE işlemleri<ArrowRight size={14}/></button>
         <button className="button-secondary" onClick={()=>onNavigate('operations')}><AlertTriangle size={17}/>Alarm Merkezi<ArrowRight size={14}/></button>
         <button className="button-secondary" disabled={!mika} onClick={()=>onNavigate('mikajani')}><Bot size={17}/>MikAjanı<ArrowRight size={14}/></button>
       </div>
