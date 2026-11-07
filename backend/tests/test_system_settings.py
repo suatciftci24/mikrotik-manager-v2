@@ -38,7 +38,7 @@ class SQL:
 
 class SettingsTransactions(TestCase):
     def setUp(self):
-        self.db=SQL();self.patcher=patch.object(identity,'adapter',return_value=SimpleNamespace(engine=self.db,_verify=Mock()));self.patcher.start();self.addCleanup(self.patcher.stop)
+        self.db=SQL();self.patcher=patch.object(identity,'adapter',return_value=SimpleNamespace(schema='v2_demo',engine=self.db,_verify=Mock()));self.patcher.start();self.addCleanup(self.patcher.stop)
     def command(self,**values):return service.Command(request_id=uuid4(),expected_revision=0,confirmed=True,values=service.Values(**values))
     def test_commit_audit_and_same_request_replay(self):
         command=self.command(app_name='Test V2');first=service.save('default',command,'demo-user');self.assertEqual(service.save('default',command,'demo-user'),first);self.assertEqual(first['revision'],1);self.assertEqual(len(self.db.audit),1);self.assertEqual(next(iter(self.db.audit.values()))['previous_values']['app_name'],'MikroTik Manager V2')

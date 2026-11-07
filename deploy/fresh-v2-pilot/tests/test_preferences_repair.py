@@ -66,7 +66,7 @@ class PreferencesRepairPostgres(TestCase):
             c.execute(text("INSERT INTO v2_demo.subscribers(id,payload) VALUES ('demo-sub-synthetic',CAST(:p AS jsonb))"),{'p':json.dumps({'id':'demo-sub-synthetic','is_demo':True,'source':'LOCAL','name':'Synthetic subscriber'})})
         def verify(c):
             self.assertEqual(c.execute(text('SELECT marker FROM v2_demo.schema_state WHERE version=1')).scalar_one(),'mikrotik-manager-v2-synthetic-only')
-        self.store=SimpleNamespace(engine=self.engine,_verify=verify)
+        self.store=SimpleNamespace(schema='v2_demo',engine=self.engine,_verify=verify)
         self.patcher=patch.object(identity,'adapter',return_value=self.store);self.patcher.start();self.addCleanup(self.patcher.stop)
         self.client=TestClient(app);self.addCleanup(self.client.close)
         response=self.client.post('/api/v1/auth/login',json={'username':'synthetic-admin','password':self.secret})
@@ -148,7 +148,7 @@ class PreferencesRepairPostgres(TestCase):
         missing=self.directory/('nonexistent-'+uuid4().hex)
         broken=create_engine(URL.create('postgresql+psycopg',username=self.user,database=self.db,query={'host':str(missing),'port':'55489'}),hide_parameters=True,connect_args={'connect_timeout':1})
         try:
-            with patch.object(identity,'adapter',return_value=SimpleNamespace(engine=broken,_verify=lambda c:None)):
+            with patch.object(identity,'adapter',return_value=SimpleNamespace(schema='v2_demo',engine=broken,_verify=lambda c:None)):
                 r=self.client.get('/api/v1/preferences')
             self.assertEqual(r.status_code,503);self.assertEqual(r.json()['code'],'DATABASE_UNAVAILABLE')
             self.assertNotIn(str(missing),r.text);self.assertNotIn(self.secret,r.text)

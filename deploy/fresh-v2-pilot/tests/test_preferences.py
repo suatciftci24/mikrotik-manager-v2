@@ -30,7 +30,7 @@ class PreferencesInstall(TestCase):
         self.connection.__enter__.return_value = self.connection
         self.connection.execute.side_effect = self.execute
         self.engine = SimpleNamespace(connect=lambda:self.connection)
-        self.store = SimpleNamespace(engine=self.engine, _verify=lambda c:None)
+        self.store = SimpleNamespace(schema='v2_demo',engine=self.engine, _verify=lambda c:None)
         app = FastAPI()
         app.include_router(router, prefix='/api/v1')
         app.dependency_overrides[current_demo_user] = lambda:{'id':'synthetic-admin'}

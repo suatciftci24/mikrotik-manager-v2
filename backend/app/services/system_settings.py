@@ -57,8 +57,10 @@ def profile_id(value):
     raise DemoChangeError(404,'Ayar profili bulunamadı')
 
 
-def ready(connection):
-    return bool(connection.execute(text("SELECT to_regclass('v2_demo.settings_records') IS NOT NULL AND to_regclass('v2_demo.settings_audit') IS NOT NULL")).scalar_one())
+def ready(connection, schema='v2_demo'):
+    schema=identity.schema_name(schema)
+    return bool(connection.execute(text("SELECT to_regclass(:records) IS NOT NULL AND to_regclass(:audit) IS NOT NULL"),
+        {'records':schema+'.settings_records','audit':schema+'.settings_audit'}).scalar_one())
 
 
 def clean(id,values):
@@ -66,8 +68,9 @@ def clean(id,values):
     except ValueError:raise SettingsStateError('SETTINGS_RECORD_INVALID') from None
 
 
-def record(connection,id):
-    row=connection.execute(text('SELECT * FROM v2_demo.settings_records WHERE id=:id'),{'id':id}).mappings().one_or_none()
+def record(connection,id,schema='v2_demo'):
+    schema=identity.schema_name(schema)
+    row=connection.execute(text(f'SELECT * FROM {schema}.settings_records WHERE id=:id'),{'id':id}).mappings().one_or_none()
     if row:return dict(record_id=id,values=clean(id,row['payload']),revision=row['revision'],updated_at=row['updated_at'].isoformat() if row['updated_at'] else None,storage_ready=True,is_demo=True)
     if id.startswith('user:'):return dict(record_id=id,values=Personal().model_dump(),revision=0,updated_at=None,storage_ready=True,is_demo=True)
     if id=='default':raise SettingsStateError('DEFAULT_SETTINGS_MISSING')
@@ -76,25 +79,25 @@ def record(connection,id):
 
 @storage_errors
 def load(id='default'):
-    store=identity.adapter()
+    store=identity.adapter();schema=identity.schema_name(store.schema)
     with store.engine.connect().execution_options(isolation_level='REPEATABLE READ') as connection:
         with connection.begin():
             connection.execute(text('SET TRANSACTION READ ONLY'));store._verify(connection)
-            if not ready(connection):
+            if not ready(connection,schema):
                 if id!='default' and not id.startswith('user:'):raise DemoChangeError(404,'Ayar profili bulunamadı')
                 raise SettingsStateError('SETTINGS_SCHEMA_MISSING')
-            return record(connection,id)
+            return record(connection,id,schema)
 
 
 @storage_errors
 def effective(user_id):
     # One coherent read snapshot for defaults and personal overrides.
-    store=identity.adapter()
+    store=identity.adapter();schema=identity.schema_name(store.schema)
     with store.engine.connect().execution_options(isolation_level='REPEATABLE READ') as connection:
         with connection.begin():
             connection.execute(text('SET TRANSACTION READ ONLY'));store._verify(connection)
-            if not ready(connection):raise SettingsStateError('SETTINGS_SCHEMA_MISSING')
-            defaults=record(connection,'default');personal=record(connection,'user:'+user_id)
+            if not ready(connection,schema):raise SettingsStateError('SETTINGS_SCHEMA_MISSING')
+            defaults=record(connection,'default',schema);personal=record(connection,'user:'+user_id,schema)
             return dict(values={**defaults['values'],**{k:v for k,v in personal['values'].items() if v is not None}},personal=personal['values'],revision=personal['revision'],storage_ready=True,is_demo=True)
 
 
@@ -107,26 +110,26 @@ def save(id,payload,actor_id,personal=False):
     if personal:
         if id!='user:'+actor_id:raise DemoChangeError(403,'Yalnız kendi tercihlerinizi değiştirebilirsiniz')
     else:id=profile_id(id)
-    store=identity.adapter();fingerprint=json.dumps([id,actor_id,payload.model_dump(mode='json')],sort_keys=True)
+    store=identity.adapter();schema=identity.schema_name(store.schema);fingerprint=json.dumps([id,actor_id,payload.model_dump(mode='json')],sort_keys=True)
     with store.engine.begin() as connection:
         store._verify(connection)
-        if not ready(connection):raise SettingsStateError('SETTINGS_SCHEMA_MISSING')
+        if not ready(connection,schema):raise SettingsStateError('SETTINGS_SCHEMA_MISSING')
         connection.execute(text("SELECT pg_advisory_xact_lock(hashtext('v2-settings'))"))
-        actor=connection.execute(text('SELECT * FROM v2_demo.users WHERE id=:id FOR SHARE'),{'id':actor_id}).mappings().one_or_none()
+        actor=connection.execute(text(f'SELECT * FROM {schema}.users WHERE id=:id FOR SHARE'),{'id':actor_id}).mappings().one_or_none()
         if not actor_allowed(actor,personal):raise DemoChangeError(403,'Ayar değişikliği yetkisi gerekli')
-        if personal:record(connection,'default')
-        receipt=connection.execute(text('SELECT * FROM v2_demo.settings_audit WHERE id=:id'),{'id':str(payload.request_id)}).mappings().one_or_none()
+        if personal:record(connection,'default',schema)
+        receipt=connection.execute(text(f'SELECT * FROM {schema}.settings_audit WHERE id=:id'),{'id':str(payload.request_id)}).mappings().one_or_none()
         if receipt:
             if receipt['fingerprint']!=fingerprint:raise DemoChangeError(409,'İstek kimliği farklı ayar işlemi için kullanılmış.')
             if receipt['result']!='SUCCESS':raise DemoChangeError(receipt['response']['status'],receipt['response']['detail'])
             return receipt['response']
-        old=record(connection,id)
+        old=record(connection,id,schema)
         if old['revision']!=payload.expected_revision:raise DemoChangeError(409,'Ayarlar değişmiş; yeniden yükleyin.')
         values=payload.values.model_dump()
-        row=connection.execute(text('''INSERT INTO v2_demo.settings_records(id,payload,revision) VALUES (:id,CAST(:values AS jsonb),1)
+        row=connection.execute(text(f'''INSERT INTO {schema}.settings_records(id,payload,revision) VALUES (:id,CAST(:values AS jsonb),1)
           ON CONFLICT(id) DO UPDATE SET payload=EXCLUDED.payload,revision=settings_records.revision+1,updated_at=now() RETURNING *'''),dict(id=id,values=json.dumps(values))).mappings().one()
         result=dict(record_id=id,values=values,revision=row['revision'],updated_at=row['updated_at'].isoformat(),storage_ready=True,is_demo=True)
-        connection.execute(text('''INSERT INTO v2_demo.settings_audit(id,record_id,actor_id,previous_values,new_values,result,fingerprint,response)
+        connection.execute(text(f'''INSERT INTO {schema}.settings_audit(id,record_id,actor_id,previous_values,new_values,result,fingerprint,response)
           VALUES (:id,:record,:actor,CAST(:previous AS jsonb),CAST(:new AS jsonb),'SUCCESS',:fingerprint,CAST(:response AS jsonb))'''),
           dict(id=str(payload.request_id),record=id,actor=actor_id,previous=json.dumps(old['values']),new=json.dumps(values),fingerprint=fingerprint,response=json.dumps(result)))
         return result
@@ -134,25 +137,25 @@ def save(id,payload,actor_id,personal=False):
 
 @storage_errors
 def rejected(id,payload,actor_id,error):
-    store=identity.adapter()
+    store=identity.adapter();schema=identity.schema_name(store.schema)
     with store.engine.begin() as connection:
         store._verify(connection)
-        if not ready(connection):return
-        try:old=record(connection,id)
+        if not ready(connection,schema):return
+        try:old=record(connection,id,schema)
         except DemoChangeError:return
-        connection.execute(text('''INSERT INTO v2_demo.settings_audit(id,record_id,actor_id,previous_values,new_values,result,fingerprint,response)
+        connection.execute(text(f'''INSERT INTO {schema}.settings_audit(id,record_id,actor_id,previous_values,new_values,result,fingerprint,response)
           VALUES (:id,:record,:actor,CAST(:previous AS jsonb),CAST(:new AS jsonb),'REJECTED',:fingerprint,CAST(:response AS jsonb)) ON CONFLICT(id) DO NOTHING'''),
           dict(id=str(payload.request_id),record=id,actor=actor_id,previous=json.dumps(old['values']),new=json.dumps(payload.values.model_dump()),fingerprint=json.dumps([id,actor_id,payload.model_dump(mode='json')],sort_keys=True),response=json.dumps(dict(status=error.status_code,detail=error.detail))))
 
 
 @storage_errors
 def audit(id,page,size):
-    store=identity.adapter()
+    store=identity.adapter();schema=identity.schema_name(store.schema)
     with store.engine.connect() as connection:
         store._verify(connection)
-        if not ready(connection):return dict(items=[],total=0,page=page,page_size=size)
-        total=connection.execute(text('SELECT count(*) FROM v2_demo.settings_audit WHERE record_id=:record'),{'record':id}).scalar_one()
-        rows=connection.execute(text('SELECT id,record_id,actor_id,previous_values,new_values,result,occurred_at FROM v2_demo.settings_audit WHERE record_id=:record ORDER BY occurred_at DESC,id LIMIT :size OFFSET :offset'),dict(record=id,size=size,offset=(page-1)*size)).mappings()
+        if not ready(connection,schema):return dict(items=[],total=0,page=page,page_size=size)
+        total=connection.execute(text(f'SELECT count(*) FROM {schema}.settings_audit WHERE record_id=:record'),{'record':id}).scalar_one()
+        rows=connection.execute(text(f'SELECT id,record_id,actor_id,previous_values,new_values,result,occurred_at FROM {schema}.settings_audit WHERE record_id=:record ORDER BY occurred_at DESC,id LIMIT :size OFFSET :offset'),dict(record=id,size=size,offset=(page-1)*size)).mappings()
         return dict(items=[dict(row) for row in rows],total=total,page=page,page_size=size)
 
 

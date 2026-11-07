@@ -668,3 +668,13 @@ barındırmayan canlı API/DOM sağlık kanıtını incelemek**. Codex'e login/c
 aktarımı veya erişim kontrolünün kaldırılması istenmez. Böyle bir kanıt
 yokken güncel canlı sağlık ve tarihsel tam neden BLOCKED kalır; yeniden
 bağlantı/dağıtım denemesi yapılmaz.
+
+## Yeni preferences503 bildirimi — 2026-11-07
+
+[SETTINGS_SCHEMA_MISSING incelemesi](V26_SETTINGS_SCHEMA_MISSING.md) ayrı
+kaydedildi: seçili adapter schema ile ayar sorguları arasındaki sabit v2_demo
+kusuru yerelde düzeltildi ve hedefli testlerle doğrulandı. Canlı katalog/build
+olmadan gerçek eksik ilişki bilinmiyor; canlı onarım yapılmadı. fffac4a
+receipt'indeki preferences200/storage_ready kanıtı korunur; yeni503 eski
+Dashboard assertion'ının nedeni sayılmaz. Yeni bir kontrol preferences.valid
+kapısında503 alırsa bu ayrıca adlandırılır, dashboard.desktop ile karıştırılmaz.

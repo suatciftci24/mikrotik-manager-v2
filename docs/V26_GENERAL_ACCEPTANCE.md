@@ -151,3 +151,20 @@ Bu oturum için DNS/socket hatası iddia edilmez; mevcut ADMIN PASS yeniden
 açılmaz. Yeni araç düzeltmesi, frameStable içermeyen tarihsel fffac4a olayını
 kapatmaz. Sonraki tek kanıt, mevcut yetkili ortamdan gelen oturumsuz/sırsız
 API/DOM sağlık çıktısıdır; canlıya hazır sürüm kararı değişmedi.
+
+## 8bbd0c3 sonrası SETTINGS_SCHEMA_MISSING — 2026-11-07
+
+Kullanıcı canlı preferences GET503/SETTINGS_SCHEMA_MISSING bildirdi.
+[Yeni kök neden ve uygulama planı](V26_SETTINGS_SCHEMA_MISSING.md): mevcut
+kaynakta bu kod iki nitelikli ayar ilişkisinden en az birinin bulunamamasıdır;
+kolon, default veya ADMIN yokluğu tanısı değildir. V2.6 adapter schema seçimi
+ile v2_demo'ya sabit ayar sorguları arasındaki ürün kusuru izole tablolarla
+önce FAIL, minimal schema-routing düzeltmesinden sonra PASS üretildi. Yanlış
+diğer-şema ayarlarının hatayı maskelemesi de engellendi; GET yazma yapmaz.
+
+22 hedefli kontrol PASS; gerçek PG/HTTP ve canlı katalog incelemesi BLOCKED.
+Canlıda hangi nesnenin eksik olduğu/build uyumu doğrulanmadı. Salt okunur
+katalog SQL'i ve yedek/transaction/rollback karar planı hazır; migration,
+yazma, restart veya deploy yapılmadı. Eski fffac4a olayında preferences200
+kayıtlıdır; bu yeni503 geçmiş Dashboard FAIL'in kök nedeni ilan edilmez.
+Canlı bakım ve kod yayını ancak hedefe özgü yeni açık onayla değerlendirilebilir.

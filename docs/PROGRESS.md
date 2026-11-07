@@ -4366,3 +4366,29 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Sonraki tek işlem mevcut yetkili ortamdan oturum bilgisi içermeyen canlı
   API/DOM sağlık çıktısını incelemek. VDS/V1/V2.5/canlıV2.6/router/RADIUS/
   IPsec/DB/servis/stash ve kullanıcı dosyaları korundu; deploy/restart yok.
+
+## V2.6 — SETTINGS_SCHEMA_MISSING schema seçimi ve bakım planı — 2026-11-07
+
+- Esas main-guncel/8bbd0c3 temiz; AGENTS/son ilerleme, preferences API/SQL/
+  Pydantic,005 ve004/009 migration/repair geçmişi incelendi. Kullanıcı GET503
+  bildirimi esas alındı; canlı hedef/build/katalog erişimi yok, yeni deneme yok.
+- Bu kaynakta kod, sabit v2_demo.settings_records veya settings_audit ilişki
+  çözümlemesi false olunca çıkar; kolon/default/ADMIN hatası değildir.
+- Ürün kusuru kanıtı: adapter v26_acceptance seçerken settings SQL v2_demo'da
+  kalmış. Gerçek private SQLite ilişkileri+catalog shim ile önce FAIL/ERROR;
+  seçili schema allowlist'iyle ready/read/save/actor/audit aynı depoya bağlandı.
+  Yanlış schema maskesi giderildi. Açık eski initialize bakım kapısı korundu;
+  GET/startup bakım veya default fallback yok.
+- PASS: 9 yeni private relation/error ayrımı +3 schema/audit/replay/rollback
+  model testi; 8 doğrudan transaction +2 initialize/comment testi (22 toplam).
+  SQLite shim PG/HTTP kabulü değildir. İki eski test fixture'ına schema meta
+  eklendi; socket suite'leri koşulmadı. AST/read-only SQL/diff PASS.
+- docs/V26_SETTINGS_SCHEMA_MISSING.md ve read-only catalog SQL hazır:
+  canlı eksik nesne BLOCKED; yedek+hedef doğrulama, gerekli additiveDDL/default/
+  audit tek transaction, commit öncesi rollback; sonrasında veri koruyarak
+  ileri düzeltme/kod geri dönüşü, otomatik DROP/DELETE/tümDB restore yok.
+- Eski Dashboard olayında preferences200 kayıtlı; yeni503 o eski assertion'ın
+  kök nedeni sayılmadı. Genel/sağlık kabul raporuna ayrım eklendi.
+- Canlı bakım/yazma/deploy/restart için yeni hedefe özgü açık onay gerekir;
+  bu görev uygulamaz. VDS/V1/V2.5/router/RADIUS/IPsec/mevcut DB/stash ve
+  kullanıcı dosyaları korunur; yalnız izole sentetik test verisi kullanıldı.
