@@ -46,8 +46,10 @@ export function acceptanceDiagnostics(){
   failure(error){
    const name=errorNames.has(error.name)?error.name:'Error';
    const comparison=safeComparison(error.comparison);
+   const primitive=value=>typeof value==='boolean'||typeof value==='number'&&Number.isFinite(value);
+   const operands=error.code==='ERR_ASSERTION'&&primitive(error.actual)&&primitive(error.expected)?{actual:error.actual,expected:error.expected}:undefined;
    const assertionFrame=String(error.stack??'').match(/\/v26-browser-acceptance\.mjs:(\d+):(\d+)/);
-   return {status:'FAIL',failure:{step,name,...(comparison?{comparison}:{}),...(assertionFrame?{location:'v26-browser-acceptance.mjs:'+assertionFrame[1]+':'+assertionFrame[2]}:{}),...(error.code==='ERR_ASSERTION'?{code:error.code}:{}),
+   return {status:'FAIL',failure:{step,name,...(operands?{operands}:{}),...(comparison?{comparison}:{}),...(assertionFrame?{location:'v26-browser-acceptance.mjs:'+assertionFrame[1]+':'+assertionFrame[2]}:{}),...(error.code==='ERR_ASSERTION'?{code:error.code}:{}),
     message:assertionMessage??`${name} at ${step}; untrusted error operands/message omitted.`},
     diagnostics:{pageErrors:[...pageErrors],httpFailures:[...httpFailures]}};
   }

@@ -94,3 +94,11 @@ Hash doğrulamasının PASS olması Dashboard sağlığı kabulü değildir. Can
 kullanım yeni açık onay gerektirir; bu değişiklik dağıtım yetkisi vermez.
 Seçici QuickActions paket sınırı değişmedi; Dashboard'u yayınlayan yeni bir
 araç veya Fresh Pilot deploy yolu değildir.
+
+Sağlık kapısı artık private yedekte exclusive 0600 `health-failure.json` ve
+`health-rollback.json` üretir. İlki sağlık FAIL ve güvenli kaynak satırını,
+ikincisi rollback VERIFIED/BLOCKED durumunu saklar; ham hata/parola yazılmaz.
+Tanı yazımı başarısızsa rollback yine denenir; önceki dosyalar ezilmez.
+Geri dönüş başarılı fakat kayıt eksikse hata koduna `_EVIDENCE_BLOCKED` eklenir.
+Bu kütüphane davranışı yalnız sentetik geçici ağaçlarda doğrulandı; canlı
+CLI'ya otomatik browser/sağlık veya yeni dağıtım yetkisi eklenmedi.

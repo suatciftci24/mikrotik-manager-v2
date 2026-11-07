@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
+import traceback
 from urllib.request import build_opener, HTTPRedirectHandler
 from urllib.parse import urlparse
 
@@ -208,25 +209,51 @@ def rollback(target, backup):
                 raise
 
 
-def accept_health_or_rollback(target, bundle, backup, health_check):
-    """Gate an already applied candidate; a failed gate never returns success.
+def health_evidence(backup, filename, value):
+    # Best effort diagnostics must NEVER prevent the rollback attempt.
+    try:
+        if backup.resolve() != backup.absolute() or not backup.is_dir():
+            return False
+        info = backup.stat()
+        if info.st_uid != os.geteuid() or info.st_mode & 0o077:
+            return False
+        fd = os.open(backup / filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            json.dump(value, stream, sort_keys=True)
+        return True
+    except Exception:
+        return False
 
-    The caller supplies the explicitly authorized check. No HTTP, process,
-    deployment or restart is started here; CLI approval/target gates stay intact.
-    Rollback's existing drift and backup guards protect concurrent operator edits.
+
+def accept_health_or_rollback(target, bundle, backup, health_check):
+    """An explicit health gate; failures retain diagnostics and attempt guarded rollback.
+
+    No network/service operation is started; caller authorization and existing
+    CLI target/approval gates are unchanged. Diagnostic write failure cannot
+    skip rollback, overwrite old evidence, or turn failed health into PASS.
     """
     try:
         verify(target, bundle)
         if health_check() is not True:
             raise ValueError('HEALTH_CHECK_DID_NOT_PASS')
-        # The check must not change the candidate; hashes alone are not health.
         verify(target, bundle)
     except BaseException as failure:
+        classes = {'AssertionError', 'ValueError', 'RuntimeError', 'OSError', 'TimeoutError', 'KeyboardInterrupt'}
+        trace = [{'file': 'update.py', 'line': f.lineno} for f in traceback.extract_tb(failure.__traceback__)
+                 if Path(f.filename).resolve() == Path(__file__).resolve()]
+        saved = health_evidence(backup, 'health-failure.json', dict(status='FAIL',
+            error_type=type(failure).__name__ if type(failure).__name__ in classes else 'Error',
+            stack=trace, rollback='PENDING'))
         try:
             rollback(target, backup)
         except BaseException as rollback_error:
+            health_evidence(backup, 'health-rollback.json', dict(status='BLOCKED', acceptance='FAIL',
+                error_type=type(rollback_error).__name__ if type(rollback_error).__name__ in classes else 'Error'))
             raise ValueError('HEALTH_ACCEPTANCE_FAILED_ROLLBACK_BLOCKED') from rollback_error
-        raise ValueError('HEALTH_ACCEPTANCE_FAILED_ROLLBACK_VERIFIED') from failure
+        saved = health_evidence(backup, 'health-rollback.json',
+            dict(status='ROLLBACK_VERIFIED', acceptance='FAIL', source_dist_verified=True)) and saved
+        suffix = '' if saved else '_EVIDENCE_BLOCKED'
+        raise ValueError('HEALTH_ACCEPTANCE_FAILED_ROLLBACK_VERIFIED' + suffix) from failure
 
 
 def main():

@@ -115,3 +115,22 @@ olamaz. Tarihsel gerçek neden yine BLOCKED; önceki yerel PASS ve canlı kabul
 engelleri değişmez. Yeni test/bağlantı yapılmadı. Sonraki tek kanıt kaynağı,
 varsa özgün test bilgisayarındaki bağımsız yerel hata-anı arşividir; aynı yerel
 aramalar veya yeni yayın bu boşluğu kapatmaz.
+
+## 2e53ad0 sonrası izole Dashboard yeniden üretimi — 2026-11-07
+
+[Sağlık raporunun son bölümü](V26_HEALTH_ACCEPTANCE.md): fffac4a tam SHA'sı
+izole geçici kaynak ağacında, aynı package/lockfile ve mevcut yerel araçlarla
+SSR/DOM adapter'ı üzerinden yeniden kuruldu. Eski kontrol, tutarlı sentetik
+örnekte PASS; 10dk sınırında +1ms kontrol saati ve eksik ölçümde ayrı
+ERR_ASSERTION üretti. Özgün olayın bunlardan hangisi olduğu hâlâ bilinmiyor.
+Aynı sınır koşulu mevcut snapshot'a bağlı karşılaştırmada PASS; yeni bir
+varsayımsal frontend/backend ürün düzeltmesi yapılmadı.
+
+Runner assertion öncesi özel API/DOM projeksiyonu, güvenli stack/operand,
+build/runner kimliği ve exclusive/hash'li kanıt kaydıyla güçlendirildi;
+hata-sonrası gözlem özgün frame'den ayrılır. Kütüphane rollback kapısı ayrı
+FAIL/rollback kayıtları üretir; kayıt arızası geri dönüşü engellemez. 12 hedefli
+kontrol PASS; gerçek browser/PG/HTTP veya canlı yayın kabulü değildir.
+Tarihsel kesin neden ve genel kabul BLOCKED kalır. Sonraki tek güncel kabul
+adımı normal Ev WSL'de yeni tanılama ile yalnız yerel sentetik browser
+kapsamını doğrulamaktır; VDS/DB/cihaz işlemi gerektirmez.

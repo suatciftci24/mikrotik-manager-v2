@@ -6,6 +6,8 @@ import {join,resolve} from 'node:path';
 import {createServer} from 'node:http';
 import {build} from 'esbuild';
 import {observeInventory,captureHealthFrame,compareHealthFrame} from '../../deploy/v1-inventory/browser/health-comparison.mjs';
+import {privateHealthEvidence} from '../../deploy/v1-inventory/browser/health-evidence.mjs';
+import {acceptanceDiagnostics} from '../../deploy/v1-inventory/browser/acceptance-diagnostics.mjs';
 import {selectBrowser} from './browserRuntime.mjs';
 const {chromium}=await import('../../.local/browser-tools/node_modules/playwright/index.mjs');
 const temp=mkdtempSync(join(tmpdir(),'v26-comparison-')),output=resolve('../.local/browser-acceptance/v26-comparison');mkdirSync(output,{recursive:true});
@@ -20,7 +22,10 @@ await build({stdin:{contents:"import React from 'react';import {createRoot} from
 writeFileSync(join(temp,'index.html'),'<!doctype html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="/theme.js"></script><link rel="stylesheet" href="/fixture.css"></head><body><div id="root"></div><script src="/fixture.js"></script></body></html>');writeFileSync(join(temp,'theme.js'),readFileSync('public/theme.js'));
 const server=createServer((req,res)=>{const path=req.url.split('?')[0]==='/'?'index.html':req.url.slice(1).split('?')[0];if(!['index.html','theme.js','fixture.js','fixture.css'].includes(path)){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html');res.end(readFileSync(join(temp,path)));});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
-let browser;const checks=[];const ok=label=>{checks.push(label);console.log('PASS:',label);};
+let browser,page,evidenceView='dashboard';
+const evidence=privateHealthEvidence(mkdtempSync(join(output,'run-'))),diagnostics=acceptanceDiagnostics();
+const checkFrame=(frame,kind='dashboard')=>{evidenceView=kind;diagnostics.setStep(kind+'.snapshot_comparison');evidence.frame(kind,frame);return compareHealthFrame(frame,{kind});};
+const checks=[];const ok=label=>{checks.push(label);console.log('PASS:',label);};
 try{
  browser=await chromium.launch(selectBrowser(chromium));const context=await browser.newContext({viewport:{width:1440,height:1000},colorScheme:'light'});
  let mode='data',viewer=false,hold=true,release;let gate=new Promise(r=>release=r);const calls=[];
@@ -32,7 +37,7 @@ try{
   const value=path.endsWith('/auth/me')?{id:'fixture-admin',name:'Fixture operatör',email:'fixture@example.test',role:'Fixture',role_code:viewer?'VIEWER':'ADMIN',can_manage_users:!viewer,is_demo:true,permissions:{r1:{can_view:true,can_view_reports:!viewer,can_use_mikajani:!viewer}}}:path.endsWith('/preferences')?{values:prefs,is_demo:true}:path.endsWith('/routers')?{items:[demoRouter]}:path.endsWith('/subscribers')?{items:[demoSubscriber]}:path.endsWith('/subscribers/s1')?{item:demoSubscriber,history:[],history_available:true,is_demo:true}:path.endsWith('/router-events')?{items:[],available:false,is_demo:true}:path.endsWith('/alarms')?{items:[],summary:{critical:0},coverage:{connection_available:false,ipsec_available:false},is_demo:true}:null;
   await route.fulfill({status:value?200:404,json:value??{detail:'Not Found'}});
  });
- const page=await context.newPage();await page.clock.install({time:fixed});const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ page=await context.newPage();await page.clock.install({time:fixed});const errors=[];page.on('pageerror',error=>errors.push(error.message));
  const table=()=>page.getByRole('region',{name:'Gerçek V1 Dashboard sağlık tablosu'});
 
  await page.addInitScript(observeInventory);
@@ -43,7 +48,7 @@ try{
   await page.clock.fastForward(501);
   await page.getByRole('link',{name:'Router Merkezi’ni aç',exact:true}).click();await page.locator('.inventory-table tbody tr').nth(8).waitFor();
   const pending=captureHealthFrame(page,'center');await page.clock.fastForward(1001);
-  compareHealthFrame(await pending,{kind:'center'});
+  checkFrame(await pending,'center');
   ok('new view waits for its own observed health tick with a newer sample');
  }else if(demoOnly){
   await page.getByRole('link',{name:'Router Merkezi’ni aç',exact:true}).click();await page.locator('.inventory-table tbody tr').nth(8).waitFor();
@@ -54,7 +59,7 @@ try{
   ok('switching to DEMO explicitly loads demo routers and removes real inventory');
  }else{
  await page.clock.fastForward(1001);
- const first=await captureHealthFrame(page);const counts=compareHealthFrame(first);
+ const first=await captureHealthFrame(page);const counts=checkFrame(first);
  assert.deepEqual(counts,{Normal:4,Dikkat:1,Kritik:1,'Eski veri':3,'Veri yok':0});
  ok('atomic API/DOM frame and five-state oracle match the actual synthetic App');
  // Hold the next response while a new snapshot changes CPU. Capture must wait
@@ -64,14 +69,17 @@ try{
  await page.getByRole('button',{name:'Şimdi yenile',exact:true}).click();await requested;
  let published=false;const pending=captureHealthFrame(page).then(f=>{published=true;return f;});
  await page.evaluate(()=>Promise.resolve());assert.equal(published,false);assert.equal(await table().count(),0);
- hold=false;release();const updated=await pending;assert.equal(compareHealthFrame(updated).Kritik,2);assert.ok(updated.generation>first.generation);
+ hold=false;release();const updated=await pending;assert.equal(checkFrame(updated).Kritik,2);assert.ok(updated.generation>first.generation);
  ok('held asynchronous response cannot compare new API numbers to old rendered rows');
  const before=calls.length;
  await page.getByRole('link',{name:'Router Merkezi’ni aç',exact:true}).click();await page.locator('.inventory-table tbody tr').nth(8).waitFor();await page.clock.fastForward(1000);
- compareHealthFrame(await captureHealthFrame(page,'center'),{kind:'center'});
+ checkFrame(await captureHealthFrame(page,'center'),'center');
  assert.ok(calls.slice(before).every(p=>['/api/v1/v1-inventory','/api/v1/auth/me','/api/v1/preferences'].includes(p)),JSON.stringify(calls.slice(before)));
  ok('real Router Center does not issue /routers demo read; both views compare their own snapshot');
  }
  assert.deepEqual(errors,[]);
  writeFileSync(join(output,clockOnly?'clock-result.json':demoOnly?'demo-result.json':'result.json'),JSON.stringify({status:'PASS',synthetic_only:true,real_nine_router_acceptance:false,checks},null,2));
+}catch(error){
+ try{await evidence.failure(error,diagnostics.failure(error),page,evidenceView);}catch{}
+ throw error;
 }finally{if(browser)await browser.close();server.close();rmSync(temp,{recursive:true,force:true});}

@@ -464,3 +464,134 @@ karardır, eski olayın kanıtı yerine sunulmaz. Yeni canlı deneme/dağıtım 
 Bu görevde test/build/browser/socket, canlı VDS/V1/V2.5, cihaz/RADIUS/IPsec,
 veritabanı veya servis işlemi yok; stash okunmadı/değiştirilmedi. Özel yerel
 artefaktlar yalnız okundu; hiçbirisi Git'e eklenmedi veya yeniden yazılmadı.
+
+## 2e53ad0 sonrası — sürümlü yerel yeniden üretim ve tanılama — 2026-11-07
+
+**Sentetik yeniden üretim/tanılama PASS; özgün olayın kesin kök nedeni BLOCKED.**
+Bu görev, eksik özgün frame'i arama döngüsünü tekrarlamak yerine başarısız
+sürümün kodunu yeniden kurup farklı hata koşullarını ayırdı. Varsayımsal
+frontend/backend ürün düzeltmesi veya yeni canlı deneme yapılmadı.
+
+### Olay ve uçtan uca zincir
+
+İncelenen ana olay ikinci denemedir: `fffac4a02e26a9f309197adacbf119c9b2e79602`,
+2026-11-03 Fresh Pilot frontend-only yayını; özgün receipt version=fffac4a,
+FAIL/dashboard.desktop/AssertionError/ERR_ASSERTION. Hazırlık PREPARED,
+yayın DEPLOYED, sonra ROLLBACK_VERIFIED; protected_unchanged=true. Hazırlık
+ve geri dönüş metadata'sında envanter count=9/health_count=9. Bunlar hata
+anının CPU/RAM/zaman/DOM operandlarını sağlamaz. İlk 1c9bfcd denemesinin son
+runtime hata-listesi arızası bu olayla birleştirilmedi.
+
+Kaynak zinciri incelendi: V1 export → şema/monoton ölçüm kontrolü ve atomik
+handoff (`refresh_health.py`) → yalnız yerel dosyayı doğrulayan
+`adapters/v1_inventory.py` → merkezi ADMIN GET `/v1-inventory` → kaynak ve
+satır kontrolü/seri yenileme → Dashboard sınıflandırma/gerçek ölçüm zamanı →
+yayımlanan frontend asset hash doğrulaması → tarayıcı API/DOM karşılaştırması
+→ başarısız kabulde frontend rollback. Bu görevde export/adapter/DB/HTTP
+çalıştırılmadı. Tarihsel kaynak ve metadata incelemesi yeni güncel VDS durumu
+sayılmaz. Bilinen yetki/provenance/10dk/60sn sınırları değiştirilmedi.
+
+### İzole yeniden oluşturma
+
+Yeni `tools/reconstruct-v26-dashboard.py`, sabit tam commit'ten frontend
+kaynaklarını ve orijinal runner'ı `git archive` ile yeni private `/tmp`
+dizinine açar. Çalışma dalını, mevcut dosyaları veya stash'i değiştirmez;
+bitince kendi dizinini temizler. Tarihsel package.json/package-lock.json ile
+yerel dosyalar byte düzeyinde eşit bulundu; hazırlayıcı uyuşmazlıkta durur.
+Kurulum/indirme yok; mevcut yerel React/esbuild kullanılır. Çalışan tarihsel
+browser/OS/DB ortamının tamamının birebir kopyası olduğu iddia edilmez.
+
+Orijinal runner kaynak SHA256:
+`0130d1c30a7f0ce180a1cb9cc4884d0ed588bdf0fb3b341679dc243807728002`.
+Orijinal `inspectDashboard`, classify ve stamp fonksiyonları değiştirilmeden
+çıkarılıp gerçek eski Dashboard bileşeninin React SSR çıktısına uygulanır.
+Yalnız beklenen router adları sentetik dokuz kimlikle beslenir; DOM adapter'ı
+bu kontrollü HTML'i okur. Bu, browser innerText/layout/cache/transport veya
+canlı 9/9 kabulü değildir; tam App sidebar kontrolü de bu modelle kanıtlanmaz.
+
+| Hedefli koşul | Orijinal kod sonucu | Yorum |
+| --- | --- | --- |
+| Aynı sentetik API, render ve kontrol saati | PASS, başarı sonrası snapshot yazma noktasına ulaşır | İzole modelin tutarlı başlangıç kontrolü. |
+| Bir örnek tam 600000ms yaşında render; kontrol saati +1ms | ERR_ASSERTION; snapshot yazımı 0 | Ekran Normal, sonradan hesaplanan oracle Eski veri. Aynı çağrı grubu ve hata türü yeniden üretildi; özgün olayın bu sınırda olduğu kanıtlanmadı. |
+| Bir satırda ölçüm/zaman/provenance eksik | Başka bir ERR_ASSERTION; snapshot yazımı 0 | Veri yok davranışı ile eski runner'ın tam-ölçüm/metin beklentisi farklı. Ön/son metadata'daki 9 sağlık örneği nedeniyle özgün olaya atıf özellikle zayıf; eksikliğin olay anında yaşandığı bilinmiyor. |
+| Aynı sınır vakasını mevcut snapshot'a bağlı oracle/render saatiyle kontrol | PASS: Normal8/Dikkat1/diğer0 | Mevcut d733ba8 sonrası karşılaştırma çözümü sentetik saat yarışı koşulunu zaten gideriyor. Bu görev yeni ürün düzeltmesi gerektirmedi; a7458b2 NaN kodu tarihsel akışta yoktur. |
+
+Yeniden üretim komutu (yerel repo kökü; tamamen offline):
+` .venv/bin/python tools/reconstruct-v26-dashboard.py `.
+İlk harness hazırlığında Node spawnSync Git çağrısı EPERM verdi; socket
+bağlantısı denenmedi. Hazırlık Python/native esbuild üzerinden ayrıldı.
+SSR DOM adapter'ındaki `&lt;/&gt;` çözümlemesi düzeltildi; başlangıçtaki harness
+assertion'ları ürün kusuru sayılmadı. Orijinal assertion'lar gevşetilmedi.
+
+### Olası nedenlerin kanıt düzeyi
+
+- **Kesin:** özgün runner API/saat/DOM'u ayrı okuyordu; başarısız assertion'dan
+  önce snapshot yazmıyordu, catch operand/stack konumunu atmaktaydı. Kayıt
+  kaybı bugün de özgün nedenin ayırt edilmesini engelliyor.
+- **Sentetik koşulda kanıtlı, tarihsel atıf yok:** 1ms sınır/zaman yarışı ve
+  eksik ölçüm ayrı ayrı aynı genel ERR_ASSERTION çıktısını üretebiliyor.
+  Genel hata türü/step tek başına bunlardan birini seçmeye yetmez.
+- **Tarihsel olarak doğrulanmamış:** başka render/yenileme yarışı, biçimsel
+  innerText farkı, farklı satır/metrik uyuşmazlığı veya browser/cache etkisi.
+  Bunlar için varsayımsal ürün değişikliği yapılmadı.
+- **Bu olaya bağlanamaz:** sonraki sentetik source.isolation arızası,
+  V2.5 adapter frame'leri, ilk denemenin kayıp runtime listeleri.
+- **Doğrudan dışlandı:** daha sonra eklenmiş frameStable NaN kod yolu.
+  İkinci receipt'teki boş pageErrors/httpFailures de belirli bir HTTP hatası
+  iddiasına kanıt oluşturmaz. Rollback doğrulanması sağlık kabulü değildir.
+
+### Gelecekteki kaybı önleyen yeni tanılama
+
+`browser/health-evidence.mjs` mevcut onay kapılı runner'a bağlandı. Yeni canlı
+çalıştırma yapılmadı. Mekanizma:
+
+- Aynı atomik frame'in allowlist API alanları, DOM hücre/sayaç/uyarıları,
+  clock/readAt/generation bilgisi **assertion öncesi** kaydedilir.
+- Her çalıştırmada ayrı 0700 alt dizin, exclusive 0600 sıralı JSON ve SHA256
+  referansları vardır; önceki ölçümler/kanıtlar üzerine yazılmaz. Eski ham
+  frame dump'ları yerine kontrollü alan projeksiyonu kullanılır.
+- Hata halinde orijinal tanı korunur; seçili sağlık görünümü için ek API/DOM
+  snapshot'ı alınmaya çalışılır. Bu ek gözlem `atomic=false` ve
+  CAPTURED_AFTER_FAILURE olarak ayrılır; hata anının önceki frame'i yerine
+  sunulmaz. Sayfa kapalıysa CAPTURE_BLOCKED açıkça kaydedilir.
+- Sabit runner/karşılaştırıcı dosyası+sayısal satır/sütun, güvenli typed
+  karşılaştırma operandları ve diğer assertion'ların yalnız bool/sonlu sayı
+  operandları saklanır. Ham exception mesajı, keyfi operand/stack yolu,
+  cookie/auth gövdesi ve bütün sayfa HTML'i saklanmaz. Session cookie canary
+  redaksiyonu test edildi; bilinmeyen API alanları dışarıda kalır.
+- Runner SHA ve `/api/ready` repo/build/port kimliği ayrı kaydedilir; GET-only
+  sınırı korunur. Build kimliğini kaydetmek hedeflenen yayınla eşitliği
+  kendiliğinden kanıtlamaz; manifest/build karşılaştırması ayrıca gerekir.
+- Yerel updater kütüphane sağlık kapısı private yedeğe ayrı
+  `health-failure.json` ve `health-rollback.json` yazar. Sağlık FAIL, rollback
+  PENDING/VERIFIED/BLOCKED ayrıdır. Kayıt arızası rollback denemesini atlamaz;
+  eski kanıt ezilmez. Geri dönüş tamamlanıp kayıt eksikse EVIDENCE_BLOCKED
+  eki verilir. CLI'ya yeni canlı deploy/sağlık çalıştırma yolu eklenmedi;
+  tarayıcı ve updater kanıtları otomatik canlı orkestrasyon iddiası taşımaz.
+
+### Bu görevin sonuçları
+
+4 yeni tarihsel SSR/DOM karşılaştırma senaryosu, 3 yeni JS kanıt/redaksiyon
+kontrolü ve 3 yeni Python rollback/kanıt kontrolü PASS. Doğrudan etkilenen
+mevcut diagnostic dosyasından 2 güvenlik/exception testi ayrıca seçildi ve
+PASS. Toplam 12 hedefli kontrol; syntax/AST/diff PASS. Başarılı kapsam yalnız
+doğrudan ilgili kod değişince yeniden kontrol edildi. Genel suite/build,
+PG/HTTP/socket/gerçek browser kabulü veya canlı sistem işlemi yok.
+
+**Kök neden bulundu mu?** Kayıt kaybı ve sentetik koşullar kanıtlı; özgün
+Dashboard olayının tam nedeni bulunmadı. Aynı genel hatayı yeniden üretmek
+tarihsel nedeni bulmak değildir. V2.6 canlı kabul/V2.7 kabul tabanı BLOCKED.
+Sonraki tek işlem: **normal Ev WSL'de yalnız güncel yerel sentetik Dashboard
+browser kabulünü yeni tanılama kaydıyla tamamlamak**; yayın/DB/cihaz işlemi
+olmamalı. Özgün hata-anı arşivi sonradan bulunursa ayrı tarihsel kanıt sayılır;
+aynı eksik receipt araması tekrar edilmemeli.
+
+Yerel sentetik `frontend/tests/healthComparison.browser.mjs` de aynı kanıt
+katmanına bağlandı; her çalıştırma kendi yeni private kanıt alt dizinini açar.
+API'ler interception ile üretilmiş fixture'dır; mevcut API/DB'ye bağlanılmaz.
+Codex'te bilinen socket engeli tekrar denenmedi; bu yeni browser bağlantısının
+çalışma zamanı kabulü burada yapılmadı (syntax kontrolü PASS). Sonraki tek
+işlemin somut komutu, normal Ev WSL proje kökünden:
+`cd frontend && node tests/healthComparison.browser.mjs`.
+Bu komut mevcut yerel Playwright/Chromium gerektirir; canlı runner veya
+--approved-read-only komutu bu görevin sonraki işlemi değildir.

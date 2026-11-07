@@ -4316,3 +4316,32 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   API/DOM/stack/trace arşivini edinmek; aynı yerel aramalar tekrar edilmemeli.
 - Test/build/SSH/socket/VDS/V1/V2.5/router/RADIUS/IPsec/DB/servis/deploy yok;
   stash okunmadı/değiştirilmedi. Kullanıcı dosyaları ve özel artefaktlar korundu.
+
+## V2.6 — tarihsel Dashboard yeniden üretimi ve güvenli tanılama — 2026-11-07
+
+- Temel 2e53ad0/main-guncel, temiz ağaç; kurallar/genel kabul/özgün receipt'ler
+  ve frontend/API/handoff/yayın/rollback zinciri incelendi. Olay fffac4a tam
+  SHA, Fresh Pilot frontend-only; özgün FAIL/dashboard.desktop ve doğrulanmış
+  rollback, ön/son9 sağlık kaydı var; hata-anı operandı yok.
+- Yeni offline hazırlayıcı sabit eski Git kaynağını private geçici dizine açar,
+  aynı package/lock doğrular, eski bileşeni native esbuild/React SSR ile kurar.
+  Orijinal inspectDashboard değiştirilmeden sentetik DOM adapter'ına uygulanır.
+- PASS: eşleşen örnek; eski kontrol +1ms/10dk sınırında ERR_ASSERTION,
+  eksik ölçümde başka ERR_ASSERTION; ikisinde de eski snapshot yazımı0.
+  Mevcut snapshot-bound karşılaştırma aynı sınır örneğinde PASS. Tarayıcı/
+  transport/gerçek olay atfı yapılmadı; varsayımsal ürün düzeltmesi yok.
+- Assertion öncesi exclusive0600 API/DOM projeksiyonu, güvenli stack/operand,
+  runner/build kimliği ve hata-sonrası ayrı fallback tanısı eklendi. Cookie/
+  keyfi API alanları/raw stack/auth gövdesi kaydedilmez. Private rollback
+  FAIL/VERIFIED/BLOCKED kayıtları; tanı arızasında rollback yine denenir.
+- PASS: 4 yeni yeniden üretim +3 JS kanıt +3 Python rollback/kanıt +2 seçilmiş
+  mevcut diagnostic testi; syntax/AST/diff. İlk Node child EPERM, Python/native
+  hazırlayıcıyla ayrıldı; SSR entity decoder düzeltildi; ürün hatası sayılmadı.
+- Tarihsel tam kök neden BLOCKED; aynı genel hatanın sentetik üretimi özgün
+  neden değildir. Sağlık/genel kabul raporları güncellendi. Sonraki tek iş normal
+  Ev WSL'de yeni tanı ile yalnız yerel sentetik Dashboard browser kabulü.
+- VDS/V1/V2.5/canlıV2.6/router/RADIUS/IPsec/mevcut DB/stash korunur. Socket/
+  HTTP/browser/SSH/deploy/restart/DB işlemi yok; eski özel artefaktlar korunur.
+- Yerel sentetik healthComparison.browser da yeni kanıt katmanına bağlandı;
+  syntax PASS, socket/browser burada denenmedi. Normal Ev WSL repo kökünden
+  sonraki tek komut `cd frontend && node tests/healthComparison.browser.mjs`.

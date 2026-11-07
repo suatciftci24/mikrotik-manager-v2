@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {createHash} from 'node:crypto';
+import {privateHealthEvidence} from './browser/health-evidence.mjs';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {resolve} from 'node:path';
 import {observeInventory,captureHealthFrame,compareHealthFrame} from './browser/health-comparison.mjs';
@@ -18,13 +20,17 @@ const expectedNames=['Riverside','Garden','Hill','Granada','Nature','Walley','Ex
 const results={version:'V2.6',real_nine_router_acceptance:false,checks:[]};
 const ok=s=>{results.checks.push(s);console.log('PASS: '+s);};
 const diagnostics=acceptanceDiagnostics();
-let browser;
+let browser,page;
+let evidenceView='dashboard';
+const evidence=privateHealthEvidence(output);
+evidence.metadata({runner_sha256:createHash('sha256').update(fs.readFileSync(fileURLToPath(import.meta.url))).digest('hex')});
 try{
  browser=await chromium.launch(selectBrowser(chromium));
  const context=await browser.newContext({viewport:{width:1440,height:1050}});
  const cookie=JSON.parse(fs.readFileSync(output+'/session.json','utf8'));
+ evidence.addSecret(cookie.value);
  await context.addCookies([{...cookie,url:base+'/api',httpOnly:true,sameSite:'Strict'}]);
- const page=await context.newPage();
+ page=await context.newPage();
  const apiReads=[],transportFailures=[];
  page.on('requestfailed',()=>transportFailures.push({step:'browser.transport',message:'Request failed; raw URL omitted'}));
  page.on('pageerror',e=>diagnostics.pageError(e));
@@ -36,6 +42,9 @@ try{
   await route.continue();
  });
  await page.addInitScript(observeInventory);
+ diagnostics.setStep('runtime.ready');
+ const ready=await context.request.get(base+'/api/ready');assert.equal(ready.status(),200);
+ evidence.metadata(await ready.json());
  diagnostics.setStep('auth.admin');
  const me=await context.request.get(base+'/api/v1/auth/me');assert.equal(me.status(),200);assert.equal((await me.json()).role_code,'ADMIN');
  diagnostics.setStep('preferences.valid');
@@ -47,11 +56,11 @@ try{
  async function inspectDashboard(){
   diagnostics.setStep('dashboard.snapshot_comparison');
   const frame=await captureHealthFrame(page);
-  fs.writeFileSync(output+'/dashboard-frame.json',JSON.stringify(frame),{mode:0o600});
+  evidence.frame('dashboard',frame);
   const counts=compareHealthFrame(frame,{expectedNames});
   const body=await page.locator('.dashboard-real-health').innerText();assert.ok(body.includes('Ölçüm zamanı değildir'));assert.ok(body.includes('Son başarılı API yenileme:'));
   assert.equal(await page.locator('.overview-status-grid').count(),0);assert.equal(await page.locator('.sidebar .nav-count').count(),0);
-  fs.writeFileSync(output+'/dashboard-api.json',JSON.stringify({...frame,counts}));results.counts=counts;
+  results.counts=counts;
  }
  await inspectDashboard();ok('Dashboard 9/9 identities, actual CPU/RAM, Istanbul sample times, five counts and priority reasons match API');
  await page.screenshot({path:output+'/dashboard-desktop.png',fullPage:true});
@@ -63,13 +72,13 @@ try{
  await table.locator('tbody tr').nth(8).waitFor();await inspectDashboard();
  assert.equal(await page.evaluate(()=>window.__v26.count),start+1);assert.equal(await page.evaluate(()=>window.__v26.max),1);
  ok('existing real 60-second refresh performs one serialized read; source sample time stays separate from API read time');
+ evidenceView='center';
  diagnostics.setStep('router_center.desktop');
  await page.getByRole('link',{name:'Router Merkezi’ni aç',exact:true}).focus();await page.keyboard.press('Enter');
  const center=page.locator('.inventory-table');await center.locator('tbody tr').nth(8).waitFor();
  const frame=await captureHealthFrame(page,'center');
- fs.writeFileSync(output+'/router-center-frame.json',JSON.stringify(frame),{mode:0o600});
+ evidence.frame('center',frame);
  compareHealthFrame(frame,{kind:'center',expectedNames});
- fs.writeFileSync(output+'/router-center-api.json',JSON.stringify(frame));
  await page.screenshot({path:output+'/router-center-desktop.png',fullPage:true});
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  ok('Router Center 9/9 CPU/RAM, reason, status, age and actual measurement time match current API; keyboard link');
@@ -78,13 +87,14 @@ try{
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  assert.ok(await center.locator('td:last-child').evaluateAll(cells=>cells.every(td=>td.scrollHeight<=td.clientHeight+1)));
  await page.screenshot({path:output+'/router-center-mobile.png',fullPage:true});
+ evidenceView='dashboard';
  diagnostics.setStep('dashboard.mobile');
  await page.goto(base+'/#module=dashboard&dashboard_source=V1_INVENTORY');await table.locator('tbody tr').nth(8).waitFor();
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.screenshot({path:output+'/dashboard-mobile.png',fullPage:true});
  ok('single mobile 390px pass: both actual views have no document overflow and center reasons fit');
  diagnostics.setStep('source.isolation');
- assert.ok(apiReads.length>0);assert.ok(apiReads.every(p=>['/api/v1/auth/me','/api/v1/preferences','/api/v1/v1-inventory'].includes(p)),'Real source must not request demo resources');
+ assert.ok(apiReads.length>0);assert.ok(apiReads.every(p=>['/api/ready','/api/v1/auth/me','/api/v1/preferences','/api/v1/v1-inventory'].includes(p)),'Real source must not request demo resources');
  assert.match(await page.locator('.demo-banner').innerText(),/Gerçek V1 aktarımı/);ok('real source uses only auth/preferences/inventory; demo resources remain unmounted');
  diagnostics.setStep('browser.transport');assert.equal(transportFailures.length,0,'Expected 0 failed network requests');
  diagnostics.assertRuntimeClean();
@@ -93,6 +103,8 @@ try{
  fs.writeFileSync(output+'/ui-receipt.json',JSON.stringify(results,null,2));
  await page.goto('about:blank');
 }catch(e){
- Object.assign(results,diagnostics.failure(e));fs.writeFileSync(output+'/ui-receipt.json',JSON.stringify(results,null,2));
+ Object.assign(results,diagnostics.failure(e));
+ try{results.failure_evidence=await evidence.failure(e,diagnostics.failure(e),page,evidenceView);}catch{results.failure_evidence={status:'CAPTURE_BLOCKED'};}
+ fs.writeFileSync(output+'/ui-receipt.json',JSON.stringify(results,null,2));
  console.error('ACCEPTANCE_FAIL: '+JSON.stringify(results.failure));process.exitCode=2;
 }finally{if(browser)await browser.close();}
