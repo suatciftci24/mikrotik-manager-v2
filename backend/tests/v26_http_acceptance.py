@@ -87,7 +87,9 @@ class LoopbackClient:
                     self.cookies['v2_session'] = value
                 else:
                     self.cookies.pop('v2_session', None)
+            # Match the assertion client's .text contract without exposing bodies/secrets.
             return SimpleNamespace(status_code=response.status,
+                                   text=f'HTTP status={response.status}; response body withheld',
                                    json=lambda: codec.loads(content))
         finally:
             connection.close()
@@ -111,6 +113,7 @@ def acceptance_suite():
             import socket
             # Bind once, before PG setup. Occupied/forbidden API port means stop;
             # never send synthetic credentials to another listener.
+            cls.stage = 'HTTP_LISTENER_BIND'
             listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             cls.addClassCleanup(listener.close)
             listener.bind((HOST, PORT))
@@ -123,6 +126,7 @@ def acceptance_suite():
             import threading
             import time
             import uvicorn
+            cls.stage = 'HTTP_SERVER_START'
             cls.server = uvicorn.Server(uvicorn.Config(
                 app, host=HOST, port=PORT, lifespan='off', access_log=False,
                 log_config=None, log_level='critical'))
@@ -147,6 +151,7 @@ def acceptance_suite():
             return LoopbackClient()
 
         def setUp(self):
+            self.stage = 'DEMO_SCHEMA_AND_IDENTITY_FIXTURE'
             super().setUp()
             from sqlalchemy import text
             from sqlalchemy.orm import sessionmaker
@@ -156,6 +161,7 @@ def acceptance_suite():
             from app.services.subscriber_center import SubscriberWorkspace
             from app.services.subscriber_operations import SubscriberOperationsService
             # Only this exclusively created cluster. No migration/maintenance CLI.
+            self.stage = 'WORKSPACE_SCHEMA_AND_TABLES'
             with self.engine.begin() as connection:
                 self.store._check(connection)
                 connection.execute(text('CREATE SCHEMA v2_router_workspace'))
@@ -173,6 +179,7 @@ def acceptance_suite():
                 self.addCleanup(scoped.stop)
             from uuid import uuid4
             self.router_id = 'demo-managed-router-' + str(uuid4())
+            self.stage = 'SYNTHETIC_ROUTER_INSERT'
             with sessions.begin() as session:
                 session.add(RouterWorkspaceRecord(id=self.router_id, kind='DEMO_ROUTER',
                             revision=1, fields={'name': 'Synthetic HTTP Router', 'model': 'Test'}))

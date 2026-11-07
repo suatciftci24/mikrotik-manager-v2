@@ -4238,3 +4238,22 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   çalıştırılmadı; runtime kabul Ev WSL komutunun sonucunu bekler.
 - VDS/V1/V2.5/mevcut DB/servis/router/RADIUS/IPsec/stash@{0} korunur;
   deploy veya canlı restart yok. GitHub push en fazla bir kez denenir.
+
+## V2.6 — Ev WSL dört genel kabul hatasının düzeltmesi — 2026-11-07
+
+- Başlangıç main-guncel/5a664ef, çalışma ağacı temiz; AGENTS/son kabul okundu.
+- Kök neden offline birebir üretildi: HTTP SimpleNamespace yanıtında `.text`
+  yok; dört işlemde durum assertion mesajının erken değerlendirilmesi dört
+  AttributeError üretir. `_SubTest.stage` bulunamadığından önceki raporlayıcı
+  gerçek exception/konumu kaybedip dört genel FIXTURE_OR_SCENARIO yazıyordu.
+- Yanıt sözleşmesi düzeltildi; safe text gövdeyi ifşa etmez. Aşama/işlem/hata/
+  dosya-satır, PG stderr/SQLSTATE/bağlantı tanıları eklendi; credential/DSN/
+  cookie/SQL parametreleri yazdırılmaz. Ubuntu paket sürüm eki keşfi düzeltildi.
+- PG URL/şema sırası/FK/sentetik fixture/audit beklentileri kaynakta incelendi;
+  assertion, revision, guard, auth, rollback ve izolasyon gevşetilmedi.
+- PASS: 5 offline regresyon (socket/process/DB mocked), Bash syntax/Python AST/
+  diff. Önceki PASS suite'ler tekrarlanmadı; PG/HTTP burada denenmedi.
+- BLOCKED: gerçek Ev WSL kabulü hâlâ yeni komut sonucunu bekler. Tek komut
+  `bash ./accept-v26-test001-http.sh`; ayrıntı V26_TEST001_HTTP_ACCEPTANCE.md.
+- Yalnız test altyapısı/belgeleri değişti. VDS/V1/V2.5/router/RADIUS/IPsec/
+  mevcut DB/servis/stash@{0}/kullanıcı dosyaları korunur; deploy/restart yok.

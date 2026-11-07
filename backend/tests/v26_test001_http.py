@@ -2,6 +2,8 @@
 import argparse
 import importlib.util
 import os
+import re
+import traceback
 from pathlib import Path
 import shutil
 import signal
@@ -12,6 +14,72 @@ from unittest.mock import patch
 from urllib.parse import urlencode
 
 from backend.tests import v26_http_acceptance as harness
+
+
+def safe_diagnostic(error, cls=None):
+    """No locals, SQL statements/parameters, response bodies, DSNs or credentials."""
+    secrets = []
+    if cls is not None:
+        secrets.append(getattr(cls, 'password', ''))
+        client = getattr(cls, 'client', None)
+        secrets.extend(getattr(client, 'cookies', {}).values())
+    if isinstance(error, subprocess.CalledProcessError):
+        executable = Path(error.cmd[0]).name
+        message = f'{executable} exit={error.returncode}; ' + (error.stderr or 'no tool stderr')
+    elif hasattr(error, 'orig'):
+        original = error.orig
+        message = 'database error; SQL and parameters withheld; SQLSTATE=' + str(
+            getattr(original, 'sqlstate', None) or getattr(original, 'pgcode', None))
+        diagnostic = getattr(original, 'diag', None)
+        if not getattr(diagnostic, 'message_primary', None):
+            message += '; ' + (str(original).splitlines() or ['no driver detail'])[0]
+        for field in ('message_primary', 'schema_name', 'table_name', 'constraint_name'):
+            value = getattr(diagnostic, field, None)
+            if value:
+                message += '; ' + field + '=' + str(value)
+    else:
+        message = str(error)
+    # Both fixture credentials and fixed synthetic login credentials are secret.
+    secrets.extend(['SYNTHETIC-test-only-password-91', 'Synthetic-viewer-password-91'])
+    for secret in sorted((v for v in secrets if isinstance(v, str) and v), key=len, reverse=True):
+        message = message.replace(secret, '[REDACTED]')
+    message = re.sub(r'[a-zA-Z][a-zA-Z0-9+.-]*://[^\s\'\"]+', '[URL REDACTED]', message)
+    message = re.sub(r'(?i)((?:password|passwd|token|secret|v2_session)[\'\"]?\s*[:=]\s*)[^\s,;}]+',
+                     r'\1[REDACTED]', message)
+    message = ' '.join(message.split())[:800]
+    frames = traceback.extract_tb(error.__traceback__)
+    location = ' > '.join(f'{Path(f.filename).name}:{f.lineno}:{f.name}' for f in frames[-5:])
+    cause = error.__cause__
+    cause_name = f'; cause={type(cause).__name__}' if cause is not None else ''
+    return f'{type(error).__name__}: {message}{cause_name}; at {location or "no traceback"}'
+
+
+class DiagnosticResult(unittest.TestResult):
+    """Capture each subtest's parent stage at failure time, before it changes."""
+    def __init__(self, cls):
+        super().__init__()
+        self.cls = cls
+        self.diagnostics = []
+
+    def capture(self, test, error):
+        parent = getattr(test, 'test_case', test)
+        stage = getattr(parent, 'stage', getattr(self.cls, 'stage', 'UNKNOWN_FIXTURE'))
+        name = test.id() if hasattr(test, 'id') else str(test)
+        self.diagnostics.append(f'BLOCKED: stage={stage}; test={name}; ' +
+                                safe_diagnostic(error[1], self.cls))
+
+    def addError(self, test, error):
+        self.capture(test, error)
+        super().addError(test, error)
+
+    def addFailure(self, test, error):
+        self.capture(test, error)
+        super().addFailure(test, error)
+
+    def addSubTest(self, test, subtest, error):
+        if error is not None:
+            self.capture(subtest, error)
+        super().addSubTest(test, subtest, error)
 
 
 def discover_pg():
@@ -29,7 +97,7 @@ def discover_pg():
         if all(os.access(directory / n, os.X_OK) for n in ('initdb', 'pg_ctl', 'createdb', 'postgres')):
             version = subprocess.run([str(directory / 'postgres'), '--version'],
                                      capture_output=True, text=True, timeout=5)
-            if version.returncode == 0 and version.stdout.split()[-1].split('.')[0] == '16':
+            if version.returncode == 0 and re.search(r'\(PostgreSQL\)\s+16(?:\.|\s|$)', version.stdout):
                 return directory
     raise harness.AcceptanceBlocked('POSTGRESQL16_SERVER_TOOLS_REQUIRED (install postgresql-16)')
 
@@ -45,13 +113,15 @@ def suite(pg):
 
         def prepare(self):
             from app.api.v1 import subscriber_center as routes
-            from app.services import identity
             from uuid import uuid4
             from datetime import datetime, timedelta
             from zoneinfo import ZoneInfo
-            self.stage = 'REAL_LOGIN_AND_CREATE_TEST001'
+            self.stage = 'FIRST_ADMIN_CREATE'
             self.store.create(self.payload_admin, os.getuid())
+            self.stage = 'REAL_ADMIN_HTTP_LOGIN'
             self.actor = self.checked(self.login())
+            self.assertEqual(self.actor['account_origin'], 'LOCAL')
+            self.assertEqual(self.checked(self.client.get('/api/v1/auth/me'))['id'], self.actor['id'])
             self.workspace, self.ops = routes.workspace, routes.operations
             from sqlalchemy.orm import sessionmaker
             self.sessions = sessionmaker(bind=self.engine, expire_on_commit=False)
@@ -60,6 +130,7 @@ def suite(pg):
             fields = dict(username='v26-test-001', customer_name='V26 Test 001',
                           router_id=self.router_id, access_type='PPPOE', source='LOCAL',
                           plan='Synthetic 100', status='ACTIVE', expires_on=expires)
+            self.stage = 'HTTP_CREATE_TEST001'
             self.item = self.checked(self.client.post('/api/v1/subscriber-workspace', headers=self.headers,
                 json=dict(request_id=str(uuid4()), expected_revision=0, confirmed=True, fields=fields)))
             self.path = '/api/v1/subscriber-workspace/management/execute'
@@ -159,20 +230,33 @@ def main():
         signal.signal(signal.SIGINT, interrupted)
         with patch.dict(os.environ, harness.isolated_environment(os.environ), clear=True):
             cls, tests = suite(pg)
-            stage = 'FIXTURE_OR_SCENARIO'
-            result = unittest.TestResult()
+            stage = 'ACCEPTANCE_RUN'
+            result = DiagnosticResult(cls)
             try:
                 tests.run(result)
             finally:
-                cls.doClassCleanups()
-            if (result.wasSuccessful() and result.testsRun == 1 and not result.skipped
+                # unittest normally cleans the class; interrupts may leave pending entries.
+                if cls._class_cleanups:
+                    cls.stage = 'INTERRUPTED_CLASS_CLEANUP'
+                    cls.doClassCleanups()
+                    for error in cls.tearDown_exceptions:
+                        result.capture('class cleanup', error)
+            if (result.wasSuccessful() and not result.diagnostics
+                    and result.testsRun == 1 and not result.skipped
                     and not os.path.lexists(harness.ROOT)):
                 print('PASS: v26-test-001 PostgreSQL + HTTP; cleanup complete')
                 return 0
-            stages = [getattr(test, 'stage', stage) for test, _ in result.errors + result.failures]
-            raise harness.AcceptanceBlocked(','.join(stages) or 'SKIPPED_OR_INCOMPLETE')
+            for diagnostic in result.diagnostics:
+                print(diagnostic)
+            for test, reason in result.skipped:
+                print('BLOCKED: skipped=' + test.id() + '; ' + reason)
+            print(f'BLOCKED: tests={result.testsRun}; errors={len(result.errors)}; '
+                  f'failures={len(result.failures)}; skipped={len(result.skipped)}')
+            if os.path.lexists(harness.ROOT):
+                print('BLOCKED: own temporary root retained: ' + str(harness.ROOT))
+            return 1
     except BaseException as error:
-        reason = str(error) if isinstance(error, harness.AcceptanceBlocked) else type(error).__name__
+        reason = safe_diagnostic(error, cls)
         print('BLOCKED: ' + stage + ': ' + reason)
         if os.path.lexists(harness.ROOT):
             print('BLOCKED: own temporary cluster retained; inspect ' + str(harness.ROOT) +

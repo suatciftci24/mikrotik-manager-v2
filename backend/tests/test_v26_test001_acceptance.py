@@ -76,6 +76,8 @@ class Test001Workspace(TestCase):
         for operation,value,extra in getattr(self, 'acceptance_actions', [
                 ('EXTEND','2027-03-03',{'days':30}),('PLAN','Demo 500',{}),
                 ('STATUS','PAUSED',{}),('STATUS','ACTIVE',{})]):
+            if hasattr(self, 'stage'):
+                self.stage = 'TEST001_' + operation + '_' + ('PAUSED' if value == 'PAUSED' else 'ACTIVE' if value == 'ACTIVE' else 'API_DB_DETAIL_AUDIT_REPLAY')
             with self.subTest(operation=operation,value=value):
                 before=self.snapshot();old=self.workspace.detail(self.item['id']).item
                 command=self.payload(operation,value,**extra)

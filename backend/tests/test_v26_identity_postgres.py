@@ -23,6 +23,11 @@ SOURCE = Path(__file__).resolve().parents[2]
 
 @unittest.skipUnless(os.environ.get('V2_RUN_V26_IDENTITY_TESTS') == '1', 'Explicit disposable cluster opt-in required')
 class V26IdentityPostgres(unittest.TestCase):
+    @staticmethod
+    def run_pg(arguments):
+        # Capture tool errors for the redacted acceptance reporter; never echo argv/secrets.
+        return subprocess.run(arguments, check=True, timeout=40, capture_output=True, text=True)
+
     @classmethod
     def remove_stopped_root(cls):
         if (cls.root / 'postgres-test' / 'postmaster.pid').exists():
@@ -36,6 +41,7 @@ class V26IdentityPostgres(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.stage = 'PRIVATE_CLUSTER_DIRECTORY'
         cls.root = v26_acceptance.ROOT
         # Refuse any pre-existing acceptance environment, including symlinks.
         cls.root.mkdir(mode=0o700)
@@ -48,28 +54,28 @@ class V26IdentityPostgres(unittest.TestCase):
         pwfile = cls.root / 'test-password'
         pwfile.write_text(cls.password)
         pwfile.chmod(0o600)
-        subprocess.run([str(cls.pg / 'initdb'), '-D', str(cls.data), '-U', 'v26_acceptance',
-                        '--auth-local=trust', '--auth-host=scram-sha-256', '--pwfile='+str(pwfile)],
-                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        cls.stage = 'POSTGRES_INITDB'
+        cls.run_pg([str(cls.pg / 'initdb'), '-D', str(cls.data), '-U', 'v26_acceptance',
+                        '--auth-local=trust', '--auth-host=scram-sha-256', '--pwfile='+str(pwfile)])
         pwfile.unlink()
         # Capture the identity of THIS newly initialized, private PG16 directory.
         # Only the OS-specific PGDATA check is substituted; target DB/role/port,
         # profile, cwd/owner, marker and every transaction/HTTP assertion remain.
+        cls.stage = 'DISPOSABLE_CLUSTER_GUARD'
         cluster_guard = DisposableClusterGuard(cls.root)
         guard_patch = patch('app.services.v26_identity.verify_cluster', side_effect=cluster_guard)
         guard_patch.start()
         cls.addClassCleanup(guard_patch.stop)
         def stop_own_cluster():
             if (cls.data / 'postmaster.pid').exists():
-                subprocess.run([str(cls.pg / 'pg_ctl'), '-D', str(cls.data), '-m', 'fast', '-w', 'stop'],
-                               check=True, timeout=40, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                cls.run_pg([str(cls.pg / 'pg_ctl'), '-D', str(cls.data), '-m', 'fast', '-w', 'stop'])
         cls.addClassCleanup(stop_own_cluster)
-        subprocess.run([str(cls.pg / 'pg_ctl'), '-D', str(cls.data), '-l', str(cls.root / 'postgres.log'),
-                        '-o', '-h 127.0.0.1 -p 55433 -k '+str(cls.root / 'socket'), '-w', 'start'],
-                       check=True, timeout=40, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run([str(cls.pg / 'createdb'), '-h', str(cls.root / 'socket'), '-p', '55433',
-                        '-U', 'v26_acceptance', 'mikrotik_v26_acceptance'], check=True,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        cls.stage = 'POSTGRES_START'
+        cls.run_pg([str(cls.pg / 'pg_ctl'), '-D', str(cls.data), '-l', str(cls.root / 'postgres.log'),
+                        '-o', '-h 127.0.0.1 -p 55433 -k '+str(cls.root / 'socket'), '-w', 'start'])
+        cls.stage = 'POSTGRES_CREATE_DATABASE'
+        cls.run_pg([str(cls.pg / 'createdb'), '-h', str(cls.root / 'socket'), '-p', '55433',
+                        '-U', 'v26_acceptance', 'mikrotik_v26_acceptance'])
         url = URL.create('postgresql+psycopg', username='v26_acceptance', password=cls.password,
                          host='127.0.0.1', port=55433, database='mikrotik_v26_acceptance')
         env = dict(V2_DEPLOYMENT_PROFILE=v26_acceptance.PROFILE, V2_ENVIRONMENT='v26-acceptance',
@@ -82,6 +88,7 @@ class V26IdentityPostgres(unittest.TestCase):
         before = Path.cwd()
         os.chdir(cls.root)
         cls.addClassCleanup(os.chdir, before)
+        cls.stage = 'ISOLATED_ENGINE_AND_APP_IMPORT'
         cls.engine = create_engine(url, hide_parameters=True)
         cls.addClassCleanup(cls.engine.dispose)
         engine_patch = patch('app.core.database.engine', cls.engine)
@@ -96,6 +103,7 @@ class V26IdentityPostgres(unittest.TestCase):
 
     def setUp(self):
         self.client.cookies.clear()
+        self.stage = 'POSTGRES_CONNECT_AND_DEMO_SCHEMA'
         with self.engine.begin() as connection:
             # Only the new cluster created above, never an existing installation.
             connection.exec_driver_sql('DROP SCHEMA IF EXISTS v26_acceptance CASCADE')
@@ -103,6 +111,7 @@ class V26IdentityPostgres(unittest.TestCase):
             for statement in sql.replace('v2_demo', 'v26_acceptance').split(';'):
                 if statement.strip():
                     connection.execute(text(statement))
+        self.stage = 'IDENTITY_STORE_GUARDS'
         self.store = V26FirstAdminStore(self.engine)
         self.payload = FirstAdminInput(username='synthetic.admin', name='Synthetic Admin',
                                       email='synthetic@local.test', password='SYNTHETIC-test-only-password-91')
