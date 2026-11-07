@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { AlarmCenter } from '../components/AlarmCenter';
 import { AlarmEvents } from '../components/AlarmEvents';
 import { api, type Router } from '../lib/api';
@@ -15,9 +16,25 @@ export function Operations({onRouter}: {onRouter: (id: string) => void}) {
   const params=new URLSearchParams(typeof window==='undefined'?'':window.location.hash.slice(1));
   const showEventHistory=['router','kind','status','period','from','to'].some(key=>params.has(key));
   const {data, loading, error, retry} = useResource('/routers', loadAlarms);
+
+  useEffect(() => {
+    const scrollToAlarm = () => {
+      const params = new URLSearchParams(window.location.hash.slice(1));
+      if (params.get('module') === 'operations' && params.get('section') === 'alarms') {
+        document.getElementById('central-alarm-section')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    };
+    scrollToAlarm();
+    window.addEventListener('hashchange', scrollToAlarm);
+    return () => window.removeEventListener('hashchange', scrollToAlarm);
+  }, []);
+
   return <div className="screen-stack router-report">
     <PageHeading title="Operasyon Merkezi" eyebrow="SENTETİK OLAYLAR" description="Alarmlar, operatör onayları ve kayıtlı olay geçmişi." actions={<button className="button-secondary" onClick={retry} disabled={loading}>Yenile</button>}/>
-    <AlarmCenter/>
+    <div id="central-alarm-section"><AlarmCenter/></div>
     <details className="panel center-disclosure"><summary>Veri kapsamı ve sınırlamalar</summary><div className="panel-title"><h2>Kaynak kapsamı</h2><span className="demo-chip">SENTETİK</span></div><p className="daily-description">V2 kaydedilmiş sentetik envanter ve hazırlanmışsa demo olay kayıtlarını gösterir. Çevrimiçi/çevrimdışı envanter durumu internet erişimini doğrulamaz. Yönetim adresi WAN adresi değildir. Yenileme yeni ölçüm veya alarm geçmişi oluşturmaz.</p></details>
     <ResourceState loading={loading} error={error} retry={retry}/>
     {data&&!loading&&!error&&<>
