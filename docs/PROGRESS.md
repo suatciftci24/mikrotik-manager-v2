@@ -4345,3 +4345,24 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Yerel sentetik healthComparison.browser da yeni kanıt katmanına bağlandı;
   syntax PASS, socket/browser burada denenmedi. Normal Ev WSL repo kökünden
   sonraki tek komut `cd frontend && node tests/healthComparison.browser.mjs`.
+
+## V2.6 — Dashboard kimliksiz canlı inceleme sınırı ve saat yarışı — 2026-11-07
+
+- Esas main-guncel/1a018a1 temiz; AGENTS/genel kabul ve önceki FAIL/rollback/
+  PASS kayıtları esas alındı. Son15/önceki12 PASS testleri tekrarlanmadı.
+- Kaynak: korumalı sağlık API'si ADMIN session istiyor; tek belgeli canlı
+  adres VDS loopback. Kimliksiz doğrulanmış HTTP hedefi/tünel yok. Kullanıcı
+  gereği login/credential/session okuma/yeni tünel veya HTTP denemesi yok;
+  yeni DNS/socket sonucu iddia edilmez. Canlı sağlık BLOCKED/bilinmiyor.
+- Yeni gerçek araç kusuru: aynı view data yanıtı render'ın 1sn now state'inden
+  yeni örnek getirince geçici Veri yok stable sayılıyor; tam ölçüm comparator
+  yanlış FAIL verebiliyor. clock.upper<sample<=readAt/provenance kanıtında
+  yalnız gerçek sonraki tick beklenir; bozuk/future/yanlış metrik kapıları korunur.
+- PASS: yeni test önce FAIL sonra PASS; yeni olumsuz koşul testi ve kaynak
+  eşitliği kontrol eden gerçek SSR geçişi PASS (3 yeni kontrol). JS syntax/
+  diff/belge kontrolü. Eski suite/build/browser/socket/DB çalıştırılmadı.
+- Sağlık/genel kabul raporu güncellendi. Ürün/API kodu değişmedi. Tarihsel
+  fffac4a nedenini bu daha sonraki araç kusuruna bağlama yok; BLOCKED sürer.
+- Sonraki tek işlem mevcut yetkili ortamdan oturum bilgisi içermeyen canlı
+  API/DOM sağlık çıktısını incelemek. VDS/V1/V2.5/canlıV2.6/router/RADIUS/
+  IPsec/DB/servis/stash ve kullanıcı dosyaları korundu; deploy/restart yok.

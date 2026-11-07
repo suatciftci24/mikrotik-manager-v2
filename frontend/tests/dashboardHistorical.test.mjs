@@ -1,6 +1,6 @@
 // Actual historical sources, synthetic data, SSR/DOM adapter. No socket or browser.
 import {test} from 'node:test';
-import {compareHealthFrame} from '../../deploy/v1-inventory/browser/health-comparison.mjs';
+import {compareHealthFrame,frameStable} from '../../deploy/v1-inventory/browser/health-comparison.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -62,6 +62,29 @@ await test('current snapshot-bound comparator accepts the same SSR observation r
   alerts:[...alerts.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map(m=>({name:text(m[1].match(/<a[^>]*>(.*?)<\/a>/s)[1]),status:text(m[1].match(/<strong>(.*?)<\/strong>/s)[1])}))};
  assert.deepEqual(compareHealthFrame(frame),{Normal:8,Dikkat:1,Kritik:0,'Eski veri':0,'Veri yok':0});
  results.push({scenario:'current_snapshot_bound',status:'PASS',historical_attribution:false});
+});
+await test('current-identical SSR demonstrates same-view new response before and after its own health tick',async()=>{
+ for(const name of ['components/DashboardV1Health.tsx','lib/routerHealth.ts','lib/dashboardV1Health.ts'])
+  assert.equal(readFileSync(resolve('src',name),'utf8'),readFileSync(join(temp,'frontend/src',name),'utf8'),'current render/classifier identity: '+name);
+ const rows=structuredClone(base);rows[0].sampled_at=new Date(now+500).toISOString();
+ const makeFrame=(rendered,clock,readAt)=>{
+  const dom=[...rendered.html.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].filter(m=>m[1].includes('<td>')).map(m=>{
+   const cells=[...m[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(td=>td[1]),last=cells.at(-1);
+   return {cells:cells.map(text),status:text(last.match(/<strong>(.*?)<\/strong>/s)[1]),reason:text(last.match(/<small>(.*?)<\/small>/s)[1])};
+  });
+  const cards=cardsFrom(rendered.html),alerts=rendered.html.match(/<ul class="health-alerts">([\s\S]*?)<\/ul>/)?.[1]??'';
+  return {active:0,clock:{lower:clock,upper:clock},readAt,data:rendered.data,rows:dom,stamps:rows.map(stamp),
+   counts:Object.fromEntries(cards.map(c=>[c.querySelector('top').textContent,c.querySelector('value').textContent])),
+   alerts:[...alerts.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map(m=>({name:text(m[1].match(/<a[^>]*>(.*?)<\/a>/s)[1]),status:text(m[1].match(/<strong>(.*?)<\/strong>/s)[1])}))};
+ };
+ const before=await inspect({rows,renderAt:now,inspectAt:now+600});
+ const oldFrame=makeFrame(before,now,now+600);
+ assert.equal(oldFrame.rows[0].cells[2],'Veri yok');assert.equal(oldFrame.rows[0].status,'Veri yok');
+ assert.equal(frameStable(oldFrame),false);
+ const after=await inspect({rows,renderAt:now+1000,inspectAt:now+1000});
+ const next=makeFrame(after,now+1000,now+600);
+ assert.equal(frameStable(next),true);assert.equal(next.rows[0].cells[2],'0% / 4.7%');
+ assert.deepEqual(compareHealthFrame(next),{Normal:8,Dikkat:1,Kritik:0,'Eski veri':0,'Veri yok':0});
 });
  console.log('HISTORICAL_RECONSTRUCTION '+JSON.stringify({commit,source_sha256:createHash('sha256').update(runner).digest('hex'),runner_unmodified:true,transport:'SSR + DOM adapter; no browser or sockets',scenarios:results,historical_root_cause:'BLOCKED'}));
 

@@ -134,3 +134,20 @@ kontrol PASS; gerçek browser/PG/HTTP veya canlı yayın kabulü değildir.
 Tarihsel kesin neden ve genel kabul BLOCKED kalır. Sonraki tek güncel kabul
 adımı normal Ev WSL'de yeni tanılama ile yalnız yerel sentetik browser
 kapsamını doğrulamaktır; VDS/DB/cihaz işlemi gerektirmez.
+
+## 1a018a1 sonrası salt okunur canlı inceleme sınırı — 2026-11-07
+
+[Sağlık raporunun yeni bölümü](V26_HEALTH_ACCEPTANCE.md): mevcut kabul aracında
+aynı görünümde gelen ölçümün son 1sn render saatinden yeni, response readAt'den
+eski olması yanlış FAIL üretebiliyor. Yeni test önce FAIL, yalnız ilgili
+kararlılık kapısındaki düzeltmeyle PASS; gerçek SSR geçişi ve olumsuz koşullarla
+3 yeni hedefli kontrol geçti. Ürün/API, eşikler ve mevcut PASS kapsamları
+korundu; eski 15 kontrol veya geniş suite tekrar edilmedi.
+
+Canlı sağlık **BLOCKED/doğrulanamadı**: belgeli adres VDS loopback'idir,
+sağlık API'si ADMIN session ister. Login veya credential isteme/kullanma,
+session dosyası okuma, yeni tünel veya doğrulanmamış hedefe HTTP denemesi yok.
+Bu oturum için DNS/socket hatası iddia edilmez; mevcut ADMIN PASS yeniden
+açılmaz. Yeni araç düzeltmesi, frameStable içermeyen tarihsel fffac4a olayını
+kapatmaz. Sonraki tek kanıt, mevcut yetkili ortamdan gelen oturumsuz/sırsız
+API/DOM sağlık çıktısıdır; canlıya hazır sürüm kararı değişmedi.

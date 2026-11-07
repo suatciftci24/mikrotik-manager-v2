@@ -36,6 +36,12 @@ export function frameStable(frame){
  // observed clock boundary, never retry a metric/status/count disagreement.
  return frame.data.items.every(r=>{
   const time=Date.parse(r.sampled_at);
+  // Same view, new response: the UI retains its previous 1s clock until the
+  // next tick. A sample already received can be newer than that render clock.
+  // Wait only for this proven lifecycle gap, never for a genuinely future
+  // sample (> readAt) or for rendered metrics/counts to agree.
+  if(r.health_source==='V1_ROUTER_HEALTH_SAMPLES'&&r.health_sample_id?.trim()&&
+     Number.isFinite(time)&&Number.isFinite(frame.readAt)&&time>frame.clock.upper&&time<=frame.readAt)return false;
   // Missing time has no minute-age boundary. NaN !== NaN previously kept a
   // settled 'Veri yok' row unstable forever, hiding the actual acceptance check.
   const sameAge=!Number.isFinite(time)||Math.floor((frame.clock.lower-time)/60000)===Math.floor((frame.clock.upper-time)/60000);

@@ -595,3 +595,76 @@ işlemin somut komutu, normal Ev WSL proje kökünden:
 `cd frontend && node tests/healthComparison.browser.mjs`.
 Bu komut mevcut yerel Playwright/Chromium gerektirir; canlı runner veya
 --approved-read-only komutu bu görevin sonraki işlemi değildir.
+
+## 1a018a1 sonrası — kimliksiz canlı erişim sınırı ve yeni yanıt/saat yarışı — 2026-11-07
+
+**Yerel yanlış-FAIL düzeltmesi PASS; özgün kök neden ve güncel canlı sağlık
+BLOCKED.** Önceki FAIL/ROLLBACK_VERIFIED ve PASS kayıtları esas alındı;
+kullanıcının son 15 PASS kapsamı yeniden koşturulmadı. Önceki 12 tanılama
+kontrolü de yeni canlı kabul olarak sunulmadı.
+
+### Canlı durum: doğrulanamadı
+
+Belgelenen V2.6 kabul adresi VDS'nin `127.0.0.1:18996` adresidir; bu makinenin
+loopback'iyle eşitlenemez. Güncel, doğrulanmış anonim bir dış HTTP hedefi veya
+bu ortamda kimliksiz kullanılabilen doğrulanmış tünel kaydı yok. Kaynakta
+`GET /api/v1/v1-inventory` current_admin → current_demo_user zinciriyle
+session cookie ister. Statik sayfanın veya ready200'ün varlığı bu korumalı
+sağlık verisini doğrulamaz.
+
+Kullanıcı talimatı gereği login, parola/cookie/token isteme veya kullanma,
+eski session dosyası okuma ve yeni SSH/tünel açma yapılmadı. Yanlış hedefe
+istek atılmadı. **Canlı HTTP isteği denenmedi; bu oturumda yeni DNS/socket
+hatası gözlendiği de iddia edilmez.** Önceki ADMIN giriş/oturum PASS korunur;
+canlı Dashboard bugün sağlıklı/arıza/erişilemez ilan edilmez. Ölçüm yaşı,
+sayaçlar, çalışan build ve mevcut API/DOM eşitliği güncel olarak bilinmiyor.
+
+### Mevcut kodda yeni kanıtlanan yanlış FAIL
+
+Aynı görünümdeki asenkron yanıt, 1sn sağlık saati tick'inden bağımsız gelir.
+`V1InventoryLiveView` yeni data props'unu mevcut `now` state'iyle render eder.
+Yeni gerçek ölçüm `now` değerinden ileri, fakat yanıtın alınma `readAt`
+saatinden geri olabilir. Ürün, eski değerlendirme saatiyle geçici Veri yok
+ve gizli metrik/tarih gösterir; sonraki tick'te ölçüm normal değerlendirilir.
+Bu kısa aralıkta eski `frameStable` iki clock ucunda da Veri yok bulup true
+dönüyordu. Tam ölçüm isteyen comparator ise DOM metriklerinde Veri yok
+bulup yanlış bir kalıcı uyumsuzluk gibi FAIL verebiliyordu.
+
+Yeni sentetik örnek: ölçüm=t+500ms, response readAt=t+600ms, son clock=t.
+Düzeltme öncesi yeni regresyon `frameStable=false` beklentisinde FAIL verdi
+(gerçek=true). Sonraki t+1000ms tick'inde gerçek SSR görünümünde metrikler
+yeniden mevcut; mevcut comparator Normal8/Dikkat1/diğer0 PASS verdi.
+`DashboardV1Health`, `routerHealth`, `dashboardV1Health` dosyalarının kullanılan
+sabit eski kaynakla eşitliği SSR testinde ayrıca doğrulandı; bu nedenle kanıt
+mevcut render/classifier davranışına da aittir. Browser/HTTP kabulü değildir.
+
+Minimal düzeltme yalnız kabul aracının `frameStable` fonksiyonundadır:
+doğrulanmış provenance ve sonlu zamanla **clock.upper < sampled_at <= readAt**
+ise sonraki gerçek tick beklenir. Ölçüm zamanı/API yanıtı/ürün saati veya
+veriler değiştirilmez; metriklerin uyuşması beklenmez. `sampled_at > readAt`,
+eksik/readAt'sız zaman ve kalıcı yanlış metrik bu koşulla affedilmez. Geçerli
+saatte stabil yanlış DOM hâlâ anında FAIL'dir. CPU/RAM eşikleri, 10dk kuralı,
+60sn seri okuma, yetki, tam ölçüm şartı ve V2.5 sözleşmesi değiştirilmedi.
+
+Bu, **mevcut araçta kanıtlanmış ayrı bir kusurdur**. Özgün fffac4a olayında
+frameStable bulunmadığından bu düzeltme o eski olayın nedeni veya kapanışı
+olarak sunulmaz. Eski 10dk/+1ms koşulu ve eksik ölçüm sentetik olarak zaten
+kanıtlıdır; hangisinin özgün olayda olduğu hâlâ bilinmiyor. Yeni ürün/API
+kusuru kanıtlanmadı; frontend/backend ürün kodu değiştirilmedi.
+
+### Hedefli doğrulama ve karar
+
+- Yeni same-view saat testi önce FAIL, minimal düzeltmeden sonra PASS.
+- Yeni future-invalid/eksik/readAt'sız zaman ve stabil yanlış metrik reddi
+  PASS; değişen kapının olumsuz koşulları korunur.
+- Yalnız yeni current-identical SSR senaryosu PASS: geçici Veri yok → gerçek
+  sonraki tick → doğru metrikler/sayaçlar. Mevcut başarılı senaryolar seçilmedi.
+- Toplam 3 yeni hedefli kontrol; JS syntax/diff ve belge kontrolleri PASS.
+  Geniş suite, son 15 PASS, eski tekrar üretimleri, build veya browser yeniden
+  çalıştırılmadı. Geçici kaynak ağacı dışında veri/sistem değişikliği yok.
+
+Sonraki tek işlem: **mevcut yetkili ortamdan üretilmiş, oturum bilgisi
+barındırmayan canlı API/DOM sağlık kanıtını incelemek**. Codex'e login/cookie
+aktarımı veya erişim kontrolünün kaldırılması istenmez. Böyle bir kanıt
+yokken güncel canlı sağlık ve tarihsel tam neden BLOCKED kalır; yeniden
+bağlantı/dağıtım denemesi yapılmaz.
