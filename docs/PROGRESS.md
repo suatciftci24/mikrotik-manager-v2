@@ -4257,3 +4257,20 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   `bash ./accept-v26-test001-http.sh`; ayrıntı V26_TEST001_HTTP_ACCEPTANCE.md.
 - Yalnız test altyapısı/belgeleri değişti. VDS/V1/V2.5/router/RADIUS/IPsec/
   mevcut DB/servis/stash@{0}/kullanıcı dosyaları korunur; deploy/restart yok.
+
+## V2.6 — genel kabul değerlendirmesi — 2026-11-07
+
+- Temel main-guncel/d027064, temiz ağaç; AGENTS/son kabul ve ilgili kaynaklar
+  incelendi. Yalnız docs/V26_GENERAL_ACCEPTANCE.md ve bu kayıt güncellendi.
+- Dashboard, Router, PPPoE/işlemler, audit/recovery, alarm ve mobil durumu
+  kaynak/kanıt matrisiyle ayrıldı. ADMIN kullanıcı doğrulamalı HTTP PASS korunur;
+  güncel disposable PG/HTTP kapanışı ve tarihsel Dashboard rollback engeli açık.
+- Öncelik: P0 PG/HTTP ve Dashboard kabulü; P1 eksik iki-kaynak gerçek oturum/
+  browser-mobil/recovery, güncel alarm kalıcılığı ve aday/paket eşitliği;
+  P2 ölçek ölçümü ve RADIUS/export/gerçek yazma kapsamı. Eksik kanıt yeni ürün
+  hatası sayılmadı; Aşama13 tarihsel 20 browser PASS kaydı korunur.
+- PASS yalnız belge/kaynak değerlendirmesi ve hedefli belge/diff kontrolü.
+  V2.6 genel kabul/V2.7 kabul edilmiş tabana geçiş BLOCKED; tasarım yapılabilir.
+  Önceki PASS suite/build tekrar edilmedi; PG/HTTP/browser/socket denenmedi.
+- VDS/V1/V2.5/router/RADIUS/IPsec/mevcut DB/servis/deploy/stash ve kullanıcı
+  dosyaları korundu. Yeni ürün/test değişikliği veya canlı işlem yok.
