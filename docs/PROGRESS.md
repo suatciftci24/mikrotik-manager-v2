@@ -4198,3 +4198,24 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - VDS/SSH/V1/V2.5/backend/DB/router/RADIUS/IPsec/deploy/restart yok.
   Sonraki tek işlem önceki test edilmiş v26-legacy-update-final paketini
   bu ofis reposuna dosya ezmeden güvenli aktarmak.
+
+
+## V2.6 — v26-test-001 yerel işlevsel kabulü — 2026-11-07
+
+- Esas main-guncel/e89f621. Kurallar/son kabul ve mevcut testler incelendi;
+  önceki PASS suite/build tekrarı yok. Mevcut SQLite/ASGI fixture'ı kullanıldı.
+- PASS: üç yeni senaryo; yalnız v26-test-001 için uzatma/paket/pasif/aktif
+  API yanıtı, SQLite kayıtları, GET detay ve audit tutarlılığı; UUID replay,
+  VIEWER/onay/kaynak reddi, bozuk veri ve audit arızasında kayıt bütünlüğü.
+  LEGACY QuickActions aynı aboneyle API/bellek/detay/audit PASS; PG sayılmaz.
+- AnyIO worker dönüşü bağımsız minimal çağrıda da timeout verdi. Yalnız test
+  ASGI istemcisinde inline sync dispatch kullanıldı; yetki/validasyon/iş kodu
+  assertion'ları değişmedi. Yeni fixture history ID beklentisi revision
+  sözleşmesine düzeltildi; yalnız başarısız workspace senaryosu tekrarlandı.
+- Ürün hatası bulunmadı; test ve kabul belgesi eklendi. Gerçek PG/HTTP/login/
+  browser/VDS yazma BLOCKED/çalıştırılmadı; ürün kodu değiştirilmedi.
+  Ayrıntı: docs/V26_TEST001_FUNCTIONAL_ACCEPTANCE.md.
+- stash@{0} ve önceden var olan PROGRESS değişikliği korundu, önceki ekler
+  commit dışında. SSH/VDS/deploy/restart/V1/V2.5/router/RADIUS/IPsec yok.
+- Sonraki tek işlem tamamen disposable yerel PG/HTTP ortamında aynı tek-abone
+  senaryosunun kalıcılık/detay/audit kabulü; VDS DB kullanılmayacak.
