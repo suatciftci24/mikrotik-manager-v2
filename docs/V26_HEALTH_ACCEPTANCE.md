@@ -391,3 +391,76 @@ assertion'ın gerçek operandlarını karşılaştırmak. Artefakt yokken tarihs
 neden BLOCKED kalır; yeni yayın bu boşluğun yerine kullanılmaz. Ayrı bir güncel
 V2.6 sürüm kabulü planlanacaksa önce yerel sentetik kapsam, ardından yalnız
 ayrıca açık onaylı hedef kapsamı değerlendirilir; bu görev canlı yetki vermez.
+
+## a7458b2 sonrası — özgün hata kanıtı araştırması — 2026-11-07
+
+**İnceleme tamamlandı; tarihsel kesin neden BLOCKED.** Bu görev test veya yeni
+üretim gözlemi değildir. Başlangıç `main-guncel/a7458b2`, çalışma ağacı temiz.
+Yalnız mevcut yerel kayıtlar, bu dalın Git geçmişi ve belgeler okundu.
+
+### Bulunan ve bulunamayan kanıt
+
+| Kaynak | Gerçek bulgu | Kanıtın sınırı |
+| --- | --- | --- |
+| `.local/deployment/v26-approved-fffac4a/ui-receipt.json` | Özgün ikinci denemenin version=fffac4a, status=FAIL, step=dashboard.desktop, AssertionError/ERR_ASSERTION kaydı mevcut. pageErrors ve httpFailures listelerinin ikisi de boş. | failure alanında comparison, expected/actual, stack veya assertion konumu yok. Yalnız bir önceki kabul kontrolü kayıtlı; Dashboard başarısı yok. |
+| Aynı dizindeki `private-prepare.json` ve `private-rollback.json` | Envanter hazırlık/geri dönüş metadata'sı ve ROLLBACK_VERIFIED mevcut. | inventory yalnız count/health_count/ids taşır; özgün hata anının CPU/RAM/zaman/API gövdesi veya DOM'u değildir. |
+| Aynı özgün ikinci-deneme dizini | Kontrol/çalıştırma kaynakları ve beş JSON dosyası mevcut. | dashboard-api.json, dashboard-frame.json, Dashboard PNG, HTML/DOM dump veya Playwright trace/stack artefaktı bu dizinde yok. |
+| `.local/deployment/v26-fresh-1c9bfcd/` | İlk denemenin eski kanıt yolu 491f444 ve sonraki PROGRESS kaydında geçiyor. | Bu yerel kopyada dizin yok. 1c9bfcd ağacında `v26-browser-acceptance.mjs` de sürümlü değil. Eski kayıtlar son iki runtime hata-listesi assertion'ını aday gösteriyor; hangi listenin/hatanın başarısızlığı kanıtlanmıyor. |
+| `.local/v26-root-cause/synthetic-repro/` | API JSON ve dört Dashboard/Router PNG'si, `source.isolation` FAIL receipt'i mevcut; bu receipt'te bir HTTP hatası var. | Üretilmiş sentetik yeniden üretim, özgün ikinci-deneme Dashboard frame'i değil. source.isolation hatası dashboard.desktop hatasıyla eşitlenmez. |
+| `.local/v26-dashboard-evidence-d733ba8/frame-0.json`, `frame-1.json`, `receipt.json` | Atomik API/DOM frame'leri mevcut; receipt PASS, v26_live_acceptance=false. | Sonraki V2.5 salt okunur adapter tanısının yerel artefaktları; tarihsel başarısız V2.6 operandları değildir. V2.5'e bu görevde erişilmedi. |
+| `.local/v26-root-cause/live-*.json`, V2.6 sentetik browser receipt'leri ve anonim browser-run sonuçları | Sonraki tanı/başarı ve farklı kabul kapsamları mevcut. | Sonraki metrik eşleşmeleri ve sentetik PASS tarihsel nedeni kanıtlamaz. Diğer genel FAIL_OR_BLOCKED receipt'lerinde özgün iki commit veya dashboard.desktop atfı/stack alanı bulunmadı; ilişki uydurulmadı. |
+| Yerel Git ve geçici dosya adları | main-guncel geçmişinde kaynak/doküman sürümleri bulundu; özel receipt yolları Git ignore kapsamındadır. Erişilebilen `/tmp` dosya adlarında ilgili özgün artefakt bulunmadı. | İncelenen dalın yol geçmişinde özgün API/DOM/trace/PNG commit'i bulunmadı. Git ignore tek başına geçmişte hiç commit edilmediğini kanıtlamaz; yol geçmişi ayrıca kontrol edildi. Stash veya başka bilgisayar/arşiv/uzak sunucu araştırılmadı. |
+
+Yerel kanıt kimlikleri (yalnız SHA256; içerik/sır/gerçek satırlar rapora alınmadı):
+
+- Özgün ikinci-deneme FAIL receipt'i:
+  `74798ee98f15448772436dafdb1e54ed9f4b782f2838502fc94285d723f0a06b`.
+- Özgün ikinci-deneme rollback receipt'i:
+  `ed7dfcb96d25552b4760ab65f11f377e4d88366f584cd4d6e763238250487d54`.
+- Ayrı sentetik yeniden üretimin FAIL receipt'i:
+  `1f2d64e23fa15895c734481bc08300244f534dc85edc68b0d7b3cc849fce1410`.
+
+### Git geçmişinin kanıtladığı kayıt kaybı
+
+`fffac4a:deploy/v1-inventory/v26-browser-acceptance.mjs` içinde
+`inspectDashboard` kaynak/sayaç/satır/metrik/zaman/uyarı assertion'larını
+60–76. satırlarda yapıyor. `dashboard-api.json` ancak 77. satırda, PNG ancak
+inspectDashboard başarıyla döndükten sonra 81. satırda yazılıyor. Hata bu
+assertion grubunda oluştuğunda özgün API/DOM anı diske kaydedilmiyor.
+
+Aynı sürümün `browser/acceptance-diagnostics.mjs` 38–42. satırları catch
+sonucunda yalnız step, hata türü/code ve güvenli genel mesajı saklıyor;
+assertion operandları/stack satırı yok. Bu kaynak davranışı, bulunan özgün
+receipt'in neden kesin alt kontrolü açıklayamadığını kanıtlıyor. Eşzamanlı
+olmayan API/saat/DOM okumaları kaynakta görülür; tarihsel yarış gerçekleştiği
+bu kayıtlardan çıkarılamaz. İkinci denemedeki boş runtime hata listeleri de
+ilk denemenin kayıp listelerini açıklamaz.
+
+### NaN düzeltmesiyle kesin karşılaştırma
+
+Git'te `frameStable` işlevi **d733ba8** ile, ikinci başarısız denemeden sonra
+eklenmiştir. fffac4a runner'ı bu işlevi veya captureHealthFrame'i import/çağrı
+olarak içermez; eski `inspectDashboard` akışını kullanır. a7458b2'nin düzelttiği
+NaN dakika-eşitliği d733ba8'deki bu sonraki kararlılık kontrolündedir.
+
+Dolayısıyla **a7458b2'de düzeltilen frameStable NaN kod yolu, özgün fffac4a
+Dashboard assertion'ının doğrudan nedeni olamaz.** Bu, eski hatanın gerçek
+nedenini belirlemez; eski örnekte eksik ölçüm veya başka bir uyuşmazlık olduğu
+iddia edilmez. Yerel NaN/rollback PASS kendi kapsamını korur; tarihsel sağlık
+hatası FIXED veya yanlış pozitif ilan edilmez.
+
+### Karar ve sonraki tek işlem
+
+Kabul raporu ve belge/diff kontrolleri PASS; özgün API/DOM/stack operandı
+bulunamadığından tarihsel kesin neden ve canlı V2.6 kabulü BLOCKED kalır.
+Mevcut yerel kanıtlarda aynı arama veya test yeniden yapılmamalıdır.
+
+Sonraki tek işlem, **özgün testi çalıştıran bilgisayardaki bağımsız yerel
+arşivden varsa hata-anı API/DOM/stack/trace kopyasını bu incelemeye almak**.
+Yalnız aynı receipt'in kopyası eksik operandı tamamlamaz. Böyle bir arşiv de
+yoksa tarihsel neden çözülememiş olarak kalır; yeni sürüm kabulü ayrı bir
+karardır, eski olayın kanıtı yerine sunulmaz. Yeni canlı deneme/dağıtım istenmez.
+
+Bu görevde test/build/browser/socket, canlı VDS/V1/V2.5, cihaz/RADIUS/IPsec,
+veritabanı veya servis işlemi yok; stash okunmadı/değiştirilmedi. Özel yerel
+artefaktlar yalnız okundu; hiçbirisi Git'e eklenmedi veya yeniden yazılmadı.

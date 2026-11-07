@@ -4297,3 +4297,22 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   kurtarılmasıdır. Yeni yayın eski eksik kanıtın yerine geçmez.
 - VDS/V1/V2.5/canlıV2.6/router/RADIUS/IPsec/DB/stash/kullanıcı dosyaları
   korunur. SSH/socket/PG/HTTP/browser/servis/restart/deploy işlemi yapılmadı.
+
+## V2.6 — özgün Dashboard hata kanıtı incelemesi — 2026-11-07
+
+- Esas main-guncel/a7458b2, temiz ağaç. AGENTS/genel kabul/son sağlık kaydı
+  okundu; yalnız yerel artefaktlar, main-guncel geçmişi ve belgeler araştırıldı.
+- Özgün fffac4a FAIL receipt bulundu: dashboard.desktop/ERR_ASSERTION,
+  runtime hata listeleri boş; API/DOM/stack/operand kaydı yok. Özgün rollback
+  ROLLBACK_VERIFIED. İlk 1c9bfcd kanıt dizini bu kopyada bulunmuyor.
+- Git kaynağı kayıt kaybını kanıtlar: API JSON/PNG assertion'lardan sonra;
+  catch operand/konumu saklamıyor. Sonraki sentetik source.isolation ve V2.5
+  adapter frame'leri özgün hata kanıtı sayılmadı. Özel içerik Git'e alınmadı.
+- Yeni kesin bulgu: frameStable d733ba8'de eklendi, fffac4a runner'ında yok;
+  a7458b2 NaN kod yolu özgün ikinci hatanın doğrudan nedeni olamaz.
+- PASS yalnız kanıt incelemesi/belge kontrolü. Tarihsel gerçek neden/canlı
+  kabul BLOCKED. Sağlık/genel kabul raporuna kaynak ve hash envanteri eklendi.
+- Sonraki tek işlem varsa özgün test bilgisayarının bağımsız yerel hata-anı
+  API/DOM/stack/trace arşivini edinmek; aynı yerel aramalar tekrar edilmemeli.
+- Test/build/SSH/socket/VDS/V1/V2.5/router/RADIUS/IPsec/DB/servis/deploy yok;
+  stash okunmadı/değiştirilmedi. Kullanıcı dosyaları ve özel artefaktlar korundu.

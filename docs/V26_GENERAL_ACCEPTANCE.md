@@ -99,3 +99,19 @@ P0'ın **yerel sağlık başarısızlığında rollback kanıtı** kısmı tamam
 kabul BLOCKED kalır. Yeni kütüphane sağlık kapısı canlı dağıtım akışına
 bağlanmadı. PG/HTTP ve diğer açık kabul maddeleri değişmez; V2.7'ye kabul
 edilmiş sürüm olarak geçiş hâlâ hazır değildir.
+
+## a7458b2 sonrası özgün Dashboard kanıtı araştırması — 2026-11-07
+
+[Sağlık kabul raporunda](V26_HEALTH_ACCEPTANCE.md) özgün fffac4a FAIL/rollback
+receipt'leri, metadata ve SHA256 kimlikleri kaydedildi. Özgün hata-anı API/DOM,
+PNG, stack veya operand bulunmadı. Eski runner snapshot'ı assertion'lardan
+sonra yazıyor ve catch operandları/konumu atmaktaydı; kayıt kaybı kaynakla
+kanıtlandı. İlk denemenin yerel kanıt dizini bu kopyada yok; sonraki sentetik
+ve V2.5 adapter artefaktları ayrı tutuldu.
+
+Yeni kesin ayrım: frameStable d733ba8'de, özgün ikinci denemeden sonra eklendi;
+a7458b2'nin NaN düzeltmesi fffac4a'nın başarısız assertion'ının doğrudan nedeni
+olamaz. Tarihsel gerçek neden yine BLOCKED; önceki yerel PASS ve canlı kabul
+engelleri değişmez. Yeni test/bağlantı yapılmadı. Sonraki tek kanıt kaynağı,
+varsa özgün test bilgisayarındaki bağımsız yerel hata-anı arşividir; aynı yerel
+aramalar veya yeni yayın bu boşluğu kapatmaz.
