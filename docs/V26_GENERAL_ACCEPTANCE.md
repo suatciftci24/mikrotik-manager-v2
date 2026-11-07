@@ -83,3 +83,19 @@ servis start/restart/deploy veya stash işlemi yoktur. Kod/test/bağımlılık v
 kullanıcı dosyaları değiştirilmedi; yalnız bu belge ve PROGRESS güncellendi.
 Doğrulama belge bağlantıları, kapsam/kanıt tutarlılığı ve `git diff --check` ile
 sınırlıdır; yeni uygulama/test/build PASS iddiası yoktur.
+
+## f21cedf sonrası Dashboard/rollback yerel ek kabulü — 2026-11-07
+
+[Sağlık kabulünün son bölümü](V26_HEALTH_ACCEPTANCE.md): eksik ölçüm zamanında
+NaN eşitliğinin kararlı frame'i sürekli reddetmesi düzeltildi; tam ölçüm kapısı
+gevşetilmedi. Gerçek Dashboard karşılaştırıcısının sayaç FAIL'iyle geçici
+frontend üzerinde sağlık kapısı/rollback, kaynak/dist hash geri dönüşü,
+korunan yedek, drift/bozuk yedekte güvenli duruş doğrulandı. 7 yeni test ve
+11 doğrudan ilgili mevcut kontrol PASS; yeni browser/PG/HTTP veya canlı kabul
+yok. Frontend/backend ürün sınıflandırması değişmedi.
+
+P0'ın **yerel sağlık başarısızlığında rollback kanıtı** kısmı tamamlandı.
+Özgün fffac4a receipt'inde operand yok; tarihsel Dashboard nedeni ve canlı
+kabul BLOCKED kalır. Yeni kütüphane sağlık kapısı canlı dağıtım akışına
+bağlanmadı. PG/HTTP ve diğer açık kabul maddeleri değişmez; V2.7'ye kabul
+edilmiş sürüm olarak geçiş hâlâ hazır değildir.

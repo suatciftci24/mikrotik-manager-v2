@@ -208,6 +208,27 @@ def rollback(target, backup):
                 raise
 
 
+def accept_health_or_rollback(target, bundle, backup, health_check):
+    """Gate an already applied candidate; a failed gate never returns success.
+
+    The caller supplies the explicitly authorized check. No HTTP, process,
+    deployment or restart is started here; CLI approval/target gates stay intact.
+    Rollback's existing drift and backup guards protect concurrent operator edits.
+    """
+    try:
+        verify(target, bundle)
+        if health_check() is not True:
+            raise ValueError('HEALTH_CHECK_DID_NOT_PASS')
+        # The check must not change the candidate; hashes alone are not health.
+        verify(target, bundle)
+    except BaseException as failure:
+        try:
+            rollback(target, backup)
+        except BaseException as rollback_error:
+            raise ValueError('HEALTH_ACCEPTANCE_FAILED_ROLLBACK_BLOCKED') from rollback_error
+        raise ValueError('HEALTH_ACCEPTANCE_FAILED_ROLLBACK_VERIFIED') from failure
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('action',choices=['pack','check','apply','verify','rollback'])

@@ -318,3 +318,76 @@ V2.5 ortak kontrolleri ve izole V2.6 kontrolleri PASS, tarihsel Dashboard
 hatasının ürün/test/asenkron/kaynak ayrımı atfı hâlâ kanıtsızdır. Başarısız
 karşılaştırma oluşmadığı için yeni bir başarısız beklenen/gerçek çifti yoktur.
 Yeni canlı dağıtımla bunu denemek bu görevin kapsamı dışındadır.
+
+## f21cedf sonrası — eksik ölçüm tanısı ve yerel sağlık rollback kapısı — 2026-11-07
+
+**Yerel hedefli düzeltme PASS; tarihsel Dashboard kök nedeni ve canlı kabul
+BLOCKED.** Bu bölüm önceki FAIL/ROLLBACK_VERIFIED kayıtlarını değiştirmez.
+
+### Kanıt ayrımı ve kaynak incelemesi
+
+- Mevcut özel `v26-approved-fffac4a/ui-receipt.json` salt okunur incelendi:
+  status=FAIL, step=dashboard.desktop, AssertionError/ERR_ASSERTION;
+  comparison/operand alanı yok. Private rollback receipt'i ROLLBACK_VERIFIED.
+  Sırlar, gerçek API/DOM satırları ve kullanıcı dosyaları değiştirilmedi.
+- Bu nedenle tarihsel hatanın ürün/karşılaştırıcı/zamanlama nedeni bugün
+  kesinleştirilemez. Receipt kaybı bilinen gerçek kabul engelidir; yeni yerel
+  başarı, o tarihteki karşılaştırmanın nedeni olarak sunulmaz.
+- Backend `read_inventory` alanları null olabilen salt okunur handoff üretir;
+  frontend validInventory/routerHealth/dashboardV1Health eksik ölçümü ayrı
+  değerlendirir. ADMIN, kaynak, is_demo, 10dk eşikleri, gerçek örnek zamanı,
+  tek seri 60sn okuma ve önceki kaynak izolasyonu düzeltmeleri korunur.
+  Yeni frontend sınıflandırıcı/backend ürün kusuru kanıtlanmadı; değiştirilmedi.
+
+### Yeni kanıtlanmış kabul aracı kusuru
+
+`frameStable` eksik/null sampled_at için iki tarafta da dakika yaşını NaN
+hesaplıyordu. NaN eşitliği false olduğundan kararlı Veri yok satırı sürekli
+kararsız kabul ediliyor, asıl kontrol yerine 10sn stable-frame timeout'ına
+gidiyordu. Bu, tarihsel ERR_ASSERTION'ın kanıtlanmış nedeni değildir.
+
+Düzeltme yalnız zamanı geçersiz/eksik satırın olmayan dakika sınırını atlar;
+sağlık sınıfı eşitliği, aktif istek, satır sayısı ve geçerli zamanın dakika/10dk
+sınır kontrolleri korunur. Dokuz tam ölçüm isteyen gerçek kabul sözleşmesi
+gevşetilmedi: eksik metrik yine numeric_schema expected=true/actual=false ile
+FAIL olur; stabil yanlış DOM/sayaç yeniden denenerek PASS yapılmaz. Artık frame
+kaydı ve alan bazlı tanı aşamasına ulaşabilir.
+
+### Sağlık hatasında rollback
+
+Seçici updater'a `accept_health_or_rollback` yerel kütüphane kapısı eklendi.
+Önce/sonra aday hash doğrulaması yapar; çağıranın sağladığı sağlık kontrolü
+**yalnız True** dönerse geçer. Exception/False/None/FAIL nesnesinde mevcut
+rollback fonksiyonunu çağırır. Başarılı geri dönüşte de kabul başarısız kalır:
+`HEALTH_ACCEPTANCE_FAILED_ROLLBACK_VERIFIED`. Drift veya bozuk yedekte
+`HEALTH_ACCEPTANCE_FAILED_ROLLBACK_BLOCKED`; kullanıcı değişikliği ezilmez,
+çalışan aday ve kalıcı yedek silinmez. Rollback başarılı diye PASS dönülmez.
+
+Bu kapı kendisi HTTP, browser, subprocess veya servis başlatmaz. CLI'ya yeni
+dağıtım yolu eklenmedi; mevcut hedef/onay kapıları ve yalnız QuickActions
+seçici paket kapsamı aynıdır. Tarihsel Fresh Pilot dağıtım aracına bağlanmış
+veya canlıda uygulanmış değildir. `verify` komutunun hash PASS'i uygulama
+sağlığı PASS'i sayılmaz; bu ayrım önceki CLI davranışında da geçerlidir.
+
+### Hedefli gerçek doğrulama
+
+- 2 yeni socket-free JS regresyon PASS: null zamanın kararlılığı ve açık
+  alan tanısı; in-flight/satır sayısı/10dk/dakika sınırı/stabil yanlış DOM reddi.
+- Mevcut karşılaştırma dosyasından yalnız 2 doğrudan etkilenen observer ve
+  V2.5 adapter testi seçildi: PASS. V2.5/V2.6 sözleşmeleri birleşmedi.
+- 5 yeni geçici filesystem sağlık-kapısı testi PASS: gerçek Node Dashboard
+  karşılaştırıcısında Normal sayacı beklenen1/gerçek0 hatası; tam kaynak/dist
+  hash geri dönüşü; yedek/diğer özellik korunması; yalnız True kabulü;
+  operatör drift ve bozuk yedekte güvenli duruş. Aynı keşifte updater'ın
+  doğrudan ilgili 9 mevcut testi de PASS (toplam 14 Python test). Sonrasında
+  import düzeni yalnız yeni sınıf keşfedilecek şekilde düzeltildi; test gövdeleri
+  değişmedi ve başarılı testler yeniden çalıştırılmadı.
+- Node syntax/Python AST/diff kontrolleri PASS. Uygulama bundle'ı veya geniş
+  suite çalıştırılmadı; değişiklik üretim frontend TS/backend kodu içermiyor.
+  PG/HTTP/browser/socket testi, SSH/VDS, DB/cihaz veya restart/deploy yok.
+
+Sonraki tek kanıt işi: özgün başarısız API/DOM/stack artefaktını kurtarıp aynı
+assertion'ın gerçek operandlarını karşılaştırmak. Artefakt yokken tarihsel
+neden BLOCKED kalır; yeni yayın bu boşluğun yerine kullanılmaz. Ayrı bir güncel
+V2.6 sürüm kabulü planlanacaksa önce yerel sentetik kapsam, ardından yalnız
+ayrıca açık onaylı hedef kapsamı değerlendirilir; bu görev canlı yetki vermez.

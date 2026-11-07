@@ -34,7 +34,13 @@ export function frameStable(frame){
  if(!frame||frame.active!==0||!frame.clock||!frame.data||frame.rows.length!==frame.data.items?.length)return false;
  // A health tick can straddle the exact age boundary. Recapture only such an
  // observed clock boundary, never retry a metric/status/count disagreement.
- return frame.data.items.every(r=>JSON.stringify(expectedHealth(r,frame.clock.lower))===JSON.stringify(expectedHealth(r,frame.clock.upper))&&Math.floor((frame.clock.lower-Date.parse(r.sampled_at))/60000)===Math.floor((frame.clock.upper-Date.parse(r.sampled_at))/60000));
+ return frame.data.items.every(r=>{
+  const time=Date.parse(r.sampled_at);
+  // Missing time has no minute-age boundary. NaN !== NaN previously kept a
+  // settled 'Veri yok' row unstable forever, hiding the actual acceptance check.
+  const sameAge=!Number.isFinite(time)||Math.floor((frame.clock.lower-time)/60000)===Math.floor((frame.clock.upper-time)/60000);
+  return sameAge&&JSON.stringify(expectedHealth(r,frame.clock.lower))===JSON.stringify(expectedHealth(r,frame.clock.upper));
+ });
 }
 export async function captureHealthFrame(page,kind='dashboard'){
  const deadline=Date.now()+10000;

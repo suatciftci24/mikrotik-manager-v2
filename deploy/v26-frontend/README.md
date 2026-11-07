@@ -77,3 +77,20 @@ Rollback yedek bütünlüğünü ve hedefin önce/sonra izinli hash durumların�
 kontrol eder; sonradan değişmiş kaynakları veya farklı build'i ezmez. Önceki
 kaynak/dist geri yüklenip yeniden hash doğrulanır. Eski build'e dönüldüğünde
 operatör tarayıcıyı yeniler. Yedekler otomatik silinmez.
+
+## Yerel sağlık kapısı doğrulaması
+
+`accept_health_or_rollback(target, bundle, backup, health_check)` kütüphane
+fonksiyonu uygulanmış bir adayın hash'lerini ve çağıranın sağlık kontrolünü
+birlikte kapılar. Yalnız açık `True` kabul edilir. Sağlık hatasında mevcut
+rollback çalışır; başarılı geri dönüşte dahi fonksiyon
+`HEALTH_ACCEPTANCE_FAILED_ROLLBACK_VERIFIED` hatası verir. Drift veya bozuk
+yedekte `HEALTH_ACCEPTANCE_FAILED_ROLLBACK_BLOCKED` ile durur ve başka
+operatörün düzenlemesini ezmez. Bu fonksiyon ağ/servis başlatmaz.
+
+Bu yalnız yerelde sentetik filesystem testleriyle doğrulandı; mevcut CLI
+`apply`/`verify` komutlarına otomatik browser/sağlık kontrolü bağlanmadı.
+Hash doğrulamasının PASS olması Dashboard sağlığı kabulü değildir. Canlı
+kullanım yeni açık onay gerektirir; bu değişiklik dağıtım yetkisi vermez.
+Seçici QuickActions paket sınırı değişmedi; Dashboard'u yayınlayan yeni bir
+araç veya Fresh Pilot deploy yolu değildir.

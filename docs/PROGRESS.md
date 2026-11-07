@@ -4274,3 +4274,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Önceki PASS suite/build tekrar edilmedi; PG/HTTP/browser/socket denenmedi.
 - VDS/V1/V2.5/router/RADIUS/IPsec/mevcut DB/servis/deploy/stash ve kullanıcı
   dosyaları korundu. Yeni ürün/test değişikliği veya canlı işlem yok.
+
+## V2.6 — Dashboard sağlık/rollback yerel düzeltmesi — 2026-11-07
+
+- Esas f21cedf/main-guncel temiz; AGENTS/genel kabul/sağlık kaydı ve ilgili
+  frontend/backend/karşılaştırıcı/updater kodları okundu. Özgün yerel özel
+  receipt yalnız dashboard.desktop/ERR_ASSERTION içeriyor; operand yok.
+  Tarihsel neden BLOCKED, rollback receipt ROLLBACK_VERIFIED olarak korunur.
+- Yeni somut araç kusuru: null sampled_at → NaN dakika eşitliği false;
+  kararlı Veri yok frame'i sürekli reddedilip gerçek kontrol gizleniyor.
+  Olmayan yaş sınırı atlandı; tam ölçüm/yanlış DOM/in-flight/zaman kapıları
+  gevşetilmedi. Ürün classifier/backend değişmedi, yeni ürün arızası iddiası yok.
+- Yerel updater kütüphane sağlık kapısı: yalnız True, önce/sonra hash; hata
+  halinde korumalı rollback. ROLLBACK_VERIFIED dahi kabul FAIL; drift/bozuk
+  yedek BLOCKED. CLI/canlı bağlama veya Dashboard deploy kapsamı eklenmedi.
+- PASS: 2 yeni JS + 2 seçilmiş observer/V2.5; 5 yeni filesystem sağlık testi
+  ve aynı keşifte 9 doğrudan updater testi; syntax/AST/diff. Yalnız sentetik
+  geçici ağaçlarda gerçek comparator sayım hatası→rollback doğrulandı.
+  Başarılı kapsam tekrar edilmedi; yeni test import'u gelecek keşif için daraltıldı.
+- Kabul ve genel rapor gerçek sınırlara göre güncellendi. Tarihsel kök neden/
+  canlı kabul BLOCKED; sonraki tek kanıt işi özgün başarısız API/DOM/stack'in
+  kurtarılmasıdır. Yeni yayın eski eksik kanıtın yerine geçmez.
+- VDS/V1/V2.5/canlıV2.6/router/RADIUS/IPsec/DB/stash/kullanıcı dosyaları
+  korunur. SSH/socket/PG/HTTP/browser/servis/restart/deploy işlemi yapılmadı.
