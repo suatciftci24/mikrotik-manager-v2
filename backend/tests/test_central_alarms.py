@@ -45,9 +45,10 @@ class AlarmProjectionTests(TestCase):
             self.assertEqual(combine([{**row,'source_state':state}],actions,'demo-user')[0]['state'],state)
 
     def test_actual_seed_source_is_readonly_and_expiry_does_not_invent_times(self):
-        items=[row['item'] for row in demo_examples(AT)]
+        now=datetime.now(timezone.utc)
+        items=[row['item'] for row in demo_examples(now)]
         expired={**items[0],'id':'demo-sub-expiry-fixture','demo_report':None,'expires_on':'2026-10-27'}
-        before=deepcopy(items+[expired]);alarms,coverage=project_alarms(items+[expired],ROUTERS,[],'demo-user',AT)
+        before=deepcopy(items+[expired]);alarms,coverage=project_alarms(items+[expired],ROUTERS,[],'demo-user',now)
         self.assertEqual(items+[expired],before)
         self.assertTrue(coverage['connection_available']);self.assertFalse(coverage['ipsec_available'])
         target=next(row for row in alarms if row['kind']=='PPPOE_EXPIRE')
@@ -62,9 +63,10 @@ class AlarmProjectionTests(TestCase):
         self.assertEqual(archived['source_state'],'OPEN')
 
     def test_expiry_does_not_assume_untyped_or_future_accounts_are_expired(self):
-        items=[row['item'] for row in demo_examples(AT)]
+        now=datetime.now(timezone.utc)
+        items=[row['item'] for row in demo_examples(now)]
         for item in items:item['access_type']=None;item['expires_on']='2026-10-27'
-        result,_=project_alarms(items,ROUTERS,[],'demo-user',AT)
+        result,_=project_alarms(items,ROUTERS,[],'demo-user',now)
         self.assertFalse(any(row['kind']=='PPPOE_EXPIRE' for row in result))
 
     def test_new_source_episode_keeps_prior_ack_memory_without_reusing_ack(self):
