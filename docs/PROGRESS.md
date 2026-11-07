@@ -4180,3 +4180,21 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   işlemi yapılmadı. Kullanıcının önceki PROGRESS ekleri ve yedekleri korunur.
 - Sonraki tek adım: ağ erişimi sağlanınca uzak main-guncel doğrulaması ve
   normal push; VDS yayını ayrıca onay bekler.
+
+
+## V2.6 — ofiste QuickActions paket girdileri incelemesi — 2026-11-07
+
+- Esas main-guncel/07b13b1; kurallar ve son özellik koruma kabulü okundu.
+  stash@{0} 66eda91 yalnız PROGRESS'e 88 ek satır içerir; index/untracked
+  farkı yok. Salt okunur incelendi; otomatik geri yükleme/silme yapılmadı.
+- Önceki .local/v26-legacy-review/actions/update-final ve VDS referansı bu
+  ofis kopyasında yok. Gerçek baseline dist/config olmadan uyumlu dağıtım
+  paketi BLOCKED; tam repo build'i ile varsayımsal paket üretilmedi.
+- PASS: kaynak pin/tek dosyalık patch/önce-sonra patch byte kontrolü,
+  updater syntax/arşiv byte kontrolü/stash koruma. Eski PASS/build tekrarı yok.
+- Git dışı hazırlık: .local/v26-quickactions-07b13b1-preparation-NOT-DEPLOYABLE.tar.gz;
+  dağıtım paketi değildir. Kaynak/yedek/rollback/verify için tek araç update.py.
+  Ayrıntılar docs/V26_QUICK_ACTIONS_PACKAGE_REVIEW.md.
+- VDS/SSH/V1/V2.5/backend/DB/router/RADIUS/IPsec/deploy/restart yok.
+  Sonraki tek işlem önceki test edilmiş v26-legacy-update-final paketini
+  bu ofis reposuna dosya ezmeden güvenli aktarmak.
