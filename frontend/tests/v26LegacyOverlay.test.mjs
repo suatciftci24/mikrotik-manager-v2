@@ -53,16 +53,14 @@ test('legacy detail retains all five tabs, router link and VDS disclosure while 
   if(tab==='connections')assert.match(html(tree),/Ölçülmedi/);
  }
 });
-test('legacy toolbar routes all three actions and fails closed for stale, foreign or unauthorized records',()=>{
+test('legacy toolbar exposes one action entry and fails closed for stale, foreign or unauthorized records',()=>{
  let action=null,data=detail;
  const hooks={...simpleHooks,useState:initial=>initial?.path?[{...initial,loading:false,data},()=>{}]:initial===null?[action,value=>{action=value;}]:[typeof initial==='function'?initial():initial,()=>{}]};
  const component=bundle('components/LegacySubscriberActions.tsx',hooks).LegacySubscriberActions;
  const render=()=>component({id:row.id});
- for(const [label,kind] of [['Abonelik Süresini Uzat','EXTEND'],['Paket değiştir','PLAN'],['Aktif / Pasif','STATUS']]){
-  nodes(render()).find(n=>n.type==='button'&&html(n).includes(label)).props.onClick();
-  const dialog=nodes(render()).find(n=>typeof n.type==='function'&&n.type.name==='QuickActions');
-  assert.equal(dialog.props.initialAction,kind);assert.equal(dialog.props.rows[0].id,row.id);
- }
+ nodes(render()).find(n=>n.type==='button'&&n.props.children==='Hızlı İşlemler').props.onClick();
+ const dialog=nodes(render()).find(n=>typeof n.type==='function'&&n.type.name==='QuickActions');
+ assert.equal(dialog.props.initialAction,'EXTEND');assert.equal(dialog.props.rows[0].id,row.id);
  for(const patch of [{persistence:'process-memory'},{is_demo:false},{item:{...row,id:'demo-sub-other'}},{item:{...row,source:null}},{item:{...row,router_id:null}},{item:{...row,can_manage_pppoe:false}}]){
   data={...detail,...patch};assert.equal(nodes(render()).filter(n=>n.type==='button').length,0);
   assert.ok(!nodes(render()).some(n=>typeof n.type==='function'&&n.type.name==='QuickActions'));

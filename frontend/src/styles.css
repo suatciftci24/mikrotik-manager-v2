@@ -184,11 +184,13 @@ input::placeholder{color:var(--muted);opacity:1}
 .onboarding-fields textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 .router-device-summary,.router-device-panel{min-width:0;overflow-wrap:anywhere}
+.subscriber-actions-menu{position:relative}.subscriber-actions-menu>summary{cursor:pointer;list-style:none}.subscriber-actions-menu>summary::-webkit-details-marker{display:none}.subscriber-actions-options{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}.subscriber-actions-options button{min-height:40px}.subscriber-actions-menu[open]>summary{filter:brightness(1.06)}
 .router-device-tabs{display:flex;flex-wrap:wrap;gap:6px;height:auto;max-width:100%}
 .router-device-tabs button{white-space:normal;min-height:40px}
 .router-device-summary .page-heading-row{flex-wrap:wrap;gap:12px}
 .router-device-panel details>summary{cursor:pointer;color:var(--text-primary);padding:12px 0}
 @media(max-width:600px){.router-device-tabs button{flex:1 1 130px}.router-device-summary .page-heading-row{align-items:flex-start}.router-device-summary .detail-facts{grid-template-columns:1fr}}
+@media(max-width:600px){.subscriber-actions-menu{width:100%}.subscriber-actions-menu>summary{width:100%}.subscriber-actions-options{display:grid;grid-template-columns:1fr}.subscriber-actions-options button{height:auto;min-height:44px;white-space:normal}}
 
 /* Account state and calendar expiry are independent; keep both readable in compact rows. */
 .subscriber-table{min-width:1040px;table-layout:auto}

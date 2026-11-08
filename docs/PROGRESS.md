@@ -1,5 +1,18 @@
 # MikroTik Manager V2 — İlerleme
 
+## Abone Merkezi tek işlem girişi ve hızlı işlem sadeleştirmesi — 2026-11-08
+
+- Liste satırındaki yinelenen Düzenle kaldırıldı; abone detayı tek giriş olarak
+  kaldı. Kalıcı detaydaki düzenle/uzat/günlük işlem seçenekleri tek mobil uyumlu
+  İşlemler menüsünde toplandı. Legacy demo işlemleri tek Hızlı İşlemler
+  düğmesine taşındı; QuickActions içindeki EXTEND/PLAN/STATUS seçimi korundu.
+- Abone oluşturma ve HISTORY çalışma alanı ayrı görünür erişim olarak kaldı.
+  Loading/error'da detay verisi ve işlem girişi gösterilmez; kaynak/yetki
+  reddi korunur. Belirsiz işlem aynı UUID GET ve tek POST sınırında kalır.
+- PASS: detailCenter, subscriberCenter, subscriptionActions, v26LegacyOverlay
+  hedef testleri; frontend typecheck ve build.
+- Sadece sentetik frontend doğrulaması yapıldı; canlı sistem/deploy/migration yok.
+
 ## V2.6 runtime ortam kimliği — 2026-11-08
 
 - `/api/ready` hassas olmayan allowlist `runtime_profile` döndürür;

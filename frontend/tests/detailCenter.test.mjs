@@ -54,13 +54,14 @@ test('actual router detail renders evidence boundaries and never manufactures tr
  assert.doesNotMatch(html,/0 (?:GB|MiB|Mbps)/);
  assert.match(html,/Canlı oturum sayımı değildir/);
 });
-test('subscriber details expose shared quick operations, audit identity and blocked unknown authority',()=>{
+test('subscriber details expose audit identity without duplicate operations and block unknown authority',()=>{
  const {SubscriberDetails}=compile('../src/screens/Details.tsx');
  const html=renderToStaticMarkup(React.createElement(SubscriberDetails,{detail,onQuick(){}}));
- for(const text of ['Abonelik uyarıları','Demo paket/profil değiştir','7 / 15 / 30 gün uzat veya özel tarih','Aynı routerda toplu uzatmaya git','demo-event-id','demo-user'])assert.ok(html.includes(text),text);
+ for(const text of ['Abonelik uyarıları','Aynı routerda toplu uzatmaya git','demo-event-id','demo-user'])assert.ok(html.includes(text),text);
+ assert.doesNotMatch(html,/Demo paket\/profil değiştir|7 \/ 15 \/ 30 gün uzat/);
  const blocked=renderToStaticMarkup(React.createElement(SubscriberDetails,{detail:{...detail,item:{...subscriber,source:null}},onQuick(){}}));
  assert.match(blocked,/Kaynak bilinmiyor/);
- assert.equal((blocked.match(/<button[^>]*disabled=""/g)||[]).length,3);
+ assert.doesNotMatch(blocked,/Demo paket\/profil değiştir|7 \/ 15 \/ 30 gün uzat/);
 });
 test('detail hides stale subscriber and quick operations while loading or failed, then restores ready view',()=>{
  const path='/subscribers/'+subscriber.id;
@@ -69,10 +70,10 @@ test('detail hides stale subscriber and quick operations while loading or failed
   useState(initial){return initial&&typeof initial==='object'&&'path'in initial?[initial.path===path?{...initial,...resource}:initial,()=>{}]:[typeof initial==='function'?initial():initial,()=>{}];}};
  const {DetailCenter}=compile('../src/screens/Details.tsx',hooks);
  const render=()=>renderToStaticMarkup(React.createElement(DetailCenter,{kind:'subscribers',id:subscriber.id,onBack(){}}));
- let html=render();assert.match(html,/Demo paket\/profil değiştir/);assert.match(html,/Abonelik uyarıları/);
+ let html=render();assert.doesNotMatch(html,/Demo paket\/profil değiştir/);assert.match(html,/Abonelik uyarıları/);
  resource={data:detail,loading:true};html=render();assert.match(html,/Veriler yükleniyor/);assert.doesNotMatch(html,/Demo paket\/profil değiştir/);assert.doesNotMatch(html,/Test Abone/);
  resource={data:detail,loading:false,error:'HTTP failure'};html=render();assert.match(html,/HTTP failure/);assert.doesNotMatch(html,/Demo paket\/profil değiştir/);assert.doesNotMatch(html,/Test Abone/);
- resource={data:{...detail,item:{...subscriber,customer_name:'Güncel Abone',revision:2}},loading:false};html=render();assert.match(html,/Demo paket\/profil değiştir/);assert.match(html,/Güncel Abone/);assert.doesNotMatch(html,/Test Abone/);
+ resource={data:{...detail,item:{...subscriber,customer_name:'Güncel Abone',revision:2}},loading:false};html=render();assert.match(html,/Güncel Abone/);assert.doesNotMatch(html,/Test Abone/);
 });
 
 test('quick preview cannot run before router/catalog data are ready',()=>{

@@ -2,7 +2,6 @@ import {canChangeLegacy} from '../lib/subscriberActions';
 import {PppoeObservations} from '../components/PppoeObservations';
 import {detailOperationHash} from '../lib/operationReport';
 import { unknownDetail } from '../lib/detailCenter';
-import { QuickActions, type QuickAction } from '../components/QuickActions';
 import { RouterOverview, RouterSignals, SubscriberWarnings, SubscriberRouterLinks } from '../components/DetailOverview';
 import { AlarmEvents } from '../components/AlarmEvents';
 import { api } from '../lib/api';
@@ -33,18 +32,16 @@ type SubscriberDetail = SubscriberDetailData;
 export function DetailCenter({kind, id, onBack, backLabel='Listeye dön'}: {kind: 'routers' | 'subscribers'; id: string; onBack: () => void; backLabel?: string}) {
   const resource = useResource<RouterDetail | SubscriberDetail>(`/${kind}/${encodeURIComponent(id)}`,undefined,DETAIL_DEPENDENCIES);
   const [notice, setNotice] = useState('');
-  const [quick,setQuick]=useState<{subscriber:Subscriber;action:QuickAction}|null>(null);
   const today=useTurkeyToday();
   const error = resource.error || (resource.data && (resource.data.is_demo!==true || resource.data.item?.is_demo!==true) ? 'Sentetik demo kaynağı doğrulanamadı; detay gösterilmedi.' : undefined);
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { setNotice('');setQuick(null);heading.current?.focus(); window.scrollTo(0, 0); }, [id, kind]);
+  useEffect(() => { setNotice('');heading.current?.focus(); window.scrollTo(0, 0); }, [id, kind]);
   return <div className="screen-stack"><button className="button-secondary detail-back" onClick={onBack}><ArrowLeft size={16}/>{backLabel}</button>
     <PageHeading title={kind === 'routers' ? 'Router Detay Merkezi' : 'Abone Detay Merkezi'} description="Demo kayıtları gösteriliyor. Canlı bağlantı veya ölçüm yapılmadı." eyebrow="SENTETİK DEMO · CANLI İŞLEM YOK" headingRef={heading} actions={<button className="button-secondary" disabled={resource.loading} onClick={()=>{setNotice('');resource.retry();}}>Detayı yenile</button>}/>
     {notice && <p className="demo-save-notice" role="status">{notice}</p>}
     {resource.data&&!error&&<a className="button-secondary" href={detailOperationHash(kind,id,typeof window==='undefined'?'':window.location.hash)}>Bu kaydın operasyon raporu</a>}
     <ResourceState {...resource} error={error}/>
-    {resource.data && !resource.loading && !error && (kind === 'routers' ? <RouterDetails detail={resource.data as RouterDetail}/> : <SubscriberDetails detail={resource.data as SubscriberDetail} onQuick={action=>setQuick({subscriber:(resource.data as SubscriberDetail).item,action})}/>)}
-    {quick&&<QuickActions rows={[quick.subscriber]} today={today} initialAction={quick.action} onClose={()=>setQuick(null)} onSaved={()=>setNotice('Sentetik değişiklik kaydedildi; detay, liste, Dashboard ve uyarılar yeniden yükleniyor.')}/>}
+    {resource.data && !resource.loading && !error && (kind === 'routers' ? <RouterDetails detail={resource.data as RouterDetail}/> : <SubscriberDetails detail={resource.data as SubscriberDetail}/>)}
 
   </div>;
 }
@@ -87,7 +84,7 @@ function RouterManagementOperations({router,subscribers}: {router: Router; subsc
   const resource=useResource(`/routers/${encodeURIComponent(router.id)}/management-summary`,load,DETAIL_DEPENDENCIES);
   return <div className="router-management-events"><ResourceState {...resource}/>{resource.data&&!resource.loading&&!resource.error&&<RecentOperations data={resource.data} onSubscriber={id=>{window.location.hash=new URLSearchParams({module:'subscribers',id}).toString();}}/>}</div>;
 }
-export function SubscriberDetails({detail, onQuick}: {detail: SubscriberDetail; onQuick: (action:QuickAction) => void}) {
+export function SubscriberDetails({detail}: {detail: SubscriberDetail}) {
   const s = detail.item;
   const today = useTurkeyToday();
   const unknownSource = subscriberSource(s.source)==='UNKNOWN';
@@ -109,10 +106,7 @@ export function SubscriberDetails({detail, onQuick}: {detail: SubscriberDetail; 
         ['Hesap durumu (demo)',<StatusBadge status={s.status}/>],
       ]}/>
       <p>Hesap etkinliği oturum bağlantı durumu değildir. Devre dışı, mevcut PAUSED (duraklatıldı) durumudur. Paket/profil değişikliği yalnız demo paketi ve aylık tutarı günceller.</p>
-      <div className="expiry-editor-actions">
-        <button className="button-primary" disabled={!canChange} onClick={()=>onQuick('PLAN')}>Demo paket/profil değiştir</button>
-        <button className="button-secondary" disabled={!canChange} onClick={()=>onQuick('STATUS')}>Demo etkinleştir / devre dışı bırak</button>
-      </div>
+      <p>Paket ve durum değişiklikleri Abone Detay Merkezi’ndeki Hızlı İşlemler giriş noktasından açılır.</p>
       {unknownSource&&<p>Kaynak bilinmiyor; değişiklik kapalı.</p>}
       {!persistent&&<p>İzole V2 PostgreSQL demo deposu gerekli; geçici belleğe yazılmaz.</p>}
     </DetailSection>
@@ -122,7 +116,7 @@ export function SubscriberDetails({detail, onQuick}: {detail: SubscriberDetail; 
       <ExpirySummary expiresOn={s.expires_on} today={today}/>
       {expiryInfo(s.expires_on,today).days===null&&<p className="missing-data">Veri yok. Geçerli bir abonelik bitiş tarihi kaydedilmemiş; kalan gün hesaplanamaz.</p>}
       <p>Türkiye takvim günü kullanılır; bitiş günü dahildir. Yenileme ve tarih değişikliği gerçek router/RADIUS hesabını veya oturumunu değiştirmez.</p>
-      <button className="button-primary" disabled={!canChange} onClick={()=>onQuick('EXTEND')}>7 / 15 / 30 gün uzat veya özel tarih</button>
+      <p>Uzatma, aynı Hızlı İşlemler giriş noktasındaki önizleme ve onay akışını kullanır.</p>
       {unknownSource&&<p>Kaynak bilinmiyor; tarih değişikliği kapalı.</p>}
       {!persistent&&<p role="status">Kalıcı demo saklama etkin değil; geçici bellek değişikliği yapılmaz.</p>}
     </DetailSection>
