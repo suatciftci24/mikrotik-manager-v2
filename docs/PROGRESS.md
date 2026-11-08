@@ -20,15 +20,19 @@
 
 ## V2.6 kabul engellerini giderme — 2026-11-08
 
-- HTTP kabulü tekrar edilmedi. Önceki `FIXTURE_SETUP_OR_CLEANUP` çıktısının
-  nedeni harness tanılamasının `setUpClass` aşamasını kaybetmesiydi; harness
-  artık aşama adını güvenli biçimde koruyor. Eski loopback `EPERM` kaydı bu
-  çalışmanın kesin fixture arızası sayılmadı. Tekrarsız, soketsiz tanılama testi
-  eklendi.
+- Harness tanılaması `setUpClass` hatasında aşamayı korur hâle geldikten sonra
+  tek HTTP kabul denemesi yapıldı. `HTTP_LISTENER_BIND` aşamasında, PG fixture,
+  DB bağlantısı ve uygulama başlangıcından önce loopback kaynak engeliyle
+  durdu. Ham errno yazdırılmadı; önceki `EPERM` kayıtlarıyla uyumlu, ancak bu
+  çağrının errno'su olarak doğrulanmadı. Kabul kökü deneme öncesi/sonrası yoktu.
+- Fixture/uygulama/DB hatası kanıtlanmadı. HTTP tekrarlanmadı; Chromium
+  `listen EPERM` engeli değişmedi ve yeniden denenmedi.
 - Chromium `listen EPERM` ortam engeli olarak BLOCKED kaldı; tekrar veya
   güvenlik gevşetmesi yok.
 - `010_operator_role.sql` için koşullu, veri korumalı rollback önkoşulları ve
   doğrulama prosedürü kabul raporuna eklendi. Migration/rollback çalıştırılmadı.
+- Bu devam görevinde yalnız kabul belgesi güncellendi; ürün kodu, yetki/UUID/ACK
+  sözleşmeleri ve migration dosyaları değişmedi.
 
 ## V2.6 Alarm ve Olay Yönetimi Merkezi — 2026-11-08
 

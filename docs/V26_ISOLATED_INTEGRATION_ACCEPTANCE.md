@@ -16,19 +16,17 @@ Branch/base: `main-guncel` / `68fdac3`
   alarms, audit reports, router/subscriber centers, Dashboard, and Operations.
 - **PASS — frontend typecheck and production build.** `npm run typecheck` and
   `npm run build` completed successfully.
-- **BLOCKED — disposable PostgreSQL + real loopback HTTP.** The one permitted
-  attempt stopped at the harness's redacted `FIXTURE_SETUP_OR_CLEANUP` stage;
-  it did not report PASS. The harness was inspected: it refuses an existing
-  `/tmp/mikrotik-v26-acceptance`, strips inherited V2/PG targets, pins a newly
-  created PostgreSQL 16 cluster and HTTP listener to loopback, and runs no
-  migration. After the attempt that root was absent. The harness did not expose
-  a more specific failure reason, so the failure is left unresolved rather
-  than guessed. Root cause of the generic report was identified: unittest
-  represents `setUpClass` failure with an error-holder that did not carry the
-  fixture class's `stage`. The harness now preserves that stage without printing
-  exception text or credentials. A prior V2.6 local HTTP preflight recorded a
-  loopback `EPERM`, but that historical result does not prove the exact stage
-  of this run; HTTP was not retried.
+- **BLOCKED — disposable PostgreSQL + real loopback HTTP.** The earlier generic
+  `FIXTURE_SETUP_OR_CLEANUP` result came from the harness losing the fixture
+  class's stage when unittest wrapped `setUpClass` errors. The harness now
+  preserves the stage without printing exception text or credentials. One
+  controlled follow-up attempt stopped at `HTTP_LISTENER_BIND`, before
+  `V26IdentityPostgres.setUpClass`, PostgreSQL cluster setup, DB connection, or
+  application startup. This identifies a loopback bind/environment restriction,
+  not a fixture, application, or DB failure. The output intentionally omits the
+  raw errno; earlier local checks recorded `EPERM`, consistent with this block
+  but not independently proven for this call. `/tmp/mikrotik-v26-acceptance`
+  was absent before and after. No retry was made.
 - **BLOCKED — browser acceptance.** One synthetic-only management-center
   browser attempt stopped before Chromium launch when its loopback HTTP server
   received `listen EPERM`. Per the task boundary it was not retried and no
@@ -92,5 +90,7 @@ additional differently named role checks before any future application.
 
 ## Safety
 
-No source code or migration was changed. No existing database, live service,
-router, RADIUS, VDS, deploy, restart, data deletion, or push was touched.
+No product source or migration was changed in this follow-up; only this report
+and `docs/PROGRESS.md` were updated. The earlier harness-only stage diagnostic
+change is documented above. No existing database, live service, router, RADIUS,
+VDS, deploy, restart, data deletion, or push was touched.
