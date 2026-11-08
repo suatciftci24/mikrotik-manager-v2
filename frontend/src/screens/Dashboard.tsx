@@ -72,7 +72,7 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
       <CriticalAlarmTile onNavigate={onNavigate}/>
       </div>
       {data&&!resource.error&&<>
-        <div className="overview-router-status" role="group" aria-label="Son kayıtlı router durumları"><span>Son kayıt:</span>{([['ONLINE','Online',data.router_counts.online],['OFFLINE','Offline',data.router_counts.offline],['DEGRADED','Dikkat',data.router_counts.degraded],['UNKNOWN','Bilinmiyor',data.router_counts.unknown]] as const).map(([status,label,count])=><button key={status} className="button-secondary" onClick={()=>routers({status})}>{label} <strong>{count}</strong></button>)}</div>
+        <div className="overview-router-status" role="group" aria-label="Son kaydedilmiş router durumları"><span>Son durum kaydı · canlı değil:</span>{([['ONLINE','Online',data.router_counts.online],['OFFLINE','Offline',data.router_counts.offline],['DEGRADED','Dikkat',data.router_counts.degraded],['UNKNOWN','Bilinmiyor',data.router_counts.unknown]] as const).map(([status,label,count])=><button key={status} className="button-secondary" onClick={()=>routers({status})}>{label} <strong>{count}</strong></button>)}</div>
         <div className="overview-router-status" role="group" aria-label="Abonelik bitiş kapsamı">
           <button className="button-secondary" onClick={()=>subscribers({expiry:'TODAY'})}>Bugün: {data.expiry_today??'Veri yok'}</button>
           <button className="button-secondary" onClick={()=>subscribers({expiry:'WITHIN_30'})}>30 gün içinde: {data.expiry.within_30}</button>

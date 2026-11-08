@@ -38,6 +38,15 @@ test('source mismatch fails closed and saved router missing sections prepare wit
  const zero=renderToStaticMarkup(view('overview',{source:'STATIC_DEMO',item:{...data.item,cpu_percent:0,memory_percent:0}}));assert.match(zero,/0%/);
 });
 
+test('router detail separates last successful connection from measurement and marks WAN evidence time',()=>{
+ const dated={...data,item:{...data.item,last_success_at:'2026-11-07T08:00:00Z',last_seen_at:'2026-11-07T08:05:00Z'}};
+ const overview=renderToStaticMarkup(view('overview',dated));
+ assert.match(overview,/Son başarılı bağlantı/);assert.match(overview,/Son ölçüm zamanı/);assert.match(overview,/son başarılı bağlantı zamanı ayrı gösterilir/);
+ const snapshot={identity:'R1',model:'Router',routeros_version:'7',cpu_percent:2,memory_percent:3,uptime:'1d',captured_at:'2026-11-07T08:05:00Z',interfaces:[],default_routes:[{'dst-address':'0.0.0.0/0',gateway:'192.0.2.1',active:true,disabled:false}],wan_ip:null,pppoe_count:4,pppoe_explicit_count:4,ppp_any_count:0,hotspot_count:0,is_demo:false,read_only:true};
+ const wan=renderToStaticMarkup(view('wan',{source:'REGISTERED',is_demo:false,item:{...data.item,id:'registered-fixture',status:'VERIFIED'},read_snapshot:snapshot}));
+ assert.match(wan,/WAN IP bilinmiyor/);assert.match(wan,/192\.0\.2\.1/);assert.match(wan,/Kaydedilmiş okuma/);
+});
+
 test('managed router list name opens the ID-based center without writing or connecting',()=>{
  let opened=null;
  const hooks={...react,useEffect:()=>{},useCallback:fn=>fn,useState:initial=>{

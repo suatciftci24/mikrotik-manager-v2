@@ -1,5 +1,20 @@
 # MikroTik Manager V2 — İlerleme
 
+## Router Merkezi ve detay ekranı — 2026-11-08
+
+- Router listesi durum kaydını, mevcut WAN snapshot'ını, CPU/RAM, abone sayısı
+  ve ölçüm zamanını gösterir. “Taze” izlenimi veren durum noktası kaldırıldı;
+  ölçülmemiş WAN açıkça belirtilir. Liste üst yazısı tüm değerlerin son kayıt
+  olduğunu ve canlı ölçüm olmadığını açıklar.
+- Router detayında son başarılı bağlantı ile son ölçüm zamanı ayrıldı. WAN
+  sekmesindeki kayıtlı rota/snapshot zamanı ve PPPoE/Hotspot hesap gözlemleri
+  korundu; eksik bilgiler çıkarımla doldurulmadı. Dashboard durum grubu artık
+  bunun canlı değil son kaydedilmiş durum olduğunu açıkça belirtir.
+- PASS: routerCenter, routerReport, dashboardOverview ve centralDashboard hedef
+  Node testleri (4 dosya); frontend typecheck ve build.
+- Yalnız mevcut sentetik/izole sözleşmeler kullanıldı; router bağlantısı,
+  ölçümü veya canlı sistem işlemi başlatılmadı. Commit bu görev sonunda.
+
 ## Abone Merkezi tek işlem girişi ve hızlı işlem sadeleştirmesi — 2026-11-08
 
 - Liste satırındaki yinelenen Düzenle kaldırıldı; abone detayı tek giriş olarak

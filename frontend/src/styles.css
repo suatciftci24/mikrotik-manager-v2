@@ -189,6 +189,7 @@ input::placeholder{color:var(--muted);opacity:1}
 .router-device-tabs button{white-space:normal;min-height:40px}
 .router-device-summary .page-heading-row{flex-wrap:wrap;gap:12px}
 .router-device-panel details>summary{cursor:pointer;color:var(--text-primary);padding:12px 0}
+.wan-cell{display:grid;gap:3px;min-width:100px}.wan-cell small{color:var(--text-secondary);font-size:var(--font-caption);line-height:1.4}
 @media(max-width:600px){.router-device-tabs button{flex:1 1 130px}.router-device-summary .page-heading-row{align-items:flex-start}.router-device-summary .detail-facts{grid-template-columns:1fr}}
 @media(max-width:600px){.subscriber-actions-menu{width:100%}.subscriber-actions-menu>summary{width:100%}.subscriber-actions-options{display:grid;grid-template-columns:1fr}.subscriber-actions-options button{height:auto;min-height:44px;white-space:normal}}
 
