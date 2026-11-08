@@ -107,6 +107,38 @@ task; the successful Ev WSL result above was provided by the user.
 
 ## Home WSL synthetic Chromium acceptance — prepared, not run
 
+- **Pinned browser dependency:** browser tests import `playwright-core` exactly
+  at `1.64.1` (Node `>=20`; current Home WSL Node is `v24.22.0`). This stable
+  release matches the existing user cache revision `chromium-1248`, Chrome for
+  Testing `156.0.8078.4`. The selected executable is
+  `$HOME/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome`; headless
+  shell is `$HOME/.cache/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell`.
+  The executable files exist and are marked executable. Playwright `1.65.0`
+  is newer but expects a different Chromium revision, so the pinned `1.64.1`
+  reuses the existing cache without mismatch or an unnecessary browser download.
+  The version/revision mapping is recorded in the [Playwright project issue](https://github.com/microsoft/playwright/issues/43664).
+- `playwright-core` is now an exact frontend devDependency in `package.json` and
+  `package-lock.json`. The package tarball and its lock integrity were found in
+  the local npm cache, but the cache lacks registry metadata; offline install
+  returned `ENOTCACHED`, and the single network-enabled install stopped with
+  `ERR_SSL_CIPHER_OPERATION_FAILED`. No retry was made and the package was not
+  installed into `node_modules`. Thus code/lock preparation is PASS while local
+  dependency installation remains BLOCKED until the Home WSL registry is
+  reachable.
+- Home WSL frontend dependency installation command (from the repo root):
+
+  ```bash
+  cd /home/suat/Codex-Projects/mikrotik-manager-v2/frontend && npm ci --ignore-scripts
+  ```
+
+- Chromium installation is needed only if the executable above is missing. It
+  installs into the current user's Playwright cache and does not install OS
+  packages or use sudo:
+
+  ```bash
+  cd /home/suat/Codex-Projects/mikrotik-manager-v2/frontend && PLAYWRIGHT_BROWSERS_PATH="$HOME/.cache/ms-playwright" ./node_modules/.bin/playwright-core install chromium
+  ```
+
 - A dedicated manual runner, `backend.tests.run_v26_chromium_acceptance_wsl`,
   is prepared for the Home WSL host. Its read-only gates require the exact repo
   and `main-guncel`, clean worktree, non-root repo owner, expected WSL identity,
@@ -134,9 +166,9 @@ task; the successful Ev WSL result above was provided by the user.
   environment allowlisting and synthetic-only browser source contract are
   covered without sockets or browser startup.
 - **BLOCKED — actual Chromium acceptance:** deliberately not run in this task.
-  The current checkout has no `frontend/.local/browser-tools` Playwright entry
-  point, so the manual preflight fails closed here unless Home WSL has that
-  already-installed local toolchain. No browser, HTTP acceptance, or backend
+  The pinned dependency is not installed in this checkout because npm registry
+  TLS failed as noted above; the manual runner preflight therefore fails
+  closed until `npm ci` succeeds. No browser, HTTP acceptance, or backend
   service was started in this task. The historical loopback `EPERM` remains a
   prior environment block and was not retried.
 

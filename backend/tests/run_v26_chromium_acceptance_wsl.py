@@ -12,7 +12,7 @@ REPO = Path(__file__).resolve().parents[2]
 EXPECTED_REPO = Path('/home/suat/Codex-Projects/mikrotik-manager-v2')
 EXPECTED_HOST = 'DESKTOP-MT2JS7H'
 EXPECTED_BRANCH = 'main-guncel'
-PLAYWRIGHT = REPO / 'frontend/.local/browser-tools/node_modules/playwright/index.mjs'
+PLAYWRIGHT = REPO / 'frontend/node_modules/playwright-core/index.mjs'
 ESBUILD = REPO / 'frontend/node_modules/esbuild/package.json'
 NODE_TESTS = (
     'tests/runtimeProfile.test.mjs',

@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {createServer} from 'node:http';
 import {build} from 'esbuild';
 import {selectBrowser} from './browserRuntime.mjs';
-const {chromium}=await import('../../.local/browser-tools/node_modules/playwright/index.mjs');
+import {chromium} from 'playwright-core';
 const temp=mkdtempSync(join(tmpdir(),'v26-browser-acceptance-'));
 process.on('exit',()=>{try{rmSync(temp,{recursive:true,force:true});}catch{}});
 const time='2026-11-05T10:00:00Z';

@@ -1,4 +1,5 @@
 """Socketless policy checks for the manual synthetic Chromium runner."""
+import json
 from pathlib import Path
 from unittest import TestCase
 
@@ -52,6 +53,18 @@ class V26ChromiumRunnerSafety(TestCase):
         self.assertNotIn('18996', source)
         self.assertNotIn('55433', source)
         self.assertIn("assert.ok(reads.includes('/api/ready')", source)
+
+    def test_playwright_dependency_is_exact_and_lockfile_matches(self):
+        frontend = runner.REPO / 'frontend'
+        manifest = json.loads((frontend / 'package.json').read_text())
+        lock = json.loads((frontend / 'package-lock.json').read_text())
+        self.assertEqual(manifest['devDependencies']['playwright-core'], '1.64.1')
+        self.assertEqual(lock['packages']['']['devDependencies']['playwright-core'], '1.64.1')
+        self.assertEqual(lock['packages']['node_modules/playwright-core']['version'], '1.64.1')
+        self.assertEqual(
+            lock['packages']['node_modules/playwright-core']['integrity'],
+            'sha512-BC4s8y6SEVA6Q1rSxZTto8hI1KUI3xXlHGZgvGqP4IqPdI/a6FX9H29IDNz7vKo9l21b6LfYosScPL6M3xxyDQ==',
+        )
 
 
 if __name__ == '__main__':

@@ -19,11 +19,24 @@
 - PASS: soketsiz runner politika/source contract testleri (3 unittest) ve
   hedefli dokuz Node test dosyası (9/9); browser script syntax check ve diff
   whitespace check. Typecheck/build çalıştırılmadı; uygulama kaynak kodu
-  değişmedi. BLOCKED:
-  Chromium kabulü çalıştırılmadı; mevcut checkout'ta Playwright yerel entry
-  point'i yok. Kabul raporu ve Ev WSL tek komutu:
+  değişmedi. BLOCKED: Chromium kabulü çalıştırılmadı. Kabul raporu ve Ev WSL
+  tek komutu:
   `docs/V26_ISOLATED_INTEGRATION_ACCEPTANCE.md`.
 - V2.6 kabul DB, V1/V2.5, servis, migration, deploy veya veri değiştirme yok.
+
+## V2.6 Ev WSL Playwright bağımlılık hazırlığı — 2026-11-08
+
+- Tarayıcı testleri için `playwright-core@1.64.1` frontend devDependency ve
+  exact lockfile kaydı olarak eklendi. Node v24.22.0 gereksinimi karşılıyor.
+  Bu sürümün Chromium r1248 / Chrome 156.0.8078.4 eşleşmesi mevcut kullanıcı
+  önbelleğindeki executable ile uyumlu. Chromium ikilisi
+  `$HOME/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome` altında
+  bulunuyor ve çalıştırılabilir; browser çalıştırılmadı.
+- PASS: Playwright manifest/lock statik tutarlılık ve runner güvenlik testleri.
+  BLOCKED: npm registry TLS hatası yüzünden `node_modules` kurulumu
+  tamamlanamadı; tekrarlanmadı. HTTP/Chromium kabul testleri çalıştırılmadı.
+  Yalnız repo npm kurulumu ve gerekirse kullanıcı cache'ine Chromium kurulumu
+  için komutlar kabul raporuna eklendi.
 
 ## Ev WSL disposable PostgreSQL + HTTP kabulü — 2026-11-08
 
