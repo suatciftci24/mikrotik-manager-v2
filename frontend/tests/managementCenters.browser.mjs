@@ -90,7 +90,8 @@ const server=createServer((req,res)=>{const path=req.url.split('?')[0]==='/'?'in
  await page.locator('.nav-item').filter({hasText:'RADIUS Merkezi'}).click();
  assert.match(page.url(),/module=radius/);await page.reload();
  await page.getByRole('heading',{name:'RADIUS Merkezi',exact:true}).waitFor();
- assert.match(await page.locator('.workspace-context').innerText(),/Bağlantı yok/);
+ await page.getByText('HAZIRLIK · BAĞLANTI YOK',{exact:true}).waitFor();
+ await page.getByText('FreeRADIUS adaptör sınırı ve NAS kimlik modeli hazır. Bu çalışma alanında RADIUS sunucusuna bağlanılmaz.',{exact:true}).waitFor();
  ok('RADIUS: hazırlık kapsamı, ana menü ve yenilemede korunmuş gezinme');
  await go('#module=operations');await page.getByRole('heading',{name:'Merkezi Alarm Yönetimi',exact:true}).waitFor();
  await page.getByText('İnternet / WAN olay geçmişi',{exact:true}).click();
