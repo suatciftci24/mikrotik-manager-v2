@@ -444,7 +444,7 @@ def acceptance_suite(during_acceptance=None, browser_only=False):
                 self.during_acceptance()
 
     # Explicitly select only the NEW socket scenario, never inherited PASS tests.
-    RealHttpAcceptance.during_acceptance = during_acceptance
+    RealHttpAcceptance.during_acceptance = staticmethod(during_acceptance) if during_acceptance is not None else None
     RealHttpAcceptance.browser_only = browser_only
     ACTIVE_ACCEPTANCE_CLASS = RealHttpAcceptance
     selected = 'test_browser_only_diagnostic' if browser_only else 'test_new_real_http_acceptance'
