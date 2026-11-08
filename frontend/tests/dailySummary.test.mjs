@@ -6,7 +6,7 @@ const now = new Date('2026-10-26T21:05:00Z');
 const router = {id:'demo-router-1',name:'Sentetik Router',site:'Demo',status:'ONLINE',last_seen:'2026-10-26T09:42:00Z',subscriber_count:649,is_demo:true};
 const date = days => {const d = new Date('2026-10-27T00:00:00Z');d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10)};
 function detail(id, offset, source='LOCAL', status='ACTIVE', history=[]) {
-  return {item:{id,username:id,customer_name:'Sentetik '+id,source,status,expires_on:offset===null?null:date(offset),is_demo:true},history,is_demo:true,persistence:'local-postgresql-demo'};
+  return {item:{id,revision:0,username:id,customer_name:'Sentetik '+id,source,status,expires_on:offset===null?null:date(offset),is_demo:true},history,is_demo:true,persistence:'local-postgresql-demo'};
 }
 const event = (id,time) => ({id,occurred_at:time,operation:'RENEWAL',previous_expires_on:'2026-10-01',expires_on:'2026-11-30',source:'LOCAL',is_demo:true});
 
@@ -52,4 +52,13 @@ test('loader reads existing authenticated API details and propagates failures in
     globalThis.fetch=async url=>new Response(JSON.stringify(url.endsWith('/routers')?{items:[]} : url.endsWith('/subscribers')?{items:[{id:'a'}]} : {detail:'Demo geçmişi alınamadı'}),{status:url.endsWith('/subscribers/a')?503:200});
     await assert.rejects(loadDailySummary('/dashboard/summary'),/Demo geçmişi alınamadı/);
   }finally{globalThis.fetch=original;}
+});
+
+test('summary loader rejects wrong identities and stale or unverifiable revisions before publishing counts',async()=>{
+ const oldFetch=globalThis.fetch;let snapshot=detail('a',7);
+ globalThis.fetch=async(url,init)=>{assert.equal(init.method,undefined);return new Response(JSON.stringify(url.endsWith('/routers')?{items:[router]}:url.endsWith('/subscribers')?{items:[{id:'a',revision:5}]}:snapshot));};
+ try{
+  for(const change of [{revision:4},{revision:undefined},{id:'other',revision:5},{revision:5,is_demo:false}]){snapshot={...detail('a',7),item:{...detail('a',7).item,...change}};await assert.rejects(loadDailySummary('ignored'),/kimliği veya güncel revizyon/);}
+  snapshot={...detail('a',7),item:{...detail('a',7).item,revision:6}};assert.equal((await loadDailySummary('ignored')).subscribers.total,1);
+ }finally{globalThis.fetch=oldFetch;}
 });

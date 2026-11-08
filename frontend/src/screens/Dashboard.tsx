@@ -52,9 +52,7 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
     window.addEventListener('focus',tick);document.addEventListener('visibilitychange',tick);
     return()=>{window.clearInterval(timer);window.removeEventListener('focus',tick);document.removeEventListener('visibilitychange',tick);};
   },[]);
-  const lastData=useRef<DashboardSummary|undefined>(undefined);
-  if(resource.data)lastData.current=resource.data;
-  const data=resource.data??(resource.loading?lastData.current:undefined);
+  const data=resource.loading?undefined:resource.data;
   const subscribers=(params:Record<string,string>={})=>onNavigate('subscribers',{workspace:'LEGACY',...params});
   const routers=(params:Record<string,string>={})=>onNavigate('routers',{source:'DEMO',...params});
   const daily=(kind:string)=>{window.location.hash=new URLSearchParams({module:'dashboard',view:'DAILY_REPORT',report_source:'DEMO',period:'TODAY',kind}).toString();};
@@ -63,7 +61,7 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
     <PageHeading title="Merkezi Dashboard" eyebrow={fullDate} description="V2 sentetik kayıtları · Mevcut demo çalışma alanı" actions={<button className="button-secondary" disabled={resource.loading} onClick={refresh}><RefreshCw size={15}/>Özeti yenile</button>}/>
     <section aria-labelledby="overview-status-title" className="overview-section"><div className="overview-section-heading"><h2 id="overview-status-title">Genel durum</h2><span className="demo-chip">SENTETİK V2</span></div>
       <ResourceState {...resource} retry={refresh}/>
-      {data&&resource.loading&&<p role="status" className="daily-description">Önceki özet gösteriliyor; kayıtlar yenileniyor.</p>}
+      {resource.loading&&<p role="status" className="daily-description">Güncel kayıtlar doğrulanıyor; önceki özet gösterilmez.</p>}
       <div className="overview-status-grid">
       {data&&!resource.error&&<>
         <SummaryTile title="Routerlar" value={data.router_counts.total} note="Son kayıtlı envanter" icon={<RouterIcon size={18}/>} label="Tüm routerları göster" onClick={()=>routers()}/>
@@ -75,6 +73,11 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
       </div>
       {data&&!resource.error&&<>
         <div className="overview-router-status" role="group" aria-label="Son kayıtlı router durumları"><span>Son kayıt:</span>{([['ONLINE','Online',data.router_counts.online],['OFFLINE','Offline',data.router_counts.offline],['DEGRADED','Dikkat',data.router_counts.degraded],['UNKNOWN','Bilinmiyor',data.router_counts.unknown]] as const).map(([status,label,count])=><button key={status} className="button-secondary" onClick={()=>routers({status})}>{label} <strong>{count}</strong></button>)}</div>
+        <div className="overview-router-status" role="group" aria-label="Abonelik bitiş kapsamı">
+          <button className="button-secondary" onClick={()=>subscribers({expiry:'TODAY'})}>Bugün: {data.expiry_today??'Veri yok'}</button>
+          <button className="button-secondary" onClick={()=>subscribers({expiry:'WITHIN_30'})}>30 gün içinde: {data.expiry.within_30}</button>
+          <button className="button-secondary" onClick={()=>subscribers({expiry:'UNKNOWN'})}>Bitişi bilinmeyen: {data.expiry.unknown}</button>
+        </div><p className="daily-description">Bugün, 3, 7 ve 30 gün aralıkları iç içedir; sayıları toplanmaz. Bilinmeyen tarihler geçerli veya dolmuş sayılmaz. LOCAL/RADIUS hesapları tekil kayıt kimliğiyle sayılır.</p>
         {data.router_counts.total===0&&data.subscribers.total===0&&<p className="daily-description">Henüz kayıtlı demo router veya abone yok.</p>}
       </>}
     </section>

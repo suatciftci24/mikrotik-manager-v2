@@ -5,7 +5,7 @@ import {dashboardToday,dashboardCritical,loadDashboardSummary,loadDashboardAlarm
 import {projectRouterEvents} from '../src/lib/routerEvents.ts';
 const now=new Date('2026-11-02T10:00:00Z');
 const router={id:'r1',name:'Sentetik router',status:'ONLINE',is_demo:true};
-const detail={item:{id:'s1',router_id:'r1',customer_name:'Sentetik abone',username:'synthetic',access_type:'PPPOE',source:'LOCAL',status:'ACTIVE',expires_on:'2026-11-05',is_demo:true},is_demo:true,history_available:true,history:[]};
+const detail={item:{id:'s1',revision:0,router_id:'r1',customer_name:'Sentetik abone',username:'synthetic',access_type:'PPPOE',source:'LOCAL',status:'ACTIVE',expires_on:'2026-11-05',is_demo:true},is_demo:true,history_available:true,history:[]};
 const operation=(id,occurred_at)=>({id,occurred_at,operation:'PLAN_CHANGE',actor_id:'demo',source:'LOCAL',is_demo:true});
 test('daily PPPoE summary uses Turkey today, excludes future/untyped, and unavailable history is unknown',()=>{
  const data=buildDailySummary([router],[{...detail,history:[operation('today','2026-11-01T21:00:00Z'),operation('yesterday','2026-11-01T20:59:59Z'),operation('future','2026-11-02T10:00:01Z')]},{...detail,item:{...detail.item,id:'untyped',access_type:null},history:[operation('untyped',now.toISOString())]}],now);

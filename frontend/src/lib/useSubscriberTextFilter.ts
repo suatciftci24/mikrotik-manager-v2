@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { subscriberTextContext } from './detailCenter';
 
 /** Text filters share the same URL context as list/detail and cross-router links. */
-export function useSubscriberTextFilter(key:'query'|'router'|'plan'|'workspace_query'|'workspace_router'|'workspace_page'|'history_id'|'history_page') {
+export function useSubscriberTextFilter(key:'query'|'router_id'|'router'|'plan'|'workspace_query'|'workspace_router'|'workspace_page'|'history_id'|'history_page') {
   const read=useCallback(()=>subscriberTextContext(window.location.hash,key),[key]);
   const [value,setValue]=useState(read);
   useEffect(()=>{const changed=()=>setValue(read());window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed);},[read]);

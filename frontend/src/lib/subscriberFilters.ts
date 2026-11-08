@@ -3,7 +3,7 @@ import { matchesExpiry, type ExpiryFilter } from './expiry.ts';
 import { matchesSource, type SourceFilter } from './source.ts';
 
 export type SubscriberFilters = {
-  query:string; router:string; plan:string; source:SourceFilter;
+  query:string; router:string;router_id?:string; plan:string; source:SourceFilter;
   status:'ALL'|'ACTIVE'|'PAUSED'|'PENDING'; expiry:ExpiryFilter;
 };
 export const EMPTY_SUBSCRIBER_FILTERS:SubscriberFilters={query:'',router:'',plan:'',source:'ALL',status:'ALL',expiry:'ALL'};
@@ -16,6 +16,7 @@ export function filterSubscribers(rows:Subscriber[],filters:SubscriberFilters,to
     const text=searchKey(`${row.username} ${row.customer_name} ${row.router_name} ${row.plan}`);
     return terms.every(term=>text.includes(term))
       && (!filters.router||row.router_name===filters.router)
+      && (!filters.router_id||row.router_id===filters.router_id)
       && (!filters.plan||row.plan===filters.plan)
       && matchesSource(row.source,filters.source)
       && (filters.status==='ALL'||row.status===filters.status)

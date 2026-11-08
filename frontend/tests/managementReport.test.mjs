@@ -1,6 +1,7 @@
+import {filterSubscribers,EMPTY_SUBSCRIBER_FILTERS} from '../src/lib/subscriberFilters.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {buildManagementReport,managementRange,loadManagementReport,managementFilterFromHash,managementReportHash} from '../src/lib/managementReport.ts';
+import {buildManagementReport,managementRange,loadManagementReport,managementFilterFromHash,managementReportHash,managementSubscribersHash} from '../src/lib/managementReport.ts';
 import {buildDailySummary} from '../src/lib/dailySummary.ts';
 import {buildSubscriptionAlerts} from '../src/lib/subscriptionAlerts.ts';
 import {projectRouterEvents} from '../src/lib/routerEvents.ts';
@@ -8,7 +9,7 @@ const now=new Date('2026-10-27T09:00:00Z');
 const filter={period:'TODAY',router:'',kind:'ALL'};
 const routers=[{id:'r1',name:'Demo bir',status:'ONLINE',is_demo:true},{id:'r2',name:'Demo iki',status:'OFFLINE',is_demo:true}];
 const operation=(id,time,kind='RENEWAL')=>({id,occurred_at:time,operation:kind,source:'LOCAL',actor_id:'demo-user',is_demo:true});
-const detail=(id,router_id,history=[],extra={})=>({item:{id,router_id,router_name:routers.find(r=>r.id===router_id)?.name??'Veri yok',customer_name:'Demo '+id,username:'demo.'+id,status:'ACTIVE',source:'LOCAL',access_type:'PPPOE',expires_on:'2026-10-30',is_demo:true,...extra},history,is_demo:true,persistence:'local-postgresql-demo'});
+const detail=(id,router_id,history=[],extra={})=>({item:{id,revision:1,router_id,router_name:routers.find(r=>r.id===router_id)?.name??'Veri yok',customer_name:'Demo '+id,username:'demo.'+id,status:'ACTIVE',source:'LOCAL',access_type:'PPPOE',expires_on:'2026-10-30',is_demo:true,...extra},history,is_demo:true,persistence:'local-postgresql-demo'});
 const source=(details=[],events=[])=>({routers,details,events});
 const event=(id,kind,time,extra={})=>({id,kind,router_id:'r1',occurred_at:time,is_demo:true,...extra});
 const events=items=>projectRouterEvents({items,available:true,is_demo:true});
@@ -110,7 +111,7 @@ test('V2.2 future recovery cannot supply an end or duration in a current outage 
  assert.equal(report.events[0].lifecycle.ended_at,null);assert.equal(report.events[0].lifecycle.duration_seconds,null);assert.equal(report.events[0].lifecycle.status,'UNKNOWN');
 });
 
-const managedAccount={id:'demo-managed-sub-a',customer_name:'Kalıcı demo',username:'synthetic.a',access_type:'PPPOE',source:'LOCAL',router_id:'demo-managed-router-new'};
+const managedAccount={revision:5,id:'demo-managed-sub-a',customer_name:'Kalıcı demo',username:'synthetic.a',access_type:'PPPOE',source:'LOCAL',router_id:'demo-managed-router-new'};
 const receipt=(request_id,extra={})=>({request_id,item_id:managedAccount.id,success:true,recorded:true,revision:3,operation:'EXTEND',actor_id:'demo-user',router_id:'demo-managed-router-old',occurred_at:now.toISOString(),previous:{expires_on:'2026-10-27'},values:{expires_on:'2026-11-26'},...extra});
 const workspace=(receipts)=>({accounts:[managedAccount],receipts,routers:[{id:'demo-managed-router-old',fields:{name:'Önceki sentetik router'}}]});
 test('V2.3 persistent PPPoE receipts retain historical router and values, exclude failed, future and Hotspot',()=>{
@@ -158,4 +159,27 @@ test('rolling 24 hours includes exact lower bound, crosses Turkey midnight and e
  assert.deepEqual(managementFilterFromHash(managementReportHash(rolling)),rolling);
  assert.deepEqual(buildManagementReport(input,rolling,now).operations.map(e=>e.id),['now','lower']);
  assert.equal(managementRange('LAST_24',now).from,now.getTime()-86400000);
+});
+
+test('expiry summaries and filtered list transitions agree for every source and exact router ID',()=>{
+ const sameName=[{...routers[0],name:'Same name'},{...routers[1],name:'Same name'}];
+ const entries=[0,3,7,30,null].map((days,index)=>detail('boundary'+index,'r1',[],{source:index===2?'RADIUS':'LOCAL',expires_on:days===null?null:new Date(Date.parse('2026-10-27T00:00:00Z')+days*86400000).toISOString().slice(0,10)}));
+ entries.push(detail('foreign','r2',[],{source:'LOCAL',expires_on:'2026-10-27'}));
+ const input={routers:sameName,details:entries,events:[]};
+ for(const source of ['ALL','LOCAL','RADIUS','UNKNOWN'])for(const expiry of ['TODAY','WITHIN_3','WITHIN_7','WITHIN_30','UNKNOWN']){
+  const selected={...filter,router:'r1',source,expiry},report=buildManagementReport(input,selected,now);
+  const params=new URLSearchParams(managementSubscribersHash(selected).slice(1));
+  assert.equal(params.get('router_id'),'r1');assert.equal(params.get('source'),source);assert.equal(params.get('expiry'),expiry);assert.equal(params.get('workspace'),'LEGACY');
+  const list=filterSubscribers(entries.map(row=>row.item),{...EMPTY_SUBSCRIBER_FILTERS,router_id:params.get('router_id'),source:params.get('source'),expiry:params.get('expiry')},'2026-10-27');
+  assert.deepEqual(list.map(row=>row.id),report.expiryRows.map(row=>row.id));assert.ok(list.every(row=>row.router_id==='r1'));
+  assert.equal(report.expirySummary.total,report.expirySummary.expired+report.expirySummary.valid+report.expirySummary.unknown);
+  assert.deepEqual(managementFilterFromHash(managementReportHash(selected)),selected);
+ }
+});
+test('newer committed receipt cannot be combined with a stale account or inconsistent same-revision state',()=>{
+ const saved=receipt('verified');
+ assert.throws(()=>buildManagementReport({...source(),workspace:{...workspace([saved]),accounts:[{...managedAccount,revision:2}]}},filter,now),/revizyonu doğrulanamadı/);
+ assert.throws(()=>buildManagementReport({...source(),workspace:{...workspace([saved]),accounts:[{...managedAccount,revision:3,expires_on:'2000-01-01'}]}},filter,now),/güncel revizyonla eşleşmedi/);
+ const matched=buildManagementReport({...source(),workspace:{...workspace([saved]),accounts:[{...managedAccount,revision:3,expires_on:saved.values.expires_on}]}},filter,now);assert.equal(matched.pppoeOperations,1);
+ for(const extra of [{recorded:false},{success:false}])assert.equal(buildManagementReport({...source(),workspace:workspace([receipt('unconfirmed',extra)])},filter,now).operations.length,0);
 });

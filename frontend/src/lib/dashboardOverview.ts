@@ -1,17 +1,19 @@
 import {api} from './api.ts';
 import {buildDailySummary,loadDailyInventory,type DailySummary} from './dailySummary.ts';
-import {turkeyToday, matchesExpiry} from './expiry.ts';
+import {buildSubscriptionAlerts} from './subscriptionAlerts.ts';
+import {turkeyToday} from './expiry.ts';
 import {managementRange,uniqueReportRecords} from './managementReport.ts';
 import type {AlarmEvent} from './routerEvents.ts';
 import type {AlarmPage} from './alarms.ts';
 import {observationTime} from './subscriberObservation.ts';
 
-export type DashboardSummary=DailySummary & {history_available?:boolean;within_3?:number};
+export type DashboardSummary=DailySummary & {history_available?:boolean;within_3?:number;expiry_today?:number};
 /** Preserve the existing can_view inventory scope; report history stays server-authorized. */
 export async function loadDashboardSummary(_path:string,init?:RequestInit):Promise<DashboardSummary>{
   const {routers,details}=await loadDailyInventory(init);
   const summary=buildDailySummary(routers,details);
-  return {...summary,within_3:details.filter(row=>matchesExpiry(row.item.expires_on,'WITHIN_3',summary.as_of_date)).length,history_available:details.every(row=>row.history_available!==false)};
+  const alerts=buildSubscriptionAlerts(details.map(row=>row.item),summary.as_of_date);
+  return {...summary,expiry_today:alerts.today,within_3:alerts.within_3,history_available:details.every(row=>row.history_available!==false)};
 }
 export function dashboardToday(data:DashboardSummary,events:AlarmEvent[]|null,now=new Date()){
   const range=managementRange('TODAY',now);

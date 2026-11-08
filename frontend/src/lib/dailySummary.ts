@@ -51,9 +51,10 @@ export function buildDailySummary(routers: Router[], details: SubscriberDetailDa
 
 /** Existing demo inventory is small; each authenticated detail provides a consistent item/history pair. */
 export async function loadDailyInventory(init: RequestInit = {}, reportsOnly=false) {
-  const reportSource=reportsOnly?await api<{routers:Router[];items:{id:string}[]}>('/reports/inventory',init):null;
-  const [routers, subscribers] = reportSource?[{items:reportSource.routers},{items:reportSource.items}]:await Promise.all([api<{items: Router[]}>('/routers', init), api<{items: {id: string}[]}>('/subscribers', init)]);
+  const reportSource=reportsOnly?await api<{routers:Router[];items:{id:string;revision?:number}[]}>('/reports/inventory',init):null;
+  const [routers, subscribers] = reportSource?[{items:reportSource.routers},{items:reportSource.items}]:await Promise.all([api<{items: Router[]}>('/routers', init), api<{items: {id: string;revision?:number}[]}>('/subscribers', init)]);
   const details = await Promise.all(subscribers.items.map(s=>api<SubscriberDetailData>(`/subscribers/${encodeURIComponent(s.id)}`, init)));
+  details.forEach((detail,index)=>{const expected=subscribers.items[index];if(detail?.item?.id!==expected.id||detail.is_demo!==true||detail.item.is_demo!==true||!Number.isInteger(detail.item.revision)||detail.item.revision<0||(expected.revision!==undefined&&(!Number.isInteger(expected.revision)||detail.item.revision<expected.revision)))throw new Error('Abone kimliği veya güncel revizyon doğrulanamadı. Özeti yeniden yükleyin.');});
   return {routers:routers.items,details};
 }
 export async function loadDailySummary(_path: string, init: RequestInit = {}): Promise<DailySummary> {

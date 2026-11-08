@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {buildSubscriptionAlerts} from '../src/lib/subscriptionAlerts.ts';
 import {expiryInfo, matchesExpiry, turkeyToday} from '../src/lib/expiry.ts';
 import {EMPTY_SUBSCRIBER_FILTERS,filterSubscribers} from '../src/lib/subscriberFilters.ts';
+import {loadDashboardSummary} from '../src/lib/dashboardOverview.ts';
+import {loadManagementReport,buildManagementReport} from '../src/lib/managementReport.ts';
 import {buildDailySummary} from '../src/lib/dailySummary.ts';
 const today='2026-10-27';
 const date=offset=>{if(offset===null)return null;const day=new Date(today+'T00:00:00Z');day.setUTCDate(day.getUTCDate()+offset);return day.toISOString().slice(0,10);};
@@ -70,4 +72,29 @@ test('re-reading a successful saved renewal updates alerts/list/detail/summary w
  assert.equal(summary.expiry.expired,0);assert.equal(summary.expiry.active,1);
  assert.equal(summary.operation_history[0].actor_id,'demo-user');assert.equal(summary.operation_history[0].previous_expires_on,old.expires_on);
  assert.equal(old.expires_on,date(-1));assert.equal(summary.operations.today,1);
+});
+
+test('confirmed renewal, package, status and creation re-read consistent expiry counts; pending values never enter summaries',async()=>{
+ const currentTime=new Date(),day=turkeyToday(currentTime),offset=days=>new Date(Date.parse(day+'T00:00:00Z')+days*86400000).toISOString().slice(0,10);
+ const router={id:'demo-router-current',name:'Sentetik Router',is_demo:true,status:'ONLINE'};
+ let accounts=[{...row(0,'demo-sub-current'),router_id:router.id,router_name:router.name,revision:1,expires_on:offset(-1)}];const oldFetch=globalThis.fetch;
+ globalThis.fetch=async(url,init)=>{assert.equal(init.method,undefined);let data;
+  if(url.endsWith('/routers'))data={items:[router]};
+  else if(url.endsWith('/subscribers'))data={items:accounts.map(item=>({id:item.id,revision:item.revision}))};
+  else if(url.endsWith('/reports/inventory'))data={routers:[router],items:accounts.map(item=>({id:item.id,revision:item.revision}))};
+  else if(url.endsWith('/router-events'))data={items:[],available:false,is_demo:true};
+  else{const item=accounts.find(item=>url.endsWith('/'+item.id));data={item,history:[],is_demo:true,persistence:'local-postgresql-demo'};}return new Response(JSON.stringify(data));
+ };
+ async function compare(){const dash=await loadDashboardSummary('ignored'),loaded=await loadManagementReport('/management/report'),report=buildManagementReport(loaded,{period:'TODAY',router:'',kind:'ALL',expiry:'ALL'},currentTime);
+  assert.equal(dash.expiry.expired,report.expirySummary.expired);assert.equal(dash.expiry_today,report.expirySummary.today);assert.equal(dash.within_3,report.expirySummary.within_3);assert.equal(dash.expiry.within_7,report.expirySummary.within_7);assert.equal(dash.expiry.within_30,report.expirySummary.within_30);assert.equal(dash.expiry.unknown,report.expirySummary.unknown);
+  for(const filter of ['TODAY','WITHIN_3','WITHIN_7','WITHIN_30','UNKNOWN'])assert.equal(buildManagementReport(loaded,{period:'TODAY',router:'',kind:'ALL',expiry:filter},currentTime).expiryRows.length,filterSubscribers(accounts,{...EMPTY_SUBSCRIBER_FILTERS,expiry:filter},day).length);return dash;
+ }
+ try{
+  assert.equal((await compare()).expiry.expired,1);
+  const unconfirmed={...accounts[0],revision:2,expires_on:offset(90)};assert.equal((await compare()).expiry.expired,1);assert.equal(unconfirmed.revision,2);
+  accounts=[{...accounts[0],revision:2,expires_on:offset(30)}];assert.equal((await compare()).expiry.within_30,1);
+  accounts=[{...accounts[0],revision:3,plan:'Doğrulanmış paket'}];assert.equal((await compare()).expiry.within_30,1);
+  accounts=[{...accounts[0],revision:4,status:'PAUSED'}];assert.equal((await compare()).expiry.within_30,1);
+  accounts.push({...accounts[0],id:'demo-sub-new',revision:1,source:'RADIUS',expires_on:null});const created=await compare();assert.equal(created.subscribers.total,2);assert.equal(created.expiry.unknown,1);assert.equal(created.subscribers.radius,1);
+ }finally{globalThis.fetch=oldFetch;}
 });

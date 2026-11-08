@@ -307,3 +307,4 @@ input::placeholder{color:var(--muted);opacity:1}
 /* Long account names and preview values must wrap on narrow operation dialogs. */
 .expiry-dialog .quick-preview{min-width:0}.expiry-dialog .quick-preview strong,.expiry-dialog .quick-preview p{overflow-wrap:anywhere}
 @media(max-width:650px){.expiry-dialog[aria-busy] .button-primary,.expiry-dialog[aria-busy] .button-secondary{min-height:44px}}
+@media(max-width:650px){.dashboard-overview [aria-label="Abonelik bitiş kapsamı"]{display:flex;flex-wrap:wrap;gap:8px}.dashboard-overview [aria-label="Abonelik bitiş kapsamı"] button{flex:1 1 100%;min-height:44px;white-space:normal}.management-expiries [role="status"]{overflow-wrap:anywhere}}

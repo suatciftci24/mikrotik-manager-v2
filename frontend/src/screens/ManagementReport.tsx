@@ -2,12 +2,12 @@ import { operationContextHash } from '../lib/operationReport';
 import { linkedDetailHash } from '../lib/detailLinks';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RefreshCw, Activity, CalendarClock, WifiOff, ArrowLeftRight } from 'lucide-react';
-import { buildManagementReport, loadManagementReport, managementFilterFromHash, managementReportHash, reportKinds, reportPeriods, managementSourceFromHash } from '../lib/managementReport';
+import { buildManagementReport, loadManagementReport, managementFilterFromHash, managementReportHash,managementSubscribersHash, reportKinds, reportPeriods, managementSourceFromHash } from '../lib/managementReport';
 import type { ManagementFilter } from '../lib/managementReport';
 import { useResource } from '../lib/useResource';
 import { PageHeading } from '../components/PageHeading';
 import { ResourceState, dateTime } from '../components/Resource';
-import { MetricCard } from '../components/Status';
+import { MetricCard,SourceBadge } from '../components/Status';
 import { OperationDetails } from '../components/OperationDetails';
 import { AlarmEventDetails } from '../components/AlarmEvents';
 import { operationLabel, historyValues } from '../lib/subscriberHistory';
@@ -73,9 +73,11 @@ function SyntheticManagementReport({onBack}:{onBack:()=>void}){
     <section className="panel management-filters"><div className="router-report-controls">
       <label className="form-label">Dönem<select aria-label="Dönem" value={filter.period} onChange={e=>change({...filter,period:e.target.value as ManagementFilter['period']})}>{Object.entries(reportPeriods).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
       <label className="form-label">Router<select aria-label="Router" value={filter.router} onChange={e=>change({...filter,router:e.target.value})}><option value="">Tüm routerlar</option>{routerOptions.map(router=><option key={router.id} value={router.id}>{router.name}</option>)}{filter.router&&!names.has(filter.router)&&<option value={filter.router}>{filter.router} · kayıt bulunamadı</option>}</select></label>
+      <label className="form-label">Yetkili kaynak<select aria-label="Rapor yetkili kaynak filtresi" value={filter.source??'ALL'} onChange={e=>change({...filter,source:e.target.value as ManagementFilter['source']})}><option value="ALL">Tüm kaynaklar</option><option value="LOCAL">LOCAL</option><option value="RADIUS">RADIUS</option><option value="UNKNOWN">Bilinmiyor</option></select></label>
       <label className="form-label">İşlem / olay<select aria-label="İşlem / olay" value={filter.kind} onChange={e=>change({...filter,kind:e.target.value as ManagementFilter['kind']})}>{Object.entries(reportKinds).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
       <button className="button-secondary" onClick={()=>change({period:'TODAY',router:'',kind:'ALL'})}>Filtreleri temizle</button>
     </div></section>
+    <p className="daily-description">Yetkili kaynak filtresi abone işlemleri ve bitişlere uygulanır. İnternet/WAN olayları router kapsamındadır; LOCAL/RADIUS hesabına aitmiş gibi sınıflandırılmaz.</p>
     <ResourceState {...resource} error={error}/>
     {report&&!resource.loading&&!error&&<>
       <div className="metric-grid management-metrics" aria-label="Günlük yönetim özeti">
@@ -84,10 +86,11 @@ function SyntheticManagementReport({onBack}:{onBack:()=>void}){
         <MetricCard title="İnternet kesintileri" value={number(report.counts.outages)} note="Seçili dönem · tekil kesinti" icon={<WifiOff size={18}/>}/>
         <MetricCard title="WAN değişiklikleri" value={number(report.counts.wan)} note="Seçili dönem · kayıtlı olay" icon={<ArrowLeftRight size={18}/>}/>
       </div>
-      <section className="panel central-events management-expiries"><div className="panel-title"><h2>Abonelik bitişleri</h2>{!filter.router&&<a className="record-link" href={'#'+new URLSearchParams({module:'subscribers',workspace:'LEGACY',expiry:filter.expiry??'TODAY'})}>İlgili abone listesini aç</a>}</div>
+      <section className="panel central-events management-expiries"><div className="panel-title"><h2>Abonelik bitişleri</h2><a className="record-link" href={managementSubscribersHash(filter)}>İlgili abone listesini aç</a></div>
         <div className="filter-tabs management-expiry-filters" role="group" aria-label="Abonelik bitiş filtresi">{expiryChoices.map(([key,label])=><button key={key} aria-pressed={(filter.expiry??'TODAY')===key} className={(filter.expiry??'TODAY')===key?'selected':''} onClick={()=>change({...filter,expiry:key})}>{label}</button>)}</div>
+        <p className="daily-description" role="status">Bugün: {report.expirySummary.today} · 3 gün: {report.expirySummary.within_3} · 7 gün: {report.expirySummary.within_7} · 30 gün: {report.expirySummary.within_30} · Tarihi bilinmeyen: {report.expirySummary.unknown}. Tekil uyarı: {report.expirySummary.warning} (dolmuş veya en fazla 7 gün). İç içe aralıklar toplanmaz.</p>
         <p className="daily-description">Bugünün Türkiye takvimine göre · mevcut demo aboneleri · rapor döneminden bağımsız.</p>
-        {report.expiryRows.length?<div className="table-scroll" role="region" tabIndex={0} aria-label="Abonelik bitişleri tablosu"><table className="data-table"><thead><tr><th>ABONE</th><th>ROUTER</th><th>BİTİŞ TARİHİ</th><th>KALAN GÜN / DURUM</th></tr></thead><tbody>{report.expiryRows.map(row=><tr key={row.id}><td><a className="record-link" href={link('subscribers',row.id)}>{row.customer_name||row.username}</a></td><td>{row.router_name}</td><td>{expiryDate(row.expires_on)}</td><td>{remainingDays(expiryInfo(row.expires_on,turkeyToday(now)).days)}</td></tr>)}</tbody></table></div>:<p className="missing-data">Bu bitiş filtresinde kayıtlı sentetik abone yok.</p>}
+        {report.expiryRows.length?<div className="table-scroll" role="region" tabIndex={0} aria-label="Abonelik bitişleri tablosu"><table className="data-table"><thead><tr><th>ABONE</th><th>ROUTER</th><th>KAYNAK</th><th>BİTİŞ TARİHİ</th><th>KALAN GÜN / DURUM</th></tr></thead><tbody>{report.expiryRows.map(row=><tr key={row.id}><td><a className="record-link" href={link('subscribers',row.id)}>{row.customer_name||row.username}</a></td><td>{row.router_name}</td><td><SourceBadge source={row.source}/></td><td>{expiryDate(row.expires_on)}</td><td>{remainingDays(expiryInfo(row.expires_on,turkeyToday(now)).days)}</td></tr>)}</tbody></table></div>:<p className="missing-data">Bu bitiş filtresinde kayıtlı sentetik abone yok.</p>}
       </section>
       <section ref={operationsSection} id="recent-operations" tabIndex={-1} className="panel central-events management-pppoe"><div className="panel-title"><h2>{filter.period==='LAST_24'?'Son 24 saat PPPoE ve yönetim işlemleri':'PPPoE ve yönetim işlemleri'}</h2><button className="record-link" onClick={()=>change({...filter,kind:'PPPOE'})}>Yalnız PPPoE</button></div>
       {report.workspaceError&&<p role="alert">Kalıcı işlem geçmişi alınamadı: {report.workspaceError}. Görünen kayıtlar yalnız erişilebilen sentetik kaynakları kapsar.</p>}

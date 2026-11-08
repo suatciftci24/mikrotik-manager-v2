@@ -4572,3 +4572,28 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   `Could not resolve host: github.com`. Bu görevin tek yeni commit’i ve
   önceki yerel d6084b0 korunur; uzak907e1cc üstüne iki commit bekler.
   Ağ erişiminde normal push gerekir; force push yapılmadı.
+
+## V2.6 — bitiş uyarıları / günlük rapor kapsam ve revizyon tutarlılığı — 2026-11-08
+
+- Başlangıç main-guncel/df45e7a temiz; uzak SHA aynı. Altın Kurallar/son
+  recovery/özellik koruma kayıtları okundu. Doğru çalışan bugün/3/7/30 gün,
+  tekil uyarı ve bilinmeyen tarih hesabı yeniden yazılmadı.
+- Dashboard eski özet fallback'i kaldırıldı; loading/error'da eski sayılar
+  gösterilmez. Bugün/30 gün/bilinmeyen geçişleri ve ortak sayım eklendi.
+- Raporun mevcut expirySummary'si görünür, LOCAL/RADIUS filtresi URL'de;
+  WAN kapsamının ayrı olduğu açıklanır. Rapor→liste router ID/source/expiry
+  taşır, aynı adlı routerlar karışmaz. Liste/uyarı filtreleri ID kapsamlıdır.
+- Okuma ID/revizyon doğrulaması ve kalıcı receipt/current revision tutarlılığı;
+  yanlış/eski/eksik yanıtla toplam yayımlanmaz. Belirsiz/başarısız işlem sayılmaz.
+  Kaynaklar/V1 birleştirilmez; mevcut UUID proof ve yazma akışları korunur.
+- PASS: 53 hedefli frontend test; tek tsc/Vite build, diff. Fixture revision
+  alanları gerçek sözleşmeye uyarlandı; kontroller gevşetilmedi. Mobil kapsam
+  bağlantıları sarar/44px; Chromium EPERM nedeniyle BLOCKED, tekrar yok.
+- Kabul docs/V26_EXPIRY_REPORT_CONSISTENCY_ACCEPTANCE.md. Mevcut >500kB
+  uyarısı sürer; gerçek mobil/HTTP/PG kabulü iddia edilmez. Yeni API/menü/bileşen
+  veya backend değişikliği yok. V1/V2.5/VDS/cihaz/RADIUS/IPsec/canlıDB/deploy/
+  restart/migration/silme yok; tarihsel genel kabul engelleri açık.
+
+- Normal `git push origin main-guncel` denendi; push BLOCKED:
+  `Could not resolve host: github.com`. Yerel tek commit korunur.
+  Uzak okuma başarılıydı; ağ erişiminde normal push gerekir. Force push yok.
