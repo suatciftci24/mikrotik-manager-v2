@@ -53,7 +53,8 @@ class HomeWslRunnerPolicyTests(TestCase):
              patch.object(runner, '_isolated_runtime', return_value=nullcontext()), \
              patch.object(runner.acceptance, 'main', return_value=0) as accept:
             self.assertEqual(runner.main(during_acceptance=callback), 0)
-        accept.assert_called_once_with(['--run'], during_acceptance=callback)
+        accept.assert_called_once_with(['--run'], during_acceptance=callback,
+                                       browser_only=False)
 
 
 if __name__ == '__main__':

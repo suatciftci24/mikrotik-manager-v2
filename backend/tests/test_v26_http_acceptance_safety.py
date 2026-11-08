@@ -213,6 +213,8 @@ class HttpAcceptanceSafetyTests(TestCase):
         self.assertEqual(suite.countTestCases(), 1)
         case = next(iter(suite))
         self.assertIs(type(case).during_acceptance, callback)
+        case.during_acceptance()
+        callback.assert_called_once_with()
         source = Path(acceptance.__file__).read_text()
         verify = source.index('verify_owned_acceptance_database(connection, self.store)')
         browser = source.index('self.during_acceptance()')
@@ -226,6 +228,8 @@ class HttpAcceptanceSafetyTests(TestCase):
         self.assertEqual(case._testMethodName, 'test_browser_only_diagnostic')
         self.assertIs(type(case).during_acceptance, callback)
         self.assertTrue(type(case).browser_only)
+        case.during_acceptance()
+        callback.assert_called_once_with()
 
     def test_browser_start_requires_revalidated_owned_database_and_select_one(self):
         connection, store = Mock(), Mock()
