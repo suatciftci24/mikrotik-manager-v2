@@ -5,6 +5,11 @@ Branch/base: `main-guncel` / `68fdac3`
 
 ## Results
 
+- **PASS — Ev WSL HTTP acceptance (user-confirmed).** The user supplied the
+  successful runner output: `PASS: disposable PostgreSQL16 + real loopback HTTP
+  acceptance; cleanup complete`. This confirms the temporary PostgreSQL 16,
+  loopback HTTP scenario and cleanup completed successfully in Ev WSL. The
+  harness/runner was not repeated in this documentation task.
 - **PASS — static contracts and targeted suites.** Backend identity and router
   scope, user transactions/audit, photo authorization/storage, subscriber UUID
   recovery, alarm projection/ACK, report filtering, router/subscriber centers:
@@ -16,7 +21,7 @@ Branch/base: `main-guncel` / `68fdac3`
   alarms, audit reports, router/subscriber centers, Dashboard, and Operations.
 - **PASS — frontend typecheck and production build.** `npm run typecheck` and
   `npm run build` completed successfully.
-- **BLOCKED — disposable PostgreSQL + real loopback HTTP.** The earlier generic
+- **Historical BLOCKED — earlier HTTP attempt.** The earlier generic
   `FIXTURE_SETUP_OR_CLEANUP` result came from the harness losing the fixture
   class's stage when unittest wrapped `setUpClass` errors. The harness now
   preserves the stage without printing exception text or credentials. One
@@ -25,8 +30,9 @@ Branch/base: `main-guncel` / `68fdac3`
   application startup. This identifies a loopback bind/environment restriction,
   not a fixture, application, or DB failure. The output intentionally omits the
   raw errno; earlier local checks recorded `EPERM`, consistent with this block
-  but not independently proven for this call. `/tmp/mikrotik-v26-acceptance`
-  was absent before and after. No retry was made.
+  but not independently proven for that call. `/tmp/mikrotik-v26-acceptance`
+  was absent before and after. This historical block is superseded by the
+  later user-confirmed PASS above; it remains in the record for traceability.
 - **BLOCKED — browser acceptance.** One synthetic-only management-center
   browser attempt stopped before Chromium launch when its loopback HTTP server
   received `listen EPERM`. Per the task boundary it was not retried and no
@@ -81,7 +87,8 @@ HTTP acceptance; cleanup complete`. Environment/identity failures print a
 fixed `BLOCKED: HOME_WSL_*` code. HTTP and database-port blocks identify the
 stage and safe bind metadata, for example `HTTP_LISTENER_BIND` or
 `POSTGRES_LISTENER_RESERVE`. No nonzero result is an acceptance PASS.
-The runner and HTTP acceptance were not executed in this task.
+The runner and HTTP acceptance were not executed again in this documentation
+task; the successful Ev WSL result above was provided by the user.
 
 ### Harness hardening verification
 
@@ -93,9 +100,10 @@ The runner and HTTP acceptance were not executed in this task.
 - **PASS:** Python syntax compilation. Frontend typecheck and production build
   passed after the prior harness-only change; they were not repeated here
   because this follow-up changed no frontend source.
-- **BLOCKED:** No HTTP acceptance was run in this follow-up, as requested. The
-  last real attempt remains blocked at `HTTP_LISTENER_BIND`; Chromium was not
-  run. No migration or DB operation was performed.
+- **PASS (user-confirmed):** The later Ev WSL HTTP acceptance output reported
+  PostgreSQL 16 + real loopback HTTP PASS and cleanup complete.
+- **BLOCKED:** Chromium was not run and remains unverified. No migration or DB
+  operation was performed by this documentation update.
 
 ## Migration review (static only)
 
@@ -142,8 +150,9 @@ additional differently named role checks before any future application.
 
 ## Remaining acceptance limits
 
-- No real PostgreSQL/HTTP end-to-end result is claimed. The V2.6 acceptance DB
-  was not accessed.
+- PostgreSQL/HTTP PASS is based on the user's reported runner output; this
+  session did not rerun it or independently inspect a receipt. No production,
+  V1/V2.5, or existing V2.6 database was part of the intended disposable flow.
 - Chromium/mobile visual acceptance remains unverified because of `EPERM`.
 - WAN, alarm, and subscriber data remain limited to existing synthetic/local
   sources. No live polling or device access was started.
@@ -155,7 +164,7 @@ additional differently named role checks before any future application.
 
 ## Safety
 
-No product source or migration was changed in this follow-up; only this report
-and `docs/PROGRESS.md` were updated. The earlier harness-only stage diagnostic
-change is documented above. No existing database, live service, router, RADIUS,
-VDS, deploy, restart, data deletion, or push was touched.
+No product source or migration was changed in this documentation update; only
+this report and `docs/PROGRESS.md` were updated. The earlier harness-only stage
+diagnostic change is documented above. No existing database, live service,
+router, RADIUS, VDS, deploy, restart, data deletion, or push was touched.

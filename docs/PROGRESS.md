@@ -1,5 +1,17 @@
 # MikroTik Manager V2 — İlerleme
 
+## Ev WSL disposable PostgreSQL + HTTP kabulü — 2026-11-08
+
+- Kullanıcı Ev WSL'den şu sonucu doğruladı: `PASS: disposable PostgreSQL16 +
+  real loopback HTTP acceptance; cleanup complete`. Geçici PostgreSQL 16,
+  loopback HTTP ve testin oluşturduğu kaynakların temizliği PASS olarak kaydedildi.
+- Önceki `HTTP_LISTENER_BIND` BLOCKED kaydı tarihsel olarak korundu; güncel HTTP
+  durumu kullanıcı tarafından doğrulanmış PASS'tir. Bu belge güncellemesinde
+  HTTP runner yeniden çalıştırılmadı.
+- Chromium kabulü BLOCKED / doğrulanmadı. `010_operator_role.sql` uygulanmadı;
+  migration, DB veya servis işlemi yapılmadı.
+- Kabul ayrıntısı: `docs/V26_ISOLATED_INTEGRATION_ACCEPTANCE.md`.
+
 ## V2.6 izole entegrasyon ve kabul — 2026-11-08
 
 - Başlangıç `main-guncel` / `68fdac3`, temiz çalışma ağacı. Mevcut merkez
@@ -8,10 +20,11 @@
   frontend typecheck ve production build. Doğrulamalar ADMIN/OPERATOR/VIEWER,
   router scope, fotoğraf erişimi, PPPoE UUID recovery, alarm ACK/audit, rapor,
   Dashboard ve operasyon görünümünü kapsadı.
-- BLOCKED: tek disposable PostgreSQL/HTTP denemesi fixture setup/cleanup
-  aşamasında redacted hata verdi; mevcut V2.6 DB'ye bağlanılmadı. Tek sentetik
-  Chromium denemesi loopback `listen EPERM` ile durdu; tekrar veya güvenlik
-  gevşetmesi yapılmadı.
+- Tarihsel BLOCKED: ilk disposable PostgreSQL/HTTP denemesi fixture
+  setup/cleanup aşamasında redacted hata verdi; sonraki tanılamada loopback bind
+  engeli olduğu görüldü. Daha sonraki Ev WSL HTTP kabulü üstte PASS kaydedilmiştir.
+  Tek sentetik Chromium denemesi loopback `listen EPERM` ile durdu; tekrar veya
+  güvenlik gevşetmesi yapılmadı.
 - `010_operator_role.sql` yalnız statik incelendi; sıralama ve beklenen
   `users_role_check` adı altında tekrar çalıştırılabilirlik makul. Down dosyası
   yok, geri alma planı hazır değil. Hiçbir migration uygulanmadı.
