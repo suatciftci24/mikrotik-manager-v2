@@ -1,5 +1,27 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6 Chromium callback TypeError ve browser acceptance — 2026-11-08
+
+- Altın Kurallar, güncel ilerleme/kabul kaydı ve temiz `main-guncel` durumu
+  kontrol edildi. Başlangıç HEAD, d70fb7c'den altı yerel commit ilerideydi;
+  mevcut değişiklikler korundu.
+- `b21774b` callback’i `staticmethod` olarak atayarak sınıf niteliği
+  descriptor'ının `self` bağlamasını kaldırmıştı. Üç hedefli Python güvenlik
+  paketi 25/25 geçti; tam HTTP ve browser-only callback örneklerinde sıfır
+  argüman çağrısı doğrudan test edildi. Tam HTTP/DB business suite tekrar
+  edilmedi.
+- Fail-closed browser-only runner gerçek disposable PG16 + loopback readiness
+  ve Chromium ile çalıştı. Gerçek browser bulguları: strict-mode çoklu metin
+  locator'ı, RADIUS testinin workspace banner'ında yanlış metin araması ve
+  cleanup `finally` bloğunun block-scope `server` değişkenine erişememesi.
+  Test locator/expectation ve harness cleanup kapsamı düzeltildi.
+- PASS: browser-only kabulinin tüm sentetik UI kontrolleri ve cleanup'ı exit 0;
+  25 hedefli Python testi, `node --check` ve diff check. Önceden geçen 52 Node
+  testi ve HTTP business kabulü tekrarlanmadı. Yalnız geçici sentetik DB,
+  loopback servisleri ve kullanıcı Chromium cache'i kullanıldı.
+- V1/V2.5/VDS/router/RADIUS/IPsec/gerçek aboneler/mevcut kabul DB/migration/
+  deploy/restart/canlı değişiklik yok. Push yok.
+
 ## V2.6 HTTP + Chromium tek komutlu izole kabul — 2026-11-08
 
 - Browser runner artık gerçek `runtime_profile` için sahte `/api/ready` fixture

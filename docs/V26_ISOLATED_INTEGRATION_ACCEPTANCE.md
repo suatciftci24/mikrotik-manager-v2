@@ -33,12 +33,12 @@ Branch/base: `main-guncel` / `68fdac3`
   but not independently proven for that call. `/tmp/mikrotik-v26-acceptance`
   was absent before and after. This historical block is superseded by the
   later user-confirmed PASS above; it remains in the record for traceability.
-- **BLOCKED — browser acceptance.** One synthetic-only management-center
+- **Historical BLOCKED — browser acceptance.** One synthetic-only management-center
   browser attempt stopped before Chromium launch when its loopback HTTP server
   received `listen EPERM`. Per the task boundary it was not retried and no
   sandbox/security setting was changed.
 
-## Latest browser attempt diagnosis
+## Historical browser attempt diagnosis
 
 - The user reports the latest full command ended with
   `BLOCKED: acceptance stage=BROWSER_ACCEPTANCE`; 52 Node tests passed and the
@@ -56,7 +56,7 @@ Branch/base: `main-guncel` / `68fdac3`
   browser phase, error class, allowlisted error code, and integer errno, while
   preserving the original error trace on stderr. It does not relax Chromium
   sandbox or TLS settings.
-- **BLOCKED — targeted browser diagnosis (latest controlled attempt).** The
+- **Historical BLOCKED — targeted browser diagnosis.** The
   fail-closed browser-only runner passed its Home WSL/tool preflight and
   reported `stage=HTTP_LISTENER_BIND error_class=PermissionError errno=1
   errno_name=EPERM syscall=socket host=127.0.0.1 port=18996`. The failure
@@ -66,7 +66,34 @@ Branch/base: `main-guncel` / `68fdac3`
   available evidence cannot distinguish the WSL kernel from an enclosing
   execution sandbox. No harness bind defect remains indicated. The one
   controlled attempt is complete and was not repeated. Chromium and the prior
-  browser scenario remain unverified; do not report browser acceptance PASS.
+  browser scenario were unverified at that point; see the later browser-only
+  acceptance result below.
+
+## Callback regression resolution and browser-only acceptance — 2026-11-08
+
+- The callback root cause was confirmed in `acceptance_suite`: storing a plain
+  function on the generated `TestCase` class made `self.during_acceptance()`
+  bind the test instance as an unwanted first argument. Commit `b21774b` stores
+  the callback as `staticmethod`; both the full HTTP case and browser-only case
+  use the same no-argument call. Focused tests exercise this binding contract.
+- The fail-closed browser-only runner then exposed and verified fixes for three
+  browser-harness issues: an ambiguous environment text locator, a RADIUS
+  assertion against the wrong banner (the V2.6 runtime banner intentionally
+  replaces that local-context banner), and `server` being block-scoped inside
+  `try` while cleanup accessed it in `finally`. Cleanup failures are now
+  reported separately, and PASS is printed only after owned-resource cleanup.
+- **PASS — browser-only isolated acceptance.** The existing runner completed
+  against a fresh disposable PostgreSQL 16 cluster, real loopback readiness
+  reporting `v26-isolated-acceptance`, and the Chromium UI scenario. Router,
+  subscriber, RADIUS, operations, MikAjanı, desktop/mobile layout, VIEWER
+  restrictions, mutation/origin blocking, and cleanup checks passed. This
+  diagnostic deliberately did not repeat the ten Node suites or HTTP business
+  acceptance assertions; prior user-reported 52 Node tests and HTTP acceptance
+  remain historical results. No existing DB was used.
+- **PASS — focused regression controls.** 25 Python callback/runner/security
+  tests, browser-script `node --check`, and `git diff --check` passed. Chromium
+  sandbox and network/TLS settings were unchanged. No full Node suite, deploy,
+  migration, live service, or device action was run.
 
 ## Isolated HTTP harness prerequisites and procedure
 
@@ -286,7 +313,10 @@ additional differently named role checks before any future application.
 - PostgreSQL/HTTP PASS is based on the user's reported runner output; this
   session did not rerun it or independently inspect a receipt. No production,
   V1/V2.5, or existing V2.6 database was part of the intended disposable flow.
-- Chromium/mobile visual acceptance remains unverified because of `EPERM`.
+- Browser-only isolated Chromium acceptance now passes with the fresh synthetic
+  PostgreSQL/loopback profile. The full ten-file Node + HTTP business runner
+  was not repeated in the callback-fix task; the earlier 52 Node and HTTP PASS
+  were user-reported results.
 - WAN, alarm, and subscriber data remain limited to existing synthetic/local
   sources. No live polling or device access was started.
 - Reporting CSV remains scoped to the current authorized filtered page;
@@ -297,7 +327,7 @@ additional differently named role checks before any future application.
 
 ## Safety
 
-No product source or migration was changed in this documentation update; only
-this report and `docs/PROGRESS.md` were updated. The earlier harness-only stage
-diagnostic change is documented above. No existing database, live service,
+This report preserves the earlier documentation-only update history. The
+callback/browser task changed only test harnesses and these acceptance notes;
+no product source or migration changed. No existing database, live service,
 router, RADIUS, VDS, deploy, restart, data deletion, or push was touched.
