@@ -103,7 +103,21 @@ class RouterSubscriberList(SubscriberWorkspaceList):
     availability:Literal['AVAILABLE','PREPARING']='AVAILABLE'
 
 
+class SubscriberRequestAudit(BaseModel):
+    request_id:UUID
+    item_id:str
+    actor_id:str
+    router_id:str
+    source:Literal['LOCAL','RADIUS']
+    revision:int=Field(ge=1)
+    operation:str
+    occurred_at:str
+    success:bool
+    storage:Literal['PERSISTENT_WORKSPACE']='PERSISTENT_WORKSPACE'
+    is_demo:Literal[True]=True
+
 class SubscriberSaveResult(BaseModel):
     request_id:UUID
     status:Literal['SUCCESS','UNKNOWN']
     response:CenterSubscriber|None=None
+    audit:SubscriberRequestAudit|None=None

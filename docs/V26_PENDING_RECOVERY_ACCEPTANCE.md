@@ -111,3 +111,86 @@ Dashboard rollback ve genel PG/HTTP kabul engelleri kapanmış sayılmadı.
 - Normal `git push origin main-guncel` denendi: push BLOCKED,
   `Could not resolve host: github.com`. Yerel tek commit korunur; ağ
   erişiminde normal push gerekir. Force push yapılmadı.
+
+## 907e1cc sonrası tekil UUID audit kanıtı ve son50 sınırı — 2026-11-08
+
+Başlangıç main-guncel/907e1cc temiz. Altın Kurallar, güncel ilerleme, özellik
+koruma ve önceki recovery kabulü okundu; uzak main-guncel aynı SHA olarak
+ls-remote ile doğrulandı. Kullanıcının önceki push başarı kaydı korunur.
+**Yerel hedefli kabul PASS.** Önceki bölümün son50 nedeniyle UNKNOWN kalma
+sınırı, bu bölümdeki aynı sürüm backend/frontend sözleşmesiyle giderildi.
+
+### Kök neden ve çözüm
+
+UUID lookup zaten Event primary key'iyle tekil ve yetkili yapılıyordu.
+Sorun pending frontend'in bu sonucu son50 ile sınırlı detay geçmişi içinde
+tekrar aramasıydı. Geçmiş limiti büyütülmedi, geçmiş tarayan yeni API yapılmadı.
+
+- Mevcut save/renew/management request GET yanıtlarına opsiyonel, tipli
+  `audit` kanıtı eklendi. İstek UUID, abone, aktör, router, LOCAL/RADIUS,
+  revizyon, işlem, zaman, sonuç ve PERSISTENT_WORKSPACE/is_demo kapsamını
+  taşır. Hassas alan, komut gövdesi veya ham audit changes dönmez.
+- Backend kanıtı doğrudan aynı UUID audit satırı ve aynı read-only snapshot'ta
+  güncel abone üzerinden kurar. Cached save/renew yanıtı audit abone/revizyon/
+  router metadata'sı ve değişen alanlarla eşleşir; source mevcut hesabın
+  değiştirilemez yetkili kaynağı ve fields.source ile doğrulanır. Aynı
+  revizyonda güncel alanlar da eşleşmelidir. Sonraki meşru revizyonlar eski
+  receipt'i bozmaz ve eski değerler güncel kayda yazılmaz.
+- Management receipt'i audit kolonları, zaman, işlem, aktör, previous/new
+  alanları ve router geçişiyle karşılaştırılır. Router değişmeyen işlemde
+  previous_router_id=router_id şartı geçmiş revizyonlarda da korunur. Yanlış
+  abone/router/source/revizyon, eksik cached sonuç veya audit yoksa UNKNOWN;
+  eldeki benzer geçmişten başarı üretilmez. ADMIN/actor/izole depo guard'ları
+  değiştirilmedi. Lookup yalnız SELECT; PG read-only transaction korunur.
+- Pending frontend doğrudan UUID kanıtını yanıtla karşılaştırır; workspace
+  detay geçmişinde arama yapmaz. Güncel abone kaynağı/revizyonunu ve aynı
+  revizyonda alan eşitliğini okumaya devam eder. Legacy'nin mevcut tekil
+  UUID lookup'ında dönen atomik cached audit kanıtı korunur; güncel listenin
+  geçmişinde yeniden arama şartı kaldırılır. GET dışı recovery yok.
+- Yerel 7 günlük takip süresi dolduğunda persisted metadata yine silinir;
+  aynı oturumda yalnız minimal metadata ile “Takip süresi doldu; sonuç
+  belirsiz” bildirimi tutulur. Yeniden sorgu/POST yapılmaz; kimlik değişimi
+  bildirimi temizler. Reload sonrasında temizlenen metadata geri üretilmez.
+  Bulunamayan/geçersiz server receipt'i UNKNOWN kalır, journal korunur.
+- Yeni endpoint/menü/bileşen, migration, history-limit veya yazma akışı yok.
+  Ortak invalidation liste/detay/günlük rapor/Dashboard'un kendi yetkili
+  kaynaklarını yeniler. Workspace toplamları legacy Dashboard'a karıştırılmaz.
+
+### Kanıt ve sınırlar
+
+22 hedefli frontend test PASS: pendingSubscriberOperations12,
+subscriptionActions8, resourceInvalidation2. Son50'de bulunmayan kayıt ve boş
+current history ile geçerli kanıt başarıyla doğrulanır; yanlış proof alanları,
+aktör/yetki kaybı, daha eski/current drift revizyonu, expired/missing receipt,
+tekPOST+yalnızGET recovery, metadata temizliği ve kaynak yenilemesi denetlendi.
+Yeni bulk fixture'ına gerçek sözleşmenin router_id alanı eklendi; doğrulama
+ve assertion kapıları gevşetilmedi.
+
+16 hedefli backend test PASS: 3 yeni UUIDAuditEvidence testi, mevcut 6
+SaveReceiptTests ve 7 GetRecovery testi. Yeni testte oluşturma, yenileme,
+paket ve durum işleminden sonra55 değişiklik yapıldı; detay geçmişinde yalnız
+son50 var ve eski dört olay yok. Aynı dört UUID lookup'u doğru orijinal
+kanıtı döndürür; SQL dinleyicisi yalnız SELECT doğrular. Cached/audit abone,
+revizyon, router, source, paket, aktör, işlem ve values sapmaları reddedilir.
+Mevcut endpoint yetki, readonly, rollback, replay ve foreign-actor testleri
+korunur. Eski tam yanıt assertion'ı eski tüm alanlar+tam audit alanlarıyla
+güncellendi. Yeni fixture tarihleri mevcut string-only sözleşmeye uyarlandı;
+ürün kuralları gevşetilmedi. Başarılı kapsam gereksiz tekrarlanmadı.
+
+Backend testleri yalnız private TemporaryDirectory SQLite/sentetik fixture'ları
+kullandı; mevcut veya canlı DB'ye bağlanılmadı. Test fixture yazımları dışı DB
+işlemi yok. PG/HTTP/Chromium kabulü değildir.
+
+Tek tsc/Vite build PASS; ana bundle615.51kB ve mevcut >500kB uyarısı sürer.
+Diff kontrolü PASS. Chromium bilinen EPERM nedeniyle BLOCKED; tekrar
+başlatma/socket/güvenlik gevşetme denemesi yapılmadı. Eski backend audit
+kanıtını dönmezse yeni frontend güvenli UNKNOWN kalır; son50 düzeltmesinin
+tamamı aynı sözleşmeyi destekleyen backend/frontend gerektirir.
+
+V1/V2.5/canlıVDS/router/RADIUS/IPsec/canlıDB/deploy/restart/migration/silme
+veya gerçek veri işlemi yapılmadı. Tarihsel Dashboard rollback ve genel
+PG/HTTP kabul engelleri bu hedefli PASS'lerle kapanmış sayılmaz.
+
+- Normal `git push origin main-guncel` denendi; push BLOCKED:
+  `Could not resolve host: github.com`. Yerel tek commit korunur; ağ
+  erişiminde normal push gerekir. Force push yapılmadı.

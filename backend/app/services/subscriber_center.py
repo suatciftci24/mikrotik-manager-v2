@@ -1,5 +1,6 @@
 """Synthetic workspace persistence and read-only legacy projection, no provisioning IO."""
 import hashlib,json
+from pydantic import ValidationError
 from datetime import datetime,timezone,date,timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy import select,func,or_
@@ -12,6 +13,21 @@ from app.schemas.subscriber_center import CenterSubscriber,SubscriberCenterData
 
 def account_view(account,router):
     return CenterSubscriber(id=account.id,**account.fields,revision=account.revision,router_name=router.fields['name'] if router else None,router_model=router.fields.get('model') if router else None,router_missing=router is None,router_source='PERSISTENT_DEMO' if router else 'UNKNOWN')
+
+def request_audit(event,account,router_id,source,success):
+    """Exact UUID evidence from the audit row; never read a paginated history list."""
+    if (not account or account.id!=event.subscriber_id or not account.id.startswith('demo-managed-sub-')
+            or source not in ('LOCAL','RADIUS') or account.source!=source or account.fields.get('source')!=source
+            or account.fields.get('router_id')!=account.router_id or not isinstance(router_id,str)
+            or not router_id.startswith('demo-managed-router-') or event.revision<1 or account.revision<event.revision):return None
+    try:
+        stamp=datetime.fromisoformat(event.occurred_at.replace('Z','+00:00'))
+        if stamp.tzinfo is None:return None
+    except (ValueError,TypeError,AttributeError):return None
+    if account.revision==event.revision and account.router_id!=router_id:return None
+    return dict(request_id=event.id,item_id=event.subscriber_id,actor_id=event.actor_id,router_id=router_id,
+                source=source,revision=event.revision,operation=event.operation,occurred_at=event.occurred_at,
+                success=success,storage='PERSISTENT_WORKSPACE',is_demo=True)
 
 class SubscriberWorkspace:
     def __init__(self,sessions=SessionLocal,check=guard):self.sessions=sessions;self.check=check
@@ -78,6 +94,19 @@ class SubscriberWorkspace:
             audit=session.get(Event,str(command.request_id))
             audit.changes={**audit.changes,'_save':{'fingerprint':fingerprint,'response':response.model_dump(mode='json')}}
             return response
+    @staticmethod
+    def saved_evidence(session,event,cached):
+        if not isinstance(cached,dict):return None
+        try:response=CenterSubscriber.model_validate(cached)
+        except ValidationError:return None
+        values=response.model_dump(mode='json');account=session.get(Account,event.subscriber_id)
+        if response.id!=event.subscriber_id or response.revision!=event.revision or response.router_source!='PERSISTENT_DEMO' or event.changes.get('_router_id')!=response.router_id:return None
+        if any(values.get(key)!=change['new'] for key,change in event.changes.items() if isinstance(change,dict) and 'new' in change):return None
+        evidence=request_audit(event,account,response.router_id,response.source,True)
+        if not evidence:return None
+        if account.revision==event.revision and any(values.get(key)!=value for key,value in account.fields.items()):return None
+        return response,evidence
+
     @boundary
     def save_result(self,request_id,actor):
         # Read-only receipt; missing/foreign/older receipts do not prove failure.
@@ -90,7 +119,9 @@ class SubscriberWorkspace:
             if not prior or prior.actor_id!=actor or prior.operation not in ('CREATE','UPDATE'):return result
             saved=prior.changes.get('_save')
             if not saved:return result
-            return {**result,'status':'SUCCESS','response':CenterSubscriber.model_validate(saved['response'])}
+            verified=self.saved_evidence(session,prior,saved.get('response'))
+            if not verified:return result
+            return {**result,'status':'SUCCESS','response':verified[0],'audit':verified[1]}
 
     @boundary
     def renew(self,id,command,actor):
@@ -135,7 +166,9 @@ class SubscriberWorkspace:
             if not prior or prior.actor_id!=actor or prior.operation!='RENEWAL':return result
             cached=prior.changes.get('_renewal_response')
             if not cached:return result
-            return {**result,'status':'SUCCESS','response':CenterSubscriber.model_validate(cached)}
+            verified=self.saved_evidence(session,prior,cached)
+            if not verified:return result
+            return {**result,'status':'SUCCESS','response':verified[0],'audit':verified[1]}
     @staticmethod
     def audit(session,row,actor,before,request_id,operation=None,renewal=None):
         changes={key:{'previous':before.get(key),'new':value} for key,value in row.fields.items() if before.get(key)!=value}

@@ -31,5 +31,5 @@ export function PendingSubscriberOperations(){
   return()=>{controller.abort();window.removeEventListener('storage',changed);window.removeEventListener('v2-pending-change',added);};
  },[stamp,retry]);
  if(!items.length&&!messages.length)return null;
- return <section className="panel" aria-label="Bekleyen işlem sonuçları"><h2>Bekleyen işlem sonuçları</h2>{messages.map(m=><p role="status" key={m}>{m}</p>)}{items.map(i=><p key={i.id}>{i.id} · Sonuç henüz doğrulanamadı; işlem tekrar gönderilmez.</p>)}{!!items.length&&<button className="button-secondary" onClick={()=>setRetry(r=>r+1)}>Kayıtlı sonuçları sorgula</button>}</section>;
+ return <section className="panel" aria-label="Bekleyen işlem sonuçları"><h2>Bekleyen işlem sonuçları</h2>{messages.map(m=><p role="status" key={m}>{m}</p>)}{items.map(i=><p key={i.id}>{i.id} · {i.expired?'Takip süresi doldu; sonuç belirsiz. İşlem yeniden gönderilmez.':'Sonuç belirsiz: kayıt bulunamamış veya kanıtı doğrulanamamış olabilir. İşlem tekrar gönderilmez.'}</p>)}{!!items.length&&<button className="button-secondary" disabled={items.every(i=>i.expired)} onClick={()=>setRetry(r=>r+1)}>Kayıtlı sonuçları sorgula</button>}</section>;
 }

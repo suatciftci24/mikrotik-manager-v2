@@ -2,7 +2,7 @@
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel,ConfigDict,Field,field_validator,model_validator
-from app.schemas.subscriber_center import SyntheticSubscriberCommand
+from app.schemas.subscriber_center import SyntheticSubscriberCommand,SubscriberRequestAudit
 
 class SubscriberOperation(BaseModel):
     model_config=ConfigDict(extra='forbid')
@@ -59,3 +59,4 @@ class OperationRequestResult(BaseModel):
     request_id:UUID
     status:Literal['SUCCESS','FAILED','UNKNOWN']
     response:OperationReceipt|None=None
+    audit:SubscriberRequestAudit|None=None

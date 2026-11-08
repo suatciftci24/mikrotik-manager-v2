@@ -4519,3 +4519,30 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Normal `git push origin main-guncel` denendi: push BLOCKED,
   `Could not resolve host: github.com`. Yerel tek commit korunur; ağ
   erişiminde normal push gerekir. Force push yapılmadı.
+
+## V2.6 — son50 bağımsız tekil UUID audit kanıtı — 2026-11-08
+
+- Başlangıç main-guncel/907e1cc temiz; kurallar/özellik koruma/son recovery
+  kabulü okundu. Uzak dal aynı SHA doğrulandı; önceki kullanıcı push kanıtı
+  korunur. Mevcut UUID endpoint'leri kullanıldı, yeni API eklenmedi.
+- Save/renew/management GET'te audit satırı ve kayıt üzerinden tipli kanıt:
+  UUID/aktör/abone/router/LOCAL-RADIUS/revizyon/işlem/zaman/sonuç eşleşir.
+  Cached sonuçlar audit ile doğrulanmadan SUCCESS dönmez. Lookup readonly.
+- Frontend son50 detay geçmişini taramaz; doğrudan UUID kanıtını ve güncel
+  kayıt revizyon/kaynağını doğrular. Eksik/sapmış kanıt UNKNOWN; GET-only
+  recovery ve ortak invalidation korunur. Sonraki kayıtlar eski receipt ile
+  ezilmez. Yerel takip süresi dolması oturumda açık UNKNOWN gösterir; POST yok.
+- PASS: 22 frontend +16 hedefli backend test; tek tsc/Vite build ve diff.
+  55 yeni olay sonrası son50'de olmayan dört eski işlem UUID ile doğrulandı;
+  yalnız SELECT kanıtı, kaynak/actor/router/revizyon reddi korundu. Fixture
+  date-string/router metadata uyarlamaları ve tam audit assertion'ı yapıldı.
+- Ayrıntı docs/V26_PENDING_RECOVERY_ACCEPTANCE.md son bölümünde. Chromium
+  önceki EPERM nedeniyle BLOCKED; yeni deneme yok. Eski backend proof dönmezse
+  frontend güvenli UNKNOWN kalır. Mevcut >500kB uyarısı sürer.
+- V1/V2.5/VDS/cihaz/RADIUS/IPsec/canlıDB/deploy/restart/migration yok; yalnız
+  private sentetik test depoları kullanıldı. Genel PG/HTTP/Dashboard engelleri
+  korunur; bu görev genel canlı kabul iddiası değildir.
+
+- Normal `git push origin main-guncel` denendi; push BLOCKED:
+  `Could not resolve host: github.com`. Yerel tek commit korunur; ağ
+  erişiminde normal push gerekir. Force push yapılmadı.

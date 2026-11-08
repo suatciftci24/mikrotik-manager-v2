@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select,func
 from app.core.database import SessionLocal
 from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as Event
-from app.services.subscriber_center import SubscriberWorkspace
+from app.services.subscriber_center import SubscriberWorkspace,request_audit
 from app.services.router_workspace import guard,boundary,WorkspaceError
 
 PUBLIC_FIELDS={'customer_name','plan','status','expires_on','router_id','username','access_type','source'}
@@ -124,7 +124,18 @@ class SubscriberOperationsService:
             if not prior or prior.actor_id!=actor:return result
             receipt=prior.changes.get('_management',{}).get('receipt')
             if not receipt or receipt.get('recorded') is not True or receipt.get('request_id')!=str(request_id) or receipt.get('item_id')!=prior.subscriber_id or receipt.get('actor_id')!=actor:return result
-            return {**result,'status':'SUCCESS' if receipt['success'] else 'FAILED','response':receipt}
+            account=session.get(Account,prior.subscriber_id)
+            if (receipt.get('revision')!=prior.revision or receipt.get('operation')!=prior.operation
+                    or receipt.get('occurred_at')!=prior.occurred_at or type(receipt.get('success')) is not bool
+                    or receipt.get('values')!=public_changes(prior.changes,'new')
+                    or receipt.get('previous')!=public_changes(prior.changes,'previous')):return result
+            if prior.operation=='ROUTER' and receipt['success']:
+                if receipt.get('router_id')!=receipt['values'].get('router_id') or receipt.get('previous_router_id')!=receipt['previous'].get('router_id'):return result
+            elif receipt.get('router_id')!=receipt.get('previous_router_id'):return result
+            evidence=request_audit(prior,account,receipt.get('router_id'),account.source if account else None,receipt['success'])
+            if not evidence:return result
+            if account.revision==prior.revision and receipt['success'] and any(account.fields.get(key)!=value for key,value in receipt['values'].items()):return result
+            return {**result,'status':'SUCCESS' if receipt['success'] else 'FAILED','response':receipt,'audit':evidence}
 
     @boundary
     def history(self,item_id='',operation='ALL',result='ALL',page=1,page_size=25):

@@ -75,7 +75,7 @@ class GetRecovery(TestCase):
         event.listen(self.engine,'before_cursor_execute',record)
         try:
             with patch.object(reopened,'change',side_effect=AssertionError('write')),patch.object(reopened,'failed',side_effect=AssertionError('write')):
-                self.assertEqual(reopened.request_result(good.request_id,'actor'),dict(request_id=str(good.request_id),status='SUCCESS',response=good_result))
+                self.assertEqual(reopened.request_result(good.request_id,'actor'),dict(request_id=str(good.request_id),status='SUCCESS',response=good_result,audit=dict(request_id=str(good.request_id),item_id=first.id,actor_id='actor',router_id=first.router_id,source=first.source,revision=good_result['revision'],operation=good_result['operation'],occurred_at=good_result['occurred_at'],success=True,storage='PERSISTENT_WORKSPACE',is_demo=True)))
                 self.assertEqual(reopened.request_result(bad.request_id,'actor')['status'],'FAILED')
                 self.assertEqual(reopened.request_result(missing.request_id,'actor')['status'],'UNKNOWN')
                 self.assertEqual(reopened.request_result(good.request_id,'other')['status'],'UNKNOWN')
