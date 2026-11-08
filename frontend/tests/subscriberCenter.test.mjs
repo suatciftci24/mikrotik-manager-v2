@@ -8,13 +8,22 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {safeSubscriberCenter,subscriberRouterHash,subscriberCenterTabs} from '../src/lib/subscriberCenter.ts';
 const data={source:'PERSISTENT_WORKSPACE',is_demo:true,device_connection_started:false,persistence:'local-postgresql-workspace',item:{id:'demo-managed-sub-fixture',username:'test.ev',customer_name:'Sentetik Abone',router_id:'demo-managed-router-fixture',router_name:'TEST-EV-V2',router_source:'PERSISTENT_DEMO',access_type:'HOTSPOT',source:'LOCAL',plan:'Demo 100',status:'ACTIVE',expires_on:null,revision:1,ip_address:null,last_seen_at:null,last_connected_at:null,session_status:'UNKNOWN'},history:[],connection_history:[]};
 const require=createRequire(import.meta.url);
-const hooks={...React,useEffect:()=>{},useRef:value=>({current:value}),useState:value=>[typeof value==='function'?value():value,()=>{}]};
+const hooks={...React,useContext:()=>undefined,useEffect:()=>{},useRef:value=>({current:value}),useState:value=>[typeof value==='function'?value():value,()=>{}]};
 const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/SubscriberDeviceCenter.tsx',import.meta.url))],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
 const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
 const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.children).flatMap(nodes)]:[];
 test('five tabs render account and session separately; expire and connection gaps stay unknown',()=>{
  for(const [tab] of subscriberCenterTabs){const tree=module.exports.SubscriberDeviceCenterView({data,tab,onTab:()=>{}});const html=renderToStaticMarkup(tree);assert.match(html,/Sentetik Abone/);assert.match(html,/HOTSPOT/);assert.match(html,/Hesap etkin/);assert.match(html,/canlı oturum ölçülmedi/);assert.match(html,/bağlantı kanıtı yok/);assert.equal((html.match(/role="tab"/g)??[]).length,5);}
  const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data,tab:'expiry',onTab:()=>{}}));assert.match(html,/bilinmiyor/i);
+});
+test('installation photos are an opt-in V2.6 detail tab and require a verified subscriber binding',()=>{
+ const tree=module.exports.SubscriberDeviceCenterView({data,tab:'photos',onTab(){},photosEnabled:true});
+ assert.equal(nodes(tree).filter(node=>node.props?.role==='tab').length,6);
+ const photos=nodes(tree).find(node=>typeof node.type==='function'&&node.type.name==='SubscriberPhotos');assert.ok(photos);
+ assert.equal(photos.props.id,data.item.id);assert.equal(photos.props.source,'LOCAL');assert.equal(photos.props.canManage,false);
+ const denied=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,item:{...data.item,source:null}},tab:'photos',onTab(){},photosEnabled:true}));
+ assert.match(denied,/doğrulanmış LOCAL\/RADIUS kaynağı/);assert.doesNotMatch(denied,/subscriber-photo-grid/);
+ assert.equal(nodes(module.exports.SubscriberDeviceCenterView({data,tab:'overview',onTab(){}})).filter(node=>node.props?.role==='tab').length,5);
 });
 test('tab click and keyboard navigation do not trigger network or mutators',()=>{
  let selected;const tree=module.exports.SubscriberDeviceCenterView({data,tab:'overview',onTab:value=>{selected=value;}});const tabs=nodes(tree).filter(n=>n.props?.role==='tab');tabs[2].props.onClick();assert.equal(selected,'expiry');tabs[0].props.onKeyDown({key:'End',preventDefault:()=>{}});assert.equal(selected,'connections');

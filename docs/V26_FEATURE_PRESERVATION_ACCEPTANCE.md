@@ -13,6 +13,7 @@ geçmişi incelendi. Önceki ADMIN HTTP kabulü kullanıcı kanıtıdır; burada
 | LEGACY işlemler | QuickActions: 7/15/30/60/90 gün veya özel tarih, paket/fiyat ve aktif/pasif; önizleme, onay, revizyon, router ve kaynak doğrulaması, aynı UUID davranışı korundu. Yeni detayda üç doğrudan giriş var. |
 | Kalıcı sentetik abone | PPPoE/Hotspot liste, oluşturma/düzenleme, kilitli kimlik/kaynak, SubscriberRenewal ve SubscriberDailyActions korundu. Günlük işlemler: uzatma, durum, ad, paket, EXPIRE ve router; toplu işlem sınırları aynı. |
 | Detay ve audit | Beş sekme, router ID bağı, bilinmeyen oturum ayrımı, önceki/yeni değerler, başarısız sonuç, aktör ve İstanbul saati; eski demo işlemleri/raporları açılır bölümü korundu. |
+| Kurulum / iş fotoğrafları | Yalnız V2.6 izole kabul runtime'ında ek sekme; JPEG/PNG yeniden kodlama, EXIF temizliği, boyut/piksel sınırı ve her abone için ayrı özel dosya alanı. LOCAL/RADIUS, PPPoE/Hotspot, router ve işlem yetkisi sunucuda yeniden doğrulanır. |
 | Belirsiz sonuçlar | Tekil kayıt/yenileme, toplu receipt sorgusu, aktöre bağlı pending UUID ve GET ile kurtarma korundu. |
 | Router | Demo envanter, kalıcı sentetik yönetim, registry/onboarding, pilot girişleri ve V1 aktarım snapshot görünümü değiştirilmedi. |
 | Diğer merkezler | Dashboard, RADIUS hazırlık, Operasyon alarm/WAN, MikAjanı analiz/senaryo/kanıt, sistem/yetki ekranları değiştirilmedi. |

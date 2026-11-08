@@ -1,4 +1,4 @@
-from fastapi import APIRouter,Depends,Query,Header,HTTPException
+from fastapi import APIRouter,Depends,Query,Header,HTTPException,Request,Response,status
 from app.core.security import current_demo_user,current_admin
 from app.core.authorization import subscriber_for,public_detail
 from app.api.v1.router_workspace import execute
@@ -79,3 +79,80 @@ def operation_result(request_id:UUID,user:dict=Depends(current_admin)):
 def renewal_result(request_id:UUID,user:dict=Depends(current_admin)):
     current_admin(user)
     return execute(workspace.renewal_result,request_id,user['id'])
+
+
+from app.services.subscriber_photos import PhotoError,SubscriberPhotoStore
+from app.schemas.subscriber_photos import SubscriberPhotoCollection,SubscriberPhotoCreated,SubscriberPhotoDeleted
+from starlette.concurrency import run_in_threadpool
+
+photo_store=SubscriberPhotoStore()
+
+def photo_subject(item_id:str,user:dict,write:bool=False):
+    if item_id.startswith('demo-managed-sub-'):
+        current_admin(user)
+        data=execute(workspace.detail,item_id)
+        if data.source!='PERSISTENT_WORKSPACE' or data.persistence!='local-postgresql-workspace' or data.item.id!=item_id:
+            raise HTTPException(404,'Sentetik abone bulunamadı.')
+        item=data.item.model_dump(mode='json')
+    else:
+        if not item_id.startswith('demo-sub-'):
+            raise HTTPException(404,'Sentetik abone bulunamadı.')
+        record=subscriber_for(user,item_id)
+        item=record.get('item',{})
+        if (record.get('is_demo') is not True or record.get('persistence')!='process-memory'
+                or item.get('id')!=item_id):raise HTTPException(404,'Sentetik abone bulunamadı.')
+        if write:
+            permission='can_manage_hotspot' if item.get('access_type')=='HOTSPOT' else 'can_manage_pppoe'
+            subscriber_for(user,item_id,permission)
+    source=item.get('source');access_type=item.get('access_type');router_id=item.get('router_id')
+    if source not in ('LOCAL','RADIUS') or access_type not in ('PPPOE','HOTSPOT') or not router_id:
+        raise HTTPException(409,'Abonenin router, yetkili kaynak veya erişim türü doğrulanamadı.')
+    if item.get('router_missing') is True or item.get('router_source')=='UNKNOWN':
+        raise HTTPException(409,'Abonenin sentetik router bağı doğrulanamadı.')
+    return {'id':item_id,'source':source,'access_type':access_type,'router_id':router_id}
+
+def photo_error(error:PhotoError):
+    raise HTTPException(error.status,error.detail) from None
+
+def require_photo_action(user:dict,action:str|None):
+    if action!='subscriber-photos':raise HTTPException(403,'Abone fotoğrafı işlemi için açık onay gerekli.')
+    return user
+
+@router.get('/subscriber-center/{id}/photos',response_model=SubscriberPhotoCollection)
+def subscriber_photos(id:str,user:dict=Depends(current_demo_user)):
+    subject=photo_subject(id,user)
+    try:items=photo_store.list(id,subject['source'],subject['access_type'])
+    except PhotoError as error:photo_error(error)
+    return {'subscriber_id':id,'source':subject['source'],'access_type':subject['access_type'],'items':items,'is_demo':True}
+
+@router.post('/subscriber-center/{id}/photos',response_model=SubscriberPhotoCreated,status_code=status.HTTP_201_CREATED)
+async def upload_subscriber_photo(id:str,request:Request,user:dict=Depends(current_demo_user),x_v2_demo_action:str|None=Header(default=None)):
+    require_photo_action(user,x_v2_demo_action)
+    subject=photo_subject(id,user,write=True)
+    length=request.headers.get('content-length')
+    if length:
+        try:
+            if int(length)>10*1024*1024:raise HTTPException(413,'Fotoğraf 10 MiB sınırını aşıyor.')
+        except ValueError:raise HTTPException(400,'İstek boyutu doğrulanamadı.') from None
+    data=bytearray()
+    async for chunk in request.stream():
+        if len(data)+len(chunk)>10*1024*1024:raise HTTPException(413,'Fotoğraf 10 MiB sınırını aşıyor.')
+        data.extend(chunk)
+    try:item=await run_in_threadpool(photo_store.add,id,subject['source'],subject['access_type'],user['id'],bytes(data))
+    except PhotoError as error:photo_error(error)
+    return {'item':item,'is_demo':True}
+
+@router.get('/subscriber-center/{id}/photos/{photo_id}')
+def read_subscriber_photo(id:str,photo_id:str,variant:str=Query('thumbnail',pattern='^(thumbnail|full)$'),user:dict=Depends(current_demo_user)):
+    subject=photo_subject(id,user)
+    try:data=photo_store.read(id,subject['source'],subject['access_type'],photo_id,variant=='thumbnail')
+    except PhotoError as error:photo_error(error)
+    return Response(data,media_type='image/jpeg',headers={'Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; sandbox",'Referrer-Policy':'no-referrer','Content-Disposition':'inline; filename="subscriber-photo.jpg"'})
+
+@router.delete('/subscriber-center/{id}/photos/{photo_id}',response_model=SubscriberPhotoDeleted)
+def delete_subscriber_photo(id:str,photo_id:str,user:dict=Depends(current_demo_user),x_v2_demo_action:str|None=Header(default=None)):
+    require_photo_action(user,x_v2_demo_action)
+    subject=photo_subject(id,user,write=True)
+    try:photo_store.delete(id,subject['source'],subject['access_type'],photo_id)
+    except PhotoError as error:photo_error(error)
+    return {'id':photo_id,'deleted':True,'is_demo':True}

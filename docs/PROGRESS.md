@@ -1,5 +1,18 @@
 # MikroTik Manager V2 — İlerleme
 
+## Abone Detay Merkezi kurulum/iş fotoğrafları — 2026-11-08
+
+- V2.6 izole kabul runtime kimliğiyle açılan yeni fotoğraf sekmesi; JPEG/PNG
+  içerik çözümleme, yeniden kodlama, EXIF temizleme, 10 MiB/24 MP sınırı,
+  abone başına özel hash dizini, küçük önizleme/tam görüntüleme ve yetkili silme.
+- API LOCAL/RADIUS + PPPoE/Hotspot kimliğini ve router yetkisini tekrar doğrular;
+  dosya deposu yalnız doğrulanmış V2.6 kabul profiline ve `/tmp` altındaki
+  izole alana açılır. Şema/migration yok; mevcut V1/V2.5/canlı kaynaklar yok.
+- PASS: 2 hedef Node test dosyası (17 test), 6 backend unittest, frontend typecheck,
+  production build ve `git diff --check`.
+- Şema/migration yok; canlı sistem, servis, cihaz veya DB işlemi yok. Yerel
+  commit `c42756c`; push yapılmadı.
+
 ## Dashboard ve Operasyon Merkezi sonuç görünürlüğü — 2026-11-08
 
 - Yönetim raporunda başarılı, kayıtlı başarısız ve sonucu belirsiz işlemler
