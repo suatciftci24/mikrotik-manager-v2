@@ -65,6 +65,12 @@ def failed_acceptance_diagnostic(result):
             classes = re.findall(r'(?m)^([A-Za-z_][A-Za-z0-9_.]*)(?::|$)', trace)
             if classes:
                 diagnostic += ' exception_type=' + classes[-1][:80]
+                locations = re.findall(r'File "([^"]+)", line ([0-9]+), in ([A-Za-z_][A-Za-z0-9_]*)', trace)
+                if locations:
+                    path, line, function = locations[-1]
+                    if '/mikrotik-manager-v2/' in path:
+                        diagnostic += ' error_location=' + Path(path).name + ':' + line
+                        diagnostic += ' function=' + function
     failure = ACTIVE_ACCEPTANCE_BIND_ERROR
     if failure and failure['stage'] == stage:
         diagnostic += ' error_class=' + failure['error_class']
