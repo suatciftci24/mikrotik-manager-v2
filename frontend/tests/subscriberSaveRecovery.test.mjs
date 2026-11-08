@@ -15,7 +15,7 @@ function harness(kind,mode){
  const options={routers:[{id:'demo-router-one',name:'Synthetic Router'}],plans:[{name:'Old',monthly_price:100},{name:'New',monthly_price:200}],persistence:'local-postgresql-demo',is_demo:true};
  const hooks={...React,useEffect(){},useCallback:fn=>fn,useRef:value=>{const i=cursor++;slots[i]??={current:value};return slots[i];},useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;const value=slots[i];if(value?.path)return [{...value,loading:false,data:value.path.includes('demo-options')?options:{items:[{id:router,fields:{name:'Synthetic Router'}}]}},()=>{}];return [value,next=>{slots[i]=typeof next==='function'?next(slots[i]):next;}];}};
  const module={exports:{}};new Function('require','module','exports',codes[kind])(name=>name==='react'?hooks:require(name),module,module.exports);
- const original={id:kind==='workspace'?'demo-managed-sub-existing':'demo-sub-existing',customer_name:'Synthetic User',username:'synthetic.test',router_id:kind==='workspace'?router:'demo-router-one',router_name:'Synthetic Router',access_type:'PPPOE',source:'LOCAL',plan:'Old',status:'PAUSED',expires_on:null,revision:3};
+ const original={id:kind==='workspace'?'demo-managed-sub-existing':'demo-sub-existing',customer_name:'Synthetic User',username:'synthetic.test',router_id:kind==='workspace'?router:'demo-router-one',router_name:'Synthetic Router',access_type:'PPPOE',source:'LOCAL',plan:'Old',status:'PAUSED',expires_on:null,revision:3,monthly_price:100,is_demo:true};
  let item={...original};
  const render=()=>{cursor=0;return kind==='hook'?module.exports.useSubscriberSave(value=>saved.push(value)):kind==='workspace'?module.exports.SyntheticSubscriberEditor({item:mode==='edit'?item:undefined,onClose(){},onSaved:id=>saved.push(id)}):module.exports.SubscriberEditor({mode:mode==='edit'?'PLAN_CHANGE':'CREATE',subscriber:mode==='edit'?item:undefined,onClose(){},onSaved:id=>saved.push(id)});};
  const control=(predicate,value)=>{const node=nodes(render()).find(predicate);assert.ok(node,'control exists');node.props.onChange({target:{value,checked:value}});};
@@ -42,7 +42,7 @@ function harness(kind,mode){
  return {render,prepare,send,saved,events,original,refreshProps(){item={...item,revision:99,plan:'Later'};}};
 }
 const tick=()=>new Promise(setImmediate);
-for(const kind of ['workspace','legacy'])for(const mode of ['create','edit'])for(const fault of ['lost-response','truncated-json','wrong-response']){
+for(const kind of ['workspace','legacy'])for(const mode of ['create','edit'])for(const fault of ['lost-response','truncated-json','wrong-response','wrong-router','wrong-source','wrong-expiry','wrong-status',...(kind==='legacy'?['wrong-price']:[])]){
  test(`${kind} ${mode} ${fault}: one POST, frozen UUID, read-only recovery and dependent refresh`,async()=>{
   const h=harness(kind,mode),calls=[];let receipt;
   const oldFetch=globalThis.fetch,oldWindow=globalThis.window;
@@ -51,12 +51,12 @@ for(const kind of ['workspace','legacy'])for(const mode of ['create','edit'])for
    calls.push({url,method:init.method??'GET',body:init.body});
    if(init.method==='POST'){
     const command=JSON.parse(init.body),request=command.request_id;
-    const item=kind==='workspace'?{...command.fields,id:mode==='create'?'demo-managed-sub-'+request:h.original.id,revision:command.expected_revision+1}:{...h.original,...(mode==='create'?command:{plan:command.value}),id:mode==='create'?'demo-sub-'+request:h.original.id,revision:mode==='create'?1:h.original.revision+1};
+    const item=kind==='workspace'?{...command.fields,id:mode==='create'?'demo-managed-sub-'+request:h.original.id,revision:command.expected_revision+1}:{...h.original,...(mode==='create'?{...command,monthly_price:200}:{plan:command.value,monthly_price:200}),id:mode==='create'?'demo-sub-'+request:h.original.id,revision:mode==='create'?1:h.original.revision+1};
     const response=kind==='workspace'?item:{item,is_demo:true,persistence:'local-postgresql-demo',history:[]};
     receipt={request_id:request,status:'SUCCESS',response};
     if(fault==='lost-response')throw new TypeError('Synthetic lost response');
     if(fault==='truncated-json')return {ok:true,json:async()=>{throw new SyntaxError('Synthetic JSON failure');}};
-    return {ok:true,json:async()=>kind==='workspace'?{...item,id:'wrong'}:{...response,item:{...item,id:'wrong'}}};
+    const wrong={'wrong-response':{id:'wrong'},'wrong-router':{router_id:'other'},'wrong-source':{source:'RADIUS'},'wrong-expiry':{expires_on:'2000-01-01'},'wrong-status':{status:'ACTIVE'},'wrong-price':{monthly_price:999}}[fault];return {ok:true,json:async()=>kind==='workspace'?{...item,...wrong}:{...response,item:{...item,...wrong}}};
    }
    assert.ok(url.endsWith('/'+receipt.request_id));
    assert.equal(init.body,undefined);return {ok:true,json:async()=>receipt};

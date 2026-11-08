@@ -1,3 +1,4 @@
+import {subscriberOperationError} from './subscriberOperationRecovery';
 import {rememberPending,forgetPending} from './pendingSubscriberOperations';
 import {useEffect,useRef,useState} from 'react';
 import {api,ApiError} from './api';
@@ -35,7 +36,7 @@ export function useSubscriberSave<T>(onSaved:(result:T)=>void){
    const rejected=!query&&failure instanceof ApiError&&[400,401,403,404,409,422].includes(failure.status);
    if(rejected)forgetPending(frozen.requestId);
    outcome.current=rejected?'FAILED':'UNCERTAIN';setState(outcome.current);
-   setError(failure instanceof Error?failure.message:'İşlem sonucu alınamadı.');
+   setError(subscriberOperationError(failure));
   }finally{
    clearTimeout(timer);sending.current=false;
    invalidateResources([...subscriberSaveDependencies]);

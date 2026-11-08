@@ -50,9 +50,9 @@ export function SubscriberEditor({mode, subscriber, onClose, onSaved}: {
     const revision=mode==='CREATE'?1:subscriber!.revision+1;
     const path=mode==='CREATE'?'/subscribers/demo-create':`/subscribers/${encodeURIComponent(subscriber!.id)}/demo-management`;
     setReview({facts,attempt:{requestId:request,path,resultPath:'/subscribers/demo-requests/'+request,header:'subscriber-management',body:JSON.stringify({...body,request_id:request,confirmed:true}),matches:result=>{
-      if(!result||result.persistence!=='local-postgresql-demo'||result.is_demo!==true||result.item?.id!==target||result.item.revision!==revision)return false;
-      if(mode==='CREATE')return Object.entries(body).every(([key,value])=>(result.item as unknown as Record<string,unknown>)[key]===value);
-      return result.item.source===body.expected_source&&(result.item as unknown as Record<string,unknown>)[mode==='PLAN_CHANGE'?'plan':'status']===body.value;
+      if(!result||result.persistence!=='local-postgresql-demo'||result.is_demo!==true||result.item?.is_demo!==true||result.item.id!==target||result.item.revision!==revision)return false;
+      if(mode==='CREATE')return result.item.monthly_price===selectedPlan!.monthly_price&&Object.entries(body).every(([key,value])=>(result.item as unknown as Record<string,unknown>)[key]===value);
+      return result.item.router_id===subscriber!.router_id&&result.item.username===subscriber!.username&&result.item.expires_on===subscriber!.expires_on&&(mode==='PLAN_CHANGE'?result.item.status===subscriber!.status&&result.item.monthly_price===selectedPlan!.monthly_price:result.item.plan===subscriber!.plan&&result.item.monthly_price===subscriber!.monthly_price)&&result.item.source===body.expected_source&&(result.item as unknown as Record<string,unknown>)[mode==='PLAN_CHANGE'?'plan':'status']===body.value;
     }}});
   };
   const save=async()=>{if(review)await recovery.send(review.attempt);};

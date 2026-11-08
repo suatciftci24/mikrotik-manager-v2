@@ -15,13 +15,13 @@ test('quick preview keeps old/new date and success receipt shows server date; co
  const built=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/QuickActions.tsx',import.meta.url))],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
  const module={exports:{}};new Function('require','module','exports',built)(name=>name==='react'?hooks:require(name),module,module.exports);
  const previousFetch=globalThis.fetch,previousWindow=globalThis.window;globalThis.window={dispatchEvent:()=>{}};
- globalThis.fetch=async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({results:[{item_id:row.id,success:true,result:{item:{...row,expires_on:'2026-12-01'},history:[],is_demo:true,persistence:'local-postgresql-demo'}}]})};};
+ globalThis.fetch=async(url,init)=>{calls.push({url,init});const requested=JSON.parse(init.body).entries[0].change;return {ok:true,json:async()=>({results:[{item_id:row.id,success:true,result:{item:{...row,revision:row.revision+1,expires_on:requested.expires_on},history:[],is_demo:true,persistence:'local-postgresql-demo'}}]})};};
  const render=()=>{cursor=0;return module.exports.QuickActions({rows:[row],today:'2026-10-28',onClose:()=>{},onSaved:()=>{saves++;}});};
  try{
   let tree=render();nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});tree=render();
   const html=renderToStaticMarkup(tree);assert.ok(html.includes(expiryDate(row.expires_on)));assert.match(html,/Eski → Yeni/);
   await nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();tree=render();
-  const receipt=renderToStaticMarkup(tree);assert.ok(receipt.includes(expiryDate('2026-12-01')));assert.match(receipt,/Güncel bitiş/);assert.equal(saves,1);
+  const receipt=renderToStaticMarkup(tree);assert.ok(receipt.includes(expiryDate(JSON.parse(calls[0].init.body).entries[0].change.expires_on)));assert.match(receipt,/Güncel bitiş/);assert.equal(saves,1);
   const completed=nodes(tree).find(n=>n.type==='button'&&n.props.children==='İşlem tamamlandı');assert.equal(completed.props.disabled,true);await completed.props.onClick();assert.equal(calls.length,1);
   const payload=JSON.parse(calls[0].init.body);assert.equal(payload.entries[0].change.expected_expires_on,row.expires_on);assert.equal(payload.entries[0].change.router_id,row.router_id);assert.equal(payload.entries[0].change.action,'EXTEND');assert.equal(payload.entries[0].change.confirmed,true);
  }finally{globalThis.fetch=previousFetch;globalThis.window=previousWindow;}
@@ -40,5 +40,37 @@ test('persistent renewal preserves request ID and reads the committed receipt wi
   let tree=render();nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});tree=render();assert.match(renderToStaticMarkup(tree),/Eski → Yeni/);
   await nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();await new Promise(setImmediate);tree=render();await nodes(tree).find(n=>n.type==='button'&&n.props.children==='Aynı UUID ile sonucu sorgula').props.onClick();await new Promise(setImmediate);tree=render();
   const command=JSON.parse(calls[0].init.body);assert.equal(calls.length,2);assert.equal(calls[0].init.method,'POST');assert.equal(calls[1].init.method,undefined);assert.equal(calls[1].init.body,undefined);assert.equal(calls[1].url,'/api/v1/subscriber-workspace/renewals/requests/'+command.request_id);assert.match(calls[0].url,/subscriber-workspace\/demo-managed-sub-fixture\/renew$/);assert.ok(renderToStaticMarkup(tree).includes(expiryDate(command.expires_on)));assert.equal(nodes(tree).some(n=>n.type==='button'&&n.props.children==='Onayla ve uygula'),false);
+ }finally{globalThis.fetch=previousFetch;globalThis.window=previousWindow;}
+});
+
+const validationCode=buildSync({entryPoints:['src/components/QuickActions.tsx'],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+for(const action of ['EXTEND','PLAN','STATUS','CREATE'])test(`${action}: mismatched success never notifies; same frozen command recovers once`,async()=>{
+ const slots=[];let cursor=0,notifications=0;const calls=[];
+ const plans=[{name:'Demo',monthly_price:10},{name:'New',monthly_price:20}];
+ const hooks={...React,useId:()=>':validation:',useEffect(){},useCallback:fn=>fn,useRef:value=>{const i=cursor++;return slots[i]??={current:value};},useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;const value=slots[i];if(value?.path)return [{...value,loading:false,data:value.path==='/routers'?{items:[{id:row.router_id,name:row.router_name}]}:{plans}},()=>{}];return[value,next=>{slots[i]=typeof next==='function'?next(slots[i]):next;}];}};
+ const module={exports:{}};new Function('require','module','exports',validationCode)(name=>name==='react'?hooks:require(name),module,module.exports);
+ const render=()=>{cursor=0;return module.exports.QuickActions({rows:action==='CREATE'?[]:[row],today:'2026-10-28',initialAction:action,onClose(){},onSaved(){notifications++;}});};
+ const change=(predicate,value)=>nodes(render()).find(predicate).props.onChange({target:{value}});
+ if(action==='PLAN'||action==='CREATE')change(n=>n.type==='select'&&n.props['aria-labelledby']?.endsWith('-plan'),'New');
+ if(action==='STATUS')change(n=>n.type==='select'&&n.props['aria-labelledby']?.endsWith('-status'),'PAUSED');
+ if(action==='CREATE'){
+  change(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.children===row.router_name),row.router_name);
+  change(n=>n.type==='input'&&n.props.maxLength===80,'new.synthetic');change(n=>n.type==='input'&&n.props.maxLength===120,'New Synthetic');change(n=>n.type==='input'&&n.props.type==='date','2026-12-01');
+ }
+ nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
+ let saved;const previousFetch=globalThis.fetch,previousWindow=globalThis.window;globalThis.window={dispatchEvent(){}};
+ const faults=[{revision:99},{router_id:'other'},{source:'RADIUS'},{expires_on:'2000-01-01'},{plan:'Unexpected'},{status:'PENDING'},{monthly_price:999},{is_demo:false},{username:'other'}];let faultIndex=0;
+ globalThis.fetch=async(url,init)=>{calls.push({body:init.body,method:init.method});const entry=JSON.parse(init.body).entries[0],command=entry.change;
+  saved={...row,id:entry.item_id,revision:command.expected_revision+1,router_id:command.router_id,source:command.expected_source,expires_on:command.expires_on,...(action==='CREATE'?{username:command.username,customer_name:command.customer_name}:{}),...(['PLAN','CREATE'].includes(action)?{plan:'New',monthly_price:20}:{}),...(['STATUS','CREATE'].includes(action)?{status:command.status}:{})};
+  return {ok:true,json:async()=>({results:[{item_id:entry.item_id,success:true,result:{is_demo:true,persistence:'local-postgresql-demo',history:[],item:faultIndex<faults.length?{...saved,...faults[faultIndex]}:saved}}]})};
+ };
+ try{
+  for(;faultIndex<faults.length;faultIndex++){
+   const click=nodes(render()).find(n=>n.type==='button'&&n.props.className==='button-primary').props.onClick;await Promise.all([click(),click()]);assert.equal(calls.length,faultIndex+1,'concurrent confirmation never starts another POST');
+   assert.equal(notifications,0);const html=renderToStaticMarkup(render());assert.match(html,/Kalıcı sonuç doğrulanamadı/);assert.doesNotMatch(html,/Kaydedildi · Güncel/);
+  }
+  await nodes(render()).find(n=>n.type==='button'&&n.props.className==='button-primary').props.onClick();
+  assert.equal(notifications,1);assert.ok(calls.every(c=>c.body===calls[0].body));assert.match(renderToStaticMarkup(render()),/İşlem tamamlandı/);
+  await nodes(render()).find(n=>n.type==='button'&&n.props.className==='button-primary').props.onClick();assert.equal(calls.length,faults.length+1);
  }finally{globalThis.fetch=previousFetch;globalThis.window=previousWindow;}
 });

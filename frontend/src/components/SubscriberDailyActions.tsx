@@ -4,7 +4,7 @@ import {useListFilter} from '../lib/useListFilter';
 import {rememberPending,forgetPending} from '../lib/pendingSubscriberOperations';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {api,ApiError} from '../lib/api';
-import {operationReceiptMatches,readOperationResults,unknownOperation} from '../lib/subscriberOperationRecovery';
+import {subscriberOperationError,operationReceiptMatches,readOperationResults,unknownOperation} from '../lib/subscriberOperationRecovery';
 import {subscriberSaveDependencies} from '../lib/useSubscriberSave';
 import {useResource} from '../lib/useResource';
 import {invalidateResources} from '../lib/resourceEvents';
@@ -44,11 +44,11 @@ export function SubscriberDailyActions({rows,onClose}:{rows:CenterSubscriber[];o
    if(failed)for(const entry of command.entries)forgetPending(entry.request_id);
    setRejected(failed);setUncertain(!failed);
    if(!failed)setResults(command.entries.map(entry=>results?.find(r=>r.recorded&&operationReceiptMatches(entry,r))??unknownOperation(entry)));
-   setError(e instanceof Error?e.message:'Sonuç alınamadı.');
+   setError(subscriberOperationError(e));
   }finally{clearTimeout(timer);sending.current=false;setBusy(false);invalidateResources([...subscriberSaveDependencies]);}
  }
  const display=(v:string|null)=>action==='EXTEND'||action==='EXPIRE'?expiryDate(v):action==='STATUS'?(v==='ACTIVE'?'Aktif hesap':v==='PAUSED'?'Pasif hesap':'Bilinmiyor'):action==='ROUTER'?`${routers.data?.items.find(r=>r.id===v)?.fields.name??rows.find(r=>r.router_id===v)?.router_name??'Ad bilinmiyor'} · ${v}`:v??'Bilinmiyor';
- return <dialog ref={dialog} className="expiry-dialog router-onboarding" aria-labelledby="daily-title" onCancel={e=>{e.preventDefault();if(!busy)onClose();}}><h2 id="daily-title">Günlük PPPoE / Hotspot işlemleri · SENTETİK</h2><p>{rows.length} seçili abone. Yalnız izole V2 kayıtları ve audit değişir. Hesap durumu, oturum ve abonelik süresi ayrıdır.</p>
+ return <dialog ref={dialog} className="expiry-dialog router-onboarding" aria-busy={busy} aria-labelledby="daily-title" onCancel={e=>{e.preventDefault();if(!busy)onClose();}}><h2 id="daily-title">Günlük PPPoE / Hotspot işlemleri · SENTETİK</h2><p>{rows.length} seçili abone. Yalnız izole V2 kayıtları ve audit değişir. Hesap durumu, oturum ve abonelik süresi ayrıdır. Her abonenin kaydı ve audit’i birlikte kaydedilir; toplu işlemde diğer abonelerden bağımsız sonuç oluşabilir.</p>
  <details><summary>Seçilen aboneler ({rows.length})</summary><ul>{rows.map(row=><li key={row.id}>{row.customer_name} · {row.username} · {row.access_type} · {row.router_name}</li>)}</ul></details>
  {!review?<form onSubmit={prepare}><label className="form-label">İşlem<select value={action} onChange={e=>{setAction(e.target.value as DailyAction);setValue('');}}><option value="EXTEND">Abonelik uzatma</option><option value="STATUS">Etkinleştirme / devre dışı bırakma</option>{rows.length===1&&<><option value="EDIT">Abone bilgisini düzenle</option><option value="PLAN">Paket / profil değiştir</option><option value="EXPIRE">Bitiş tarihi belirle</option><option value="ROUTER">Bağlı routerı değiştir</option></>}</select></label>
  {action==='EXTEND'?<label className="form-label">Süre<select value={days} onChange={e=>setDays(Number(e.target.value) as 30|60|90)}>{[30,60,90].map(d=><option key={d} value={d}>{d} gün</option>)}</select></label>:action==='STATUS'?<label className="form-label">Yeni hesap durumu<select required value={value} onChange={e=>setValue(e.target.value)}><option value="">Seçin</option><option value="ACTIVE">Aktif hesap</option><option value="PAUSED">Pasif hesap</option></select></label>:action==='ROUTER'?<><ResourceState {...routers}/><label className="form-label">Hedef sentetik router<select required value={value} onChange={e=>setValue(e.target.value)}><option value="">Seçin</option>{routers.data?.items.map(r=><option key={r.id} value={r.id}>{r.fields.name} · {r.id}</option>)}</select></label></>:<label className="form-label">{dailyLabels[action]}<input required={action!=='EXPIRE'} type={action==='EXPIRE'?'date':'text'} maxLength={action==='PLAN'?120:160} value={value} onChange={e=>setValue(e.target.value)}/>{action==='EXPIRE'&&<small>Boş bırakılırsa tarih bilinmiyor olarak kaydedilir; hesap pasifleştirilmez.</small>}</label>}

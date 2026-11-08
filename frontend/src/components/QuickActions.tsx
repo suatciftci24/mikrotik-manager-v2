@@ -1,3 +1,4 @@
+import {subscriberOperationError} from '../lib/subscriberOperationRecovery';
 import {subscriberSaveDependencies} from '../lib/subscriberDependencies';
 import '../styles/subscriber-edit-highlight.css';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
@@ -11,7 +12,7 @@ export type QuickAction = 'EXTEND'|'PLAN'|'STATUS'|'CREATE';
 type Entry = {item_id:string; change:Record<string,unknown>};
 type Result = {item_id:string; success:boolean; error?:string; result?:SubscriberDetailData};
 export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:Subscriber[];today:string;onClose:()=>void;initialAction?:QuickAction;onSaved?:()=>void}) {
-  const dialog=useRef<HTMLDialogElement>(null);
+  const dialog=useRef<HTMLDialogElement>(null),expected=useRef(new Map<string,Partial<Subscriber>>()),activeRequest=useRef<AbortController|null>(null);
   const fieldId=useId();
   const options=useResource<DemoOptions>('/subscribers/demo-options');
   const routers=useResource<{items:Router[]}>('/routers');
@@ -21,8 +22,8 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
   const [router,setRouter]=useState(rows[0]?.router_name??'');
   const [source,setSource]=useState('LOCAL'); const [username,setUsername]=useState(''); const [name,setName]=useState('');
   const [review,setReview]=useState<Entry[]|null>(null); const [results,setResults]=useState<Result[]|null>(null);
-  const [error,setError]=useState(''); const [pending,setPending]=useState(false); const sending=useRef(false);
-  useEffect(()=>{const origin=document.activeElement as HTMLElement|null;const node=dialog.current;node?.showModal();return()=>{node?.close();if(origin?.isConnected)origin.focus({preventScroll:true});else document.querySelector<HTMLElement>('.detail-back')?.focus();};},[]);
+  const [error,setError]=useState(''); const [pending,setPending]=useState(false); const [attempted,setAttempted]=useState(false); const sending=useRef(false);
+  useEffect(()=>{const origin=document.activeElement as HTMLElement|null;const node=dialog.current;node?.showModal();return()=>{activeRequest.current?.abort();node?.close();if(origin?.isConnected)origin.focus({preventScroll:true});else document.querySelector<HTMLElement>('.detail-back')?.focus();};},[]);
   useEffect(()=>{if(review)dialog.current?.querySelector<HTMLElement>('h2')?.focus();},[review]);
   function prepare(e:FormEvent) {
     e.preventDefault(); setError('');
@@ -43,16 +44,37 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
     if (action==='CREATE'&&(!router||!username.trim()||!name.trim()||!plan.trim())) {setError('Router, kullanıcı, abone adı ve paket zorunlu.');return;}
     if (action==='PLAN'&&!plan.trim()) {setError('Yeni paket girin.');return;}
     if(entries.some(e=>!e.change.router_id)) {setError('Router kimliği bulunamadı.');return;}
+    const selectedPlan=options.data?.plans.find(p=>p.name===plan);
+    if((action==='PLAN'||action==='CREATE')&&!selectedPlan){setError('Kayıtlı bir demo paketi seçin; paket bilgisi alınamadıysa yeniden deneyin.');return;}
+    expected.current=new Map(entries.map((entry,index)=>{
+      const row=targets[index];
+      const values:Partial<Subscriber>={id:entry.item_id,is_demo:true,revision:(row?.revision??0)+1,router_id:String(entry.change.router_id),source:row?.source??source as Subscriber['source'],customer_name:row?.customer_name??name.trim(),username:row?.username??username.trim(),plan:row?.plan??plan,monthly_price:row?row.monthly_price:selectedPlan!.monthly_price,status:row?.status??status as Subscriber['status'],expires_on:row?.expires_on??null};
+      if(action==='EXTEND'||action==='CREATE')values.expires_on=entry.change.expires_on as string;
+      if(action==='PLAN'||action==='CREATE'){values.plan=plan;values.monthly_price=selectedPlan!.monthly_price;}
+      if(action==='STATUS'||action==='CREATE')values.status=status as Subscriber['status'];
+      return [entry.item_id,values];
+    }));
     setReview(entries);setResults(null);
   }
   async function save() {
     if (!review||sending.current||results?.every(result=>result.success)) return;
-    sending.current=true;setPending(true);setError('');
-    try {const response=await api<{results:Result[]}>('/subscribers/demo-quick',{method:'POST',headers:{'X-V2-Demo-Action':'expiry'},body:JSON.stringify({entries:review})});if(!Array.isArray(response.results)||response.results.length!==review.length||new Set(response.results.map(r=>r.item_id)).size!==review.length||response.results.some(r=>!review.some(e=>e.item_id===r.item_id)||typeof r.success!=='boolean'||r.success&&r.result?.item.id!==r.item_id))throw new Error('İşlem sonuçları onaylanan abonelerle eşleşmedi; aynı istekle sonucu yeniden alın.');setResults(response.results);if(response.results.some(result=>result.success))onSaved?.();}
-    catch(e){setError(e instanceof Error?e.message:'İşlem sonucu alınamadı.');}
-    finally {invalidateResources([...subscriberSaveDependencies]);sending.current=false;setPending(false);}
+    sending.current=true;setPending(true);setAttempted(true);setError('');
+    const controller=new AbortController();activeRequest.current=controller;
+    const timer=setTimeout(()=>controller.abort(),15000);
+    try {
+      const response=await api<{results:Result[]}>('/subscribers/demo-quick',{method:'POST',signal:controller.signal,headers:{'X-V2-Demo-Action':'expiry'},body:JSON.stringify({entries:review})});
+      if(!Array.isArray(response?.results)||response.results.length!==review.length||new Set(response.results.map(r=>r?.item_id)).size!==review.length||response.results.some(r=>{
+        if(!r||!review.some(e=>e.item_id===r.item_id)||typeof r.success!=='boolean')return true;
+        if(!r.success)return false;
+        const saved=r.result,values=expected.current.get(r.item_id);
+        return !values||saved?.is_demo!==true||saved.persistence!=='local-postgresql-demo'||!saved.item||Object.entries(values).some(([key,value])=>(saved.item as unknown as Record<string,unknown>)[key]!==value);
+      }))throw new Error('İşlem sonucu onaylanan kayıt, router veya değerlerle eşleşmedi.');
+      setResults(response.results);if(response.results.some(result=>result.success))onSaved?.();
+    }
+    catch(e){setError(subscriberOperationError(e)+' Kalıcı sonuç doğrulanamadı; işlem uygulanmış olabilir. Yeni önizleme oluşturmadan aynı istekle sonucu alın.');}
+    finally {clearTimeout(timer);invalidateResources([...subscriberSaveDependencies]);sending.current=false;setPending(false);}
   }
-  return <dialog ref={dialog} className="expiry-dialog" aria-labelledby="quick-title" onCancel={e=>{e.preventDefault();if(!sending.current)onClose();}}>
+  return <dialog ref={dialog} className="expiry-dialog" aria-busy={pending} aria-labelledby="quick-title" onCancel={e=>{e.preventDefault();if(!sending.current)onClose();}}>
     <h2 id="quick-title" tabIndex={-1}>Abone İşlemleri · Demo</h2>
     <p>Yalnız V2 demo kayıtları ve denetim geçmişi güncellenir. Paket seçimi kayıtlı demo fiyatını da günceller.</p>
      {rows.length===1&&<div className="quick-preview">
@@ -86,7 +108,7 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
       {review.map((entry,i)=><section key={entry.item_id} className="quick-preview"><strong>{rows[i]?.customer_name??name} · {rows[i]?.username??username}</strong><p>{String(entry.change.router_name)} ({String(entry.change.router_id)}) · {String(entry.change.expected_source)}</p><p>Abone kimliği: {entry.item_id}</p><p>Bitiş: {expiryDate(rows[i]?.expires_on??null)} → {expiryDate(entry.change.expires_on as string|null)}</p>{(action==='PLAN'||action==='CREATE')&&<p>Paket: {rows[i]?.plan??'Yok'} → {plan} · Aylık tutar: {rows[i]?.monthly_price??0} → {options.data?.plans.find(p=>p.name===plan)?.monthly_price??'Bilinmiyor'} TL</p>}{(action==='STATUS'||action==='CREATE')&&<p>Durum: {rows[i]?.status??'Yok'} → {status}</p>}</section>)}
       {results&&<div role="status">{results.filter(r=>r.success).length} başarılı / {results.filter(r=>!r.success).length} başarısız{results.map(r=><p key={r.item_id}>{rows.find(row=>row.id===r.item_id)?.customer_name??name}: {r.success?(action==='PLAN'?`Kaydedildi · Güncel paket: ${r.result?.item.plan} · Aylık tutar: ${r.result?.item.monthly_price} TL`:action==='STATUS'?`Kaydedildi · Güncel durum: ${r.result?.item.status==='ACTIVE'?'Aktif':'Pasif'}`:`Kaydedildi · Güncel bitiş: ${expiryDate(r.result?.item.expires_on??null)}`):r.error??'İşlem uygulanmadı.'}</p>)}</div>}
       <p>Yanıt kaybolursa aynı onayı tekrar gönderin; başarılı kayıt ikinci kez uygulanmaz.</p>
-      <div className="expiry-editor-actions"><button className="button-secondary" disabled={pending} onClick={()=>{onClose();}}>Kapat ve güncel listeden yeniden seç</button><button className="button-primary" disabled={pending||!!results?.every(r=>r.success)} onClick={save}>{pending?'Kaydediliyor…':results?.every(r=>r.success)?'İşlem tamamlandı':results?'Aynı istekle eksik sonuçları getir':'Onayla ve uygula'}</button></div>
+      <div className="expiry-editor-actions"><button className="button-secondary" disabled={pending} onClick={()=>{onClose();}}>Kapat ve güncel listeden yeniden seç</button><button className="button-primary" disabled={pending||!!results?.every(r=>r.success)} onClick={save}>{pending?'Kaydediliyor…':results?.every(r=>r.success)?'İşlem tamamlandı':results?'Aynı istekle eksik sonuçları getir':attempted?'Aynı istekle sonucu doğrula':'Onayla ve uygula'}</button></div>
     </>}
     {error&&<p role="alert" className="form-error">{error}</p>}
     <button className="button-secondary expiry-editor-cancel" disabled={pending} onClick={onClose}>Kapat</button>

@@ -303,3 +303,7 @@ input::placeholder{color:var(--muted);opacity:1}
  .operation-dialog{max-width:calc(100vw - 24px)}.operation-dialog .detail-facts{grid-template-columns:minmax(0,1fr)}
  .operation-dialog .detail-facts dd{max-width:100%;overflow-wrap:anywhere}
 }
+
+/* Long account names and preview values must wrap on narrow operation dialogs. */
+.expiry-dialog .quick-preview{min-width:0}.expiry-dialog .quick-preview strong,.expiry-dialog .quick-preview p{overflow-wrap:anywhere}
+@media(max-width:650px){.expiry-dialog[aria-busy] .button-primary,.expiry-dialog[aria-busy] .button-secondary{min-height:44px}}
