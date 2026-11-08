@@ -1,5 +1,14 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6 runtime ortam kimliği — 2026-11-08
+
+- `/api/ready` hassas olmayan allowlist `runtime_profile` döndürür;
+  UI bu kimlikle MANAGER V2 / MANAGER V2.6, izole kabul ve yerel demo
+  etiketlerini sol menü, üst başlık, banner, giriş ve alt bilgide eşler.
+  URL/hostname bu seçimi etkilemez; bilinmeyen profil yerel V2 demo olur.
+- PASS: runtime profile ve first-admin hedefli frontend testleri, typecheck,
+  build ve diff kontrolü. Testler sentetik, canlı servis/DB yok.
+
 ## DetailCenter hook fixture düzeltmesi — 2026-11-08
 
 - PASS: `frontend/tests/detailCenter.test.mjs` mock'u gerçek `/subscribers/`

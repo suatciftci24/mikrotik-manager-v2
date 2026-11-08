@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from app.services import demo_subscriptions
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 from app.api.v1.app_router import api_router
 from app.core.config import settings
@@ -39,7 +40,9 @@ def health():
 @app.get('/api/ready', tags=['system'])
 async def ready():
     # Liveness identity only: DB health stays on /api/health, without thread-worker dependency here.
-    return {'service':'mikrotik-manager-v2', 'environment':settings.environment,
+    profile=os.environ.get('V2_DEPLOYMENT_PROFILE','local-demo')
+    if profile not in {'local-demo','v26-isolated-acceptance'}:profile='local-demo'
+    return {'service':'mikrotik-manager-v2', 'environment':settings.environment,'runtime_profile':profile,
             'api_version':'v1', 'database_checked':False,
             'api_port':api_port(),'repo_id':REPO_ID,'build_id':BUILD_ID,'router_workspace_version':1}
 

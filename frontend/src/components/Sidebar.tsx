@@ -5,6 +5,7 @@ import {
   LogOut, Network, RadioTower, Router as RouterIcon, Settings2, ShieldCheck, Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import {runtimeIdentity,type RuntimeProfile} from '../lib/runtimeProfile';
 
 export type ScreenKey = 'dashboard' | 'routers' | 'subscribers' | 'radius' | 'operations' | 'mikajani' | 'system';
 export type User = { pilot_identity?:PilotIdentity|null;account_origin?:'BOOTSTRAP_DEMO'|'DEMO'|'LOCAL';bootstrap_closed?:boolean;login_enabled?:boolean;id: string; name: string; email: string; role: string; role_code?:'ADMIN'|'VIEWER';can_manage_users?:boolean;active?:boolean;revision?:number;username?:string;permissions?:Record<string,Record<string,boolean>>; is_demo: boolean };
@@ -19,18 +20,19 @@ const nav: { key: ScreenKey; label: string; icon: LucideIcon; group: string }[] 
   { key: 'system', label: 'Sistem ve Kullanıcı', icon: Settings2, group: 'SİSTEM' },
 ];
 
-export function Sidebar({ active, onNavigate, user, onLogout, realInventory=false, context, panelAddress }: {
-  context?:WorkspaceContext; panelAddress?:string; active: ScreenKey; onNavigate: (key: ScreenKey) => void; user: User; onLogout: () => void; realInventory?:boolean;
+export function Sidebar({ active, onNavigate, user, onLogout, realInventory=false, context, panelAddress,runtimeProfile='local-demo' }: {
+  context?:WorkspaceContext; panelAddress?:string;runtimeProfile?:RuntimeProfile; active: ScreenKey; onNavigate: (key: ScreenKey) => void; user: User; onLogout: () => void; realInventory?:boolean;
 }) {
+  const identity=runtimeIdentity(runtimeProfile);
   const operator=pilotOperatorView(user.pilot_identity);
   let group = '';
   return <aside className={`sidebar${realInventory?' sidebar-real':''}`}>
     <button className="brand" onClick={() => onNavigate('dashboard')} aria-label="V2 genel bakış">
       <span className="brand-mark"><Network size={19} strokeWidth={2.3} /></span>
-      <span className="brand-copy"><strong>mikrotik<span>.</span></strong><small>MANAGER <b>V2</b></small></span>
+      <span className="brand-copy"><strong>mikrotik<span>.</span></strong><small>{identity.manager}</small></span>
       <ChevronDown className="brand-caret" size={15} />
     </button>
-    <div className="workspace-switch" aria-label="Seçili veri ortamı"><span className="workspace-dot" /><span><strong>{context?.label??(realInventory?'Gerçek V1 · Salt okunur':'Demo çalışma alanı')}</strong><small>{panelAddress??'V2 çalışma alanı'}</small></span></div>
+    <div className="workspace-switch" aria-label="Seçili veri ortamı"><span className="workspace-dot" /><span><strong>{runtimeProfile==='v26-isolated-acceptance'?identity.workspace:context?.label??(realInventory?'Gerçek V1 · Salt okunur':identity.workspace)}</strong><small>{panelAddress??'V2 çalışma alanı'}</small></span></div>
     <div className="side-label">ÇALIŞMA ALANI</div>
     <div className="nav-list">{nav.filter(item=>item.key!=='system'||user.can_manage_users===true).map(item => {
       const first = item.group !== group; group = item.group;
@@ -57,8 +59,8 @@ export function Sidebar({ active, onNavigate, user, onLogout, realInventory=fals
   </aside>;
 }
 
-export function MobileHeader({ onMenu }: { onMenu: () => void }) {
+export function MobileHeader({ onMenu,runtimeProfile='local-demo' }: { onMenu: () => void;runtimeProfile?:RuntimeProfile }) {
   return <div className="mobile-header"><button className="icon-button" onClick={onMenu}><Command size={18} /></button>
-    <div className="mobile-brand"><span className="brand-mark"><Network size={16} /></span><strong>mikrotik<span>.</span> <small>V2</small></strong></div>
+    <div className="mobile-brand"><span className="brand-mark"><Network size={16} /></span><strong>mikrotik<span>.</span> <small>{runtimeIdentity(runtimeProfile).manager.replace('MANAGER ','')}</small></strong></div>
     <span className="pulse-dot" /></div>;
 }
