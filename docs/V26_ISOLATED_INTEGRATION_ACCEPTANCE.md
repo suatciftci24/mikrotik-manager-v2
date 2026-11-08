@@ -152,31 +152,42 @@ task; the successful Ev WSL result above was provided by the user.
   and locally installed Node, esbuild, Playwright, and a usable existing Linux
   browser. It strips inherited V2/PG/Python/loader/browser override variables
   from child processes. Any preflight or browser failure is non-PASS.
-- Before launching Chromium, it selects the local browser without launching or
-  downloading it, then runs existing socketless V2.6 suites for runtime
-  profile, ADMIN/OPERATOR/VIEWER permissions, subscribers, routers, Dashboard,
-  Operations, photos, reporting, and alarms. It then runs the full-app
-  management-center browser scenario. The browser scenario requires `/api/ready`
-  to identify exactly `v26-isolated-acceptance`, asserts the V2.6 workspace and
-  brand identity, intercepts API requests with synthetic GET fixtures, aborts
-  non-GET and foreign-origin requests, and no longer enters the V1 inventory.
-- The browser scenario uses only an OS-assigned ephemeral `127.0.0.1` port and
-  a unique `/tmp/v26-browser-acceptance-*` directory. It writes no screenshots
-  or persistent receipts. `finally`/process-exit cleanup owns only that temp
-  directory, the local listener, and the Playwright browser it launched. The
-  browser flow does not start PostgreSQL or use the HTTP acceptance harness;
-  therefore it cannot connect to the existing V2.6 acceptance DB or collide
-  with the HTTP runner's 18996/55433 ports. No pre-existing process is stopped
-  or signalled.
+- Before creating any DB or listener, it selects the local browser without
+  launching/downloading it and runs the ten socketless V2.6 suites for runtime
+  identity, ADMIN/OPERATOR/VIEWER, subscribers, routers, Dashboard, Operations,
+  photos, reporting, and alarms. Then it calls the existing fail-closed HTTP
+  acceptance harness. That harness creates a new temporary PostgreSQL 16
+  cluster, owns loopback `127.0.0.1:18996` HTTP and reserves PostgreSQL
+  `127.0.0.1:55433`; it refuses an existing acceptance root or occupied/denied
+  ports and never adopts or stops another process.
+- The browser callback runs only after the real HTTP/DB acceptance assertions
+  pass and while those owned resources remain alive. Its browser requests to
+  `/api/ready` are routed to the actual loopback HTTP service; the response must
+  report service `mikrotik-manager-v2`, environment `v26-acceptance`, port
+  `18996`, `database_checked=false` (readiness does not perform a health
+  query), and `runtime_profile=v26-isolated-acceptance`. Only then does the UI
+  receive readiness. Other API GETs use synthetic fixtures; non-GET and remote
+  origin requests are aborted. This ensures the displayed runtime identity is
+  sourced from the active, isolated backend, not a hardcoded browser fixture.
+- The static UI uses a separate OS-assigned ephemeral `127.0.0.1` port and a
+  unique `/tmp/v26-browser-acceptance-*` directory. No screenshots or
+  persistent receipts are written. Cleanup is owned by the test: it closes its
+  browser/server/temp directory and the HTTP harness stops/removes only its
+  newly created app, PostgreSQL cluster and temp root. It refuses and never
+  connects to the existing V2.6 acceptance DB. No other process is stopped or
+  signalled.
 - **PASS — socketless runner policy checks:** wrong repo, host/WSL, owner,
   branch, dirty tree, or missing browser toolchain are rejected; child
   environment allowlisting, exact dependency lock, and synthetic-only browser
   source contract are covered without sockets or browser startup. The policy
-  suite has 4 passing tests.
-- **BLOCKED — actual Chromium acceptance:** deliberately not run in this task.
-  The manual Playwright preflight passed, and package `1.64.1` resolves to the
-  executable under `chromium-1248`; the browser binary was not launched. No
-  browser, HTTP acceptance, or backend service was started in this task. The
+  suite has 4 passing tests. The HTTP callback/temporary DB ownership suites
+  bring the targeted Python total to 21; the real-profile contract has 1
+  passing socketless Node test. Browser script syntax and `git diff --check`
+  passed.
+- **BLOCKED — actual HTTP + Chromium acceptance:** deliberately not run in this
+  task. Playwright preflight was verified in the prior setup task; package
+  `1.64.1` resolves to the cached `chromium-1248` executable. No browser, HTTP
+  listener, PostgreSQL process, or acceptance service was started here. The
   historical loopback `EPERM` remains a prior environment block and was not
   retried.
 
@@ -187,13 +198,15 @@ already installed and the committed worktree is clean, the one command is:
 cd /home/suat/Codex-Projects/mikrotik-manager-v2 && PYTHONPATH=backend backend/.venv/bin/python -m backend.tests.run_v26_chromium_acceptance_wsl
 ```
 
-Expected success is exit 0 after the nine listed Node contract files pass and
-the synthetic management-center browser checks complete, ending with
-`PASS: V2.6 isolated synthetic browser acceptance; owned temporary files cleaned`.
-Identity/toolchain/resource failures produce `BLOCKED: HOME_WSL_*`; browser
-assertion failures remain non-PASS. This command was documented but not run.
-PostgreSQL is unnecessary for this browser-only flow; the separate
-user-confirmed disposable PostgreSQL + HTTP PASS above remains current.
+Expected success is exit 0 after ten listed Node contract files pass, the
+isolated PostgreSQL/real HTTP assertions pass, the backend readiness profile is
+verified from `/api/ready`, browser checks pass and all owned resources clean
+up. Final output is
+`PASS: V2.6 synthetic PostgreSQL + loopback HTTP + verified-profile Chromium acceptance; cleanup complete`.
+Identity, toolchain, listener, database or profile failures are BLOCKED; UI
+contract failures are non-PASS. This command was documented but not run. The
+user-confirmed prior disposable PostgreSQL + HTTP result remains historical
+evidence; this one-command flow will create a fresh disposable instance.
 
 ## Migration review (static only)
 

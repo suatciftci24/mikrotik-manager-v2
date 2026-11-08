@@ -1,6 +1,25 @@
 # MikroTik Manager V2 — İlerleme
 
-## V2.6 Ev WSL sentetik Chromium kabul hazırlığı — 2026-11-08
+## V2.6 HTTP + Chromium tek komutlu izole kabul — 2026-11-08
+
+- Browser runner artık gerçek `runtime_profile` için sahte `/api/ready` fixture
+  kullanmıyor. Dokuz mevcut merkezi Node kontrolüne profil sözleşmesi için bir
+  soketsiz test eklendi (10 dosya toplamı); ardından fail-closed HTTP runner
+  yeni geçici PostgreSQL 16/DB ve 127.0.0.1:18996 servisini açıyor.
+- Browser callback yalnız gerçek HTTP kabul assertion'ları geçtikten sonra,
+  geçici PG ve backend HTTP ayaktayken çalışıyor. `/api/ready` gerçek loopback
+  backend'inden alınır ve servis, `v26-acceptance`, `18996` ve
+  `v26-isolated-acceptance` alanları doğrulanır. Diğer UI API GET'leri sentetik
+  fixture'dır; mutation/uzak origin yasak. Existing DB/path ve dolu portlar
+  kabul başlamadan fail-closed reddedilir.
+- PASS: 21 hedefli Python runner/HTTP callback/DB ownership güvenlik testi,
+  1 runtime profile Node testi, browser script syntax ve diff check. BLOCKED /
+  bu görevde çalıştırılmadı: gerçek HTTP kabul, PG başlatma ve Chromium.
+  Ev WSL için tek kabul komutu kabul raporunda.
+- Başka süreç/DB, V1/V2.5, router/RADIUS, migration, deploy veya servis
+  işlemi yok.
+
+## V2.6 Ev WSL sentetik Chromium kabulü ilk hazırlığı (önceki tasarım) — 2026-11-08
 
 - Yeni `backend.tests.run_v26_chromium_acceptance_wsl` çalıştırıcısı Home WSL,
   doğru repo/dal, temiz çalışma ağacı, sahiplik ve mevcut yerel tarayıcı
@@ -9,17 +28,17 @@
 - Kabul paketi; runtime profile, ADMIN/OPERATOR/VIEWER, Abone, Router,
   Dashboard, Operasyon, Fotoğraflar, Raporlama ve Alarm için dokuz mevcut Node
   test dosyasını ve sentetik tam-uygulama tarayıcı senaryosunu birleştirir.
-  Senaryo gerçek `runtime_profile` olarak yalnız `v26-isolated-acceptance`
-  ister; API'leri sentetik GET fixture'larıyla karşılar, mutasyonları ve uzak
-  origin isteklerini engeller.
-- Tarayıcı senaryosu yalnız 127.0.0.1 ephemeral port, tek kullanımlık `/tmp`
-  dizini ve çalıştırıcının başlattığı Chromium'u kullanır; PostgreSQL/HTTP
-  kabul servisi başlatmaz, kalıcı ekran görüntüsü bırakmaz. Bu görevde Chromium
-  ve HTTP kabul çalıştırılmadı. Tarihsel loopback EPERM tekrarlanmadı.
+  İlk sürüm `/api/ready` için sabit V2.6 fixture döndürüyordu; gerçek backend
+  profili doğrulamıyordu. API fixture'ları sentetik GET idi; mutasyon ve uzak
+  origin istekleri engelleniyordu.
+- İlk tarayıcı senaryosu yalnız sentetik API GET fixture'ları kullanıp gerçek
+  `/api/ready`/disposable HTTP harness bağını kurmuyordu. Bu tasarım yetersiz
+  bulundu ve en üstteki güncel tek komutlu kabul ile değiştirildi. Güncel
+  runner yeni geçici PostgreSQL/HTTP yaşam döngüsünü browser boyunca tutar.
 - PASS: soketsiz runner politika/source contract testleri (4 unittest) ve
   hedefli dokuz Node test dosyası (9/9); browser script syntax check ve diff
   whitespace check. Typecheck/build çalıştırılmadı; uygulama kaynak kodu
-  değişmedi. BLOCKED: Chromium kabulü çalıştırılmadı. Kabul raporu ve Ev WSL
+  değişmedi. BLOCKED: ilk Chromium kabulü çalıştırılmadı. Kabul raporu ve Ev WSL
   tek komutu:
   `docs/V26_ISOLATED_INTEGRATION_ACCEPTANCE.md`.
 - V2.6 kabul DB, V1/V2.5, servis, migration, deploy veya veri değiştirme yok.

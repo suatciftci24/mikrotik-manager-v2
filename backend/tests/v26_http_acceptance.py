@@ -66,6 +66,14 @@ def capture_bind_error(stage, error):
     }
 
 
+def verify_owned_acceptance_database(connection, store):
+    """Revalidate the private V2.6 target immediately before browser startup."""
+    from sqlalchemy import text
+    store._check(connection)
+    if connection.execute(text('SELECT 1')).scalar_one() != 1:
+        raise AcceptanceBlocked('OWN_DISPOSABLE_DATABASE_NOT_READY')
+
+
 def preflight():
     """No sockets/processes/DB IO; refuse rather than reuse an existing fixture."""
     if os.getuid() <= 0 or os.getuid() != os.geteuid() or Path.cwd() != SOURCE:
@@ -143,7 +151,7 @@ class LoopbackClient:
         return self.request('POST', path, **kwargs)
 
 
-def acceptance_suite():
+def acceptance_suite(during_acceptance=None):
     global ACTIVE_ACCEPTANCE_CLASS
     global ACTIVE_ACCEPTANCE_BIND_ERROR
     ACTIVE_ACCEPTANCE_BIND_ERROR = None
@@ -362,13 +370,20 @@ def acceptance_suite():
             self.checked(self.client.post('/api/v1/auth/logout'))
             self.checked(self.client.get('/api/v1/auth/me'), 401)
             self.checked(self.client.get(receipts[0][0]), 401)
+            if self.during_acceptance is not None:
+                self.stage = 'BROWSER_ACCEPTANCE_DATABASE_VERIFY'
+                with self.engine.connect() as connection:
+                    verify_owned_acceptance_database(connection, self.store)
+                self.stage = 'BROWSER_ACCEPTANCE'
+                self.during_acceptance()
 
     # Explicitly select only the NEW socket scenario, never inherited PASS tests.
+    RealHttpAcceptance.during_acceptance = during_acceptance
     ACTIVE_ACCEPTANCE_CLASS = RealHttpAcceptance
     return unittest.TestSuite([RealHttpAcceptance('test_new_real_http_acceptance')])
 
 
-def main(argv=None):
+def main(argv=None, during_acceptance=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run', required=True, action='store_true',
                         help='create and destroy a new synthetic cluster; never reuse an existing DB')
@@ -377,7 +392,8 @@ def main(argv=None):
         preflight()
         with patch.dict(os.environ, isolated_environment(os.environ), clear=True):
             result = unittest.TestResult()
-            acceptance_suite().run(result)
+            suite = acceptance_suite(during_acceptance) if during_acceptance is not None else acceptance_suite()
+            suite.run(result)
         if result.wasSuccessful() and result.testsRun == 1 and not result.skipped:
             print('PASS: disposable PostgreSQL16 + real loopback HTTP acceptance; cleanup complete')
             return 0

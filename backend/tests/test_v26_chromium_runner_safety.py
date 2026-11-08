@@ -42,7 +42,15 @@ class V26ChromiumRunnerSafety(TestCase):
 
     def test_browser_suite_contract_has_no_mutation_or_persistent_acceptance_artifacts(self):
         source = (runner.REPO / 'frontend/tests/managementCenters.browser.mjs').read_text()
-        self.assertIn("runtime_profile:'v26-isolated-acceptance'", source)
+        helper = (runner.REPO / 'frontend/tests/v26AcceptanceProfile.mjs').read_text()
+        runner_source = (runner.REPO / 'backend/tests/run_v26_chromium_acceptance_wsl.py').read_text()
+        self.assertNotIn("runtime_profile:'v26-isolated-acceptance'", source)
+        self.assertIn("readyUrl=V26_HTTP_API_BASE+'/api/ready'", source)
+        self.assertIn('maxRedirects:0,maxRetries:0', source)
+        self.assertIn("requireV26AcceptanceReadiness(response.status(),await response.json())", source)
+        self.assertIn("payload.runtime_profile!=='v26-isolated-acceptance'", helper)
+        self.assertIn('http_runner.preflight()', runner_source)
+        self.assertIn('http_runner.main(during_acceptance=', runner_source)
         self.assertIn("request.method()!=='GET'", source)
         self.assertIn("server.listen(0,'127.0.0.1'", source)
         self.assertIn("join(tmpdir(),'v26-browser-acceptance-'", source)

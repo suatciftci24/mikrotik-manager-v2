@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import sys
 
+from backend.tests import run_v26_http_acceptance_wsl as http_runner
+
 REPO = Path(__file__).resolve().parents[2]
 EXPECTED_REPO = Path('/home/suat/Codex-Projects/mikrotik-manager-v2')
 EXPECTED_HOST = 'DESKTOP-MT2JS7H'
@@ -16,6 +18,7 @@ PLAYWRIGHT = REPO / 'frontend/node_modules/playwright-core/index.mjs'
 ESBUILD = REPO / 'frontend/node_modules/esbuild/package.json'
 NODE_TESTS = (
     'tests/runtimeProfile.test.mjs',
+    'tests/v26AcceptanceProfile.test.mjs',
     'tests/userManagement.test.mjs',
     'tests/subscriberPhotos.test.mjs',
     'tests/alarmCenter.test.mjs',
@@ -68,7 +71,7 @@ def safe_environment(values: dict[str, str] | None = None) -> dict[str, str]:
 
 
 def preflight() -> str | None:
-    """Read-only host/repository/tool checks. Does not inspect or contact services."""
+    """Read-only host/repository/tool and disposable HTTP fixture checks."""
     try:
         proc_version = Path('/proc/version').read_text(encoding='utf-8')
         wsl = bool(os.environ.get('WSL_DISTRO_NAME')) and 'microsoft' in proc_version.lower()
@@ -80,7 +83,12 @@ def preflight() -> str | None:
             node_path=shutil.which('node'), playwright_exists=PLAYWRIGHT.is_file(),
             esbuild_exists=ESBUILD.is_file(),
         )
-        return state
+        if state:
+            return state
+        http_state = http_runner.preflight()
+        if http_state:
+            return 'HTTP_' + http_state
+        return None
     except Exception:
         return 'PREFLIGHT_UNAVAILABLE'
 
@@ -113,11 +121,18 @@ def main() -> int:
     if tests:
         print('FAIL: V2.6 socketless frontend contract suite')
         return tests
-    browser = _run([node, 'tests/managementCenters.browser.mjs'], cwd=frontend, env=env)
-    if browser:
-        print('BLOCKED: HOME_WSL_SYNTHETIC_BROWSER_ACCEPTANCE')
-        return browser
-    print('PASS: V2.6 isolated synthetic browser acceptance; owned temporary files cleaned')
+
+    def run_browser_while_disposable_http_and_postgres_are_alive():
+        browser = _run([node, 'tests/managementCenters.browser.mjs'], cwd=frontend, env=env)
+        if browser:
+            raise http_runner.acceptance.AcceptanceBlocked('BROWSER_ACCEPTANCE_DID_NOT_COMPLETE')
+
+    # The HTTP harness owns both fixed loopback listeners, its fresh PG16 cluster,
+    # app lifetime, and cleanup. Browser runs inside its live verified profile.
+    result = http_runner.main(during_acceptance=run_browser_while_disposable_http_and_postgres_are_alive)
+    if result:
+        return result
+    print('PASS: V2.6 synthetic PostgreSQL + loopback HTTP + verified-profile Chromium acceptance; cleanup complete')
     return 0
 
 

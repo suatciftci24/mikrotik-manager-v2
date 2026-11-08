@@ -167,3 +167,24 @@ class HttpAcceptanceSafetyTests(TestCase):
              patch.object(acceptance.os, 'access', return_value=False), \
              self.assertRaisesRegex(acceptance.AcceptanceBlocked, 'POSTGRESQL16_TOOLS_REQUIRED'):
             acceptance.preflight()
+
+    def test_browser_callback_is_attached_to_the_real_http_acceptance_case(self):
+        callback = Mock()
+        suite = acceptance.acceptance_suite(during_acceptance=callback)
+        self.assertEqual(suite.countTestCases(), 1)
+        case = next(iter(suite))
+        self.assertIs(type(case).during_acceptance, callback)
+        source = Path(acceptance.__file__).read_text()
+        verify = source.index('verify_owned_acceptance_database(connection, self.store)')
+        browser = source.index('self.during_acceptance()')
+        self.assertLess(verify, browser)
+
+    def test_browser_start_requires_revalidated_owned_database_and_select_one(self):
+        connection, store = Mock(), Mock()
+        connection.execute.return_value.scalar_one.return_value = 1
+        acceptance.verify_owned_acceptance_database(connection, store)
+        store._check.assert_called_once_with(connection)
+        self.assertEqual(str(connection.execute.call_args.args[0]), 'SELECT 1')
+        connection.execute.return_value.scalar_one.return_value = 0
+        with self.assertRaisesRegex(acceptance.AcceptanceBlocked, 'OWN_DISPOSABLE_DATABASE_NOT_READY'):
+            acceptance.verify_owned_acceptance_database(connection, store)

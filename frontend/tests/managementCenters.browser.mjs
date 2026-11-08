@@ -7,6 +7,7 @@ import {createServer} from 'node:http';
 import {build} from 'esbuild';
 import {selectBrowser} from './browserRuntime.mjs';
 import {chromium} from 'playwright-core';
+import {V26_HTTP_API_BASE,requireV26AcceptanceReadiness} from './v26AcceptanceProfile.mjs';
 const temp=mkdtempSync(join(tmpdir(),'v26-browser-acceptance-'));
 process.on('exit',()=>{try{rmSync(temp,{recursive:true,force:true});}catch{}});
 const time='2026-11-05T10:00:00Z';
@@ -34,9 +35,15 @@ try{
   if(url.origin!==base||request.method()!=='GET'){violations.push('Blocked '+request.method()+' '+url.pathname);return route.abort();}
   if(!url.pathname.startsWith('/api/'))return route.continue();
   reads.push(url.pathname);
+  if(url.pathname==='/api/ready'){
+   const readyUrl=V26_HTTP_API_BASE+'/api/ready';
+   const response=await route.fetch({url:readyUrl,method:'GET',maxRedirects:0,maxRetries:0,timeout:5000});
+   if(response.url()!==readyUrl)throw new Error('BLOCKED: V2.6 readiness origin mismatch');
+   const profile=requireV26AcceptanceReadiness(response.status(),await response.json());
+   return route.fulfill({status:response.status(),json:profile});
+  }
   let value;
   switch(url.pathname){
-   case '/api/ready':value={status:'ready',runtime_profile:'v26-isolated-acceptance'};break;
    case '/api/v1/auth/me':value=viewer?{...account,role:'Gözlemci',role_code:'VIEWER',can_manage_users:false,permissions:{[router.id]:{can_view:true}}}:account;break;
    case '/api/v1/preferences':value={values:{app_name:'MikroTik Manager V2',timezone:'Europe/Istanbul',page_size:25,theme:'light',notifications_enabled:true,notification_levels:['P1','P2','P3','P4']},is_demo:true};break;
    case '/api/v1/routers':value={items:[router],is_demo:true};break;

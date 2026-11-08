@@ -1,6 +1,8 @@
 """Offline tests for the manual Home WSL acceptance entry point."""
 from pathlib import Path
+from contextlib import nullcontext
 from unittest import TestCase
+from unittest.mock import Mock, patch
 
 from backend.tests import run_v26_http_acceptance_wsl as runner
 
@@ -44,6 +46,14 @@ class HomeWslRunnerPolicyTests(TestCase):
         self.assertNotIn('private', str(safe))
         self.assertEqual(safe['PYTHONPATH'],
                          f'{runner.REPO}:{runner.REPO / "backend"}:{runner.REPO / "backend/tests"}')
+
+    def test_browser_callback_is_forwarded_inside_owned_http_acceptance_lifecycle(self):
+        callback = Mock()
+        with patch.object(runner, 'preflight', return_value=None), \
+             patch.object(runner, '_isolated_runtime', return_value=nullcontext()), \
+             patch.object(runner.acceptance, 'main', return_value=0) as accept:
+            self.assertEqual(runner.main(during_acceptance=callback), 0)
+        accept.assert_called_once_with(['--run'], during_acceptance=callback)
 
 
 if __name__ == '__main__':
