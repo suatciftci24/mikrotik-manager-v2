@@ -34,6 +34,17 @@
 - Bu devam görevinde yalnız kabul belgesi güncellendi; ürün kodu, yetki/UUID/ACK
   sözleşmeleri ve migration dosyaları değişmedi.
 
+## V2.6 HTTP kabul önkoşulları ve bind tanılaması — 2026-11-08
+
+- Harness HTTP/PG portlarını yalnız loopback üzerinde, fixture başlamadan önce
+  çakışma kontrolüne alacak şekilde güncellendi. DB portu private cluster
+  başlatılana dek rezerve edilir; dolu/EPERM durumunda DB veya uygulama başlatılmaz.
+- Listener hataları için yalnız exception sınıfı ve integer errno raporu eklendi;
+  hata metni/credential/path sızmaz. HTTP kabulü ve Chromium çalıştırılmadı.
+- PASS: 15 mock/soketsiz harness ve disposable-guard testi, Python syntax,
+  frontend typecheck ve production build. Migration ve mevcut yetki/işlem
+  sözleşmeleri değiştirilmedi.
+
 ## V2.6 Alarm ve Olay Yönetimi Merkezi — 2026-11-08
 
 - Mevcut Alarm Merkezi, WAN/MikAjanı alarm projeksiyonu ve ADMIN ACK/READ

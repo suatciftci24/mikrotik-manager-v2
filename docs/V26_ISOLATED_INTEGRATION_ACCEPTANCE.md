@@ -32,6 +32,53 @@ Branch/base: `main-guncel` / `68fdac3`
   received `listen EPERM`. Per the task boundary it was not retried and no
   sandbox/security setting was changed.
 
+## Isolated HTTP harness prerequisites and procedure
+
+The opt-in harness is restricted to the repository owner's non-root process,
+the canonical repository root as the working directory, installed PostgreSQL
+16 tools and existing Python dependencies. It rejects any existing path or
+symlink at `/tmp/mikrotik-v26-acceptance`; it never clears or reuses that path.
+It drops inherited `V2_*` and `PG*` variables and pins the app to
+`v26-isolated-acceptance`, database `mikrotik_v26_acceptance`, role
+`v26_acceptance`, and loopback only. It invokes no migration or maintenance
+command.
+
+Before creating fixture files, the harness binds and holds `127.0.0.1:18996`
+for its own HTTP server, then binds and holds `127.0.0.1:55433` as a collision
+guard while `initdb` creates its private cluster. Either occupied or denied
+bind fails closed without contacting the existing listener or starting PG.
+The database port reservation is released only immediately before `pg_ctl`
+starts the cluster under the unique private data/socket path. No alternate
+port, host, running application, existing V2.6 DB, V2.5 pilot or V1 service is
+selected. If another process wins the narrow release/start race, PostgreSQL
+startup fails and the harness does not connect to that process; the run is
+BLOCKED.
+
+Only when the operator has confirmed the fresh-path precondition and accepts
+the environment's local socket policy may this single command be run from the
+repository root:
+
+```bash
+PYTHONPATH=backend backend/.venv/bin/python -m backend.tests.v26_http_acceptance --run
+```
+
+The test owns the disposable cluster and fixed loopback ports and cleans up its
+own stopped cluster. A cleanup failure is not PASS and the private root is
+preserved for inspection. Bind failures report only stage, exception class and
+numeric errno; OS error text, paths, DSNs, cookies and credentials are omitted.
+This procedure was documented but not executed in the current follow-up.
+
+### Harness hardening verification
+
+- **PASS:** 15 offline Python tests across `test_v26_http_acceptance_safety`
+  and `test_v26_disposable_fixture`. They mock socket binds and verify both
+  fixed-port collision rejection and redacted class/errno diagnostics; they do
+  not create sockets, a database, or a server.
+- **PASS:** Python syntax compilation, frontend typecheck and production build.
+- **BLOCKED:** No HTTP acceptance was run in this follow-up, as requested. The
+  last real attempt remains blocked at `HTTP_LISTENER_BIND`; Chromium was not
+  run. No migration or DB operation was performed.
+
 ## Migration review (static only)
 
 `migrations/versions/010_operator_role.sql` follows the identity schema in

@@ -4,6 +4,7 @@ Run from the repo root with --run, only in a local environment allowing sockets.
 No existing DB, environment DSN, external HTTP client, or production service is used.
 """
 import argparse
+import errno
 import http.client
 from http.cookies import SimpleCookie
 import importlib.util
@@ -18,6 +19,7 @@ SOURCE = Path(__file__).resolve().parents[2]
 ROOT = Path('/tmp/mikrotik-v26-acceptance')
 PG = Path('/usr/lib/postgresql/16/bin')
 HOST, PORT = '127.0.0.1', 18996
+DATABASE_PORT = 55433
 
 
 class AcceptanceBlocked(RuntimeError):
@@ -25,6 +27,7 @@ class AcceptanceBlocked(RuntimeError):
 
 
 ACTIVE_ACCEPTANCE_CLASS = None
+ACTIVE_ACCEPTANCE_BIND_ERROR = None
 
 
 def failed_acceptance_stage(result):
@@ -38,6 +41,29 @@ def failed_acceptance_stage(result):
             return stage
     stage = getattr(ACTIVE_ACCEPTANCE_CLASS, 'stage', None)
     return stage or 'FIXTURE_SETUP_OR_CLEANUP'
+
+
+def failed_acceptance_diagnostic(result):
+    stage = failed_acceptance_stage(result)
+    if not stage:
+        return None
+    diagnostic = 'stage=' + stage
+    failure = ACTIVE_ACCEPTANCE_BIND_ERROR
+    if failure and failure['stage'] == stage:
+        diagnostic += ' error_class=' + failure['error_class']
+        diagnostic += ' errno=' + str(failure['errno'])
+    return diagnostic
+
+
+def capture_bind_error(stage, error):
+    global ACTIVE_ACCEPTANCE_BIND_ERROR
+    error_class = type(error).__name__
+    if not error_class.isidentifier():
+        error_class = 'OSError'
+    code = error.errno if type(error.errno) is int else 'unknown'
+    ACTIVE_ACCEPTANCE_BIND_ERROR = {
+        'stage': stage, 'error_class': error_class, 'errno': code,
+    }
 
 
 def preflight():
@@ -119,11 +145,22 @@ class LoopbackClient:
 
 def acceptance_suite():
     global ACTIVE_ACCEPTANCE_CLASS
+    global ACTIVE_ACCEPTANCE_BIND_ERROR
+    ACTIVE_ACCEPTANCE_BIND_ERROR = None
     # Lazy import keeps --help and offline harness tests free of app/DB setup.
     from backend.tests.test_v26_identity_postgres import V26IdentityPostgres
 
     class RealHttpAcceptance(V26IdentityPostgres):
         stage = 'FIXTURE_SETUP'
+        pg_port_reservation = None
+
+        @classmethod
+        def run_pg(cls, arguments):
+            # Keep 55433 reserved through initdb; release only for our own PG start.
+            if (Path(arguments[0]).name == 'pg_ctl' and arguments[-1] == 'start'
+                    and cls.pg_port_reservation is not None):
+                cls.pg_port_reservation.close()
+            return super().run_pg(arguments)
 
         @classmethod
         def setUpClass(cls):
@@ -133,9 +170,24 @@ def acceptance_suite():
             cls.stage = 'HTTP_LISTENER_BIND'
             listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             cls.addClassCleanup(listener.close)
-            listener.bind((HOST, PORT))
+            try:
+                listener.bind((HOST, PORT))
+            except OSError as error:
+                capture_bind_error(cls.stage, error)
+                raise
             listener.listen(128)
             cls.listener = listener
+            # Refuse collisions with another local PostgreSQL/service before
+            # creating any fixture files. Never connect to the occupying process.
+            cls.stage = 'POSTGRES_LISTENER_RESERVE'
+            reservation = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            cls.pg_port_reservation = reservation
+            cls.addClassCleanup(reservation.close)
+            try:
+                reservation.bind((HOST, DATABASE_PORT))
+            except OSError as error:
+                capture_bind_error(cls.stage, error)
+                raise
             super().setUpClass()
 
         @classmethod
@@ -329,9 +381,9 @@ def main(argv=None):
         if result.wasSuccessful() and result.testsRun == 1 and not result.skipped:
             print('PASS: disposable PostgreSQL16 + real loopback HTTP acceptance; cleanup complete')
             return 0
-        stage = failed_acceptance_stage(result)
-        if stage:
-            print('BLOCKED: acceptance stage=' + stage)
+        diagnostic = failed_acceptance_diagnostic(result)
+        if diagnostic:
+            print('BLOCKED: acceptance ' + diagnostic)
         if result.skipped:
             print('BLOCKED: acceptance skipped')
         return 1

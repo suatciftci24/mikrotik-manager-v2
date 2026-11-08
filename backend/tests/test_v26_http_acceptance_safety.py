@@ -1,5 +1,6 @@
 """Offline checks for the NEW real-HTTP acceptance harness. No socket or DB setup."""
 import io
+import errno
 import os
 from contextlib import redirect_stdout, redirect_stderr
 from pathlib import Path
@@ -22,6 +23,22 @@ class HttpAcceptanceSafetyTests(TestCase):
             self.assertEqual(acceptance.failed_acceptance_stage(result), 'HTTP_LISTENER_BIND')
         finally:
             acceptance.ACTIVE_ACCEPTANCE_CLASS = previous
+
+    def test_listener_diagnostic_reports_only_error_class_and_errno(self):
+        previous = acceptance.ACTIVE_ACCEPTANCE_BIND_ERROR
+        try:
+            acceptance.ACTIVE_ACCEPTANCE_BIND_ERROR = {
+                'stage': 'HTTP_LISTENER_BIND', 'error_class': 'PermissionError', 'errno': errno.EPERM,
+            }
+            result = Mock(errors=[(Mock(stage=None), 'private path and credential')], failures=[])
+            acceptance.ACTIVE_ACCEPTANCE_CLASS = Mock(stage='HTTP_LISTENER_BIND')
+            diagnostic = acceptance.failed_acceptance_diagnostic(result)
+            self.assertEqual(diagnostic,
+                             'stage=HTTP_LISTENER_BIND error_class=PermissionError errno=1')
+            self.assertNotIn('private', diagnostic)
+        finally:
+            acceptance.ACTIVE_ACCEPTANCE_BIND_ERROR = previous
+            acceptance.ACTIVE_ACCEPTANCE_CLASS = None
 
     def test_explicit_run_and_existing_root_refuse_before_suite(self):
         with patch.object(acceptance, 'acceptance_suite') as suite, \
@@ -102,16 +119,42 @@ class HttpAcceptanceSafetyTests(TestCase):
         cls = type(case)
         with patch('socket.socket') as socket, \
              patch.object(V26IdentityPostgres, 'setUpClass') as setup:
-            socket.return_value.bind.side_effect = PermissionError('synthetic denial')
+            socket.return_value.bind.side_effect = PermissionError(errno.EPERM, 'synthetic private path')
             try:
                 with self.assertRaises(PermissionError):
                     cls.setUpClass()
                 socket.return_value.bind.assert_called_once_with(('127.0.0.1', 18996))
                 socket.return_value.listen.assert_not_called()
                 setup.assert_not_called()
+                diagnostic = acceptance.failed_acceptance_diagnostic(
+                    Mock(errors=[(Mock(stage=None), 'private')], failures=[]))
+                self.assertEqual(diagnostic,
+                                 'stage=HTTP_LISTENER_BIND error_class=PermissionError errno=1')
             finally:
                 cls.doClassCleanups()
             socket.return_value.close.assert_called_once()
+
+    def test_database_port_conflict_blocks_before_cluster_setup(self):
+        from backend.tests.test_v26_identity_postgres import V26IdentityPostgres
+        cls = type(next(iter(acceptance.acceptance_suite())))
+        http_socket, database_socket = Mock(), Mock()
+        database_socket.bind.side_effect = OSError(errno.EADDRINUSE, 'private service details')
+        with patch('socket.socket', side_effect=[http_socket, database_socket]), \
+             patch.object(V26IdentityPostgres, 'setUpClass') as setup:
+            try:
+                with self.assertRaises(OSError):
+                    cls.setUpClass()
+                http_socket.bind.assert_called_once_with(('127.0.0.1', 18996))
+                http_socket.listen.assert_called_once_with(128)
+                database_socket.bind.assert_called_once_with(('127.0.0.1', 55433))
+                setup.assert_not_called()
+                result = Mock(errors=[(Mock(stage=None), 'private')], failures=[])
+                self.assertEqual(acceptance.failed_acceptance_diagnostic(result),
+                                 'stage=POSTGRES_LISTENER_RESERVE error_class=OSError errno=98')
+            finally:
+                cls.doClassCleanups()
+        http_socket.close.assert_called_once()
+        database_socket.close.assert_called_once()
 
     def test_preflight_rejects_wrong_cwd_owner_or_missing_tools_without_sockets(self):
         with patch.object(acceptance.Path, 'cwd', return_value=Path('/')), \
