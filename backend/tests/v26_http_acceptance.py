@@ -53,6 +53,12 @@ def failed_acceptance_diagnostic(result):
             if 'BROWSER_ACCEPTANCE_DID_NOT_COMPLETE' in traceback_text:
                 diagnostic += ' reason=BROWSER_PROCESS_FAILED'
                 break
+    if stage == 'BROWSER_ACCEPTANCE':
+        for _, trace in result.errors + result.failures:
+            import re
+            match = re.search(r'(?:AcceptanceBlocked|AssertionError|TimeoutError|OSError): ([A-Z][A-Z0-9_]{3,100})', trace)
+            if match:
+                diagnostic += ' failure_code=' + match.group(1)
     failure = ACTIVE_ACCEPTANCE_BIND_ERROR
     if failure and failure['stage'] == stage:
         diagnostic += ' error_class=' + failure['error_class']
