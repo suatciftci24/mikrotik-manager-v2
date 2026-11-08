@@ -222,7 +222,8 @@ class PostgresDemoStore:
                 row=connection.execute(text(f"SELECT r.response,e.payload FROM {self.schema}.requests r JOIN {self.schema}.events e ON e.id=r.id WHERE r.id=:id"),{'id':str(request_id)}).mappings().one_or_none()
                 if not row:return result
                 event=row['payload'];response=row['response']
-                if event.get('actor_id')!=actor_id or event.get('operation') not in ('CREATE','PLAN_CHANGE','STATUS_CHANGE'):return result
+                supported=event.get('operation') in ('CREATE','PLAN_CHANGE','STATUS_CHANGE') or (event.get('operation') in ('RENEWAL','DATE_EDIT') and event.get('action')=='EXTEND')
+                if event.get('actor_id')!=actor_id or not supported:return result
                 if router_id(response['item']) not in router_ids:return result
                 return {**result,'status':'SUCCESS','response':response}
 

@@ -10,13 +10,20 @@ function setup(){
 const id='12345678-1234-4234-8234-123456789abc';
 const user={id:'actor-a',role_code:'ADMIN',active:true,permissions:{}};
 const path='/subscriber-workspace/requests/'+id;
+function proof(kind){
+ const account={is_demo:true,id:kind==='legacy'?'demo-sub-fixture':'demo-managed-sub-fixture',revision:1,source:'LOCAL',router_id:'demo-managed-router-fixture',router_source:'PERSISTENT_DEMO',username:'synthetic',plan:'Plan',status:'ACTIVE',expires_on:'2027-01-01',session_status:'UNKNOWN'};
+ const audit={id,actor_id:user.id,is_demo:true,source:'LOCAL',operation:kind==='renew'?'RENEWAL':kind==='bulk'?'STATUS':'CREATE',occurred_at:'2026-11-08T12:00:00Z',revision:1,result:'APPLIED'};
+ const legacy={is_demo:true,persistence:'local-postgresql-demo',item:account,history:[audit]};
+ const center={is_demo:true,persistence:'local-postgresql-workspace',source:'PERSISTENT_WORKSPACE',device_connection_started:false,item:account,history:[audit]};
+ return {response:kind==='legacy'?legacy:kind==='bulk'?{request_id:id,item_id:account.id,actor_id:user.id,recorded:true,success:true,revision:1,operation:'STATUS',values:{status:'ACTIVE'},occurred_at:audit.occurred_at}:account,current:structuredClone(kind==='legacy'?legacy:center),detailPath:(kind==='legacy'?'/subscribers/':'/subscriber-center/')+account.id};
+}
 test('minimal metadata survives reopening; all four paths restore with GET only and terminal cleanup',async()=>{
  for(const [kind,path] of [['save','/subscriber-workspace/requests/'],['legacy','/subscribers/demo-requests/'],['renew','/subscriber-workspace/renewals/requests/'],['bulk','/subscriber-workspace/management/requests/']]){
   const m=setup();m.pendingIdentity(user);m.rememberPending(id,path+id);
   const item=m.pendingOperations()[0];assert.deepEqual(Object.keys(item).sort(),['actor','created','id','kind']);assert.equal(item.kind,kind);
   const reopened={exports:{}};new Function('module','exports',code)(reopened,reopened.exports);const n=reopened.exports;n.pendingIdentity(user);
-  const calls=[];const result=await n.recoverPending(n.pendingOperations()[0],new AbortController().signal,async(p,init)=>{calls.push(p);assert.equal(init.method,undefined);assert.equal(init.body,undefined);return p==='/auth/me'?user:{request_id:id,status:'SUCCESS',response:kind==='legacy'?{item:{id:'subscriber'}}:kind==='bulk'?{request_id:id,actor_id:user.id,recorded:true,success:true}:{id:'subscriber'}};});
-  assert.equal(result,'SUCCESS');assert.deepEqual(calls,['/auth/me',path+id,'/auth/me']);assert.equal(n.pendingOperations().length,0);
+  const calls=[],evidence=proof(kind);const result=await n.recoverPending(n.pendingOperations()[0],new AbortController().signal,async(p,init)=>{calls.push(p);assert.equal(init.method,undefined);assert.equal(init.body,undefined);return p==='/auth/me'?user:p===evidence.detailPath?evidence.current:{request_id:id,status:'SUCCESS',response:evidence.response};});
+  assert.equal(result,'SUCCESS',kind);assert.deepEqual(calls,['/auth/me',path+id,evidence.detailPath,'/auth/me']);assert.equal(n.pendingOperations().length,0);
  }
 });
 test('foreign actor, logout and permission loss purge records without querying',async()=>{
@@ -58,4 +65,23 @@ test('save hook journals UUID before POST, retains uncertainty and removes only 
   await render().send(attempt);assert.equal(render().uncertain,true);assert.equal(m.pendingOperations().length,1);assert.ok(!JSON.stringify(m.pendingOperations()).includes('private'));
   await render().send(attempt);assert.deepEqual(calls,['POST','GET']);assert.equal(m.pendingOperations().length,0);assert.equal(saved.length,1);
  }finally{globalThis.fetch=oldFetch;}
+});
+
+test('reload reconciliation rejects malformed receipts, missing audit and stale current revision; never writes',async()=>{
+ for(const kind of ['save','renew','legacy','bulk'])for(const fault of ['malformed','missing-audit','wrong-actor','older-current','same-revision-drift']){
+  const m=setup();m.pendingIdentity(user);const prefix={save:'/subscriber-workspace/requests/',renew:'/subscriber-workspace/renewals/requests/',legacy:'/subscribers/demo-requests/',bulk:'/subscriber-workspace/management/requests/'}[kind];m.rememberPending(id,prefix+id);
+  const evidence=proof(kind);if(fault==='malformed')evidence.response={id:'anything'};
+  if(fault==='missing-audit')evidence.current.history=[];
+  if(fault==='wrong-actor')evidence.current.history[0].actor_id='other';
+  if(fault==='older-current')evidence.current.item={...evidence.current.item,revision:0};
+  if(fault==='same-revision-drift')evidence.current.item={...evidence.current.item,status:'PAUSED'};
+  const result=await m.recoverPending(m.pendingOperations()[0],new AbortController().signal,async(p,init)=>{assert.equal(init.method,undefined);assert.equal(init.body,undefined);return p==='/auth/me'?user:p===evidence.detailPath?evidence.current:{request_id:id,status:'SUCCESS',response:evidence.response};});
+  assert.equal(result,'UNKNOWN',kind+' '+fault);assert.equal(m.pendingOperations().length,1);
+ }
+});
+test('a later current revision can reconcile historical receipt without overwriting it',async()=>{
+ const m=setup();m.pendingIdentity(user);m.rememberPending(id,path);const evidence=proof('save');
+ evidence.current.item={...evidence.current.item,revision:3,plan:'Later plan'};
+ const result=await m.recoverPending(m.pendingOperations()[0],new AbortController().signal,async(p,init)=>{assert.equal(init.method,undefined);return p==='/auth/me'?user:p===evidence.detailPath?evidence.current:{request_id:id,status:'SUCCESS',response:evidence.response};});
+ assert.equal(result,'SUCCESS');assert.equal(evidence.current.item.plan,'Later plan');assert.equal(m.pendingOperations().length,0);
 });

@@ -45,7 +45,7 @@ for(const fault of ['lost-response','truncated-json','wrong-account','wrong-expi
    tree=render();const apply=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula');
    apply.props.onClick();apply.props.onClick();if(fault==='timeout')expire();await new Promise(setImmediate);
    tree=render();let html=renderToStaticMarkup(tree);
-   assert.match(html,/İşlem uygulanmış olabilir/);assert.doesNotMatch(html,/Kaydedildi · Güncel bitiş/);
+   assert.match(html,/İşlem uygulanmış olabilir/);assert.doesNotMatch(html,/Kaydedildi · İşlemdeki bitiş/);
    assert.equal(calls.length,1,'no automatic or concurrent duplicate request');
    assert.equal(events.filter(e=>e.type==='v2-resource-change').length,1);
    for(const prefix of ['/subscriber-workspace','/subscribers','/router-center','/router-workspace/routers'])assert.ok(events[0].detail.includes(prefix));
@@ -55,7 +55,7 @@ for(const fault of ['lost-response','truncated-json','wrong-account','wrong-expi
    assert.equal(calls.length,2);assert.equal(calls[0].method,'POST');assert.equal(calls[1].method,'GET');assert.equal(calls[1].body,undefined);assert.ok(calls[1].url.endsWith('/'+JSON.parse(calls[0].body).request_id));assert.equal(applies,1);
    assert.equal(JSON.parse(calls[0].body).expected_revision,original.revision);
    assert.equal(JSON.parse(calls[0].body).expected_source,original.source);
-   assert.match(html,/Kaydedildi · Güncel bitiş/);assert.doesNotMatch(html,/İşlem uygulanmış olabilir/);
+   assert.match(html,/Kaydedildi · İşlemdeki bitiş/);assert.doesNotMatch(html,/İşlem uygulanmış olabilir/);
    assert.equal(events.filter(e=>e.type==='v2-resource-change').length,2);
    assert.equal(nodes(tree).some(n=>n.type==='button'&&n.props.className==='button-primary'),false);
   }finally{globalThis.fetch=oldFetch;globalThis.window=oldWindow;globalThis.setTimeout=oldTimer;globalThis.clearTimeout=oldClear;}

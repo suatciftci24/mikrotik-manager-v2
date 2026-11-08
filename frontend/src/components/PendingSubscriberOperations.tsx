@@ -19,7 +19,8 @@ export function PendingSubscriberOperations(){
      const status=await recoverPending(item,AbortSignal.any([controller.signal,AbortSignal.timeout(15000)]),api);
      if(controller.signal.aborted)break;
      if(status==='DENIED'){controller.abort();setItems([]);setMessages([]);break;}
-     if(status!=='UNKNOWN'){setMessages(m=>[...m,`${item.id}: ${status==='SUCCESS'?'İşlem tamamlandı':'İşlem başarısız olarak kaydedildi'}`]);invalidateResources([...subscriberSaveDependencies]);}
+     if(status!=='UNKNOWN')setMessages(m=>[...m,`${item.id}: ${status==='SUCCESS'?'İşlemin atomik kaydı ve güncel abone okuması doğrulandı':'İşlem başarısız olarak kaydedildi'}`]);
+     invalidateResources([...subscriberSaveDependencies]);
     }catch(e){if(e instanceof ApiError&&[401,403].includes(e.status)){pendingIdentity(null);controller.abort();setItems([]);setMessages([]);break;}}
    }}finally{busy=false;if(!controller.signal.aborted)setItems(pendingOperations().filter(i=>i.actor===user?.id&&user.role_code==='ADMIN'));}
   };
@@ -30,5 +31,5 @@ export function PendingSubscriberOperations(){
   return()=>{controller.abort();window.removeEventListener('storage',changed);window.removeEventListener('v2-pending-change',added);};
  },[stamp,retry]);
  if(!items.length&&!messages.length)return null;
- return <section className="panel" aria-label="Bekleyen işlem sonuçları"><h2>Bekleyen işlem sonuçları</h2>{messages.map(m=><p role="status" key={m}>{m}</p>)}{items.map(i=><p key={i.id}>{i.id} · Sonuç henüz doğrulanamadı.</p>)}{!!items.length&&<button className="button-secondary" onClick={()=>setRetry(r=>r+1)}>Kayıtlı sonuçları sorgula</button>}</section>;
+ return <section className="panel" aria-label="Bekleyen işlem sonuçları"><h2>Bekleyen işlem sonuçları</h2>{messages.map(m=><p role="status" key={m}>{m}</p>)}{items.map(i=><p key={i.id}>{i.id} · Sonuç henüz doğrulanamadı; işlem tekrar gönderilmez.</p>)}{!!items.length&&<button className="button-secondary" onClick={()=>setRetry(r=>r+1)}>Kayıtlı sonuçları sorgula</button>}</section>;
 }

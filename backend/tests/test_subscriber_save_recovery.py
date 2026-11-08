@@ -98,6 +98,12 @@ class LegacyReceiptTests(TestCase):
             self.assertEqual(store.subscriber_save_result(key,actor,scope)['status'],'UNKNOWN')
         row['payload']['operation']='RENEWAL'
         self.assertEqual(store.subscriber_save_result(key,'actor',{'r1'})['status'],'UNKNOWN')
+        row['payload']['action']='EXTEND'
+        for operation in ('RENEWAL','DATE_EDIT'):
+            row['payload']['operation']=operation
+            self.assertEqual(store.subscriber_save_result(key,'actor',{'r1'})['status'],'SUCCESS')
+            self.assertEqual(store.subscriber_save_result(key,'other',{'r1'})['status'],'UNKNOWN')
+            self.assertEqual(store.subscriber_save_result(key,'actor',set())['status'],'UNKNOWN')
         connection.execute.return_value.mappings.return_value.one_or_none.side_effect=None
         connection.execute.return_value.mappings.return_value.one_or_none.return_value=None
         self.assertEqual(store.subscriber_save_result(key,'actor',{'r1'})['status'],'UNKNOWN')

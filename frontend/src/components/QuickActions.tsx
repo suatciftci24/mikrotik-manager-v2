@@ -1,8 +1,9 @@
-import {subscriberOperationError} from '../lib/subscriberOperationRecovery';
+import {rememberPending,forgetPending} from '../lib/pendingSubscriberOperations';
+import {legacySavedReceipt,subscriberOperationError} from '../lib/subscriberOperationRecovery';
 import {subscriberSaveDependencies} from '../lib/subscriberDependencies';
 import '../styles/subscriber-edit-highlight.css';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { api, type Router, type Subscriber, type DemoOptions, type SubscriberDetailData } from '../lib/api';
+import { api,ApiError, type Router, type Subscriber, type DemoOptions, type SubscriberDetailData } from '../lib/api';
 import { useResource } from '../lib/useResource';
 import { invalidateResources } from '../lib/resourceEvents';
 import { extensionDate } from '../lib/quick';
@@ -10,9 +11,10 @@ import { expiryDate } from '../lib/expiry';
 
 export type QuickAction = 'EXTEND'|'PLAN'|'STATUS'|'CREATE';
 type Entry = {item_id:string; change:Record<string,unknown>};
-type Result = {item_id:string; success:boolean; error?:string; result?:SubscriberDetailData};
+type Result = {item_id:string; success:boolean; error?:string; status?:number; uncertain?:boolean; result?:SubscriberDetailData};
 export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:Subscriber[];today:string;onClose:()=>void;initialAction?:QuickAction;onSaved?:()=>void}) {
   const dialog=useRef<HTMLDialogElement>(null),expected=useRef(new Map<string,Partial<Subscriber>>()),activeRequest=useRef<AbortController|null>(null);
+  const sent=useRef(false),resolved=useRef(new Map<string,Result>());
   const fieldId=useId();
   const options=useResource<DemoOptions>('/subscribers/demo-options');
   const routers=useResource<{items:Router[]}>('/routers');
@@ -57,21 +59,49 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
     setReview(entries);setResults(null);
   }
   async function save() {
-    if (!review||sending.current||results?.every(result=>result.success)) return;
+    if (!review||sending.current||review.every(entry=>resolved.current.has(entry.item_id))) return;
     sending.current=true;setPending(true);setAttempted(true);setError('');
     const controller=new AbortController();activeRequest.current=controller;
     const timer=setTimeout(()=>controller.abort(),15000);
+    const query=sent.current;
     try {
-      const response=await api<{results:Result[]}>('/subscribers/demo-quick',{method:'POST',signal:controller.signal,headers:{'X-V2-Demo-Action':'expiry'},body:JSON.stringify({entries:review})});
-      if(!Array.isArray(response?.results)||response.results.length!==review.length||new Set(response.results.map(r=>r?.item_id)).size!==review.length||response.results.some(r=>{
-        if(!r||!review.some(e=>e.item_id===r.item_id)||typeof r.success!=='boolean')return true;
-        if(!r.success)return false;
-        const saved=r.result,values=expected.current.get(r.item_id);
-        return !values||saved?.is_demo!==true||saved.persistence!=='local-postgresql-demo'||!saved.item||Object.entries(values).some(([key,value])=>(saved.item as unknown as Record<string,unknown>)[key]!==value);
-      }))throw new Error('İşlem sonucu onaylanan kayıt, router veya değerlerle eşleşmedi.');
-      setResults(response.results);if(response.results.some(result=>result.success))onSaved?.();
+      const matches=(entry:Entry,saved:SubscriberDetailData|undefined)=>{
+        const values=expected.current.get(entry.item_id);
+        return !!values&&legacySavedReceipt(String(entry.change.request_id),saved)&&Object.entries(values).every(([key,value])=>(saved!.item as unknown as Record<string,unknown>)[key]===value);
+      };
+      let next:Result[];
+      if(sent.current){
+        next=await Promise.all(review.map(async entry=>{
+          const known=resolved.current.get(entry.item_id);if(known)return known;
+          try{
+            const receipt=await api<{request_id:string;status:string;response:SubscriberDetailData|null}>('/subscribers/demo-requests/'+encodeURIComponent(String(entry.change.request_id)),{signal:controller.signal});
+            if(receipt?.request_id===entry.change.request_id&&receipt.status==='SUCCESS'&&matches(entry,receipt.response??undefined))return {item_id:entry.item_id,success:true,result:receipt.response!};
+          }catch{/* An unsuccessful GET cannot prove the original write failed. */}
+          return {item_id:entry.item_id,success:false,uncertain:true,error:'Kalıcı sonuç henüz doğrulanamadı; aynı UUID ile yalnız kayıtlı sonuç sorgulanır.'};
+        }));
+      }else{
+        sent.current=true;
+        for(const entry of review)rememberPending(String(entry.change.request_id),'/subscribers/demo-requests/'+String(entry.change.request_id));
+        const response=await api<{results:Result[]}>('/subscribers/demo-quick',{method:'POST',signal:controller.signal,headers:{'X-V2-Demo-Action':'expiry'},body:JSON.stringify({entries:review})});
+        if(!Array.isArray(response?.results)||response.results.length!==review.length||new Set(response.results.map(r=>r?.item_id)).size!==review.length)throw new Error('İşlem sonuçları onaylanan kayıtlarla eşleşmedi.');
+        next=review.map(entry=>{
+          const result=response.results.find(r=>r?.item_id===entry.item_id);
+          if(result?.success===true&&matches(entry,result.result))return result;
+          if(result?.success===false&&[400,401,403,404,409,422].includes(result.status??0))return result;
+          return {item_id:entry.item_id,success:false,uncertain:true,error:'İşlem sonucu kayıt, revizyon veya audit ile doğrulanamadı.'};
+        });
+      }
+      const newlyConfirmed=next.some(result=>result.success&&!resolved.current.has(result.item_id));
+      for(const result of next)if(!result.uncertain){resolved.current.set(result.item_id,result);const entry=review.find(e=>e.item_id===result.item_id)!;forgetPending(String(entry.change.request_id));}
+      setResults(next);if(newlyConfirmed)onSaved?.();
     }
-    catch(e){setError(subscriberOperationError(e)+' Kalıcı sonuç doğrulanamadı; işlem uygulanmış olabilir. Yeni önizleme oluşturmadan aynı istekle sonucu alın.');}
+    catch(e){
+      if(!query&&e instanceof ApiError&&[400,401,403,404,409,422].includes(e.status)){
+        const failed=review.map(entry=>({item_id:entry.item_id,success:false,status:e.status,error:subscriberOperationError(e)}));
+        for(const result of failed){resolved.current.set(result.item_id,result);forgetPending(String(review.find(entry=>entry.item_id===result.item_id)!.change.request_id));}
+        setResults(failed);setError('İstek reddedildi. Güncel kayıttan yeni önizleme oluşturun.');
+      }else setError(subscriberOperationError(e)+' Kalıcı sonuç doğrulanamadı; işlem uygulanmış olabilir. Yeni önizleme oluşturmadan aynı istekle sonucu alın.');
+    }
     finally {clearTimeout(timer);invalidateResources([...subscriberSaveDependencies]);sending.current=false;setPending(false);}
   }
   return <dialog ref={dialog} className="expiry-dialog" aria-busy={pending} aria-labelledby="quick-title" onCancel={e=>{e.preventDefault();if(!sending.current)onClose();}}>
@@ -106,9 +136,9 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
     </form>:<>
       <h3>Eski → Yeni · {({EXTEND:'Abonelik uzatma',PLAN:'Paket değiştirme',STATUS:'Durum değiştirme',CREATE:'Abone oluşturma'} as Record<string,string>)[action]}</h3>
       {review.map((entry,i)=><section key={entry.item_id} className="quick-preview"><strong>{rows[i]?.customer_name??name} · {rows[i]?.username??username}</strong><p>{String(entry.change.router_name)} ({String(entry.change.router_id)}) · {String(entry.change.expected_source)}</p><p>Abone kimliği: {entry.item_id}</p><p>Bitiş: {expiryDate(rows[i]?.expires_on??null)} → {expiryDate(entry.change.expires_on as string|null)}</p>{(action==='PLAN'||action==='CREATE')&&<p>Paket: {rows[i]?.plan??'Yok'} → {plan} · Aylık tutar: {rows[i]?.monthly_price??0} → {options.data?.plans.find(p=>p.name===plan)?.monthly_price??'Bilinmiyor'} TL</p>}{(action==='STATUS'||action==='CREATE')&&<p>Durum: {rows[i]?.status??'Yok'} → {status}</p>}</section>)}
-      {results&&<div role="status">{results.filter(r=>r.success).length} başarılı / {results.filter(r=>!r.success).length} başarısız{results.map(r=><p key={r.item_id}>{rows.find(row=>row.id===r.item_id)?.customer_name??name}: {r.success?(action==='PLAN'?`Kaydedildi · Güncel paket: ${r.result?.item.plan} · Aylık tutar: ${r.result?.item.monthly_price} TL`:action==='STATUS'?`Kaydedildi · Güncel durum: ${r.result?.item.status==='ACTIVE'?'Aktif':'Pasif'}`:`Kaydedildi · Güncel bitiş: ${expiryDate(r.result?.item.expires_on??null)}`):r.error??'İşlem uygulanmadı.'}</p>)}</div>}
-      <p>Yanıt kaybolursa aynı onayı tekrar gönderin; başarılı kayıt ikinci kez uygulanmaz.</p>
-      <div className="expiry-editor-actions"><button className="button-secondary" disabled={pending} onClick={()=>{onClose();}}>Kapat ve güncel listeden yeniden seç</button><button className="button-primary" disabled={pending||!!results?.every(r=>r.success)} onClick={save}>{pending?'Kaydediliyor…':results?.every(r=>r.success)?'İşlem tamamlandı':results?'Aynı istekle eksik sonuçları getir':attempted?'Aynı istekle sonucu doğrula':'Onayla ve uygula'}</button></div>
+      {results&&<div role="status">{results.filter(r=>r.success).length} başarılı / {results.filter(r=>!r.success&&!r.uncertain).length} başarısız / {results.filter(r=>r.uncertain).length} belirsiz{results.map(r=><p key={r.item_id}>{rows.find(row=>row.id===r.item_id)?.customer_name??name}: {r.success?(action==='PLAN'?`Kaydedildi · İşlemde kaydedilen paket: ${r.result?.item.plan} · Aylık tutar: ${r.result?.item.monthly_price} TL`:action==='STATUS'?`Kaydedildi · İşlemde kaydedilen durum: ${r.result?.item.status==='ACTIVE'?'Aktif':'Pasif'}`:`Kaydedildi · İşlemde kaydedilen bitiş: ${expiryDate(r.result?.item.expires_on??null)}`):r.error??'İşlem uygulanmadı.'}</p>)}</div>}
+      <p>Yanıt kaybolursa aynı UUID ile yalnız kayıtlı sonuç okunur; işlem yeniden gönderilmez. Sonuç geçmiş işlemi doğrular; liste, detay ve raporlar güncel kayıtları yeniden okur.</p>
+      <div className="expiry-editor-actions"><button className="button-secondary" disabled={pending} onClick={()=>{onClose();}}>Kapat ve güncel listeden yeniden seç</button><button className="button-primary" disabled={pending||!!results?.every(r=>!r.uncertain)} onClick={save}>{pending?'Kaydediliyor…':results?.every(r=>!r.uncertain)?'Sonuçlar doğrulandı':results?'Kayıtlı eksik sonuçları sorgula':attempted?'Kayıtlı sonucu sorgula':'Onayla ve uygula'}</button></div>
     </>}
     {error&&<p role="alert" className="form-error">{error}</p>}
     <button className="button-secondary expiry-editor-cancel" disabled={pending} onClick={onClose}>Kapat</button>

@@ -4493,3 +4493,29 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   `Could not resolve host: github.com`. Yerel tek commit korunur.
   Uzak okuma başarılıydı; push DNS aşamasında durdu. Sonraki aktarım
   ağ erişiminde aynı normal push işlemidir; force push yok.
+
+## V2.6 — belirsiz işlem sonrası salt-okunur uzlaştırma — 2026-11-08
+
+- Başlangıç main-guncel/819dc32 temiz; kurallar/özellik koruma/son işlem
+  sonucu kabulü okundu. Uzak dal aynı SHA ile doğrulandı.
+- QuickActions ilk onayda tek POST+journal; tekrar denemede yalnız mevcut
+  UUID sonuç GET'i. EXTEND için mevcut readonly adapter RENEWAL/DATE_EDIT'i
+  yalnız action=EXTEND ile kabul eder; actor/router scope korunur. Yeni API yok.
+- Legacy sonuçta aynı UUID audit kanıtı; reload pending başarısında güncel
+  kayıt/revizyon/geçmiş doğrulaması. Eksik audit, geride revizyon veya aynı
+  revizyonda sapma UNKNOWN kalır. Daha yeni kayıt eski receipt ile ezilmez.
+- Başarılı/başarısız/belirsiz ayrımı, journal temizleme bildirimi ve ortak
+  invalidation; tarihsel receipt “güncel değer” diye sunulmaz. LOCAL/RADIUS ve
+  kaynak kapsamları değişmez; ekranlar yetkili kaynaklarını yeniden okur.
+- PASS: 31 hedefli frontend,3 readonly adapter mock testi; tek tsc/Vite build
+  ve diff. Fixture is_demo/ortak nesne kusurları düzeltildi; kapılar gevşemez.
+  Mevcut >500kB uyarısı sürer. Chromium önceki EPERM nedeniyle BLOCKED;
+  yeni deneme/gerçek HTTP/PG veya mobil kabul iddiası yok.
+- Kabul docs/V26_PENDING_RECOVERY_ACCEPTANCE.md son bölümünde. Son50 detay
+  geçmişinden çıkmış receipt güvenli UNKNOWN kalabilir; yeni yazma yapılmaz.
+- V1/V2.5/VDS/cihaz/RADIUS/IPsec/DB/deploy/restart/migration/silme yok.
+  Tarihsel Dashboard ve güncel PG/HTTP genel kabul engelleri korunur.
+
+- Normal `git push origin main-guncel` denendi: push BLOCKED,
+  `Could not resolve host: github.com`. Yerel tek commit korunur; ağ
+  erişiminde normal push gerekir. Force push yapılmadı.
