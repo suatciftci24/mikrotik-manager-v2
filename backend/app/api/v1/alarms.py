@@ -45,7 +45,7 @@ def public_alarm(alarm, detail=False):
 def list_alarms(levels:str='',router_id:str='',subscriber_id:str='',severity:Literal['ALL','P1','P2','P3','P4']='ALL',
                 state:Literal['ALL','ACTIVE','OPEN','ACKNOWLEDGED','RECOVERING','RESOLVED']='ALL',
                 order:Literal['PRIORITY','LATEST']='PRIORITY',
-                kind:Literal['ALL','NETWORK_CORRELATED','WAN_DOWN','WAN_RECOVERED','WAN_CHANGED','ROUTER_OFFLINE','IPSEC_DOWN','PPPOE_EXPIRE']='ALL',
+                kind:Literal['ALL','NETWORK_CORRELATED','WAN_DOWN','WAN_RECOVERED','WAN_CHANGED','ROUTER_OFFLINE','IPSEC_DOWN','PPPOE_EXPIRE','PPPOE_EXPIRY_WARNING']='ALL',
                 start:str='',end:str='',page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=50),
                 user:dict=Depends(current_demo_user)):
     try:
@@ -58,15 +58,20 @@ def list_alarms(levels:str='',router_id:str='',subscriber_id:str='',severity:Lit
     if level_set-{'P1','P2','P3','P4'}:raise HTTPException(422,'Geçerli önem seviyesi gerekli')
     alarms,coverage,storage=source(user)
     def match(row):
-        stamp=datetime.fromisoformat(row['last_seen'].replace('Z','+00:00')) if row['last_seen'] else None
+        stamp=datetime.fromisoformat(row['last_seen'].replace('Z','+00:00')) if row['last_seen'] else datetime.combine(date.fromisoformat(row['expires_on']),time.min,ZoneInfo('Europe/Istanbul')) if row.get('expires_on') else None
         return ((not levels or row['severity'] in level_set) and (not router_id or row['router_id']==router_id) and (not subscriber_id or row.get('subscriber_id')==subscriber_id) and (severity=='ALL' or row['severity']==severity)
             and (kind=='ALL' or row['kind']==kind) and (state=='ALL' or row['state']==state or state=='ACTIVE' and row['state']!='RESOLVED' and row['source_available'])
             and (not first or stamp is not None and stamp>=first) and (not until or stamp is not None and stamp<until))
     rows=[row for row in alarms if match(row)]
-    if order=='LATEST':rows.sort(key=lambda row: (datetime.fromisoformat(row['last_seen'].replace('Z','+00:00')).timestamp() if row['last_seen'] else float('-inf'),row['id']),reverse=True)
+    if order=='LATEST':
+        def latest_stamp(row):
+            if row['last_seen']:return datetime.fromisoformat(row['last_seen'].replace('Z','+00:00')).timestamp()
+            if row.get('expires_on'):return datetime.combine(date.fromisoformat(row['expires_on']),time.min,ZoneInfo('Europe/Istanbul')).timestamp()
+            return float('-inf')
+        rows.sort(key=lambda row:(latest_stamp(row),row['id']),reverse=True)
     return dict(items=[public_alarm(row) for row in rows[(page-1)*page_size:page*page_size]],total=len(rows),page=page,page_size=page_size,
-        summary=dict(active=sum(row['state']!='RESOLVED' and row['source_available'] for row in alarms),critical=sum(row['state']!='RESOLVED' and row['source_available'] and row['severity'] in ('P1','P2') for row in alarms),
-                     unread=sum(not row['notification_read'] for row in alarms)),routers=[dict(id=r['id'],name=r['name']) for r in routers_for(user)],
+        summary=dict(active=sum(row['state']!='RESOLVED' and row['source_available'] for row in rows),critical=sum(row['state']!='RESOLVED' and row['source_available'] and row['severity'] in ('P1','P2') for row in rows),
+                     unread=sum(not row['notification_read'] for row in rows)),routers=[dict(id=r['id'],name=r['name']) for r in routers_for(user)],
         can_ack=storage and is_admin(user) and bool(allowed(user,'can_ack_alarms')),storage_ready=storage,
         coverage=coverage,generated_at=datetime.now(timezone.utc).isoformat(),is_demo=True)
 

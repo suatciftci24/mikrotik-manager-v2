@@ -13,7 +13,7 @@ import { ResourceState, dateTime } from '../components/Resource';
 import { useResource } from '../lib/useResource';
 import { useTurkeyToday } from '../lib/useTurkeyToday';
 import { useIdentity } from '../lib/permissions';
-import { loadDashboardSummary, dashboardToday, dashboardCritical, loadDashboardAlarms, dashboardAlarmPath, latestRouterObservation, type DashboardSummary } from '../lib/dashboardOverview';
+import { loadDashboardSummary, dashboardToday, dashboardCritical, dashboardAlarmTarget, loadDashboardAlarms, dashboardAlarmPath, latestRouterObservation, type DashboardSummary } from '../lib/dashboardOverview';
 import { loadRouterEvents } from '../lib/routerEvents';
 
 const DEPENDENCIES = ['/routers', '/subscribers'] as const;
@@ -114,7 +114,7 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
 function CriticalAlarmTile({onNavigate}:{onNavigate:Navigate}){
   const resource=useResource(dashboardAlarmPath,loadDashboardAlarms,ALARM_DEPENDENCIES);
   const critical=resource.data&&!resource.loading&&!resource.error?dashboardCritical(resource.data):null;
-  return <div className="overview-source-tile"><SummaryTile title="Kritik alarmlar" value={critical?.value??null} note={resource.loading?'Alarmlar yükleniyor':resource.error?'Alarm kaynağı alınamadı':critical?.partial?'Kayıtlı P1/P2 · kaynaklar eksik':'Açık P1/P2 · ACK dahil'} icon={<AlertTriangle size={18}/>} label="Alarm Merkezi’nde açık alarmları göster" onClick={()=>onNavigate('operations',{alarm_state:'ACTIVE',severity:'ALL'})}/><ResourceState {...resource}/></div>;
+  return <div className="overview-source-tile"><SummaryTile title="Kritik alarmlar" value={critical?.value??null} note={resource.loading?'Alarmlar yükleniyor':resource.error?'Alarm kaynağı alınamadı':critical?.partial?'Kayıtlı P1/P2 · kaynaklar eksik':'Açık P1/P2 · ACK dahil'} icon={<AlertTriangle size={18}/>} label="Alarm Merkezi’nde açık alarmları göster" onClick={()=>onNavigate('operations',dashboardAlarmTarget(resource.data))}/><ResourceState {...resource}/></div>;
 }
 function DailyEventTile({data,onOpen}:{data:DashboardSummary|undefined;onOpen:()=>void}){
   const resource=useResource('/router-events',loadRouterEvents,EVENT_DEPENDENCIES);

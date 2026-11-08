@@ -55,6 +55,18 @@ class AlarmProjectionTests(TestCase):
         self.assertIsNone(target['first_seen']);self.assertIsNone(target['last_seen'])
         self.assertFalse(any(row['kind']=='IPSEC_DOWN' for row in alarms))
 
+    def test_upcoming_expiry_warnings_use_recorded_pppoe_dates_without_fabricated_event_times(self):
+        now=datetime.now(timezone.utc)
+        items=[row['item'] for row in demo_examples(now)]
+        alarms,coverage=project_alarms(items,ROUTERS,[],'demo-user',now)
+        warnings=[row for row in alarms if row['kind']=='PPPOE_EXPIRY_WARNING']
+        self.assertEqual(len(warnings),2)
+        self.assertEqual({row['severity'] for row in warnings},{'P3','P4'})
+        self.assertTrue(all(row['first_seen'] is None and row['last_seen'] is None and row['expires_on'] for row in warnings))
+        self.assertTrue(all(row['source']=='subscriber-expiry' and row['source_available'] for row in warnings))
+        self.assertTrue(any(row['measurement_available'] for row in coverage['router_measurements']))
+        self.assertTrue(any(not row['measurement_available'] for row in coverage['router_measurements']))
+
     def test_source_disappearance_keeps_ack_evidence_without_claiming_resolution(self):
         row=record();aid=identity(row['router_id'],row['kind'])
         action=dict(id='old-ack',alarm_id=aid,occurrence_id=row['occurrence_id'],action='ACK',actor_id='demo-user',source_snapshot=row)
@@ -67,7 +79,7 @@ class AlarmProjectionTests(TestCase):
         items=[row['item'] for row in demo_examples(now)]
         for item in items:item['access_type']=None;item['expires_on']='2026-10-27'
         result,_=project_alarms(items,ROUTERS,[],'demo-user',now)
-        self.assertFalse(any(row['kind']=='PPPOE_EXPIRE' for row in result))
+        self.assertFalse(any(row['kind'] in ('PPPOE_EXPIRE','PPPOE_EXPIRY_WARNING') for row in result))
 
     def test_new_source_episode_keeps_prior_ack_memory_without_reusing_ack(self):
         old=record('old');new=record('new')
@@ -107,6 +119,20 @@ class AlarmProjectionTests(TestCase):
         with patch.object(routes,'source') as source:
             with self.assertRaises(HTTPException):routes.list_alarms(start='bad',page=1,page_size=25,user={})
             source.assert_not_called()
+
+    def test_expiry_date_is_filterable_but_never_rendered_as_event_time_and_summary_follows_filters(self):
+        warning=dict(router_id=ROUTERS[0]['id'],subscriber_id='demo-sub-1',kind='PPPOE_EXPIRY_WARNING',severity='P3',
+            occurrence_id='sub:2026-10-29',source_state='OPEN',state='OPEN',source_available=True,first_seen=None,last_seen=None,
+            expires_on='2026-10-29',repeat_count=1,notification_read=False)
+        with patch.object(routes,'source',return_value=([warning],{},True)):
+            result=routes.list_alarms(start='2026-10-29',end='2026-10-29',kind='PPPOE_EXPIRY_WARNING',page=1,page_size=25,
+                user=dict(id='demo-user',role='Gözlemci',is_demo=True))
+        self.assertEqual([row['kind'] for row in result['items']],['PPPOE_EXPIRY_WARNING'])
+        self.assertIsNone(result['items'][0]['first_seen']);self.assertIsNone(result['items'][0]['last_seen'])
+        self.assertEqual(result['summary'],dict(active=1,critical=0,unread=1))
+        with patch.object(routes,'source',return_value=([warning],{},True)):
+            filtered=routes.list_alarms(severity='P2',page=1,page_size=25,user=dict(id='demo-user',role='Gözlemci',is_demo=True))
+        self.assertEqual(filtered['items'],[]);self.assertEqual(filtered['summary']['active'],0)
 
 class MemorySQL:
     def __init__(self):self.actions={};self.requests={};self.queries=[];self.fail=False;self.available=True

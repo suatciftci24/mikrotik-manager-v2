@@ -5,6 +5,7 @@ import {useEffect,useRef,useState,type KeyboardEvent,type ReactNode} from 'react
 import {useResource} from '../lib/useResource';
 import {PageHeading} from './PageHeading';
 import {Facts,ResourceState,dateTime} from './Resource';
+import {alarmFilter,alarmHash,alarmKinds,alarmSeverityLabels,routerAlarmPath,routerAlarmTarget,type AlarmPage} from '../lib/alarms';
 import {routerCenterPath,routerCenterTabs,validRouterCenter,routerCenterStatus,routerCenterError,eventLabel,type RouterCenterTab,type RouterCenterData} from '../lib/routerCenter';
 const tabKeys=routerCenterTabs.map(([key])=>key);
 const dependencies=['/router-workspace/routers','/router-registry','/routers'] as const;
@@ -14,7 +15,13 @@ export function RouterDeviceCenter({id,onBack,actions,legacy,security}:{id:strin
  useEffect(()=>{heading.current?.focus();window.scrollTo(0,0);},[id]);
  const data=resource.data;const error=(resource.error?routerCenterError(resource.error):undefined)||(data&&!validRouterCenter(data,id)?'Router kaynağı veya kayıt kimliği doğrulanamadı; detay gösterilmedi.':undefined);
  return <section className="screen-stack router-device-center"><button className="button-secondary detail-back" onClick={onBack}>← Geri dön</button><PageHeading eyebrow="ROUTER YÖNETİMİ · KAYITLI BİLGİLER" title="Router Detay Merkezi" description="Kaydedilmiş bilgiler gösterilir. Bu sayfa cihaz bağlantısı başlatmaz." headingRef={heading}/><ResourceState {...resource} error={error}/>
- {data&&!resource.loading&&!error&&<RouterDeviceCenterView data={data} tab={tab} onTab={setTab} actions={actions} legacy={legacy} security={security}/>}</section>;
+ {data&&!resource.loading&&!error&&<RouterDeviceCenterView data={data} tab={tab} onTab={setTab} actions={<>{data.source==='STATIC_DEMO'&&<RouterAlarmEntry routerId={data.item.id}/>}{actions}</>} legacy={legacy} security={security}/>}</section>;
+}
+function RouterAlarmEntry({routerId}:{routerId:string}){
+ const resource=useResource<AlarmPage>(routerAlarmPath(routerId),undefined,['/alarms']);
+ const data=resource.data,error=resource.error||(data&&data.is_demo!==true?'Sentetik alarm kaynağı doğrulanamadı.':undefined);
+ const latest=data&&!resource.loading&&!error?data.items[0]:undefined;
+ return <div className="router-alarm-entry" aria-label="Bu router için alarm bağlantıları"><ResourceState {...resource} error={error}/>{latest?<a className="button-secondary" href={routerAlarmTarget(routerId,latest.id)}>{latest.severity} · {alarmSeverityLabels[latest.severity]??'Bilinmiyor'} · {alarmKinds[latest.kind]} olay detayını aç</a>:data&&!resource.loading&&!error?<span>Bu router için kayıtlı alarm yok; ölçüm/veri yokluğu sağlıklı durum kanıtı değildir.</span>:null}{data&&!resource.loading&&!error&&data.total>1&&<a className="button-secondary" href={alarmHash({...alarmFilter(''),router_id:routerId})}>{data.total} router olayının tümünü aç</a>}</div>;
 }
 export function RouterDeviceCenterView({data,tab,onTab,actions,legacy,security}:{data:RouterCenterData;tab:RouterCenterTab;onTab:(tab:RouterCenterTab)=>void;actions?:ReactNode;legacy?:ReactNode;security?:ReactNode}){
  const [legacyOpen,setLegacyOpen]=useState(false);
@@ -24,7 +31,7 @@ export function RouterDeviceCenterView({data,tab,onTab,actions,legacy,security}:
   let next=index;if(event.key==='ArrowRight')next=(index+1)%routerCenterTabs.length;else if(event.key==='ArrowLeft')next=(index+routerCenterTabs.length-1)%routerCenterTabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=routerCenterTabs.length-1;else return;
   event.preventDefault();onTab(routerCenterTabs[next][0]);buttons.current[next]?.focus();
  }
- return <><div className="panel registry-detail router-device-summary"><div className="page-heading-row"><div><span className="eyebrow">{data.is_demo?'SENTETİK DEMO · CİHAZ BAĞLANTISI YOK':'KAYITLI CİHAZ · CANLI SORGULAMA YOK'}</span><h2>{r.name}</h2><p>{routerCenterStatus(data)}</p></div>{actions}</div><Facts items={[
+ return <><div className="panel registry-detail router-device-summary"><div className="page-heading-row"><div><span className="eyebrow">{data.is_demo?'SENTETİK DEMO · CİHAZ BAĞLANTISI YOK':'KAYITLI CİHAZ · CANLI SORGULAMA YOK'}</span><h2>{r.name}</h2><p>{routerCenterStatus(data)}</p></div><div className="heading-actions">{data.source==='STATIC_DEMO'&&<a className="button-secondary" href={alarmHash({...alarmFilter(''),router_id:r.id})}>Bu router’ın alarm ve olaylarını aç</a>}{actions}</div></div><Facts items={[
  ['Router kimliği',r.identity??'Bilinmiyor'],[pending?'Bildirilen model':'Model',r.model??'Bilinmiyor'],[pending?'Bildirilen RouterOS':'RouterOS',r.routeros_version??'Bilinmiyor'],['Yönetim IP',r.management_address],
  ['Son başarılı bağlantı',r.last_success_at?dateTime(r.last_success_at):'Bilinmiyor · bağlantı kanıtı yok'],
  [`${prefix} CPU`,r.cpu_percent===null?'Ölçülmedi':`${r.cpu_percent}%`],[`${prefix} RAM`,r.memory_percent===null?'Ölçülmedi':`${r.memory_percent}%`],[`${prefix} uptime`,r.uptime??'Ölçülmedi']

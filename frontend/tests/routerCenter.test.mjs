@@ -6,6 +6,7 @@ import {buildSync} from 'esbuild';
 import * as React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {routerCenterTabs,validRouterCenter,routerCenterPath,routerCenterStatus,routerCenterError} from '../src/lib/routerCenter.ts';
+import {routerAlarmPath,routerAlarmTarget} from '../src/lib/alarms.ts';
 const data={source:'PERSISTENT_DEMO',is_demo:true,device_connection_started:false,item:{id:'demo-managed-router-fixture',name:'TEST-EV-V2',identity:null,model:'Sentetik model',routeros_version:null,management_address:'192.0.2.10',site:'Ev',status:'UNMEASURED',last_success_at:null,last_seen_at:null,cpu_percent:null,memory_percent:null,uptime:null},sections:Object.fromEntries(routerCenterTabs.map(([key])=>[key,['overview','events','security'].includes(key)?'AVAILABLE':'UNMEASURED'])),events:[{action:'CREATED',actor_id:'demo-user',occurred_at:'2026-10-29T12:00:00Z',revision:1}]};
 const require=createRequire(import.meta.url);
 const react={...React,useEffect:()=>{},useCallback:fn=>fn,useRef:value=>({current:value}),useState:initial=>[typeof initial==='function'?initial():initial,()=>{}]};
@@ -45,6 +46,19 @@ test('router detail separates last successful connection from measurement and ma
  const snapshot={identity:'R1',model:'Router',routeros_version:'7',cpu_percent:2,memory_percent:3,uptime:'1d',captured_at:'2026-11-07T08:05:00Z',interfaces:[],default_routes:[{'dst-address':'0.0.0.0/0',gateway:'192.0.2.1',active:true,disabled:false}],wan_ip:null,pppoe_count:4,pppoe_explicit_count:4,ppp_any_count:0,hotspot_count:0,is_demo:false,read_only:true};
  const wan=renderToStaticMarkup(view('wan',{source:'REGISTERED',is_demo:false,item:{...data.item,id:'registered-fixture',status:'VERIFIED'},read_snapshot:snapshot}));
  assert.match(wan,/WAN IP bilinmiyor/);assert.match(wan,/192\.0\.2\.1/);assert.match(wan,/Kaydedilmiş okuma/);
+});
+
+test('only the static synthetic router links to its exact filtered alarm scope',()=>{
+ const staticData={...data,source:'STATIC_DEMO',item:{...data.item,id:'demo-router-001',name:'Test Router'}};
+ const html=renderToStaticMarkup(view('overview',staticData));
+ const href=[...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1].replaceAll('&amp;','&')).find(value=>value.startsWith('#module=operations'));
+ assert.ok(href);assert.equal(new URLSearchParams(href.slice(1)).get('alarm_router'),'demo-router-001');
+ assert.match(html,/Bu router’ın alarm ve olaylarını aç/);
+ const path=new URLSearchParams(routerAlarmPath('demo-router-001').split('?')[1]),target=new URLSearchParams(routerAlarmTarget('demo-router-001','demo-alarm-uuid').slice(1));
+ assert.equal(path.get('router_id'),'demo-router-001');assert.equal(path.get('page_size'),'1');
+ assert.equal(target.get('alarm_router'),'demo-router-001');assert.equal(target.get('alarm_id'),'demo-alarm-uuid');
+ const persistent=renderToStaticMarkup(view('overview',{...data,item:{...data.item,id:'demo-managed-router-fixture'}}));
+ assert.doesNotMatch(persistent,/Bu router’ın alarm ve olaylarını aç/);
 });
 
 test('managed router list name opens the ID-based center without writing or connecting',()=>{

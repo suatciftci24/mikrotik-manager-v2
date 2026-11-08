@@ -1,5 +1,28 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6 Alarm ve Olay Yönetimi Merkezi — 2026-11-08
+
+- Mevcut Alarm Merkezi, WAN/MikAjanı alarm projeksiyonu ve ADMIN ACK/READ
+  altyapısı korunarak listeye kaynak, P1/P2 Kritik, P3 Uyarı, P4 Bilgi ve
+  abone hedefi eklendi. PPPoE bitiş uyarıları mevcut tarih alanından türetilir:
+  bugün–7 gün P3, 8–30 gün P4, geçmiş bitiş P3. Bitiş günü ilk/son alarm zamanı
+  değildir; gerçek timestamp üretilmez. Tarih filtresi bu tür satırlarda yalnız
+  kayıtlı bitiş gününü kullanır.
+- Alarm özeti router/tarih/tür/durum/önem filtreleriyle aynı kapsamı izler.
+  Son kayıtlı router ölçüm zamanları görünür; eşik tanımlanmadığı için eski
+  ölçüm çevrimdışı olayına çevrilmez. Tekrarlama, kaynak olayı kimliklerini ve
+  mevcut alarm idempotency/audit izlerini kullanır.
+- Dashboard P1/P2 kartı varsa tam alarm kaydını açar; Router Detay’da yalnız
+  static sentetik router için son alarm detayı ve filtreli olay listesi linki
+  vardır. Gerçek/kalıcı router için sentetik olay bağlantısı gösterilmez.
+- PASS: test_central_alarms.py 20 test; frontend alarmCenter, routerCenter,
+  dashboardOverview 3 hedef test dosyası; frontend typecheck/build, backend
+  syntax check ve diff check. BLOCKED: gerçek cihaz olay/HTTP/tarayıcı kabulü;
+  V2 kaynaklarında canlı alarm/polling yoktur. Alarm kaynağı yalnız mevcut
+  sentetik V2 kayıtlarıdır. 010_operator_role.sql uygulanmadı; migration, servis
+  veya veri işlemi yok.
+- Kabul ayrıntısı: docs/V26_ALARM_EVENT_CENTER_ACCEPTANCE.md.
+
 ## V2.6 Raporlama ve Denetim Merkezi — 2026-11-08
 
 - Dashboard içindeki tek Raporlama ve Denetim Merkezi; PPPoE/Hotspot legacy

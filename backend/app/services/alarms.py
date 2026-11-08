@@ -7,7 +7,7 @@ from app.services.demo_reports import router_event_records
 from app.services.mikajani import analyze
 from app.services.mikajani_sources import project_saved
 
-KINDS=('NETWORK_CORRELATED','WAN_DOWN','WAN_RECOVERED','WAN_CHANGED','ROUTER_OFFLINE','IPSEC_DOWN','PPPOE_EXPIRE')
+KINDS=('NETWORK_CORRELATED','WAN_DOWN','WAN_RECOVERED','WAN_CHANGED','ROUTER_OFFLINE','IPSEC_DOWN','PPPOE_EXPIRE','PPPOE_EXPIRY_WARNING')
 STATES=('OPEN','ACKNOWLEDGED','RECOVERING','RESOLVED')
 
 def identity(router,kind,subject=''):
@@ -77,15 +77,31 @@ def project_alarms(items,routers,actions,user_id,now=None,mika_routers=None):
     today=now.astimezone(ZoneInfo('Europe/Istanbul')).date()
     for item in items:
         if item.get('access_type')!='PPPOE' or not item.get('expires_on'):continue
-        if date.fromisoformat(item['expires_on'])>=today:continue
+        expiry=date.fromisoformat(item['expires_on']);days=(expiry-today).days
+        if days>30:continue
         rid=item.get('router_id')
         if not rid:
             matches=[r['id'] for r in routers if r['name']==item.get('router_name')]
             if len(matches)!=1:continue
             rid=matches[0]
-        records.append(dict(router_id=rid,subscriber_id=item['id'],kind='PPPOE_EXPIRE',severity='P3',
+        kind='PPPOE_EXPIRE' if days<0 else 'PPPOE_EXPIRY_WARNING'
+        severity='P3' if days<=7 else 'P4'
+        records.append(dict(router_id=rid,subscriber_id=item['id'],kind=kind,severity=severity,expires_on=item['expires_on'],
             occurrence_id=item['id']+':'+item['expires_on'],first_seen=None,last_seen=None,source_state='OPEN',
-            title='Kayıtlı PPPoE bitiş günü geçmiş',evidence='Bitiş günü: '+item['expires_on']+'; kesin alarm başlangıç/çözülme saati bilinmiyor.',
+            title='Kayıtlı PPPoE bitiş günü geçmiş' if days<0 else 'PPPoE bitiş tarihi yaklaşıyor',
+            evidence='Bitiş günü: '+item['expires_on']+'; bu tarih olay zamanı değildir, kesin alarm başlangıç/çözülme saati bilinmiyor.',
             source='subscriber-expiry',source_id=item['id']))
+    measurements=[]
+    for router in routers:
+        times=[]
+        for item in items:
+            if router_id(item)!=router['id']:continue
+            report=item.get('demo_report') or {}
+            for observation in report.get('router_observations',[]) if isinstance(report,dict) else []:
+                value=observation.get('observed_at')
+                if value and stamp(value)<=now.timestamp():times.append(value)
+        measurements.append(dict(router_id=router['id'],latest_observation=max(times,key=stamp) if times else None,
+                                 measurement_available=bool(times)))
     return combine(records,actions,user_id),dict(connection_available=source.available,ipsec_available=any(r.signals.get('IPSEC')!='UNKNOWN' for r in analysis.health),
-        note='Sentetik kayıt projeksiyonu; tekrar sayısı farklı kaynak olaylarıdır, ekran yenileme sayısı değildir. Veri yoksa sağlıklı/çözüldü sayılmaz.')
+        router_measurements=measurements,
+        note='Sentetik kayıt projeksiyonu; tekrar sayısı farklı kaynak olaylarıdır, ekran yenileme sayısı değildir. Ölçüm tazeliği eşiği tanımlı değildir; veri yoksa sağlıklı/çözüldü sayılmaz.')

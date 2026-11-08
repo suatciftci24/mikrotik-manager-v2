@@ -33,7 +33,7 @@ export function dashboardToday(data:DashboardSummary,events:AlarmEvent[]|null,no
     wan:rows?.filter(row=>row.kind==='WAN_CHANGE'&&inRange(row.started_at)).length??null,
   };
 }
-export const dashboardAlarmPath='/alarms?state=ACTIVE&page_size=1';
+export const dashboardAlarmPath='/alarms?state=ACTIVE&levels=P1%2CP2&order=LATEST&page_size=1';
 export async function loadDashboardAlarms(path:string,init?:RequestInit){
   const data=await api<AlarmPage>(path,init);
   if(data.is_demo!==true||!Number.isInteger(data.summary?.critical)||data.summary.critical<0||typeof data.coverage?.connection_available!=='boolean'||typeof data.coverage?.ipsec_available!=='boolean')throw new Error('Sentetik alarm özeti doğrulanamadı.');
@@ -42,4 +42,9 @@ export async function loadDashboardAlarms(path:string,init?:RequestInit){
 export function dashboardCritical(data:AlarmPage){
   const complete=data.coverage.connection_available&&data.coverage.ipsec_available;
   return {value:data.summary.critical===0&&!complete?null:data.summary.critical,partial:!complete};
+}
+export function dashboardAlarmTarget(data?:AlarmPage):Record<string,string>{
+  const alarm=data?.items?.find(row=>row.severity==='P1'||row.severity==='P2');
+  if(!alarm)return {alarm_state:'ACTIVE',severity:'ALL'};
+  return {alarm_id:alarm.id,alarm_router:alarm.router_id,alarm_state:'ACTIVE',severity:'ALL'};
 }

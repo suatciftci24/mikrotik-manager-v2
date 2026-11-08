@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {build} from 'esbuild';
 import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {alarmFilter,alarmHash,alarmQuery} from '../src/lib/alarms.ts';
+import {alarmFilter,alarmHash,alarmQuery,alarmKinds,alarmSeverityLabels} from '../src/lib/alarms.ts';
 const require=createRequire(import.meta.url);
 const {outputFiles}=await build({stdin:{contents:"export {AlarmCenter} from './src/components/AlarmCenter';export {PermissionContext} from './src/lib/permissions';",resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'source',setup(build){build.onResolve({filter:/lib\/useResource$/},()=>({path:'source',namespace:'test'}));build.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function useResource(path){globalThis.__alarmQueries.push(path);return path==="/preferences"?{loading:false,data:{personal:{theme:null,page_size:null,notifications_enabled:null,notification_levels:null},values:{notification_levels:["P1","P2","P3","P4"]},storage_ready:true},retry(){}}:path.startsWith("/alarms/demo-alarm-")?{data:{item:globalThis.__alarmItem,can_ack:globalThis.__alarmResource.data?.detail_can_ack??globalThis.__alarmResource.data?.can_ack},loading:false,retry(){}}:globalThis.__alarmResource}',loader:'js'}));}}]});
 const module={exports:{}};new Function('require','module','exports',outputFiles[0].text)(require,module,module.exports);
@@ -27,6 +27,12 @@ test('center distinguishes unavailable source, missing timestamps and separate r
  assert.match(html,/internet\/WAN olay kaynağı bağlı değil/);assert.match(html,/IPsec gözlemi: Veri yok/);
  assert.match(html,/Açık · Okunmadı/);assert.match(html,/Veri yok \/ Veri yok/);
  assert.match(html,/Alarm router filtresi/);assert.match(html,/Alarm tür filtresi/);assert.match(html,/Sonraki alarm sayfası/);
+});
+test('central list exposes severity class, source, subscriber target and date-only expiry meaning',()=>{
+ const row={...alarm,expires_on:'2026-11-10',kind:'PPPOE_EXPIRY_WARNING',severity:'P3',source:'subscriber-expiry',first_seen:null,last_seen:null};
+ const html=render({data:{...data,items:[row],summary:{active:1,critical:0,unread:1}},loading:false,retry(){}});
+ assert.match(html,/P3 · Uyarı · PPPoE bitişi yaklaşıyor/);assert.match(html,/subscriber-expiry/);assert.match(html,/Bitiş: 2026-11-10/);assert.match(html,/Olay zamanı bilinmiyor/);assert.match(html,/module=subscribers&amp;id=s\+%26\+1/);
+ assert.equal(alarmSeverityLabels.P1,'Kritik');assert.equal(alarmSeverityLabels.P4,'Bilgi');assert.equal(alarmKinds.PPPOE_EXPIRY_WARNING,'PPPoE bitişi yaklaşıyor');
 });
 test('loading, failed source and empty supported inventory stay distinct',()=>{
  assert.match(render({loading:true,retry(){}}),/Veriler yükleniyor/);

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {buildDailySummary} from '../src/lib/dailySummary.ts';
-import {dashboardToday,dashboardCritical,latestRouterObservation,loadDashboardSummary,loadDashboardAlarms} from '../src/lib/dashboardOverview.ts';
+import {dashboardToday,dashboardCritical,dashboardAlarmTarget,latestRouterObservation,loadDashboardSummary,loadDashboardAlarms,dashboardAlarmPath} from '../src/lib/dashboardOverview.ts';
 import {projectRouterEvents} from '../src/lib/routerEvents.ts';
 const now=new Date('2026-11-02T10:00:00Z');
 const router={id:'r1',name:'Sentetik router',status:'ONLINE',is_demo:true};
@@ -29,6 +29,11 @@ test('zero critical alarms with incomplete coverage is unknown; recorded critica
  assert.deepEqual(dashboardCritical({summary:{critical:0},coverage:{connection_available:false,ipsec_available:false}}),{value:null,partial:true});
  assert.deepEqual(dashboardCritical({summary:{critical:2},coverage:{connection_available:true,ipsec_available:false}}),{value:2,partial:true});
  assert.deepEqual(dashboardCritical({summary:{critical:0},coverage:{connection_available:true,ipsec_available:true}}),{value:0,partial:false});
+});
+test('dashboard critical tile opens the exact active P1/P2 alarm when available',()=>{
+ assert.deepEqual(dashboardAlarmTarget({items:[{id:'alarm-id',router_id:'router-id',severity:'P2'}]}),{alarm_id:'alarm-id',alarm_router:'router-id',alarm_state:'ACTIVE',severity:'ALL'});
+ assert.deepEqual(dashboardAlarmTarget({items:[{id:'warning',router_id:'router-id',severity:'P3'}]}),{alarm_state:'ACTIVE',severity:'ALL'});
+ assert.match(dashboardAlarmPath,/levels=P1%2CP2/);assert.match(dashboardAlarmPath,/state=ACTIVE/);
 });
 test('overview loader preserves can_view endpoints and unavailable history without any admin or real-source reads',async()=>{
  const original=globalThis.fetch,calls=[],controller=new AbortController();
