@@ -24,7 +24,8 @@ test('read-only report distinguishes loading, failed source, empty and missing c
  assert.match(render({loading:true,retry(){}}),/Veriler yükleniyor/);
  assert.match(render({loading:false,error:'Yetki yok',retry(){}}),/role="alert"/);
  const html=render({data,loading:false,retry(){}});
- assert.match(html,/Seçili filtrelerde kayıt yok/);assert.match(html,/başarısız denemeler kalıcı audit kaynağında tutulmuyor/);
+ assert.match(html,/Seçili filtrelerde kayıt yok/);assert.match(html,/Başarısız denemeler kalıcı audit kaynağında tutulmuyor/);
+ assert.match(html,/<dt>Başarılı · kayıtlı audit<\/dt><dd>0<\/dd>/);assert.match(html,/<dt>Sonucu belirsiz<\/dt><dd>Sayım yok<\/dd>/);
  assert.match(render({data,loading:false,retry(){}},'#category=CONNECTION'),/bağlantı olay kaynağı bulunmuyor/);
 });
 test('audit report preserves old/new values, result and exact detail destinations',()=>{

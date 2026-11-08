@@ -1,12 +1,17 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {buildDailySummary} from '../src/lib/dailySummary.ts';
-import {dashboardToday,dashboardCritical,loadDashboardSummary,loadDashboardAlarms} from '../src/lib/dashboardOverview.ts';
+import {dashboardToday,dashboardCritical,latestRouterObservation,loadDashboardSummary,loadDashboardAlarms} from '../src/lib/dashboardOverview.ts';
 import {projectRouterEvents} from '../src/lib/routerEvents.ts';
 const now=new Date('2026-11-02T10:00:00Z');
 const router={id:'r1',name:'Sentetik router',status:'ONLINE',is_demo:true};
 const detail={item:{id:'s1',revision:0,router_id:'r1',customer_name:'Sentetik abone',username:'synthetic',access_type:'PPPOE',source:'LOCAL',status:'ACTIVE',expires_on:'2026-11-05',is_demo:true},is_demo:true,history_available:true,history:[]};
 const operation=(id,occurred_at)=>({id,occurred_at,operation:'PLAN_CHANGE',actor_id:'demo',source:'LOCAL',is_demo:true});
+test('dashboard router status uses the newest valid saved observation timestamp, not render time',()=>{
+ const records=[{...router,last_seen:'2026-11-02T09:00:00Z'},{...router,id:'r2',last_seen:'2026-11-02T10:00:00+01:00'},{...router,id:'future',last_seen:'2026-11-03T00:00:00Z'}];
+ assert.equal(latestRouterObservation(records,new Date('2026-11-02T10:00:00Z')),'2026-11-02T09:00:00.000Z');
+ assert.equal(latestRouterObservation([{...router,last_seen:'not-a-date'}],now),null);
+});
 test('daily PPPoE summary uses Turkey today, excludes future/untyped, and unavailable history is unknown',()=>{
  const data=buildDailySummary([router],[{...detail,history:[operation('today','2026-11-01T21:00:00Z'),operation('yesterday','2026-11-01T20:59:59Z'),operation('future','2026-11-02T10:00:01Z')]},{...detail,item:{...detail.item,id:'untyped',access_type:null},history:[operation('untyped',now.toISOString())]}],now);
  assert.deepEqual(dashboardToday(data,null,now),{pppoe:1,outages:null,wan:null});

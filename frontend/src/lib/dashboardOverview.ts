@@ -6,8 +6,14 @@ import {managementRange,uniqueReportRecords} from './managementReport.ts';
 import type {AlarmEvent} from './routerEvents.ts';
 import type {AlarmPage} from './alarms.ts';
 import {observationTime} from './subscriberObservation.ts';
+import type {Router} from './api.ts';
 
 export type DashboardSummary=DailySummary & {history_available?:boolean;within_3?:number;expiry_today?:number};
+export function latestRouterObservation(routers:Router[],now=new Date()){
+  const cutoff=now.getTime();if(!Number.isFinite(cutoff))return null;
+  const times=routers.flatMap(router=>{const time=typeof router.last_seen==='string'&&/(?:Z|[+-]\d{2}:\d{2})$/.test(router.last_seen)?Date.parse(router.last_seen):NaN;return Number.isFinite(time)&&time<=cutoff?[time]:[];});
+  return times.length?new Date(Math.max(...times)).toISOString():null;
+}
 /** Preserve the existing can_view inventory scope; report history stays server-authorized. */
 export async function loadDashboardSummary(_path:string,init?:RequestInit):Promise<DashboardSummary>{
   const {routers,details}=await loadDailyInventory(init);

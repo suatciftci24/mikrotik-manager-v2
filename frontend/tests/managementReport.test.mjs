@@ -196,3 +196,8 @@ test('UUID replay collapses, recorded failure stays separate and unknown request
  for(const field of [{item_id:'foreign'},{revision:99},{revision:-1}])assert.throws(()=>buildManagementReport({...input,workspace:workspace([receipt('failed',{success:false,...field})])},filter,now),/doğrulanamadı/);
  assert.equal(buildManagementReport(input,{...filter,source:'RADIUS'},now).operations.length,0);
 });
+
+test('failed result stays unknown when only the successful legacy history source is available',()=>{
+ const report=buildManagementReport(source([detail('legacy','r1',[operation('saved',now.toISOString())])]),filter,now);
+ assert.deepEqual(report.outcomes,{applied:1,failed:null,unknown:null});
+});

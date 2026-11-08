@@ -101,7 +101,7 @@ export function buildManagementReport(source:ManagementSource,filter:ManagementF
   return {range,inventory,operations,events,historyAvailable,workspaceError:source.workspaceError,
     pppoeOperations:historyAvailable?operations.filter(event=>event.access_type==='PPPOE'&&event.audit_result==='APPLIED').length:null,
     untypedOperations:historyAvailable?operations.filter(event=>event.access_type!== 'PPPOE').length:null,
-    outcomes:{applied:historyAvailable?operations.filter(event=>event.audit_result==='APPLIED').length:null,failed:historyAvailable?operations.filter(event=>event.audit_result==='FAILED').length:null,unknown:null},
+    outcomes:{applied:historyAvailable?operations.filter(event=>event.audit_result==='APPLIED').length:null,failed:historyAvailable&&source.workspace?operations.filter(event=>event.audit_result==='FAILED').length:null,unknown:null},
     expirySummary:buildSubscriptionAlerts(subscribers,turkeyToday(now)),
     expiryRows:subscribers.filter(row=>matchesExpiry(row.expires_on,expiry,turkeyToday(now))),
     generated_at:now.toISOString(),

@@ -171,3 +171,20 @@ yükleme durumu sağlar; hata boundary değildir. Kullanıcı talimatı gereği 
 kurtarma eklenmedi, başarılı code-splitting kabulü iddia edilmez. Chromium
 EPERM bilinen engeli nedeniyle denenmedi. Test/browser kabulü çalıştırılmadı.
 Bu oturumda commit veya push yapılmadı.
+
+## Dashboard ve Operasyon Merkezi yerel UI kabulü — 2026-11-08
+
+- Workspace başarılı/başarısız kayıtlı receipt'leri ve global sonucu belirsiz
+  sayım sözleşmesi sonuç kutularında ayrı sunulur. Workspace audit kaynağı
+  olmadan başarısız toplamı 0 sayılamaz; `null` / Veri yok kullanılır. Belirsiz
+  sayım UUID GET'in tekil kanıt olması nedeniyle global toplam yapılmaz.
+- Dashboard'daki Son 24 saat bağlantısı `LAST_24 + OPERATIONS` filtresiyle
+  mevcut Günlük Yönetim Merkezi'ne gider. Bitiş bağlantıları bugün/3/7/30 ve
+  bilinmeyen tarihi ayırır. Router durum grubuna en yeni geçerli `last_seen`
+  örnek zamanı eklendi; canlı ölçüm iddiası yoktur.
+- PASS: `managementReport`, `managementReportView`, `dashboardExpiryRefresh`,
+  `dashboardOverview`, `centralDashboard`, `operationReport` — 6 test dosyası.
+  Typecheck ve production build PASS. Bir eski sonuç-metni assertion'ı yeni
+  semantik sonuç kutularını doğrulayacak şekilde güncellendi.
+- Browser/mobile gerçek cihaz kabulü yapılmadı. V1/V2.5/VDS/router/RADIUS/IPsec/
+  canlı DB, deploy, migration veya veri işlemi yok.

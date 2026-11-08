@@ -24,6 +24,7 @@ function render(resource){globalThis.__reportResource=resource;try{return render
 test('report renders named filters, synthetic labels, current-state scope and encoded detail links',()=>{
  const html=render({data,loading:false,retry(){}});
  for(const label of ['Bugün','Dün','Son 7 Gün','Son 30 Gün','İşlem / olay','Filtreleri temizle','SENTETİK','geçmişe ait durum tahmini değildir'])assert.ok(html.includes(label));
+ for(const label of ['Başarılı · kayıtlı audit','Başarısız · kayıtlı audit','Sonucu belirsiz','Bu kapsam için başarısızlık kaynağı yok','UUID kanıtı olmayan istek'])assert.ok(html.includes(label),label);
  assert.match(html,/href="#module=subscribers&amp;id=s\+%26\+1&amp;workspace=LEGACY"/);assert.match(html,/href="#module=routers&amp;id=r\+%26\+1&amp;source=DEMO"/);
  assert.match(html,/Kaydedilmiş olay kaynağı yok/);assert.match(html,/aria-label="Günlük yönetim işlemleri tablosu"/);
  assert.doesNotMatch(html,/href="#module=routers&amp;id=undefined"/);
@@ -73,6 +74,6 @@ test('recorded failure is visible without presenting attempted values as applied
  const account={id:'demo-managed-sub-failure',revision:3,customer_name:'Sentetik',username:'synthetic',access_type:'PPPOE',source:'LOCAL'};
  const failed={request_id:'failure-uuid',item_id:account.id,success:false,recorded:true,revision:2,operation:'STATUS',actor_id:'operator',router_id:'demo-managed-router-a',occurred_at:new Date().toISOString(),previous:{},values:{}};
  const html=render({data:{...data,workspace:{accounts:[account],receipts:[failed],routers:[]}},loading:false,retry(){}});
- assert.match(html,/Başarısız: 1/);assert.match(html,/Belirsiz: Sayım kaynağı yok/);
+ assert.match(html,/<dt>Başarısız · kayıtlı audit<\/dt><dd>1<\/dd>/);assert.match(html,/<dt>Sonucu belirsiz<\/dt><dd>Sayım yok<\/dd>/);
  assert.match(html,/Başarısız · Değişiklik uygulanmadı/);assert.match(html,/Uygulanmadı; güncel değer abone detayındadır/);
 });

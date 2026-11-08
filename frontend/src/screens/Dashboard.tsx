@@ -12,7 +12,7 @@ import { ResourceState, dateTime } from '../components/Resource';
 import { useResource } from '../lib/useResource';
 import { useTurkeyToday } from '../lib/useTurkeyToday';
 import { useIdentity } from '../lib/permissions';
-import { loadDashboardSummary, dashboardToday, dashboardCritical, loadDashboardAlarms, dashboardAlarmPath, type DashboardSummary } from '../lib/dashboardOverview';
+import { loadDashboardSummary, dashboardToday, dashboardCritical, loadDashboardAlarms, dashboardAlarmPath, latestRouterObservation, type DashboardSummary } from '../lib/dashboardOverview';
 import { loadRouterEvents } from '../lib/routerEvents';
 
 const DEPENDENCIES = ['/routers', '/subscribers'] as const;
@@ -73,8 +73,11 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
       </div>
       {data&&!resource.error&&<>
         <div className="overview-router-status" role="group" aria-label="Son kaydedilmiş router durumları"><span>Son durum kaydı · canlı değil:</span>{([['ONLINE','Online',data.router_counts.online],['OFFLINE','Offline',data.router_counts.offline],['DEGRADED','Dikkat',data.router_counts.degraded],['UNKNOWN','Bilinmiyor',data.router_counts.unknown]] as const).map(([status,label,count])=><button key={status} className="button-secondary" onClick={()=>routers({status})}>{label} <strong>{count}</strong></button>)}</div>
+        <p className="daily-description">En yeni router ölçüm kaydı: {dateTime(latestRouterObservation(data.routers))} · Zaman her router için farklı olabilir; ayrıntı router detayında.</p>
         <div className="overview-router-status" role="group" aria-label="Abonelik bitiş kapsamı">
           <button className="button-secondary" onClick={()=>subscribers({expiry:'TODAY'})}>Bugün: {data.expiry_today??'Veri yok'}</button>
+          <button className="button-secondary" onClick={()=>subscribers({expiry:'WITHIN_3'})}>3 gün içinde: {data.within_3??'Veri yok'}</button>
+          <button className="button-secondary" onClick={()=>subscribers({expiry:'WITHIN_7'})}>7 gün içinde: {data.expiry.within_7}</button>
           <button className="button-secondary" onClick={()=>subscribers({expiry:'WITHIN_30'})}>30 gün içinde: {data.expiry.within_30}</button>
           <button className="button-secondary" onClick={()=>subscribers({expiry:'UNKNOWN'})}>Bitişi bilinmeyen: {data.expiry.unknown}</button>
         </div><p className="daily-description">Bugün, 3, 7 ve 30 gün aralıkları iç içedir; sayıları toplanmaz. Bilinmeyen tarihler geçerli veya dolmuş sayılmaz. LOCAL/RADIUS hesapları tekil kayıt kimliğiyle sayılır.</p>
@@ -93,7 +96,7 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
         <button className="button-secondary" onClick={()=>routers()}><RouterIcon size={17}/>Router Merkezi<ArrowRight size={14}/></button>
         <button className="button-secondary" onClick={()=>subscribers()}><Users size={17}/>Abone Merkezi<ArrowRight size={14}/></button>
         <button className="button-secondary" aria-label="Günlük Yönetim Merkezi" disabled={!reports} onClick={onReport}><LayoutDashboard size={17}/>Günlük Yönetim Merkezi<ArrowRight size={14}/></button>
-        <button className="button-secondary" disabled={!reports} onClick={()=>{window.location.hash=new URLSearchParams({module:'dashboard',view:'DAILY_REPORT',report_source:'DEMO',period:'LAST_24',kind:'PPPOE',section:'recent-operations'}).toString();}}><Activity size={17}/>Son 24 saat PPPoE işlemleri<ArrowRight size={14}/></button>
+        <button className="button-secondary" disabled={!reports} onClick={()=>{window.location.hash=new URLSearchParams({module:'dashboard',view:'DAILY_REPORT',report_source:'DEMO',period:'LAST_24',kind:'OPERATIONS',section:'recent-operations'}).toString();}}><Activity size={17}/>Son 24 saat yönetim işlemleri<ArrowRight size={14}/></button>
         <button className="button-secondary" onClick={()=>onNavigate('operations')}><AlertTriangle size={17}/>Alarm Merkezi<ArrowRight size={14}/></button>
         <button className="button-secondary" disabled={!mika} onClick={()=>onNavigate('mikajani')}><Bot size={17}/>MikAjanı<ArrowRight size={14}/></button>
       </div>

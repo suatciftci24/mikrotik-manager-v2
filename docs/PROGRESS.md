@@ -1,5 +1,20 @@
 # MikroTik Manager V2 — İlerleme
 
+## Dashboard ve Operasyon Merkezi sonuç görünürlüğü — 2026-11-08
+
+- Yönetim raporunda başarılı, kayıtlı başarısız ve sonucu belirsiz işlemler
+  ayrı sonuç kutularında gösterilir. Workspace audit kaynağı yokken başarısız
+  toplamı artık sıfır gösterilmez; Veri yok kalır. Belirsiz global sayım için
+  UUID audit kaynağı olmadığından sayım üretilmez. İşlem UUID/detay bağlantıları
+  ve mevcut abone/router/tarih filtre dönüşleri korunur.
+- Dashboard son 24 saat kısayolu tüm yönetim işlemlerini (yalnız PPPoE değil)
+  mevcut filtreli rapor bölümüne açar. Abonelik kapsamı bugün/3/7/30 günü ve
+  tarihi bilinmeyenleri ayrı sunar. Router durumu yanında en yeni kayıtlı
+  ölçüm zamanı gösterilir; cihaz bazındaki zamanın detayda değiştiği belirtilir.
+- PASS: 6 hedef Node test dosyası; typecheck ve build. İlk UI assertion eski
+  düz metin yerine geçerli sonuç kartları sözleşmesine güncellendi.
+- Yalnız sentetik frontend kaynakları; canlı sistem, deploy veya migration yok.
+
 ## Router Merkezi ve detay ekranı — 2026-11-08
 
 - Router listesi durum kaydını, mevcut WAN snapshot'ını, CPU/RAM, abone sayısı
