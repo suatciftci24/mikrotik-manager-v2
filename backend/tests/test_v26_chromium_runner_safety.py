@@ -78,6 +78,10 @@ class V26ChromiumRunnerSafety(TestCase):
         self.assertNotIn("getByText('V2.6 İzole Kabul Ortamı',{exact:false})", browser)
         self.assertNotIn('detail=${error.message}', browser)
         self.assertNotIn('${error.stack}', browser)
+        self.assertIn("reportError('BROWSER_CLEANUP',error)", browser)
+        self.assertIn("reportError('STATIC_HTTP_CLEANUP',error)", browser)
+        self.assertIn("reportError('TEMP_CLEANUP',error)", browser)
+        self.assertIn("PASS: browser scenario and owned resources cleanup complete", browser)
 
     def test_playwright_dependency_is_exact_and_lockfile_matches(self):
         frontend = runner.REPO / 'frontend'

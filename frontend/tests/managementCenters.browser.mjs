@@ -21,6 +21,20 @@ const receipt={status:'FAIL',synthetic_only:true,checks:[]};
 const ok=label=>{receipt.checks.push(label);console.log('PASS:',label);};
 let browser,base;const violations=[],errors=[],reads=[];
 let phase='BUNDLE';
+const reportError=(errorPhase,error)=>{
+ const safeName=/^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(error?.name||'')?error.name:'Error';
+ const safeCode=/^[A-Z0-9_-]{1,40}$/.test(String(error?.code||''))?String(error.code):null;
+ const safeErrno=Number.isInteger(error?.errno)?error.errno:null;
+ const safeDetail=String(error?.message||'').replace(/https?:\/\/[^\s)]+/gi,'[url]')
+  .replace(/(?:\/home\/|\/tmp\/)[^\s)]+/g,'[path]')
+  .replace(/\b[A-Za-z0-9_-]{32,}\b/g,'[redacted]')
+  .replace(/[^\p{L}\p{N} .,:;_()'/-]/gu,'?').replace(/\s+/g,' ').trim().slice(0,180);
+ const outcome=errorPhase==='STATIC_HTTP_BIND'||errorPhase==='CHROMIUM_LAUNCH'||errorPhase.endsWith('_CLEANUP')?'BLOCKED':
+  (safeName==='AssertionError'||safeName==='TimeoutError'?'FAIL':'BLOCKED');
+ console.error(`${outcome}: browser_phase=${errorPhase} error_class=${safeName}`+
+  (safeCode?` code=${safeCode}`:'')+(safeErrno!==null?` errno=${safeErrno}`:'')+
+  (safeDetail?` detail=${safeDetail}`:''));
+};
 try{
 await build({stdin:{contents:"import React from 'react';import {createRoot} from 'react-dom/client';import App from './src/App';createRoot(document.getElementById('root')).render(<App/>);",resolveDir:process.cwd(),loader:'tsx'},bundle:true,outfile:join(temp,'fixture.js'),jsx:'automatic',platform:'browser'});
 writeFileSync(join(temp,'index.html'),'<!doctype html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="/theme.js"></script><link rel="stylesheet" href="/fixture.css"></head><body><div id="root"></div><script src="/fixture.js"></script></body></html>');
@@ -131,21 +145,17 @@ const server=createServer((req,res)=>{const path=req.url.split('?')[0]==='/'?'in
  ok('VIEWER: yazma düğmeleri gizli, doğrudan kayıtlı cihaz hash erişimi reddedilir');
  assert.deepEqual(violations,[]);assert.deepEqual(errors,[]);
  assert.ok(reads.includes('/api/ready'),'explicit V2.6 runtime profile readiness was not read');
- receipt.status='PASS';ok('Harici istek, mutation, beklenmeyen API ve tarayıcı hatası yok');
+ receipt.status='PASS';console.log('CHECK: browser assertions passed; cleanup pending');
 }catch(error){
- const safeName=/^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(error?.name||'')?error.name:'Error';
- const safeCode=/^[A-Z0-9_-]{1,40}$/.test(String(error?.code||''))?String(error.code):null;
- const safeErrno=Number.isInteger(error?.errno)?error.errno:null;
- const safeDetail=String(error?.message||'').replace(/https?:\/\/[^\s)]+/gi,'[url]')
-  .replace(/(?:\/home\/|\/tmp\/)[^\s)]+/g,'[path]')
-  .replace(/\b[A-Za-z0-9_-]{32,}\b/g,'[redacted]')
-  .replace(/[^\p{L}\p{N} .,:;_()'/-]/gu,'?').replace(/\s+/g,' ').trim().slice(0,180);
- const outcome=phase==='STATIC_HTTP_BIND'||phase==='CHROMIUM_LAUNCH'?'BLOCKED':
-  (safeName==='AssertionError'||safeName==='TimeoutError'?'FAIL':'BLOCKED');
- console.error(`${outcome}: browser_phase=${phase} error_class=${safeName}`+
-  (safeCode?` code=${safeCode}`:'')+(safeErrno!==null?` errno=${safeErrno}`:'')+
-  (safeDetail?` detail=${safeDetail}`:''));
+ reportError(phase,error);
  throw error;
 }finally{
- try{await browser?.close();}finally{await new Promise(resolve=>server.listening?server.close(resolve):resolve());rmSync(temp,{recursive:true,force:true});}
+ const cleanupErrors=[];
+ try{await browser?.close();}catch(error){reportError('BROWSER_CLEANUP',error);cleanupErrors.push(error);}
+ try{await new Promise((resolve,reject)=>server.listening?server.close(error=>error?reject(error):resolve()):resolve());}
+ catch(error){reportError('STATIC_HTTP_CLEANUP',error);cleanupErrors.push(error);}
+ try{rmSync(temp,{recursive:true,force:true});}
+ catch(error){reportError('TEMP_CLEANUP',error);cleanupErrors.push(error);}
+ if(cleanupErrors.length)throw cleanupErrors[0];
 }
+console.log('PASS: browser scenario and owned resources cleanup complete');
