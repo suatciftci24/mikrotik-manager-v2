@@ -118,3 +118,16 @@ test('legacy toolbar routes three actions to QuickActions and blocks unauthorize
  }
  allowed=false;assert.equal(nodes(render()).filter(n=>n.type==='button').length,0);assert.equal(nodes(render()).some(n=>typeof n.type==='function'&&n.type.name==='QuickActions'),false);
 });
+
+test('history shows UUID and historical/current revisions separately and retains return filters in links',()=>{
+ const before=globalThis.window,hash='#module=subscribers&workspace=PERSISTENT&id='+data.item.id+'&tab=history&workspace_page=2';globalThis.window={location:{hash}};
+ try{
+  const event={request_id:'12345678-1234-4234-8234-123456789abc',source:'LOCAL',operation:'PLAN',occurred_at:'2026-11-08T10:00:00Z',actor_id:'synthetic',revision:2,result:'FAILED',error:'Revizyon değişti.',router_id:data.item.router_id,date_changed:false};
+  const tree=module.exports.SubscriberDeviceCenterView({data:{...data,item:{...data.item,revision:7},history:[event]},tab:'history',onTab(){}}),html=renderToStaticMarkup(tree);
+  assert.match(html,/İşlem UUID: 12345678/);assert.match(html,/İşlem revizyonu: 2/);assert.match(html,/Güncel abonelik revizyonu: 7/);assert.match(html,/Başarısız · Kayıt değiştirilmedi/);assert.match(html,/Yetkili kaynak: LOCAL/);
+  const links=nodes(tree).filter(node=>node.type==='a'&&node.props.href?.includes('return_to='));
+  assert.ok(links.some(node=>new URLSearchParams(node.props.href.slice(1)).get('module')==='routers'));
+  for(const link of links)assert.equal(new URLSearchParams(link.props.href.slice(1)).get('return_to'),hash);
+  assert.doesNotMatch(html,/Uygulandı · Sentetik kayıt/);
+ }finally{globalThis.window=before;}
+});

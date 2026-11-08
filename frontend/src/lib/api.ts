@@ -50,7 +50,7 @@ export type DashboardData = {
   is_demo: true;
 };
 
-export type SubscriberHistoryEvent = {
+export type SubscriberHistoryEvent = {revision?:number|null;
   action?: string; previous_plan?: string; plan?: string; previous_status?: string; status?: string;
   id: string; occurred_at: string; previous_expires_on?: string | null; expires_on?: string | null;
   previous_values?: Record<string, string | number | null>; new_values?: Record<string, string | number | null>;

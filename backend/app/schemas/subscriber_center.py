@@ -54,6 +54,8 @@ class CenterSubscriber(BaseModel):
     session_status:Literal['UNKNOWN']='UNKNOWN'
 
 class CenterSubscriberEvent(BaseModel):
+    request_id:str|None=None
+    source:Literal['LOCAL','RADIUS']|None=None
     operation:str
     occurred_at:str
     actor_id:str

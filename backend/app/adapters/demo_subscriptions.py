@@ -59,7 +59,7 @@ class PostgresDemoStore:
         return {**row['payload'], 'revision': row['revision']} if row else None
 
     def _history(self, connection, item_id):
-        return list(connection.execute(text(f'SELECT payload FROM {self.schema}.events WHERE subscriber_id=:id ORDER BY revision DESC'), {'id': item_id}).scalars())
+        return [{**row['payload'],'revision':row['revision']} for row in connection.execute(text(f'SELECT payload,revision FROM {self.schema}.events WHERE subscriber_id=:id ORDER BY revision DESC'), {'id': item_id}).mappings()]
 
     def _response(self, item, history):
         return {'item': item, 'history': history, 'is_demo': True, 'persistence': self.persistence}
@@ -98,8 +98,8 @@ class PostgresDemoStore:
                 groups=list(connection.execute(text("SELECT e.payload->>'operation' AS operation, e.payload->'new_values'->>'status' AS status, count(*) AS total "+base+" GROUP BY 1,2"),params).mappings())
                 where=base+" AND (:operation='' OR e.payload->>'operation'=:operation)"
                 total=connection.execute(text('SELECT count(*) '+where),params).scalar_one()
-                rows=connection.execute(text("SELECT e.payload AS event,s.payload AS subscriber "+where+" ORDER BY (e.payload->>'occurred_at')::timestamptz DESC,e.id LIMIT :limit OFFSET :offset"),params).mappings()
-                audits=[{**row['event'],'subscriber_id':row['subscriber']['id'],
+                rows=connection.execute(text("SELECT e.payload AS event,e.revision AS event_revision,s.payload AS subscriber "+where+" ORDER BY (e.payload->>'occurred_at')::timestamptz DESC,e.id LIMIT :limit OFFSET :offset"),params).mappings()
+                audits=[{**row['event'],'revision':row.get('event_revision'), 'request_id':row['event'].get('id'),'audit_result':'APPLIED','subscriber_id':row['subscriber']['id'],
                          **{key:row['subscriber'].get(key) for key in ('customer_name','username','router_id','router_name','access_type')}} for row in rows]
         return items,audits,total,[dict(row) for row in groups]
 

@@ -4546,3 +4546,29 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Normal `git push origin main-guncel` denendi; push BLOCKED:
   `Could not resolve host: github.com`. Yerel tek commit korunur; ağ
   erişiminde normal push gerekir. Force push yapılmadı.
+
+## V2.6 — işlem detay görünürlüğü ve yenileme yarışının giderilmesi — 2026-11-08
+
+- Başlangıç main-guncel/d6084b0 temiz; Altın Kurallar/son kabul/özellik
+  koruma okundu. Uzak main-guncel907e1cc; önceki yerel commit korunur.
+- Ortak useResource retry/invalidation'da eski isteği hemen iptal eder;
+  path+girişim+loader eşleşmeyen veriyi gizler. Yeni okuma sonrası geç gelen
+  eski yanıt liste/detay/günlük rapor/Dashboard'u eski revizyona döndüremez.
+- Mevcut detayda UUID/audit sonucu/işlem revizyonu/güncel abonelik revizyonu/
+  router/kaynak bilgisi. History/report revizyonu audit kolonundan gelir;
+  eksik metadata tahmin edilmez. Geçmişten abone/router ve filtreli dönüş
+  mevcut helper ile korunur; tarihsel audit güncel hesap durumu sayılmaz.
+- PASS: 51 hedefli frontend,4 backend test; tek tsc/Vite build ve diff.
+  Hook testinin cwd kaynaklı entry sorunu import.meta.url ile düzeltildi;
+  receipt revision fixture'ı açık değerle doğrulandı. Kapılar gevşetilmedi.
+- Kabul docs/V26_PENDING_RECOVERY_ACCEPTANCE.md son bölümünde. UUID proof,
+  GET-only recovery/yetki ve LOCAL/RADIUS/kaynak izolasyonu korunur; yeni API,
+  menü/bileşen/migration yok. Chromium EPERM nedeniyle BLOCKED; tekrar yok.
+- Mevcut >500kB uyarısı sürer. Gerçek mobil/HTTP/PG kabulü iddia edilmez.
+  V1/V2.5/VDS/cihaz/RADIUS/IPsec/canlıDB/deploy/restart/silme yok; yalnız
+  private sentetik/mock testler. Tarihsel genel kabul engelleri açık.
+
+- Normal `git push origin main-guncel` denendi; push BLOCKED:
+  `Could not resolve host: github.com`. Bu görevin tek yeni commit’i ve
+  önceki yerel d6084b0 korunur; uzak907e1cc üstüne iki commit bekler.
+  Ağ erişiminde normal push gerekir; force push yapılmadı.

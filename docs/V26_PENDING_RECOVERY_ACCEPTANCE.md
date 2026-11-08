@@ -194,3 +194,82 @@ PG/HTTP kabul engelleri bu hedefli PASS'lerle kapanmış sayılmaz.
 - Normal `git push origin main-guncel` denendi; push BLOCKED:
   `Could not resolve host: github.com`. Yerel tek commit korunur; ağ
   erişiminde normal push gerekir. Force push yapılmadı.
+
+## d6084b0 sonrası operasyon görünümü ve yenileme tutarlılığı — 2026-11-08
+
+Başlangıç main-guncel/d6084b0, çalışma ağacı temiz; önceki yerel commit
+korundu. AGENTS/Altın Kurallar, güncel ilerleme/son recovery ve özellik koruma
+envanteri okundu. Uzak dal ls-remote ile hâlâ907e1cc; başlangıçtaki bir yerel
+commit yeniden oluşturulmadı/squash edilmedi. **Yerel hedefli kabul PASS.**
+
+### Kanıtlanan eksik ve kapsamlı düzeltme
+
+Ortak useResource, invalidation/retry sonrasında yeni effect kurulana kadar
+eski state'i aynı path ile döndürebiliyordu; iptal de effect cleanup'a kadar
+gecikiyordu. Bu render aralığında eski revizyon yeni doğrulamadan sonra
+kısa süre tekrar gösterilebiliyordu. Mevcut yükleyici korundu:
+
+- Retry/invalidation aktif controller'ı hemen iptal eder. State path'e ek
+  olarak yükleme girişimi ve loader kimliğiyle eşleşmedikçe data gösterilmez,
+  loading döner. Eski transport abort'u dikkate almayıp geç yanıt verse de
+  iptal edilen isteğin sonucu kaydedilmez. Başarısız yeni okuma eski veriyi
+  başarı gibi geri getirmez. Global optimistic cache/revizyon yazımı yok.
+- Yeni hook regresyonu aynı invalidation altında liste, detay, günlük rapor
+  ve Dashboard'u gerçekten yükler. Önce rev1, sonra yenilemeden önce/sonra
+  rev2; effect kurulmadan data gizleme ve daha sonra çözülen rev1 yanıtının
+  bütün ekranlarda rev2'yi ezememesi doğrulandı. Bu test tarayıcı veya tüm
+  kaynaklar için global snapshot/replica consistency kanıtı değildir.
+
+İkinci eksik mevcut detaylarda işlem kimliği/revizyon görünürlüğüydü:
+
+- Mevcut abone history response'una request_id ve kaynak eklendi; UUID audit
+  event.id'den, workspace revizyonu event.revision'dan gelir. Legacy geçmiş
+  projection'ı ID/kaynak/revizyonu aynen taşır, olmayan revizyon tahmin edilmez.
+  Kalıcı legacy history/report okuyucusu audit tablosunun revision kolonunu
+  kullanır; mevcut abone revizyonu audit revizyonunun yerine konmaz.
+- Mevcut işlem dialog'u UUID/audit kimliği, işlem revizyonu, audit sonucu,
+  router ID ve kaynak gösterir. Workspace rapor satırında namespaced UI id
+  yerine ayrı gerçek request UUID taşınır; yalnız kayıtlı başarılı receipt'ler
+  APPLIED'dır. Eski yanıtta eksik audit sonucu/revizyon açıkça bilinmiyor
+  gösterilir, başarı uydurulmaz. UUID uzlaştırması ayrı mevcut kanıt yoludur.
+- Abone detayında güncel revizyon ile history'deki işlem revizyonu ayrı
+  etiketlenir; başarısız audit “Kayıt değiştirilmedi” kalır. Tarihsel audit'in
+  güncel hesap durumu olmadığı ve belirsiz isteğe başarı atfetmediği yazılır.
+  Mevcut linkedDetailHash ile geçmişten router/abone bağlantısı, kaynak,
+  sekme ve liste/sayfa filtrelerini dönüşte korur. Eski revizyon etiketi
+  ikinci kez tekrarlanmaz; uzun alanlar mevcut saran mobil stilleri kullanır.
+
+Yeni API/menü/bileşen/migration yok. Mevcut actor/ADMIN/router yetkileri,
+LOCAL/RADIUS ve legacy/workspace/V1 izolasyonu, UUID kanıtı doğrulaması ve
+salt GET recovery değiştirilmedi. Ekranlar kendi yetkili kaynaklarını yeniler;
+workspace işlem toplamı legacy Dashboard ile birleştirilmedi.
+
+### Hedefli kabul
+
+51 frontend test PASS: subscriberCenter13, managementReport15,
+operationsNavigation10, pendingSubscriberOperations12, resourceReconciliation1.
+Metadata görünümü, UNKNOWN sonucu için başarı reddi, tarihsel/güncel revizyon,
+router dönüş filtresi, mevcut UUID proof, son50 bağımsızlığı ve eski in-flight
+okuma yarışı kapsanır. Yeni hook testinin ilk çağrısında cwd'ye bağlı esbuild
+entry çözülemedi; entry import.meta.url ile sabitlendi. Ürün hatası sayılmadı.
+Paket/receipt fixture'ına gerçek revision3 eklenip açıkça assertion yapıldı;
+undefined değer eşitliğine güvenilmedi, hiçbir kontrol gevşetilmedi.
+
+4 backend test PASS: HistoryMetadataTests. Private sentetik SQLite'da
+create+FAILED audit+sonraki update ile UUID/source/historical/current revision
+ayrımı; legacy eksik revizyonu tahmin etmeme; SQL mock'ta payload'ı değiştirmeden
+revision kolonunu okuma ve readonly raporda audit rev3/current rev9 ayrımı.
+Mevcut/canlı DB kullanılmadı. SELECT/READ ONLY sorgu
+assertion'ları yeni rapor/history okuyucuları için korundu.
+
+Tek tsc/Vite build PASS; ana bundle617.26kB, mevcut >500kB uyarısı sürer.
+Diff kontrolü PASS. Chromium önceki EPERM nedeniyle BLOCKED; yeni deneme yok.
+Gerçek mobil/Chromium/HTTP/PG genel kabul iddiası yok. Eski backend ek metadata
+sağlamazsa UI eksik alanları bilinmiyor gösterir; UUID proof kontrolü gevşemez.
+V1/V2.5/canlıVDS/router/RADIUS/IPsec/canlıDB/deploy/restart/migration/silme
+ve gerçek veri işlemi yapılmadı. Tarihsel Dashboard/PG-HTTP engelleri korunur.
+
+- Normal `git push origin main-guncel` denendi; push BLOCKED:
+  `Could not resolve host: github.com`. Bu görevin tek yeni commit’i ve
+  önceki yerel d6084b0 korunur; uzak907e1cc üstüne iki commit bekler.
+  Ağ erişiminde normal push gerekir; force push yapılmadı.

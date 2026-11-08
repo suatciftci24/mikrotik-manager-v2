@@ -111,14 +111,14 @@ test('V2.2 future recovery cannot supply an end or duration in a current outage 
 });
 
 const managedAccount={id:'demo-managed-sub-a',customer_name:'Kalıcı demo',username:'synthetic.a',access_type:'PPPOE',source:'LOCAL',router_id:'demo-managed-router-new'};
-const receipt=(request_id,extra={})=>({request_id,item_id:managedAccount.id,success:true,recorded:true,operation:'EXTEND',actor_id:'demo-user',router_id:'demo-managed-router-old',occurred_at:now.toISOString(),previous:{expires_on:'2026-10-27'},values:{expires_on:'2026-11-26'},...extra});
+const receipt=(request_id,extra={})=>({request_id,item_id:managedAccount.id,success:true,recorded:true,revision:3,operation:'EXTEND',actor_id:'demo-user',router_id:'demo-managed-router-old',occurred_at:now.toISOString(),previous:{expires_on:'2026-10-27'},values:{expires_on:'2026-11-26'},...extra});
 const workspace=(receipts)=>({accounts:[managedAccount],receipts,routers:[{id:'demo-managed-router-old',fields:{name:'Önceki sentetik router'}}]});
 test('V2.3 persistent PPPoE receipts retain historical router and values, exclude failed, future and Hotspot',()=>{
  const input={...source([detail('legacy','r1',[operation('legacy-op',now.toISOString())])]),workspace:workspace([receipt('renew'),receipt('failed',{success:false}),receipt('future',{occurred_at:'2026-10-27T10:00:00Z'}),receipt('hotspot',{item_id:'demo-managed-sub-h'})])};
  input.workspace.accounts.push({...managedAccount,id:'demo-managed-sub-h',access_type:'HOTSPOT'});
  const report=buildManagementReport(input,filter,now);
  assert.equal(report.pppoeOperations,2);assert.equal(report.operations.length,2);
- const saved=report.operations.find(row=>row.workspace);assert.equal(saved.router_id,'demo-managed-router-old');assert.equal(saved.router_name,'Önceki sentetik router');assert.equal(saved.previous_expires_on,'2026-10-27');assert.equal(saved.expires_on,'2026-11-26');
+ const saved=report.operations.find(row=>row.workspace);assert.equal(saved.request_id,'renew');assert.equal(saved.audit_result,'APPLIED');assert.equal(saved.revision,3);assert.equal(saved.router_id,'demo-managed-router-old');assert.equal(saved.router_name,'Önceki sentetik router');assert.equal(saved.previous_expires_on,'2026-10-27');assert.equal(saved.expires_on,'2026-11-26');
  assert.equal(buildManagementReport(input,{...filter,router:'demo-managed-router-old'},now).pppoeOperations,1);
  assert.equal(buildManagementReport(input,{...filter,router:managedAccount.router_id},now).pppoeOperations,0);
  assert.equal(buildManagementReport(input,{...filter,kind:'PLAN_CHANGE'},now).pppoeOperations,0);

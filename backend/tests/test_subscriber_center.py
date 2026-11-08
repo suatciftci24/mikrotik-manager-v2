@@ -98,3 +98,51 @@ class SubscriberCenterContracts(TestCase):
         from app.main import app
         paths=app.openapi()['paths'];self.assertEqual(set(paths['/api/v1/subscriber-center/{id}']),{'get'})
         self.assertIn('post',paths['/api/v1/subscriber-workspace']);self.assertNotIn('delete',paths['/api/v1/subscriber-workspace/{id}'])
+
+class HistoryMetadataTests(TestCase):
+    setUp=SubscriberTransactions.setUp
+    command=SubscriberTransactions.command
+
+    def test_history_metadata_is_exact_and_not_replaced_by_current_revision(self):
+        from app.schemas.subscriber_management_center import SubscriberOperation
+        from app.services.subscriber_operations import SubscriberOperationsService
+        command=self.command(source='RADIUS');item=self.workspace.save(command,'actor')
+        failed=SubscriberOperation(request_id=uuid4(),item_id=item.id,expected_revision=99,expected_source=item.source,
+            expected_router_id=item.router_id,expected_expires_on=item.expires_on.isoformat(),operation='STATUS',value='ACTIVE',confirmed=True)
+        result=SubscriberOperationsService(self.sessions,lambda s:None).execute(failed,'actor');self.assertFalse(result['success'])
+        self.workspace.save(self.command(revision=1,source='RADIUS',plan='Later plan'),'actor',item.id)
+        detail=self.workspace.detail(item.id);self.assertEqual(detail.item.revision,2)
+        events={row.request_id:row for row in detail.history}
+        self.assertEqual(events[str(command.request_id)].revision,1);self.assertEqual(events[str(command.request_id)].source,'RADIUS')
+        self.assertEqual(events[str(failed.request_id)].result,'FAILED');self.assertEqual(events[str(failed.request_id)].router_id,item.router_id)
+        self.assertEqual(events[str(failed.request_id)].source,'RADIUS');self.assertEqual(events[str(failed.request_id)].revision,1)
+
+    def test_legacy_projection_preserves_ids_and_never_infers_a_missing_revision(self):
+        from app.services.subscriber_center import legacy_event
+        base=dict(id='12345678-1234-4234-8234-123456789abc',source='LOCAL',operation='CREATE',occurred_at='2026-11-08T12:00:00Z',actor_id='actor',router_id='demo-router-fixture')
+        value=legacy_event(base);self.assertEqual(value['request_id'],base['id']);self.assertEqual(value['source'],'LOCAL');self.assertIsNone(value['revision'])
+        self.assertEqual(legacy_event({**base,'revision':3})['revision'],3)
+
+    def test_persistent_legacy_history_reads_revision_column_without_mutating_payload(self):
+        from app.adapters.demo_subscriptions import PostgresDemoStore
+        store=object.__new__(PostgresDemoStore);store.schema='v2_demo';connection=Mock()
+        payload={'id':'synthetic-uuid','revision':999}
+        connection.execute.return_value.mappings.return_value=[{'payload':payload,'revision':12}]
+        result=store._history(connection,'demo-sub-fixture')
+        self.assertEqual(result,[{'id':'synthetic-uuid','revision':12}]);self.assertEqual(payload['revision'],999)
+        sql=str(connection.execute.call_args.args[0]);self.assertTrue(sql.startswith('SELECT payload,revision'));self.assertNotIn('UPDATE',sql)
+
+    def test_operation_report_uses_audit_revision_instead_of_current_account_revision(self):
+        from app.adapters.demo_subscriptions import PostgresDemoStore
+        from unittest.mock import MagicMock
+        store=object.__new__(PostgresDemoStore);store.schema='v2_demo';store._verify=Mock()
+        connection=MagicMock();connection.__enter__.return_value=connection
+        store.engine=Mock();store.engine.connect.return_value.execution_options.return_value=connection
+        def query(sql,*_args):
+            result=MagicMock();result.scalars.return_value=[];result.scalar_one.return_value=1
+            result.mappings.return_value=([{'event':{'id':'uuid-event','operation':'PLAN_CHANGE'},'event_revision':3,'subscriber':{'id':'demo-sub-fixture','revision':9,'router_id':'demo-router-fixture'}}] if 'AS event' in str(sql) else [])
+            return result
+        connection.execute.side_effect=query
+        _items,rows,_total,_groups=store.report_records('start','until','cutoff','','','','',25,0,scope_routers=[])
+        self.assertEqual(rows[0]['revision'],3);self.assertEqual(rows[0]['request_id'],'uuid-event');self.assertEqual(rows[0]['audit_result'],'APPLIED')
+        self.assertTrue(all(str(call.args[0]).lstrip().startswith(('SELECT','SET TRANSACTION READ ONLY')) for call in connection.execute.call_args_list))

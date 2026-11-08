@@ -62,7 +62,7 @@ class SubscriberWorkspace:
             router=session.get(Router,account.router_id)
             if router and router.kind!='DEMO_ROUTER':router=None
             events=session.scalars(select(Event).where(Event.subscriber_id==id).order_by(Event.occurred_at.desc(),Event.id).limit(50)).all()
-            return SubscriberCenterData(item=account_view(account,router),source='PERSISTENT_WORKSPACE',persistence='local-postgresql-workspace',history=[center_event(e) for e in events])
+            return SubscriberCenterData(item=account_view(account,router),source='PERSISTENT_WORKSPACE',persistence='local-postgresql-workspace',history=[center_event(e,account.source) for e in events])
     @boundary
     def save(self,command,actor,id=None):
         values=command.fields.model_dump(mode='json');target=id or 'demo-managed-sub-'+str(command.request_id)
@@ -217,13 +217,13 @@ def legacy_event(event):
         operation = 'PLAN'
     elif operation == 'STATUS_CHANGE':
         operation = 'STATUS'
-    return dict(operation=operation, occurred_at=event['occurred_at'], actor_id=event['actor_id'],
+    return dict(request_id=event.get('id'),source=event.get('source'),operation=operation, occurred_at=event['occurred_at'], actor_id=event['actor_id'],
                 revision=event.get('revision'), subscriber_id=event.get('subscriber_id'),
                 router_id=event.get('router_id'), previous_values=audit_values(previous),
                 new_values=audit_values(values), previous_expires_on=old, expires_on=new,
                 date_changed=has_date and old!=new, result='APPLIED')
 
-def center_event(event):
+def center_event(event,source=None):
     from app.services.subscriber_operations import event_receipt
     receipt=event_receipt(event)
-    return dict(operation=event.operation,occurred_at=event.occurred_at,actor_id=event.actor_id,revision=event.revision,subscriber_id=event.subscriber_id,router_id=receipt['router_id'],previous_values=receipt['previous'],new_values=receipt['values'],result='APPLIED' if receipt['success'] else 'FAILED',error=receipt['error'],previous_expires_on=event.changes.get('expires_on',{}).get('previous'),expires_on=event.changes.get('expires_on',{}).get('new'),date_changed='expires_on' in event.changes and event.changes['expires_on'].get('previous')!=event.changes['expires_on'].get('new'))
+    return dict(request_id=event.id,source=source,operation=event.operation,occurred_at=event.occurred_at,actor_id=event.actor_id,revision=event.revision,subscriber_id=event.subscriber_id,router_id=receipt['router_id'],previous_values=receipt['previous'],new_values=receipt['values'],result='APPLIED' if receipt['success'] else 'FAILED',error=receipt['error'],previous_expires_on=event.changes.get('expires_on',{}).get('previous'),expires_on=event.changes.get('expires_on',{}).get('new'),date_changed='expires_on' in event.changes and event.changes['expires_on'].get('previous')!=event.changes['expires_on'].get('new'))

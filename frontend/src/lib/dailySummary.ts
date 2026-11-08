@@ -3,7 +3,7 @@ import { api, type Router, type SubscriberDetailData, type SubscriberHistoryEven
 import { expiryInfo, turkeyToday } from './expiry.ts';
 import { subscriberSource } from './source.ts';
 
-export type DailyOperation = SubscriberHistoryEvent & {subscriber_id: string; customer_name: string; router_name:string; username:string; access_type:'PPPOE'|null};
+export type DailyOperation = SubscriberHistoryEvent & {request_id?:string;router_id?:string|null;audit_result?:'APPLIED'|'FAILED'|'UNKNOWN';subscriber_id: string; customer_name: string; router_name:string; username:string; access_type:'PPPOE'|null};
 export type DailySummary = {
   generated_at: string; as_of_date: string; is_demo: true;
   routers: Router[];
@@ -35,7 +35,7 @@ export function buildDailySummary(routers: Router[], details: SubscriberDetailDa
     if (!Array.isArray(detail.history)) throw new Error('Abonelik işlem geçmişi alınamadı.');
     for (const event of detail.history) {
       if (event.is_demo !== true || !/(?:Z|[+-]\d{2}:\d{2})$/.test(event.occurred_at) || !Number.isFinite(Date.parse(event.occurred_at))) throw new Error('İşlem geçmişinin kaynak veya zaman bilgisi doğrulanamadı.');
-      operations.push({...event, subscriber_id: detail.item.id, customer_name: detail.item.customer_name, router_name:detail.item.router_name||'Veri yok', username:detail.item.username||'Veri yok', access_type:detail.item.access_type??null});
+      operations.push({...event,request_id:event.id,audit_result:'APPLIED', subscriber_id: detail.item.id, customer_name: detail.item.customer_name, router_name:detail.item.router_name||'Veri yok', username:detail.item.username||'Veri yok', access_type:detail.item.access_type??null});
     }
   }
   if (new Set(operations.map(event=>event.id)).size !== operations.length) throw new Error('İşlem geçmişi tekil değil; özet oluşturulamadı.');

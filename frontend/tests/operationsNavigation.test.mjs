@@ -156,3 +156,11 @@ test('daily operation context links keep router permission boundaries and record
   const dialog=nodes(report.type(report.props)).find(node=>node.props.event?.id==='op');assert.equal(dialog.props.onAlarms,undefined);assert.equal(dialog.props.onReport,undefined);
  }finally{cleanup();identity=null;selectedEvent=null;}
 });
+
+test('operation detail exposes exact UUID, historical revision, router and explicit audit outcome without guessing success',()=>{
+ const event={id:'workspace:12345678-1234-4234-8234-123456789abc',request_id:'12345678-1234-4234-8234-123456789abc',workspace:true,revision:3,router_id:'demo-managed-router-test',subscriber_id:'demo-managed-sub-test',customer_name:'Sentetik',username:'synthetic',router_name:'Historical Router',source:'RADIUS',operation:'PLAN_CHANGE',occurred_at:new Date().toISOString(),is_demo:true};
+ for(const outcome of ['APPLIED','UNKNOWN']){const html=renderToStaticMarkup(module.exports.OperationDetails({event:{...event,audit_result:outcome},onClose(){},onSubscriber(){}}));
+  assert.match(html,/12345678-1234-4234-8234-123456789abc/);assert.doesNotMatch(html,/workspace:12345678/);assert.match(html,/İşlem revizyonu/);assert.match(html,/>3</);assert.match(html,/demo-managed-router-test/);assert.match(html,/RADIUS/);
+  if(outcome==='APPLIED')assert.match(html,/Uygulandı · Kaydedilmiş audit/);else{assert.match(html,/başarı varsayılmaz/);assert.doesNotMatch(html,/Uygulandı · Kaydedilmiş audit/);}
+ }
+});

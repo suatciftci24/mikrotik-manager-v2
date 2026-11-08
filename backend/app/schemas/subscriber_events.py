@@ -26,6 +26,7 @@ class ExpiryChange(BaseModel):
 
 
 class SubscriberHistoryEvent(BaseModel):
+    revision:int|None=None
     id: str
     occurred_at: datetime
     previous_expires_on: date | None = None
