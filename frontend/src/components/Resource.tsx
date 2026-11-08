@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 
 export function ResourceState({loading, error, retry}: {loading: boolean; error?: string; retry: () => void}) {
   if (loading) return <div className="loading-state" role="status" aria-busy="true"><span className="spinner"/>Veriler yükleniyor…</div>;
-  if (error) return <div className="resource-error" role="alert"><p>{error}</p><button className="button-secondary" onClick={retry}>Tekrar dene</button></div>;
+  const message=error==='Failed to fetch'||error==='Load failed'?'Veriler alınamadı. Bağlantıyı kontrol edip tekrar deneyin.':error==='API yanıtı: 401'?'Oturumunuz sona ermiş olabilir. Yeniden giriş yapın.':error==='API yanıtı: 403'?'Bu kayıtları görüntüleme yetkiniz yok.':error;
+  if (error) return <div className="resource-error" role="alert"><p>{message}</p><button className="button-secondary" onClick={retry}>Tekrar dene</button></div>;
   return null;
 }
 export function DetailSection({title, children}: {title: string; children: ReactNode}) {

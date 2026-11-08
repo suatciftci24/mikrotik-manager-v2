@@ -1,6 +1,8 @@
+import {can,useIdentity} from '../lib/permissions';
+import {centerReturnHash,linkedCenterHash} from '../lib/detailLinks';
 import { useEffect, useState } from 'react';
 import { useResource } from '../lib/useResource';
-import { operationFilter, operationDetailHash, operationHash, operationQuery, type ReportFilter, type OperationReportData, type ConnectionRecord } from '../lib/operationReport';
+import { operationContextHash, operationFilter, operationDetailHash, operationHash, operationQuery, type ReportFilter, type OperationReportData, type ConnectionRecord } from '../lib/operationReport';
 import type { DailyOperation } from '../lib/dailySummary';
 import type { MikaEvent } from '../lib/mikajani';
 import { mikaStatus } from '../lib/mikajani';
@@ -13,17 +15,19 @@ import { EventDialog } from './Mikajani';
 import { durationText, eventLabels } from '../lib/routerEvents';
 const dependencies=['/routers','/subscribers','/router-events','/mikajani'] as const;
 export function OperationReport(){
+ const identity=useIdentity();
+ const back=centerReturnHash(typeof window==='undefined'?'':window.location.hash);
  const [filter,setFilter]=useState(()=>operationFilter(typeof window==='undefined'?'':window.location.hash));
  const resource=useResource<OperationReportData>('/reports/operations?'+operationQuery(filter),undefined,dependencies);
  const [selected,setSelected]=useState<(DailyOperation&{router_id?:string|null})|ConnectionRecord|MikaEvent|null>(null);
  useEffect(()=>{const read=()=>{setFilter(operationFilter(window.location.hash));setSelected(null);};window.addEventListener('hashchange',read);return()=>window.removeEventListener('hashchange',read);},[]);
  useEffect(()=>{const tick=()=>{if(!document.hidden)resource.retry();};const timer=window.setInterval(tick,60000);window.addEventListener('focus',tick);document.addEventListener('visibilitychange',tick);return()=>{window.clearInterval(timer);window.removeEventListener('focus',tick);document.removeEventListener('visibilitychange',tick);};},[resource.retry]);
- const change=(value:Partial<ReportFilter>)=>{const next={...filter,...value,page:value.page??1};setFilter(next);setSelected(null);window.history.replaceState(null,'',window.location.pathname+window.location.search+operationHash(next));};
+ const change=(value:Partial<ReportFilter>)=>{const next={...filter,...value,page:value.page??1};setFilter(next);setSelected(null);window.history.replaceState(null,'',window.location.pathname+window.location.search+(back?linkedCenterHash(operationHash(next),back):operationHash(next)));};
  const data=resource.data,error=resource.error||(data&&(data.is_demo!==true||data.read_only!==true)?'Salt okunur sentetik rapor kaynağı doğrulanamadı.':undefined);
  const link=(module:'routers'|'subscribers',id:string)=>operationDetailHash(module,id,filter);
  const names=Object.fromEntries(data?.routers.map(r=>[r.id,r.name])??[]);
  return <div className="screen-stack operation-report">
-  <a className="button-secondary detail-back" href="#module=dashboard">Dashboard’a dön</a>
+  <a className="button-secondary detail-back" href={back??'#module=dashboard'}>{back?'Kaynak merkeze dön':'Dashboard’a dön'}</a>
   <PageHeading title="Günlük Operasyon ve Bağlantı Raporları" eyebrow="SENTETİK · SALT OKUNUR · EUROPE/ISTANBUL" description="Kaydedilmiş audit, WAN ve MikAjanı kanıtları; geçmiş telemetri tahmini değildir." actions={<button className="button-secondary" disabled={resource.loading} onClick={resource.retry}>Raporu yenile</button>}/>
   <section className="panel"><div className="router-report-controls">
    <label className="form-label">Başlangıç<input aria-label="Rapor başlangıç tarihi" type="date" value={filter.start} onChange={e=>change({start:e.target.value})}/></label>
@@ -32,7 +36,7 @@ export function OperationReport(){
    <label className="form-label">Rapor<select aria-label="Rapor türü" value={filter.category} onChange={e=>change({category:e.target.value as ReportFilter['category']})}><option value="AUDIT">PPPoE audit</option><option value="CONNECTION">İnternet / WAN</option><option value="MIKA">MikAjanı</option></select></label>
    {filter.category==='AUDIT'&&<><label className="form-label">İşlem<select aria-label="Rapor işlem filtresi" value={filter.operation} onChange={e=>change({operation:e.target.value})}><option value="">Tüm işlemler</option>{(['CREATE','PLAN_CHANGE','STATUS_CHANGE','RENEWAL','DATE_EDIT'] as const).map(k=><option key={k} value={k}>{operationLabel(k)}</option>)}</select></label><label className="form-label">Abone kimliği<input aria-label="Rapor abone kimliği" value={filter.subscriber_id} onChange={e=>change({subscriber_id:e.target.value})}/></label></>}
    {filter.category==='MIKA'&&<><label className="form-label">Öncelik<select aria-label="Rapor öncelik filtresi" value={filter.priority} onChange={e=>change({priority:e.target.value})}>{['ALL','P1','P2','P3','P4'].map(p=><option key={p}>{p}</option>)}</select></label><label className="form-label">Durum<select aria-label="Rapor olay durumu" value={filter.state} onChange={e=>change({state:e.target.value})}>{['ALL','ACTIVE','OPEN','UPDATED','RECOVERING','RESOLVED'].map(s=><option key={s} value={s}>{mikaStatus[s]??s}</option>)}</select></label></>}
-   <button className="button-secondary" onClick={()=>{const next=operationFilter('');setFilter(next);setSelected(null);window.history.replaceState(null,'',operationHash(next));}}>Filtreleri temizle</button>
+   <button className="button-secondary" onClick={()=>{const next=operationFilter('');setFilter(next);setSelected(null);window.history.replaceState(null,'',back?linkedCenterHash(operationHash(next),back):operationHash(next));}}>Filtreleri temizle</button>
   </div><p>Tarih aralığı en fazla 366 Türkiye günü; bitiş günü dahil, gelecek kayıtlar hariç. Sayfa başına 25 kayıt sunucuda filtrelenir. Abone filtresi audit toplamı ve listesini; işlem türü yalnız audit listesini kapsamlar; öncelik/durum yalnız MikAjanı kapsamındadır.</p></section>
   <ResourceState {...resource} error={error}/>
   {data&&!resource.loading&&!error&&<>
@@ -48,7 +52,7 @@ export function OperationReport(){
     <p role="status">{data.total} kayıt · Sayfa {filter.page} / {Math.max(1,Math.ceil(data.total/data.page_size))}</p><div className="daily-links"><button className="button-secondary" disabled={filter.page===1} onClick={()=>change({page:filter.page-1})}>Önceki sayfa</button><button className="button-secondary" disabled={filter.page*data.page_size>=data.total} onClick={()=>change({page:filter.page+1})}>Sonraki sayfa</button></div>
    </section>
   </>}
-  {selected&&!resource.loading&&!error&&filter.category==='AUDIT'&&<OperationDetails event={selected as DailyOperation} onClose={()=>setSelected(null)} onSubscriber={id=>{window.location.hash=link('subscribers',id);}} onRouter={'router_id' in selected&&selected.router_id?()=>{window.location.hash=link('routers',selected.router_id!);}:undefined} onHistory={()=>{window.location.hash=link('subscribers',(selected as DailyOperation).subscriber_id)+'&tab=history';}}/>}
+  {selected&&!resource.loading&&!error&&filter.category==='AUDIT'&&<OperationDetails event={selected as DailyOperation} onClose={()=>setSelected(null)} onSubscriber={id=>{window.location.hash=link('subscribers',id);}} onRouter={'router_id' in selected&&selected.router_id?()=>{window.location.hash=link('routers',selected.router_id!);}:undefined} onHistory={()=>{window.location.hash=link('subscribers',(selected as DailyOperation).subscriber_id)+'&tab=history';}} onAlarms={'router_id' in selected&&can(identity,selected.router_id,'can_view')?()=>{window.location.hash=operationContextHash('alarms',selected as DailyOperation,selected.router_id!,window.location.hash);}:undefined}/>}
   {selected&&!resource.loading&&!error&&filter.category==='CONNECTION'&&<AlarmEventDetails event={(selected as ConnectionRecord).lifecycle} routerName={names[(selected as ConnectionRecord).router_id]??'Veri yok'} onClose={()=>setSelected(null)}/>}
   {selected&&!resource.loading&&!error&&filter.category==='MIKA'&&<EventDialog event={selected as MikaEvent} names={names} onClose={()=>setSelected(null)}/>}
  </div>;

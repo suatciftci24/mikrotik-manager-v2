@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {build} from 'esbuild';
 import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {operationFilter,operationHash,operationQuery,operationDetailHash,detailOperationHash} from '../src/lib/operationReport.ts';
+import {operationContextHash,operationFilter,operationHash,operationQuery,operationDetailHash,detailOperationHash} from '../src/lib/operationReport.ts';
 const require=createRequire(import.meta.url);
 const code=(await build({entryPoints:[fileURLToPath(new URL('../src/screens/OperationReport.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'resource',setup(build){build.onResolve({filter:/lib\/useResource$/},()=>({path:'resource',namespace:'test'}));build.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function useResource(path){globalThis.__reportPath=path;return globalThis.__operationReportResource}',loader:'js'}));}}]})).outputFiles[0].text;
 const module={exports:{}};new Function('require','module','exports',code)(require,module,module.exports);
@@ -44,4 +44,12 @@ test('report to detail round trip preserves date range and exact router/subscrib
  const detail=operationDetailHash('subscribers','s & 1',filter);
  const result=operationFilter(detailOperationHash('subscribers','s & 1',detail));
  assert.equal(result.start,filter.start);assert.equal(result.end,filter.end);assert.equal(result.router_id,filter.router_id);assert.equal(result.subscriber_id,'s & 1');
+});
+
+test('historical operation opens the correct report day and alarm router with a bounded source return',()=>{
+ const from='#module=dashboard&view=DAILY_REPORT&period=LAST_24&kind=PPPOE&section=recent-operations';
+ const event={subscriber_id:'demo-sub-A & B',occurred_at:'2026-10-26T21:30:00Z'};
+ const report=operationContextHash('report',event,'demo-router-A & B',from);const params=new URLSearchParams(report.slice(1));
+ assert.equal(params.get('start'),'2026-10-27');assert.equal(params.get('end'),'2026-10-27');assert.equal(params.get('subscriber_id'),event.subscriber_id);assert.equal(params.get('category'),'AUDIT');assert.equal(params.get('return_to'),from);
+ const alarm=new URLSearchParams(operationContextHash('alarms',event,'demo-router-A & B',from).slice(1));assert.equal(alarm.get('alarm_router'),'demo-router-A & B');assert.equal(alarm.get('alarm_state'),'ALL');assert.equal(alarm.get('return_to'),from);assert.equal(alarm.has('alarm_id'),false);
 });

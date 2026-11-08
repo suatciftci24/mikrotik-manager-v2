@@ -1,3 +1,4 @@
+import { operationContextHash } from '../lib/operationReport';
 import { linkedDetailHash } from '../lib/detailLinks';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RefreshCw, Activity, CalendarClock, WifiOff, ArrowLeftRight } from 'lucide-react';
@@ -12,7 +13,7 @@ import { AlarmEventDetails } from '../components/AlarmEvents';
 import { operationLabel, historyValues } from '../lib/subscriberHistory';
 import { eventLabels, durationText, alarmStatusLabels } from '../lib/routerEvents';
 import type { EventKind } from '../lib/routerEvents';
-import { useIdentity } from '../lib/permissions';
+import { can,useIdentity } from '../lib/permissions';
 import { V1Inventory } from '../components/V1Inventory';
 import { expiryDate, expiryInfo, remainingDays, turkeyToday } from '../lib/expiry';
 
@@ -104,7 +105,7 @@ function SyntheticManagementReport({onBack}:{onBack:()=>void}){
         <div className="daily-links"><a className="record-link" href="#module=subscribers&workspace=HISTORY">Merkezi İşlem Geçmişini aç</a><a className="record-link" href={'#'+new URLSearchParams({module:'dashboard',view:'OPERATIONS_REPORT',router_id:filter.router,start:report.range.start,end:report.range.end})}>Operasyon ve audit raporu</a></div>
       </details>
     </>}
-    {operation&&<OperationDetails event={operation} onClose={()=>setSelected(null)} onSubscriber={id=>{window.location.hash=link('subscribers',id);}} onRouter={operation.router_id?()=>{window.location.hash=link('routers',operation.router_id!);}:undefined} onHistory={()=>{window.location.hash=link('subscribers',operation.subscriber_id)+'&tab=history';}}/>}
+    {operation&&<OperationDetails event={operation} onClose={()=>setSelected(null)} onSubscriber={id=>{window.location.hash=link('subscribers',id);}} onRouter={operation.router_id?()=>{window.location.hash=link('routers',operation.router_id!);}:undefined} onHistory={()=>{window.location.hash=link('subscribers',operation.subscriber_id)+'&tab=history';}} onAlarms={can(identity,operation.router_id,'can_view')?()=>{window.location.hash=operationContextHash('alarms',operation,operation.router_id!,window.location.hash);}:undefined} onReport={!operation.workspace&&can(identity,operation.router_id,'can_view_reports')?()=>{window.location.hash=operationContextHash('report',operation,operation.router_id!,window.location.hash);}:undefined}/>}
     {event&&<AlarmEventDetails event={event.lifecycle} routerName={names.get(event.router_id)??event.router_id} onClose={()=>setSelected(null)}/>}
   </div>;
 }

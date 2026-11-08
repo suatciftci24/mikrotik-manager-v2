@@ -288,3 +288,18 @@ input::placeholder{color:var(--muted);opacity:1}
 @media(max-width:640px){.source-picker-controls{align-items:stretch;flex-direction:column}.source-picker .form-label{min-width:0;width:100%}.workspace-context{align-items:flex-start;flex-direction:column;gap:8px}.workspace-context .demo-banner-tag{text-align:left}}
 
 .sidebar .workspace-switch{height:auto;min-height:54px}.workspace-switch strong,.workspace-switch small{overflow-wrap:anywhere}.topbar .live-pill{max-width:240px}
+
+/* Keep the existing tables scrollable and the subscriber identity visible on phones. */
+.synthetic-subscriber-list{min-width:0}.synthetic-subscriber-list .table-scroll{max-width:100%;overflow-x:auto;isolation:isolate}
+.synthetic-subscriber-list .inventory-toolbar{flex-wrap:wrap}.synthetic-subscriber-list .inventory-toolbar .form-label{min-width:0;max-width:100%}
+.mobile-table-hint{display:none}.router-device-panel .registry-history li,.router-device-summary .detail-facts dd{overflow-wrap:anywhere;min-width:0}
+@media(max-width:650px){
+ .synthetic-subscriber-list .inventory-toolbar .form-label{flex:1 1 100%}
+ .synthetic-subscriber-list .inventory-toolbar button,.synthetic-subscriber-list .table-footer button,.router-device-tabs button{min-height:44px}
+ .synthetic-subscriber-list .table-footer{flex-wrap:wrap;gap:8px}
+ .synthetic-subscriber-table th:nth-child(2),.synthetic-subscriber-table td:nth-child(2){position:sticky;left:0;background:var(--surface);z-index:1;min-width:130px;max-width:160px;border-right:1px solid var(--line)}
+ .synthetic-subscriber-table .record-link{white-space:normal;overflow-wrap:anywhere;min-height:44px;text-align:left}
+ .mobile-table-hint{display:block;font-size:var(--font-small);color:var(--text-secondary)}
+ .operation-dialog{max-width:calc(100vw - 24px)}.operation-dialog .detail-facts{grid-template-columns:minmax(0,1fr)}
+ .operation-dialog .detail-facts dd{max-width:100%;overflow-wrap:anywhere}
+}

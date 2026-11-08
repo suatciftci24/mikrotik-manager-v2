@@ -5,7 +5,8 @@ export function detailReturnHash(hash:string){
  const module=params.get('module');
  const detail=['routers','subscribers'].includes(module??'')&&!!params.get('id');
  const report=module==='dashboard'&&['DAILY_REPORT','OPERATIONS_REPORT'].includes(params.get('view')??'');
- if(!detail&&!report&&module!=='operations')return null;
+ const subscriberList=module==='subscribers'&&['LEGACY','PERSISTENT','HISTORY'].includes(params.get('workspace')??'');
+ if(!detail&&!report&&!subscriberList&&module!=='operations')return null;
  params.delete('return_to');return '#'+params.toString();
 }
 export function linkedDetailHash(target:{module:'routers'|'subscribers';id:string;source?:string;workspace?:string},fromHash=''){
@@ -13,3 +14,11 @@ export function linkedDetailHash(target:{module:'routers'|'subscribers';id:strin
  if(back)params.set('return_to',back);
  return '#'+params.toString();
 }
+
+/** A validated center return is a single level, just like detail links. */
+export function linkedCenterHash(target:string,fromHash=''){
+ const params=new URLSearchParams(target.replace(/^#/,''));params.delete('return_to');
+ const back=detailReturnHash(fromHash);if(back)params.set('return_to',back);
+ return '#'+params;
+}
+export function centerReturnHash(hash:string){return detailReturnHash(new URLSearchParams(hash.replace(/^#/,'')).get('return_to')??'');}

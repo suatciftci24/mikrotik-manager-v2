@@ -107,3 +107,71 @@ kabul, Dashboard rollback ve güncel PG/HTTP kanıt engelleri kapatılmadı.
 Bu devam görevinin normal `git push origin main-guncel` denemesi de
 `Could not resolve host: github.com` ile BLOCKED kaldı. Yerel commit hazır;
 ağ erişiminde normal push gerekir. Force push veya canlı işlem yapılmadı.
+
+## 89af9ce sonrası operasyonel kullanılabilirlik — 2026-11-08
+
+Başlangıç main-guncel/89af9ce, temiz çalışma ağacı. Altın Kurallar, güncel
+ilerleme ve özellik koruma envanteri okundu; uzak main-guncel ls-remote ile
+aynı tam SHA olarak doğrulandı. Mevcut demo listesi/filtreleri, son24 raporu,
+veri sonrası kaydırma ve detay sekmeleri yeniden yazılmadı.
+
+Tamamlanan eksikler:
+
+- Kalıcı sentetik liste, mevcut URL filtre yardımcılarıyla arama/router/
+  erişim türü/hesap durumu/sayfayı korur; arama ve filtre değişiminde sayfa1,
+  filtreleri temizle işleminde yalnız liste kapsamı sıfırlanır. Query/router
+  uzunluğu ve sayfa API sınırında tutulur. Legacy filtre anahtarları ayrı kalır.
+- Merkezi İşlem Geçmişi'nin kaynak/abone/işlem/sonuç/sayfa filtreleri URL'de
+  korunur; abone/router bağlantıları kendi doğru deposuna gider ve geçmiş
+  filtresine dönüş taşır. Liste dönüşleri ortak bounded-return politikasına
+  açık LEGACY/PERSISTENT/HISTORY kapsamında eklendi. Dış/recursive dönüş
+  kuralları korunur. Alarm ve operasyon raporunda kaynak merkeze dönüş vardır;
+  rapor/alarm filtresi değiştirilse veya temizlense de dönüş korunur.
+- Günlük işlem dialog'unda router alarmları ve kaydın Türkiye gününe/abonesine/
+  routerına bağlı audit raporu açılır. Alarm için can_view, rapor için
+  can_view_reports+can_view gerekir. Bağsız/yetkisiz hedef üretilmez. Kalıcı
+  workspace olayı legacy audit raporuna taşınmaz; mevcut kendi abone geçmişi
+  bağlantısı ve kaynak açıklaması kullanılır. Yeni API/bileşen/menü yok.
+- Kalıcı liste/geçmişte is_demo doğrulanmazsa içerik gizlenir. Yüklemede
+  eski sonuç/toplam gösterilmez; toplu işlem düğmesi loading/error sırasında
+  kapalıdır. Boş sayfa ve tamamen boş filtre sonucu ayrıldı; eksik router ve
+  bilinmeyen hesap/kaynak doğru etiketlenir. Ağ/401/403 için ortak kaynak
+  görünümünde anlaşılır Türkçe mesajlar vardır; diğer hata metinleri korunur.
+- Mevcut satır bitiş uyarıları/LEGACY uyarı kartları korunur. Mobil kalıcı
+  tabloda odaklanabilir yatay kaydırma, açıklaması ve sabit abone sütunu;
+  44px dokunma hedefleri, saran filtreler/sayfalama ve işlem dialog'unda
+  dar ekranda taşmayan değerler eklendi. Tüm envanter yerine yalnız sayfa
+  kaydının uyarısı olduğu açıkça belirtilir; sahte genel toplam üretilmez.
+
+### Kontroller
+
+**Yerel hedefli kabul PASS; Chromium kabulü BLOCKED.** 8 dosyada 54 test:
+operationsNavigation9, operationReport6, managementReportView6, alarmCenter6,
+subscriberCenter12, subscriberFilters4, subscriptionAlerts6,
+routerSubscriberLinks5. Sentetik fixture/SSR/hook kontrolleri; gerçek API/DB
+veya tarayıcı kabulü değildir. Yeni test fixture string'indeki tırnak syntax
+hatası düzeltildi; assertion/kaynak/yetki kapıları gevşetilmedi. Başarılı
+kapsam yalnız yeni test/değişiklik gerektiğinde yeniden çalıştırıldı.
+
+Tek `npm run build` (tsc -b + Vite) PASS. Ana bundle 607.28kB, mevcut >500kB
+uyarısı sürer. Diff kontrolü PASS; gerçek veri/credential kullanılmadı.
+
+Chromium engeli sınırlı araştırıldı: /proc/self/status NoNewPrivs1/Seccomp2;
+loopback TCP bind/listen EPERM, yerel IPC socket oluşturma mevcut. Kurulu
+chromium_headless_shell-1248 normal Playwright başlatması bir kez denendi:
+`content/browser/sandbox_host_linux.cc:41 ... shutdown: Operation not permitted`
+ve SIGTRAP; sayfa açılmadı. Bu gözlem belirli bir seccomp kuralına kesin atıf
+sağlamaz; ortam kısıtı uygulama arızası sayılmadı. Sistem politikası, uygulama
+kodu, browser bayrakları veya kişisel profil değiştirilmedi; indirme/canlı
+hedef/tekrarlı browser denemesi yok. Yeni Chromium kaydırma/tıklama veya mobil
+layout PASS/screenshot kanıtı iddia edilmez.
+
+LOCAL/RADIUS tek yetkili kaynak modeli ve mevcut yazma/revision/onay/audit
+akışları korunur. V1 verileri sentetik kaynağa katılmadı. V1/V2.5/VDS/router/
+RADIUS/IPsec/DB/migration/silme/deploy/restart işlemi yok; tarihsel Dashboard
+rollback ve güncel PG/HTTP bütünleşme kabul engelleri bu görevle kapanmaz.
+
+- Bu görevde normal `git push origin main-guncel` denendi: BLOCKED,
+  `Could not resolve host: github.com`. Uzak okuma başarılı olsa da push
+  DNS aşamasında durdu. Yerel tek commit korunur; ağ erişiminde normal
+  push gerekir. Force push yapılmadı.

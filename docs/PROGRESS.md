@@ -4441,3 +4441,29 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Normal `git push origin main-guncel` BLOCKED: `Could not resolve host:
   github.com`. Başlangıç uzak okuması başarılı olsa da push DNS aşamasında
   engellendi. Sonraki tek aktarım adımı ağ erişiminde aynı normal push.
+
+## V2.6 — PPPoE ve günlük yönetim operasyonel kullanılabilirliği — 2026-11-08
+
+- Başlangıç main-guncel/89af9ce temiz; Altın Kurallar, son navigasyon kabulü
+  ve özellik koruma envanteri okundu. Uzak main-guncel aynı SHA doğrulandı.
+- Mevcut son24/kaydırma/legacy filtreler/sekme akışları korundu. Kalıcı liste
+  ve merkezi geçmiş arama/filtre/sayfası ortak URL yardımcılarına bağlandı;
+  kaynak bazlı abone/router bağlantısı ve filtreli geri dönüş tamamlandı.
+- İşlem dialog'unda yetkiye bağlı router alarmı ve kayıt gününe bağlı audit
+  raporu. Workspace olayı legacy raporla karışmaz; kendi geçmişine yönelir.
+  Alarm/rapor kaynak dönüşü filtre değişiminde korunur. Yeni API/bileşen yok.
+- Loading/error sırasında eski tablo/işlem kapalı; boş sayfa/boş filtre ve
+  kaynak doğrulama ayrımı, Türkçe ağ/oturum/yetki mesajları. Mobilde odaklı
+  yatay tablo, sabit abone sütunu, dokunma hedefi ve saran detaylar eklendi.
+- PASS: 8 dosyada 54 hedefli sentetik test; tek tsc/Vite build, diff.
+  Mevcut >500kB uyarısı sürer. Chromium BLOCKED: TCP listen EPERM; kurulu
+  headless shell tek denemede shutdown EPERM/SIGTRAP. NoNewPrivs/Seccomp
+  gözlendi; güvenlik/başlatma bayrağı gevşetilmedi. Mobil/browser PASS yok.
+- Ayrıntı docs/V26_NAVIGATION_FLOW_ACCEPTANCE.md son bölümünde. Önceki
+  Dashboard/PG-HTTP engelleri açık. LOCAL/RADIUS ve mevcut komut yetkileri
+  korunur; V1/V2.5/VDS/cihaz/RADIUS/IPsec/DB/deploy/restart/migration yok.
+
+- Bu görevde normal `git push origin main-guncel` denendi: BLOCKED,
+  `Could not resolve host: github.com`. Uzak okuma başarılı olsa da push
+  DNS aşamasında durdu. Yerel tek commit korunur; ağ erişiminde normal
+  push gerekir. Force push yapılmadı.

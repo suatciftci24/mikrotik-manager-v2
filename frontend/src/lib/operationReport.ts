@@ -1,4 +1,5 @@
-import {linkedDetailHash} from './detailLinks.ts';
+import {alarmFilter,alarmHash} from './alarms.ts';
+import {linkedCenterHash,linkedDetailHash} from './detailLinks.ts';
 import type { DailyOperation } from './dailySummary';
 import type { Router } from './api';
 import type { AlarmEvent, RouterEvent } from './routerEvents';
@@ -17,4 +18,11 @@ export function operationDetailHash(module:'routers'|'subscribers',id:string,fil
 export function detailOperationHash(kind:'routers'|'subscribers',id:string,hash:string){
  const p=new URLSearchParams(hash.replace(/^#/,'')),base=operationFilter('');
  return operationHash({...base,start:p.get('report_start')??base.start,end:p.get('report_end')??base.end,router_id:kind==='routers'?id:p.get('report_router')??'',subscriber_id:kind==='subscribers'?id:''});
+}
+
+/** Reports use the recorded event date, never today's date for a historical event. */
+export function operationContextHash(target:'alarms'|'report',event:Pick<DailyOperation,'subscriber_id'|'occurred_at'>,routerId:string,fromHash=''){
+ if(target==='alarms')return linkedCenterHash(alarmHash({...alarmFilter(''),router_id:routerId}),fromHash);
+ const date=turkeyToday(new Date(event.occurred_at));
+ return linkedCenterHash(operationHash({...operationFilter(''),start:date,end:date,router_id:routerId,subscriber_id:event.subscriber_id,category:'AUDIT'}),fromHash);
 }

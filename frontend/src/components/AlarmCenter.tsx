@@ -1,4 +1,4 @@
-import {linkedDetailHash} from '../lib/detailLinks';
+import {centerReturnHash,linkedCenterHash,linkedDetailHash} from '../lib/detailLinks';
 import {can,useIdentity} from '../lib/permissions';
 import {usePresentation} from '../lib/presentation';
 import {PersonalPreferences} from './PersonalPreferences';
@@ -25,10 +25,11 @@ export function AlarmCenter({notifications=false,compact=false}:{notifications?:
  const [selected,setSelected]=useState<string|null>(()=>new URLSearchParams(getHash().slice(1)).get('alarm_id'));
  useEffect(()=>{const read=()=>{setFilter(alarmFilter(getHash()));setSelected(new URLSearchParams(getHash().slice(1)).get('alarm_id'));};window.addEventListener('hashchange',read);return()=>window.removeEventListener('hashchange',read);},[]);
  useEffect(()=>{const tick=()=>{if(!document.hidden)resource.retry();};const timer=window.setInterval(tick,60000);window.addEventListener('focus',tick);document.addEventListener('visibilitychange',tick);return()=>{window.clearInterval(timer);window.removeEventListener('focus',tick);document.removeEventListener('visibilitychange',tick);};},[resource.retry]);
- const change=(patch:Partial<AlarmFilter>)=>{const next={...filter,...patch,page:patch.page??1};setFilter(next);setSelected(null);window.history.replaceState(null,'',alarmHash(next));};
+ const change=(patch:Partial<AlarmFilter>)=>{const next={...filter,...patch,page:patch.page??1};setFilter(next);setSelected(null);const back=centerReturnHash(getHash());window.history.replaceState(null,'',back?linkedCenterHash(alarmHash(next),back):alarmHash(next));};
  const selectAlarm=(id:string|null)=>{setSelected(id);const params=new URLSearchParams(getHash().slice(1));if(id)params.set('alarm_id',id);else params.delete('alarm_id');window.history.replaceState(null,'',window.location.pathname+window.location.search+'#'+params);};
  const data=resource.data,error=resource.error||(data&&data.is_demo!==true?'Sentetik kaynak doğrulanamadı.':undefined);
  return <section className="panel alarm-center" aria-label={notifications?'Panel içi alarm bildirimleri':compact?'Dashboard alarm özeti':'Merkezi Alarm Yönetimi'}>
+  {!compact&&!notifications&&centerReturnHash(getHash())&&<a className="button-secondary detail-back" href={centerReturnHash(getHash())!}>Kaynak merkeze dön</a>}
   <div className="panel-title"><h2>{notifications?'Alarm bildirimleri':compact?'Merkezi alarm özeti':'Merkezi Alarm Yönetimi'}</h2><span className="demo-chip">SENTETİK</span></div>
   <p>ACK arızayı çözmez. Okundu kişiseldir ve ACK’ten bağımsızdır. Harici bildirim gönderilmez.</p>
   <button className="button-secondary" disabled={resource.loading} onClick={resource.retry}>Alarmları yenile</button>
