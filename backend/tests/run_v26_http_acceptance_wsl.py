@@ -92,7 +92,7 @@ def preflight() -> str | None:
         return 'PREFLIGHT_UNAVAILABLE'
 
 
-def main(during_acceptance=None) -> int:
+def main(during_acceptance=None, *, browser_only=False) -> int:
     blocked = preflight()
     if blocked:
         print('BLOCKED: HOME_WSL_' + blocked)
@@ -100,9 +100,8 @@ def main(during_acceptance=None) -> int:
     # The harness binds and holds only the fixed loopback ports, then owns and
     # cleans up its newly-created PostgreSQL cluster and photo-file namespace.
     with _isolated_runtime():
-        if during_acceptance is None:
-            return acceptance.main(['--run'])
-        return acceptance.main(['--run'], during_acceptance=during_acceptance)
+        return acceptance.main(['--run'], during_acceptance=during_acceptance,
+                               browser_only=browser_only)
 
 
 if __name__ == '__main__':

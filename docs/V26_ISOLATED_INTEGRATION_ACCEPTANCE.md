@@ -38,6 +38,35 @@ Branch/base: `main-guncel` / `68fdac3`
   received `listen EPERM`. Per the task boundary it was not retried and no
   sandbox/security setting was changed.
 
+## Latest browser attempt diagnosis
+
+- The user reports the latest full command ended with
+  `BLOCKED: acceptance stage=BROWSER_ACCEPTANCE`; 52 Node tests passed and the
+  earlier disposable HTTP acceptance is already user-confirmed PASS. The
+  latest attempt's stderr/trace is not present in the repository or in a
+  retained runner artifact. Browser temporary files are intentionally removed
+  during cleanup, and the HTTP harness reports only the stage, so the cause
+  cannot be inferred as an application, Chromium-launch, sandbox/permission,
+  or scenario failure from that summary alone.
+- The runner now has a targeted `--browser-only-diagnostic` mode. It keeps the
+  same fail-closed Home WSL, clean-tree, toolchain, port, fresh disposable
+  PostgreSQL, and loopback checks; verifies `/api/ready` identifies
+  `v26-isolated-acceptance`; then runs the browser scenario without repeating
+  the Node suites or HTTP business acceptance assertions. It emits only a
+  browser phase, error class, allowlisted error code, and integer errno, while
+  preserving the original error trace on stderr. It does not relax Chromium
+  sandbox or TLS settings.
+- **BLOCKED — targeted browser diagnosis.** The committed browser-only runner
+  passed its local Playwright/executable preflight, then stopped at
+  `acceptance stage=HTTP_LISTENER_BIND` before PostgreSQL or Chromium. This
+  environment did not provide the bind exception class/errno, so the bind
+  restriction's exact OS cause is unknown. The requested browser phase was not
+  reached; therefore the user's earlier `BROWSER_ACCEPTANCE` failure remains
+  undiagnosed. The harness now preserves captured bind class/errno even if
+  unittest reports a mismatched stage. No repeat bind/browser attempt was made.
+  Do not report browser acceptance as PASS until the full fail-closed command
+  succeeds.
+
 ## Isolated HTTP harness prerequisites and procedure
 
 The opt-in harness is restricted to the repository owner's non-root process,

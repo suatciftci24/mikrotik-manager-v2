@@ -52,6 +52,12 @@ def failed_acceptance_diagnostic(result):
     if failure and failure['stage'] == stage:
         diagnostic += ' error_class=' + failure['error_class']
         diagnostic += ' errno=' + str(failure['errno'])
+    elif failure and failure['stage'] in ('HTTP_LISTENER_BIND', 'POSTGRES_LISTENER_RESERVE'):
+        # unittest may report a class-setup stage through a different TestCase
+        # instance; retain the captured bind evidence without exposing exception text.
+        diagnostic += ' bind_stage=' + failure['stage']
+        diagnostic += ' bind_error_class=' + failure['error_class']
+        diagnostic += ' bind_errno=' + str(failure['errno'])
     return diagnostic
 
 
@@ -151,7 +157,7 @@ class LoopbackClient:
         return self.request('POST', path, **kwargs)
 
 
-def acceptance_suite(during_acceptance=None):
+def acceptance_suite(during_acceptance=None, browser_only=False):
     global ACTIVE_ACCEPTANCE_CLASS
     global ACTIVE_ACCEPTANCE_BIND_ERROR
     ACTIVE_ACCEPTANCE_BIND_ERROR = None
@@ -377,13 +383,33 @@ def acceptance_suite(during_acceptance=None):
                 self.stage = 'BROWSER_ACCEPTANCE'
                 self.during_acceptance()
 
+        def test_browser_only_diagnostic(self):
+            """Exercise the isolated browser against owned PG/HTTP without rerunning HTTP cases."""
+            self.stage = 'BROWSER_PROFILE_VERIFY'
+            response = self.client.get('/api/ready')
+            self.assertEqual(response.status_code, 200)
+            profile = response.json()
+            self.assertEqual(profile.get('service'), 'mikrotik-manager-v2')
+            self.assertEqual(profile.get('environment'), 'v26-acceptance')
+            self.assertEqual(profile.get('runtime_profile'), 'v26-isolated-acceptance')
+            self.assertEqual(profile.get('api_port'), PORT)
+            self.assertIs(profile.get('database_checked'), False)
+            self.stage = 'BROWSER_ACCEPTANCE_DATABASE_VERIFY'
+            with self.engine.connect() as connection:
+                verify_owned_acceptance_database(connection, self.store)
+            self.stage = 'BROWSER_ACCEPTANCE'
+            if self.during_acceptance is not None:
+                self.during_acceptance()
+
     # Explicitly select only the NEW socket scenario, never inherited PASS tests.
     RealHttpAcceptance.during_acceptance = during_acceptance
+    RealHttpAcceptance.browser_only = browser_only
     ACTIVE_ACCEPTANCE_CLASS = RealHttpAcceptance
-    return unittest.TestSuite([RealHttpAcceptance('test_new_real_http_acceptance')])
+    selected = 'test_browser_only_diagnostic' if browser_only else 'test_new_real_http_acceptance'
+    return unittest.TestSuite([RealHttpAcceptance(selected)])
 
 
-def main(argv=None, during_acceptance=None):
+def main(argv=None, during_acceptance=None, browser_only=False):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run', required=True, action='store_true',
                         help='create and destroy a new synthetic cluster; never reuse an existing DB')
@@ -392,10 +418,16 @@ def main(argv=None, during_acceptance=None):
         preflight()
         with patch.dict(os.environ, isolated_environment(os.environ), clear=True):
             result = unittest.TestResult()
-            suite = acceptance_suite(during_acceptance) if during_acceptance is not None else acceptance_suite()
+            if during_acceptance is not None or browser_only:
+                suite = acceptance_suite(during_acceptance, browser_only=browser_only)
+            else:
+                suite = acceptance_suite()
             suite.run(result)
         if result.wasSuccessful() and result.testsRun == 1 and not result.skipped:
-            print('PASS: disposable PostgreSQL16 + real loopback HTTP acceptance; cleanup complete')
+            if browser_only:
+                print('PASS: disposable PostgreSQL16 + loopback V2.6 readiness diagnostic; cleanup complete')
+            else:
+                print('PASS: disposable PostgreSQL16 + real loopback HTTP acceptance; cleanup complete')
             return 0
         diagnostic = failed_acceptance_diagnostic(result)
         if diagnostic:

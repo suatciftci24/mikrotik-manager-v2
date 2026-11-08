@@ -50,7 +50,7 @@ class V26ChromiumRunnerSafety(TestCase):
         self.assertIn("requireV26AcceptanceReadiness(response.status(),await response.json())", source)
         self.assertIn("payload.runtime_profile!=='v26-isolated-acceptance'", helper)
         self.assertIn('http_runner.preflight()', runner_source)
-        self.assertIn('http_runner.main(during_acceptance=', runner_source)
+        self.assertIn('result = http_runner.main(', runner_source)
         self.assertIn("request.method()!=='GET'", source)
         self.assertIn("server.listen(0,'127.0.0.1'", source)
         self.assertIn("join(tmpdir(),'v26-browser-acceptance-'", source)
@@ -61,6 +61,19 @@ class V26ChromiumRunnerSafety(TestCase):
         self.assertNotIn('18996', source)
         self.assertNotIn('55433', source)
         self.assertIn("assert.ok(reads.includes('/api/ready')", source)
+
+    def test_browser_diagnostic_skips_broad_suites_and_classifies_only_safe_error_fields(self):
+        source = (runner.REPO / 'backend/tests/run_v26_chromium_acceptance_wsl.py').read_text()
+        browser = (runner.REPO / 'frontend/tests/managementCenters.browser.mjs').read_text()
+        self.assertIn("parser.add_argument('--browser-only-diagnostic'", source)
+        self.assertIn('if not args.browser_only_diagnostic:', source)
+        self.assertIn('browser_only=args.browser_only_diagnostic', source)
+        self.assertIn("phase='STATIC_HTTP_BIND'", browser)
+        self.assertIn("phase='CHROMIUM_LAUNCH'", browser)
+        self.assertIn('error_class=${safeName}', browser)
+        self.assertIn('errno=${safeErrno}', browser)
+        self.assertNotIn('${error.message}', browser)
+        self.assertNotIn('${error.stack}', browser)
 
     def test_playwright_dependency_is_exact_and_lockfile_matches(self):
         frontend = runner.REPO / 'frontend'

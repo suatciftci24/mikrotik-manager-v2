@@ -19,15 +19,19 @@ const analysis={source:'synthetic-fixture',is_demo:true,read_only:true,evaluated
 const empty={items:[],total:0,page:1,page_size:25,is_demo:true};
 const receipt={status:'FAIL',synthetic_only:true,checks:[]};
 const ok=label=>{receipt.checks.push(label);console.log('PASS:',label);};
+let browser,base;const violations=[],errors=[],reads=[];
+let phase='BUNDLE';
+try{
 await build({stdin:{contents:"import React from 'react';import {createRoot} from 'react-dom/client';import App from './src/App';createRoot(document.getElementById('root')).render(<App/>);",resolveDir:process.cwd(),loader:'tsx'},bundle:true,outfile:join(temp,'fixture.js'),jsx:'automatic',platform:'browser'});
 writeFileSync(join(temp,'index.html'),'<!doctype html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="/theme.js"></script><link rel="stylesheet" href="/fixture.css"></head><body><div id="root"></div><script src="/fixture.js"></script></body></html>');
 writeFileSync(join(temp,'theme.js'),readFileSync('public/theme.js'));
 const server=createServer((req,res)=>{const path=req.url.split('?')[0]==='/'?'index.html':req.url.slice(1).split('?')[0];if(!['index.html','theme.js','fixture.js','fixture.css'].includes(path)){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html');res.end(readFileSync(join(temp,path)));});
-let browser,base;const violations=[],errors=[],reads=[];
-try{
+ phase='STATIC_HTTP_BIND';
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
  base='http://127.0.0.1:'+server.address().port;
+ phase='CHROMIUM_LAUNCH';
  browser=await chromium.launch(selectBrowser(chromium));
+ phase='BROWSER_SCENARIO';
  const context=await browser.newContext({viewport:{width:1440,height:1000},serviceWorkers:'block'});
  let viewer=false;
  await context.route('**/*',async route=>{
@@ -127,6 +131,15 @@ try{
  assert.deepEqual(violations,[]);assert.deepEqual(errors,[]);
  assert.ok(reads.includes('/api/ready'),'explicit V2.6 runtime profile readiness was not read');
  receipt.status='PASS';ok('Harici istek, mutation, beklenmeyen API ve tarayıcı hatası yok');
+}catch(error){
+ const safeName=/^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(error?.name||'')?error.name:'Error';
+ const safeCode=/^[A-Z0-9_-]{1,40}$/.test(String(error?.code||''))?String(error.code):null;
+ const safeErrno=Number.isInteger(error?.errno)?error.errno:null;
+ const outcome=phase==='STATIC_HTTP_BIND'||phase==='CHROMIUM_LAUNCH'?'BLOCKED':
+  (safeName==='AssertionError'||safeName==='TimeoutError'?'FAIL':'BLOCKED');
+ console.error(`${outcome}: browser_phase=${phase} error_class=${safeName}`+
+  (safeCode?` code=${safeCode}`:'')+(safeErrno!==null?` errno=${safeErrno}`:''));
+ throw error;
 }finally{
  try{await browser?.close();}finally{await new Promise(resolve=>server.listening?server.close(resolve):resolve());rmSync(temp,{recursive:true,force:true});}
 }

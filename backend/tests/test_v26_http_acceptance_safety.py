@@ -40,6 +40,20 @@ class HttpAcceptanceSafetyTests(TestCase):
             acceptance.ACTIVE_ACCEPTANCE_BIND_ERROR = previous
             acceptance.ACTIVE_ACCEPTANCE_CLASS = None
 
+    def test_listener_evidence_survives_unittest_stage_mismatch(self):
+        previous = acceptance.ACTIVE_ACCEPTANCE_BIND_ERROR
+        try:
+            acceptance.ACTIVE_ACCEPTANCE_BIND_ERROR = {
+                'stage': 'HTTP_LISTENER_BIND', 'error_class': 'PermissionError', 'errno': errno.EPERM,
+            }
+            result = Mock(errors=[(Mock(stage='HTTP_SERVER_START'), 'private')], failures=[])
+            diagnostic = acceptance.failed_acceptance_diagnostic(result)
+            self.assertEqual(diagnostic,
+                             'stage=HTTP_SERVER_START bind_stage=HTTP_LISTENER_BIND '
+                             'bind_error_class=PermissionError bind_errno=1')
+        finally:
+            acceptance.ACTIVE_ACCEPTANCE_BIND_ERROR = previous
+
     def test_explicit_run_and_existing_root_refuse_before_suite(self):
         with patch.object(acceptance, 'acceptance_suite') as suite, \
              redirect_stderr(io.StringIO()):
@@ -178,6 +192,15 @@ class HttpAcceptanceSafetyTests(TestCase):
         verify = source.index('verify_owned_acceptance_database(connection, self.store)')
         browser = source.index('self.during_acceptance()')
         self.assertLess(verify, browser)
+
+    def test_browser_only_suite_selects_readiness_diagnostic_not_http_acceptance(self):
+        callback = Mock()
+        suite = acceptance.acceptance_suite(during_acceptance=callback, browser_only=True)
+        self.assertEqual(suite.countTestCases(), 1)
+        case = next(iter(suite))
+        self.assertEqual(case._testMethodName, 'test_browser_only_diagnostic')
+        self.assertIs(type(case).during_acceptance, callback)
+        self.assertTrue(type(case).browser_only)
 
     def test_browser_start_requires_revalidated_owned_database_and_select_one(self):
         connection, store = Mock(), Mock()

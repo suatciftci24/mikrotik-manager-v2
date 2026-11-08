@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import argparse
 from pathlib import Path
 import platform
 import shutil
@@ -101,7 +102,11 @@ def _run(command: list[str], *, cwd: Path, env: dict[str, str]) -> int:
         return 1
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--browser-only-diagnostic', action='store_true',
+                        help='skip contract and HTTP business suites; run browser against fresh owned PG and verified loopback readiness only')
+    args = parser.parse_args(argv)
     blocked = preflight()
     if blocked:
         print('BLOCKED: HOME_WSL_' + blocked)
@@ -116,11 +121,12 @@ def main() -> int:
         print('BLOCKED: HOME_WSL_LOCAL_BROWSER_PREFLIGHT')
         return preflight_result or 1
 
-    tests = _run([node, '--experimental-transform-types', '--test', *NODE_TESTS],
-                 cwd=frontend, env=env)
-    if tests:
-        print('FAIL: V2.6 socketless frontend contract suite')
-        return tests
+    if not args.browser_only_diagnostic:
+        tests = _run([node, '--experimental-transform-types', '--test', *NODE_TESTS],
+                     cwd=frontend, env=env)
+        if tests:
+            print('FAIL: V2.6 socketless frontend contract suite')
+            return tests
 
     def run_browser_while_disposable_http_and_postgres_are_alive():
         browser = _run([node, 'tests/managementCenters.browser.mjs'], cwd=frontend, env=env)
@@ -129,10 +135,16 @@ def main() -> int:
 
     # The HTTP harness owns both fixed loopback listeners, its fresh PG16 cluster,
     # app lifetime, and cleanup. Browser runs inside its live verified profile.
-    result = http_runner.main(during_acceptance=run_browser_while_disposable_http_and_postgres_are_alive)
+    result = http_runner.main(
+        during_acceptance=run_browser_while_disposable_http_and_postgres_are_alive,
+        browser_only=args.browser_only_diagnostic,
+    )
     if result:
         return result
-    print('PASS: V2.6 synthetic PostgreSQL + loopback HTTP + verified-profile Chromium acceptance; cleanup complete')
+    if args.browser_only_diagnostic:
+        print('PASS: V2.6 disposable PostgreSQL + verified-profile browser diagnostic; cleanup complete')
+    else:
+        print('PASS: V2.6 synthetic PostgreSQL + loopback HTTP + verified-profile Chromium acceptance; cleanup complete')
     return 0
 
 

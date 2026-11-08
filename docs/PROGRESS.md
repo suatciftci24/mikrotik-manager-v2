@@ -4906,3 +4906,24 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Görev sonu normal push da BLOCKED: `Could not resolve host: github.com`.
   Tek yeni yerel commit korundu; main-guncel tracking dalından bir commit
   ileride. Ağ düzeldiğinde normal push gerekir; force push yapılmadı.
+
+## V2.6 Ev WSL browser acceptance teşhisi — 2026-11-08
+
+- Kullanıcının son runner çıktısı 52 Node PASS ve
+  `BLOCKED: acceptance stage=BROWSER_ACCEPTANCE`. Checkout'ta bu denemeye ait
+  stderr/trace veya receipt yok; temp tarayıcı dosyaları cleanup sırasında
+  kaldırılıyor. Dolayısıyla özet tek başına uygulama, Chromium launch,
+  loopback izin veya test senaryosu nedenini kanıtlamıyor.
+- Yalnız browser aşaması için `--browser-only-diagnostic` eklendi. Aynı Ev WSL,
+  temiz ağaç, araç, port ve taze sentetik PostgreSQL/loopback readiness
+  kontrollerini kullanır; 52 Node testi ile HTTP iş kabul senaryolarını tekrar
+  etmez. Gerçek `v26-isolated-acceptance` readiness doğrulandıktan sonra
+  browser çalışır. Hata çıktısı aşama/sınıf/errno ile sınırlı; Chromium sandbox
+  ve TLS ayarları değişmez.
+- Hedefli soketsiz Python güvenlik testleri 18/18, Node browser-script syntax
+  ve diff kontrolü PASS. Tek browser-only teşhis denemesi Playwright preflight
+  sonrasında `HTTP_LISTENER_BIND` aşamasında durdu; DB/HTTP uygulama/Chromium
+  başlamadı ve errno/class sunulmadı. Tekrar deneme yapılmadı. Harness bind
+  sınıfı/errno'sunu stage uyuşmazlığında da taşıyacak şekilde düzeltildi.
+- BROWSER_ACCEPTANCE kök nedeni bu ortamda halen kanıtlanmadı; browser PASS
+  iddia edilmez. Değişiklikler yerel tek commit'e alınacak; push yok.
