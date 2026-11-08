@@ -54,27 +54,45 @@ selected. If another process wins the narrow release/start race, PostgreSQL
 startup fails and the harness does not connect to that process; the run is
 BLOCKED.
 
-Only when the operator has confirmed the fresh-path precondition and accepts
-the environment's local socket policy may this single command be run from the
+The checked-in runner additionally requires the Home WSL host identity
+(`DESKTOP-MT2JS7H`), WSL kernel marker, clean `main-guncel` worktree, repository
+owner, exact repository path, and repository virtualenv Python. It does not
+start anything during its read-only preflight. Then the existing harness checks
+the non-root identity, fresh acceptance path, PostgreSQL 16 tools and Python
+dependencies before taking either port. Git status is read-only and its output
+is not printed. The harness child environment is rebuilt from a small safe
+allowlist; inherited `V2_*`, `PG*`, Python path/home overrides, and loader
+preload variables are not passed to the acceptance application.
+
+Only when the operator has confirmed these preconditions and accepts the
+environment's local socket policy may this single command be run from the
 repository root:
 
 ```bash
-PYTHONPATH=backend backend/.venv/bin/python -m backend.tests.v26_http_acceptance --run
+cd /home/suat/Codex-Projects/mikrotik-manager-v2 && PYTHONPATH=backend backend/.venv/bin/python -m backend.tests.run_v26_http_acceptance_wsl
 ```
 
 The test owns the disposable cluster and fixed loopback ports and cleans up its
 own stopped cluster. A cleanup failure is not PASS and the private root is
 preserved for inspection. Bind failures report only stage, exception class and
 numeric errno; OS error text, paths, DSNs, cookies and credentials are omitted.
-This procedure was documented but not executed in the current follow-up.
+Expected success is exit 0 and `PASS: disposable PostgreSQL16 + real loopback
+HTTP acceptance; cleanup complete`. Environment/identity failures print a
+fixed `BLOCKED: HOME_WSL_*` code. HTTP and database-port blocks identify the
+stage and safe bind metadata, for example `HTTP_LISTENER_BIND` or
+`POSTGRES_LISTENER_RESERVE`. No nonzero result is an acceptance PASS.
+The runner and HTTP acceptance were not executed in this task.
 
 ### Harness hardening verification
 
-- **PASS:** 15 offline Python tests across `test_v26_http_acceptance_safety`
-  and `test_v26_disposable_fixture`. They mock socket binds and verify both
-  fixed-port collision rejection and redacted class/errno diagnostics; they do
-  not create sockets, a database, or a server.
-- **PASS:** Python syntax compilation, frontend typecheck and production build.
+- **PASS:** 20 offline Python tests across `test_v26_http_runner_safety`,
+  `test_v26_http_acceptance_safety` and `test_v26_disposable_fixture`. They
+  verify WSL/branch/path/owner/clean-tree gates, inherited environment removal,
+  mocked fixed-port collision rejection, and redacted class/errno diagnostics;
+  they do not create sockets, a database, or a server.
+- **PASS:** Python syntax compilation. Frontend typecheck and production build
+  passed after the prior harness-only change; they were not repeated here
+  because this follow-up changed no frontend source.
 - **BLOCKED:** No HTTP acceptance was run in this follow-up, as requested. The
   last real attempt remains blocked at `HTTP_LISTENER_BIND`; Chromium was not
   run. No migration or DB operation was performed.

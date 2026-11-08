@@ -45,6 +45,17 @@
   frontend typecheck ve production build. Migration ve mevcut yetki/işlem
   sözleşmeleri değiştirilmedi.
 
+## Ev WSL tek komut HTTP kabul runner'ı — 2026-11-08
+
+- `backend.tests.run_v26_http_acceptance_wsl` eklendi. Yalnız `DESKTOP-MT2JS7H`
+  WSL2, temiz `main-guncel`, repo sahibi ve repo `.venv` koşullarında ilerler;
+  kabul kökü varsa veya repo/branch/Python uyuşmazsa BLOCKED olur.
+- `docs/V26_ISOLATED_INTEGRATION_ACCEPTANCE.md` Ev WSL'den tam komutu ve
+  beklenen PASS/BLOCKED çıktısını içerir. Runner ve HTTP/Chromium kabulü bu
+  görevde çalıştırılmadı.
+- PASS: 20 soketsiz runner/harness/fixture güvenlik testi; Python syntax.
+  Frontend kodu değişmediğinden typecheck/build gerekmiyor.
+
 ## V2.6 Alarm ve Olay Yönetimi Merkezi — 2026-11-08
 
 - Mevcut Alarm Merkezi, WAN/MikAjanı alarm projeksiyonu ve ADMIN ACK/READ
