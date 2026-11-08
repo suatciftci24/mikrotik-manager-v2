@@ -82,6 +82,9 @@ class V26ChromiumRunnerSafety(TestCase):
         self.assertIn("reportError('STATIC_HTTP_CLEANUP',error)", browser)
         self.assertIn("reportError('TEMP_CLEANUP',error)", browser)
         self.assertIn("PASS: browser scenario and owned resources cleanup complete", browser)
+        self.assertIn('let browser,base,server;', browser)
+        self.assertIn('server=createServer(', browser)
+        self.assertNotIn('const server=createServer(', browser)
 
     def test_playwright_dependency_is_exact_and_lockfile_matches(self):
         frontend = runner.REPO / 'frontend'

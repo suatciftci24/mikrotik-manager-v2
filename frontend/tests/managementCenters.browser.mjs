@@ -19,7 +19,7 @@ const analysis={source:'synthetic-fixture',is_demo:true,read_only:true,evaluated
 const empty={items:[],total:0,page:1,page_size:25,is_demo:true};
 const receipt={status:'FAIL',synthetic_only:true,checks:[]};
 const ok=label=>{receipt.checks.push(label);console.log('PASS:',label);};
-let browser,base;const violations=[],errors=[],reads=[];
+let browser,base,server;const violations=[],errors=[],reads=[];
 let phase='BUNDLE';
 const reportError=(errorPhase,error)=>{
  const safeName=/^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(error?.name||'')?error.name:'Error';
@@ -39,7 +39,7 @@ try{
 await build({stdin:{contents:"import React from 'react';import {createRoot} from 'react-dom/client';import App from './src/App';createRoot(document.getElementById('root')).render(<App/>);",resolveDir:process.cwd(),loader:'tsx'},bundle:true,outfile:join(temp,'fixture.js'),jsx:'automatic',platform:'browser'});
 writeFileSync(join(temp,'index.html'),'<!doctype html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="/theme.js"></script><link rel="stylesheet" href="/fixture.css"></head><body><div id="root"></div><script src="/fixture.js"></script></body></html>');
 writeFileSync(join(temp,'theme.js'),readFileSync('public/theme.js'));
-const server=createServer((req,res)=>{const path=req.url.split('?')[0]==='/'?'index.html':req.url.slice(1).split('?')[0];if(!['index.html','theme.js','fixture.js','fixture.css'].includes(path)){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html');res.end(readFileSync(join(temp,path)));});
+server=createServer((req,res)=>{const path=req.url.split('?')[0]==='/'?'index.html':req.url.slice(1).split('?')[0];if(!['index.html','theme.js','fixture.js','fixture.css'].includes(path)){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html');res.end(readFileSync(join(temp,path)));});
  phase='STATIC_HTTP_BIND';
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
  base='http://127.0.0.1:'+server.address().port;
@@ -152,7 +152,7 @@ const server=createServer((req,res)=>{const path=req.url.split('?')[0]==='/'?'in
 }finally{
  const cleanupErrors=[];
  try{await browser?.close();}catch(error){reportError('BROWSER_CLEANUP',error);cleanupErrors.push(error);}
- try{await new Promise((resolve,reject)=>server.listening?server.close(error=>error?reject(error):resolve()):resolve());}
+ try{await new Promise((resolve,reject)=>server?.listening?server.close(error=>error?reject(error):resolve()):resolve());}
  catch(error){reportError('STATIC_HTTP_CLEANUP',error);cleanupErrors.push(error);}
  try{rmSync(temp,{recursive:true,force:true});}
  catch(error){reportError('TEMP_CLEANUP',error);cleanupErrors.push(error);}
