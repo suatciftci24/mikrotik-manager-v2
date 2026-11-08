@@ -59,24 +59,27 @@ export function buildManagementReport(source:ManagementSource,filter:ManagementF
     const time=observationTime(value);if(!time)return false;
     const milliseconds=Date.parse(time);return milliseconds>=range.from&&milliseconds<range.until&&milliseconds<=range.cutoff;
   };
-  const legacyOperations=inventory.operation_history.filter(event=>inRange(event.occurred_at)&&(filter.kind==='ALL'||filter.kind==='OPERATIONS'||filter.kind==='PPPOE'&&event.access_type==='PPPOE'||event.operation===filter.kind)).map(event=>({...event,router_id:reportRouterId(scopedDetails.find(detail=>detail.item.id===event.subscriber_id)!.item,routers)}));
+  const detailById=new Map(scopedDetails.map(detail=>[detail.item.id,detail]));
+  const legacyOperations=inventory.operation_history.filter(event=>inRange(event.occurred_at)&&(filter.kind==='ALL'||filter.kind==='OPERATIONS'||filter.kind==='PPPOE'&&event.access_type==='PPPOE'||event.operation===filter.kind)).map(event=>({...event,router_id:reportRouterId(detailById.get(event.subscriber_id)!.item,routers)}));
   const workspaceOperations:ReportOperation[]=[];
   if(source.workspace){
     const accounts=uniqueReportRecords(source.workspace.accounts,row=>row.id);
-    uniqueReportRecords(source.workspace.routers,row=>row.id);
+    const accountById=new Map(accounts.map(account=>[account.id,account]));
+    const workspaceRouterById=new Map(uniqueReportRecords(source.workspace.routers,row=>row.id).map(router=>[router.id,router]));
     for(const receipt of uniqueReportRecords(source.workspace.receipts,row=>row.request_id)){
-      if(receipt.recorded!==true||receipt.success!==true)continue;
-      const account=accounts.find(row=>row.id===receipt.item_id);
+      if(receipt.recorded!==true)continue;
+      if(typeof receipt.success!=='boolean')throw new Error('İşlem audit sonucu doğrulanamadı.');
+      const account=accountById.get(receipt.item_id);
       if(!account||!account.id.startsWith('demo-managed-sub-')||!['PPPOE','HOTSPOT'].includes(account.access_type??'')||!account.source)throw new Error('Kalıcı işlem abonesi doğrulanamadı.');
-      if(!['LOCAL','RADIUS'].includes(account.source)||!Number.isInteger(account.revision)||account.revision<1||!Number.isInteger(receipt.revision)||receipt.revision<1||receipt.revision>account.revision)throw new Error('Kalıcı işlem ve güncel abone revizyonu doğrulanamadı.');
-      if(receipt.revision===account.revision&&Object.entries(receipt.values).some(([key,value])=>['source','router_id','username','plan','status','expires_on','customer_name','access_type'].includes(key)&&account[key as keyof CenterSubscriber]!==value))throw new Error('İşlem sonucu güncel revizyonla eşleşmedi.');
+      if(!['LOCAL','RADIUS'].includes(account.source)||!Number.isInteger(account.revision)||account.revision<1||!Number.isInteger(receipt.revision)||receipt.revision<(receipt.success?1:0)||receipt.revision>account.revision)throw new Error('Kalıcı işlem ve güncel abone revizyonu doğrulanamadı.');
+      if(receipt.success&&receipt.revision===account.revision&&Object.entries(receipt.values).some(([key,value])=>['source','router_id','username','plan','status','expires_on','customer_name','access_type'].includes(key)&&account[key as keyof CenterSubscriber]!==value))throw new Error('İşlem sonucu güncel revizyonla eşleşmedi.');
       if(account.access_type!=='PPPOE'||!matchesSource(account.source,filter.source??'ALL'))continue;
       const mapping:Record<string,DailyOperation['operation']>={EDIT:'EDIT',UPDATE:'UPDATE',ROUTER:'ROUTER',CREATE:'CREATE',PLAN:'PLAN_CHANGE',STATUS:'STATUS_CHANGE',EXTEND:'RENEWAL',RENEWAL:'RENEWAL',EXPIRE:'DATE_EDIT'};
       const operation=mapping[receipt.operation];
       if(!operation)throw new Error('Kalıcı işlem türü doğrulanamadı.');
       if(!inRange(receipt.occurred_at)||filter.router&&receipt.router_id!==filter.router)continue;
       if(!['ALL','OPERATIONS','PPPOE',operation].includes(filter.kind))continue;
-      workspaceOperations.push({id:'workspace:'+receipt.request_id,request_id:receipt.request_id,revision:receipt.revision,audit_result:'APPLIED',subscriber_id:account.id,customer_name:account.customer_name,username:account.username,router_id:receipt.router_id,router_name:source.workspace.routers.find(row=>row.id===receipt.router_id)?.fields.name??receipt.router_id??'Veri yok',access_type:'PPPOE',source:account.source,is_demo:true,operation,label:dailyLabels[receipt.operation]??receipt.operation,workspace:true,occurred_at:receipt.occurred_at,actor_id:receipt.actor_id,previous_values:receipt.previous,new_values:receipt.values,...(operation==='RENEWAL'||operation==='DATE_EDIT'?{previous_expires_on:receipt.previous.expires_on,expires_on:receipt.values.expires_on}:{})});
+      workspaceOperations.push({id:'workspace:'+receipt.request_id,request_id:receipt.request_id,revision:receipt.revision,audit_result:receipt.success?'APPLIED':'FAILED',subscriber_id:account.id,customer_name:account.customer_name,username:account.username,router_id:receipt.router_id,router_name:workspaceRouterById.get(receipt.router_id??'')?.fields.name??receipt.router_id??'Veri yok',access_type:'PPPOE',source:account.source,is_demo:true,operation,label:dailyLabels[receipt.operation]??receipt.operation,workspace:true,occurred_at:receipt.occurred_at,actor_id:receipt.actor_id,previous_values:receipt.previous,new_values:receipt.values,...(operation==='RENEWAL'||operation==='DATE_EDIT'?{previous_expires_on:receipt.previous.expires_on,expires_on:receipt.values.expires_on}:{})});
     }
   }
   const operations:ReportOperation[]=[...legacyOperations,...workspaceOperations].sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at)||a.id.localeCompare(b.id));
@@ -96,8 +99,9 @@ export function buildManagementReport(source:ManagementSource,filter:ManagementF
   if(!managementExpiryFilters.includes(expiry as typeof managementExpiryFilters[number]))throw new Error('Bitiş filtresi geçersiz.');
   const subscribers=scopedDetails.map(detail=>detail.item);
   return {range,inventory,operations,events,historyAvailable,workspaceError:source.workspaceError,
-    pppoeOperations:historyAvailable?operations.filter(event=>event.access_type==='PPPOE').length:null,
+    pppoeOperations:historyAvailable?operations.filter(event=>event.access_type==='PPPOE'&&event.audit_result==='APPLIED').length:null,
     untypedOperations:historyAvailable?operations.filter(event=>event.access_type!== 'PPPOE').length:null,
+    outcomes:{applied:historyAvailable?operations.filter(event=>event.audit_result==='APPLIED').length:null,failed:historyAvailable?operations.filter(event=>event.audit_result==='FAILED').length:null,unknown:null},
     expirySummary:buildSubscriptionAlerts(subscribers,turkeyToday(now)),
     expiryRows:subscribers.filter(row=>matchesExpiry(row.expires_on,expiry,turkeyToday(now))),
     generated_at:now.toISOString(),

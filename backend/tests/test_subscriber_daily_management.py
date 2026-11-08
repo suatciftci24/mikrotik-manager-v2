@@ -97,3 +97,27 @@ class DailyContracts(TestCase):
 def load_tests(loader,tests,pattern):
     import unittest
     suite=unittest.TestSuite(DailyManagement(name) for name in DailyManagement.__dict__ if name.startswith('test_'));suite.addTests(loader.loadTestsFromTestCase(DailyContracts));return suite
+
+
+class HistoryAuditIntegrity(TestCase):
+    def test_history_receipt_matches_canonical_audit_before_exposing_success(self):
+        from types import SimpleNamespace
+        from copy import deepcopy
+        from app.services.subscriber_operations import event_receipt
+        from app.services.router_workspace import WorkspaceError
+        receipt=dict(item_id='demo-managed-sub-a',request_id='uuid',actor_id='actor',revision=4,
+                     operation='STATUS',occurred_at='2026-11-08T09:00:00Z',previous={'status':'PAUSED'},
+                     values={'status':'ACTIVE'},router_id='demo-managed-router-a',previous_router_id='demo-managed-router-a',
+                     success=True,recorded=True)
+        event=SimpleNamespace(subscriber_id=receipt['item_id'],id='uuid',actor_id='actor',revision=4,
+                              operation='STATUS',occurred_at=receipt['occurred_at'],
+                              changes={'status':{'previous':'PAUSED','new':'ACTIVE'},'_management':{'receipt':receipt}})
+        self.assertEqual(event_receipt(event),receipt)
+        for key,value in [('item_id','foreign'),('request_id','other'),('actor_id','foreign'),('revision',3),
+                          ('operation','PLAN'),('occurred_at','other'),('values',{}),('previous',{}),
+                          ('recorded',False),('success',None),('router_id','other')]:
+            with self.subTest(key=key):
+                bad=deepcopy(event);bad.changes['_management']['receipt'][key]=value
+                with self.assertRaises(WorkspaceError):event_receipt(bad)
+        failed=deepcopy(event);failed.changes.pop('status');failed.changes['_management']['receipt'].update(success=False,previous={},values={})
+        self.assertFalse(event_receipt(failed)['success'])

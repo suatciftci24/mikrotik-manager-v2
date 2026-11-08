@@ -19,7 +19,17 @@ def public_changes(changes,key):
 
 def event_receipt(event):
     stored=event.changes.get('_management',{}).get('receipt')
-    if stored:return stored
+    if stored:
+        # History must obey the same canonical audit identity as UUID recovery.
+        expected=dict(item_id=event.subscriber_id,request_id=event.id,actor_id=event.actor_id,
+                      revision=event.revision,operation=event.operation,occurred_at=event.occurred_at,
+                      previous=public_changes(event.changes,'previous'),values=public_changes(event.changes,'new'))
+        if (stored.get('recorded') is not True or type(stored.get('success')) is not bool
+                or any(stored.get(key)!=value for key,value in expected.items())
+                or (stored.get('router_id')!=stored.get('previous_router_id') if event.operation!='ROUTER' or not stored['success']
+                    else stored.get('router_id')!=stored['values'].get('router_id') or stored.get('previous_router_id')!=stored['previous'].get('router_id'))):
+            raise WorkspaceError(409,'İşlem geçmişinin audit kanıtı uyuşmuyor; kayıt başarı sayılmadı.')
+        return stored
     previous=public_changes(event.changes,'previous');values=public_changes(event.changes,'new')
     return dict(item_id=event.subscriber_id,request_id=event.id,success=True,recorded=True,operation=event.operation,actor_id=event.actor_id,
                 router_id=event.changes.get('_router_id',values.get('router_id')),previous_router_id=previous.get('router_id'),previous=previous,values=values,occurred_at=event.occurred_at,revision=event.revision,error=None)

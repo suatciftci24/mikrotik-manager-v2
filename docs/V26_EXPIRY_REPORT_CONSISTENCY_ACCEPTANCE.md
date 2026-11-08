@@ -78,3 +78,63 @@ ve gerçek veri işlemi yapılmadı. Yalnız yerel kod ve sentetik/mock testler.
 - Normal `git push origin main-guncel` denendi; push BLOCKED:
   `Could not resolve host: github.com`. Yerel tek commit korunur.
   Uzak okuma başarılıydı; ağ erişiminde normal push gerekir. Force push yok.
+
+## Merkezi operasyon bütünlüğü — 2026-11-08 / 5df920f sonrası
+
+Başlangıç main-guncel/5df920f, temiz; yerel remote tracking ile aynı SHA,
+bekleyen commit yok. İlk normal push DNS nedeniyle BLOCKED. Önceki bitiş,
+UUID GET-only uzlaştırma ve revizyon korumaları yeniden yazılmadı.
+
+### Gerçekten tamamlanan düzeltmeler
+
+- Mevcut management history API'sinin saklanan receipt'i doğrudan döndürme
+  açığı kapandı. UUID, abone, actor, audit kolonundaki revizyon/tür/zaman,
+  previous/new public değişiklikleri, recorded/success ve router değişimi
+  eşleşmeden geçmiş yayımlanmaz (409). Salt okunur doğrulama; yeni endpoint,
+  tablo veya migration yok. Tekil UUID recovery kanıtı değiştirilmedi.
+- Günlük rapor kayıtlı başarısız kalıcı PPPoE audit'lerini atlamaz; başarıdan
+  ayrı gösterir. Başarılı PPPoE kartı yalnız APPLIED sayar. Başarısız satır
+  denenmiş değerleri uygulanmış gibi sunmaz. Aynı UUID replay'i tekildir;
+  çelişen kopya, geçersiz kimlik/revizyon/sonuç hata verir. Unrecorded receipt
+  toplam üretmez. Belirsiz isteklerin global audit sayım kaynağı yoktur:
+  'Sayım kaynağı yok' açıkça gösterilir, başarı veya sıfır türetilmez.
+- Başarılı/başarısız sayıları yalnız erişilen kayıtlı audit kapsamıdır.
+  Legacy geçmiş yalnız başarılı işlemleri sağlar; geçmişte kaydedilmemiş
+  başarısız/belirsiz denemelerin küresel toplamı çıkarılamaz. Bu sınır kapalı
+  sayılmaz. Workspace alınamazsa kesin toplam yerine Veri yok korunur.
+- Mevcut MikAjanı olay açma/kapama URL'ye taşındı. Bilinen router + can_view
+  ile router/alarm bağlantıları; bounded return_to üzerinden olay/priority
+  bağlamına dönüş. Alarm→MikAjanı geçişi de kaynak merkeze dönebilir.
+  Yetkisiz/bilinmeyen hedefe link yok. Ayrı senaryo bulgularından kayıtlı
+  routerlara link yok; olmayan abone ilişkisi üretilmedi.
+- Raporun abone/router lookup'ları Map ile indekslendi: her receipt için
+  accounts/routers.find taraması kaldırıldı. Yeni bağımlılık/bileşen/menü yok.
+  Sayısal süre/bundle küçülmesi iddiası yok; ana bundle 622.39kB, gzip179.34.
+
+### Bu görevde doğrulama
+
+PASS: 68 frontend test (9 dosyada benzersiz kapsam): managementReport18,
+managementReportView7, mikaContextNavigation3, alarmCenter6,
+operationsNavigation10, mikajani3, pendingSubscriberOperations12,
+subscriptionActions8, resourceReconciliation1. Bunlar mock/hook/SSR kabulüdür.
+Yeni başarısız satır eklenince eski testte ilk workspace satırının başarı
+olduğu varsayımı kalktı; açık APPLIED satırı seçildi. Güvenlik assertion'ları
+gevşetilmedi. Test komutundaki cwd hatası düzeltilerek gerekli kapsam çalıştı.
+
+PASS: 5 backend test: HistoryAuditIntegrity (11 kanonik alan bozulması +
+başarısız receipt), DailyManagement partial failure/replay ve router move,
+UUIDAuditEvidence bulk audit/source uyuşmazlığı ve >50 kayıt sonrası tekil
+salt okunur UUID kanıtı. Yalnız private sentetik SQLite/mock; canlı DB yok.
+PASS: tek `npm run build` (tsc + Vite), diff kontrolü. >500kB uyarısı açık.
+
+BLOCKED: Chromium EPERM; socket/tarayıcı tekrar denenmedi, güvenlik ayarı
+gevşetilmedi. Gerçek mobil/touch/odak, HTTP/PG ve tüm modüllerin üretim kabulü
+iddia edilmez. Bu görev geniş envanterdeki mevcut tamamlanmış işlevleri
+koruyarak kanıtlanan audit/rapor/navigasyon eksiklerini kapatır; bütün ürünün
+üretime hazır olduğu anlamına gelmez. Tarihsel genel kabul engelleri açık.
+V1/V2.5/canlı VDS/gerçek cihaz/RADIUS/IPsec/canlı DB'ye erişim veya değişiklik,
+deploy/restart/migration/veri silme yok. Geliştirmeler canlıya aktarılmadı.
+
+- Görev sonu normal push da BLOCKED: `Could not resolve host: github.com`.
+  Tek yeni yerel commit korundu; main-guncel tracking dalından bir commit
+  ileride. Ağ düzeldiğinde normal push gerekir; force push yapılmadı.

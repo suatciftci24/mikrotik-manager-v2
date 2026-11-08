@@ -1,3 +1,5 @@
+import {can,useIdentity} from '../lib/permissions';
+import {linkedDetailHash,linkedCenterHash,centerReturnHash} from '../lib/detailLinks';
 import { useListFilter } from '../lib/useListFilter';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
@@ -19,6 +21,8 @@ export function Mikajani() {
   const [router,setRouter]=useState('');const [domain,setDomain]=useState('ALL');const [selected,setSelected]=useState<string|null>(readSelected);
   useEffect(()=>{const tick=()=>resource.retry();const timer=window.setInterval(tick,60000);return()=>window.clearInterval(timer);},[resource.retry]);
   useEffect(()=>{const read=()=>setSelected(readSelected());window.addEventListener('hashchange',read);return()=>window.removeEventListener('hashchange',read);},[]);
+  const selectEvent=(id:string|null)=>{const params=new URLSearchParams(window.location.hash.slice(1));params.set('module','mikajani');if(id)params.set('event',id);else params.delete('event');window.location.hash='#'+params;};
+  const back=centerReturnHash(typeof window==='undefined'?'':window.location.hash);
   const data=resource.data;
   const rows=data?filterMikaEvents(data.events,{query,priority,state,router,domain}):[];
   const event=selected?data?.events.find(e=>e.id===selected):undefined;
@@ -28,6 +32,7 @@ export function Mikajani() {
     <section className="panel mika-panel"><label className="form-label">Analiz kaynağı<select value={scenario} onChange={e=>{setScenario(e.target.value);setSelected(null);setRouter('');}}><option value="">Kayıtlı V2 demo verisi</option>{scenarios.data?.items.map(s=><option key={s.key} value={s.key}>SENARYO · {s.name}</option>)}</select></label>{scenarios.error&&<p role="alert">Senaryo listesi: {scenarios.error}</p>}
       <p>DEMO / SENTETİK. Öneriler otomatik uygulanmaz. Gerçek AI API çağrısı yoktur.</p>{scenario&&<p className="demo-save-notice">Ayrı sentetik senaryo seçili; kayıtlı aboneler veya routerlar değiştirilmez. Senaryo saati sabittir.</p>}
     </section>
+    {back&&<a className="button-secondary detail-back" href={back}>Kaynak merkeze dön</a>}
     <ResourceState {...resource}/>
     {selected&&data&&!resource.loading&&!resource.error&&!event&&<p role="status">İlgili MikAjanı kanıtı bu kaynakta bulunamadı veya görüntüleme yetkiniz yok. Mevcut olayları inceleyebilirsiniz.</p>}
     {data&&!resource.loading&&!resource.error&&<>
@@ -41,17 +46,20 @@ export function Mikajani() {
         <label>Yaşam döngüsü<select aria-label="MikAjanı yaşam döngüsü filtresi" value={state} onChange={e=>setState(e.target.value as typeof states[number])}>{['ACTIVE','ALL','OPEN','UPDATED','RECOVERING','RESOLVED'].map(v=><option key={v} value={v}>{v==='ACTIVE'?'Aktif olaylar':v==='ALL'?'Tüm geçmiş':mikaStatus[v]}</option>)}</select></label>
         <label>Router<select value={router} onChange={e=>setRouter(e.target.value)}><option value="">Tümü</option>{data.health.map(r=><option key={r.router_id} value={r.router_id}>{r.name}</option>)}</select></label>
         <label>Alan<select value={domain} onChange={e=>setDomain(e.target.value)}>{['ALL','ROUTER','WAN','IPSEC','PPPOE','MONITOR','DATA','CORRELATION'].map(v=><option key={v} value={v}>{v==='ALL'?'Tümü':v}</option>)}</select></label>
-      </div><p role="status">{rows.length} olay · Önceliğe göre sıralı</p><div className="mika-events">{rows.map(e=><article key={e.id}><div><strong>{e.priority} · {e.title}</strong><span>{mikaStatus[e.state]} · Güven: {mikaStatus[e.confidence]}</span></div><p>{e.reason}</p><p>{e.affected_router_ids.map(id=>names[id]??id).join(', ')}</p><p>Öneri: {e.recommendation}</p><time>{dateTime(e.updated_at)}</time><button className="button-secondary" onClick={()=>setSelected(e.id)}>Kanıt ve geçmişi aç</button></article>)}</div>{rows.length===0&&<p className="table-empty">Bu filtrelerde olay yok. Eksik veri sağlıklı sonuç anlamına gelmez.</p>}</section>
+      </div><p role="status">{rows.length} olay · Önceliğe göre sıralı</p><div className="mika-events">{rows.map(e=><article key={e.id}><div><strong>{e.priority} · {e.title}</strong><span>{mikaStatus[e.state]} · Güven: {mikaStatus[e.confidence]}</span></div><p>{e.reason}</p><p>{e.affected_router_ids.map(id=>names[id]??id).join(', ')}</p><p>Öneri: {e.recommendation}</p><time>{dateTime(e.updated_at)}</time><button className="button-secondary" onClick={()=>selectEvent(e.id)}>Kanıt ve geçmişi aç</button></article>)}</div>{rows.length===0&&<p className="table-empty">Bu filtrelerde olay yok. Eksik veri sağlıklı sonuç anlamına gelmez.</p>}</section>
       <details className="panel mika-panel center-disclosure"><summary>Analiz sınırları ve kaynak güvencesi</summary>{data.limitations.map(text=><p key={text}>{text}</p>)}</details>
-      {event&&<EventDialog event={event} names={names} onClose={()=>setSelected(null)}/>}
+      {event&&<EventDialog event={event} names={names} contextLinks={!scenario} onClose={()=>selectEvent(null)}/>}
     </>}
   </div>;
 }
-export function EventDialog({event,names,onClose}:{event:MikaEvent;names:Record<string,string>;onClose:()=>void}) {
+export function EventDialog({event,names,onClose,contextLinks=true}:{event:MikaEvent;names:Record<string,string>;onClose:()=>void;contextLinks?:boolean}) {
+  const identity=useIdentity();
+  const from=typeof window==='undefined'?'':window.location.hash;
   const dialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{const origin=document.activeElement as HTMLElement|null;dialog.current?.showModal();return()=>{dialog.current?.close();origin?.focus({preventScroll:true});};},[]);
   return <dialog ref={dialog} className="expiry-dialog" aria-labelledby="mika-event-title" onCancel={e=>{e.preventDefault();onClose();}}><h2 id="mika-event-title">{event.priority} · {event.title}</h2><p>DEMO / SENTETİK · Salt okunur bulgu</p>
     <Facts items={[["Durum",mikaStatus[event.state]],["Neden",event.reason],["Kanıt",event.evidence],["Etkilenen routerlar",event.affected_router_ids.map(id=>(names[id]??id)+' ('+id+')').join(', ')],["Güven",mikaStatus[event.confidence]],["Önerilen işlem",event.recommendation],["Açılış",dateTime(event.opened_at)],["Son değişiklik",dateTime(event.updated_at)],["Çözülme",dateTime(event.resolved_at)],["Olay kimliği",event.id]]}/>
+    <div className="daily-links">{contextLinks?event.affected_router_ids.filter(id=>Object.hasOwn(names,id)&&can(identity,id,'can_view')).map(id=><span key={id}><a className="button-secondary" href={linkedDetailHash({module:'routers',id,source:id.startsWith('demo-managed-')?'MANAGED_DEMO':'DEMO'},from)}>{names[id]} · Router detayı</a> <a className="button-secondary" href={linkedCenterHash('#'+new URLSearchParams({module:'operations',section:'alarms',router_id:id}),from)}>Router alarmları</a></span>):<p>Senaryo bulguları kayıtlı router veya abone bağlantısı değildir.</p>}</div>
     <h3>Yaşam döngüsü ve kaynak kanıtı</h3><ol className="subscriber-history">{event.history.map((h,i)=><li key={i}><strong>{mikaStatus[h.state]}</strong><time>{dateTime(h.occurred_at)}</time><p>{h.evidence}</p><small>Gözlemler: {h.observation_ids.join(', ')}</small></li>)}</ol><button autoFocus className="button-secondary" onClick={onClose}>Kapat</button>
   </dialog>;
 }

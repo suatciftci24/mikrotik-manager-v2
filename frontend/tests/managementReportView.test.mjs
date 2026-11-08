@@ -67,3 +67,12 @@ test('V2.3 compact event row keeps kind, router, time, status and WAN values wit
  for(const text of ['WAN değişikliği','Kaydedildi','Sentetik önce','Sentetik sonra','Günlük bağlantı olayları tablosu'])assert.ok(html.includes(text));
  assert.doesNotMatch(html,/technical-audit-identifier/);
 });
+
+
+test('recorded failure is visible without presenting attempted values as applied or uncertain count as zero',()=>{
+ const account={id:'demo-managed-sub-failure',revision:3,customer_name:'Sentetik',username:'synthetic',access_type:'PPPOE',source:'LOCAL'};
+ const failed={request_id:'failure-uuid',item_id:account.id,success:false,recorded:true,revision:2,operation:'STATUS',actor_id:'operator',router_id:'demo-managed-router-a',occurred_at:new Date().toISOString(),previous:{},values:{}};
+ const html=render({data:{...data,workspace:{accounts:[account],receipts:[failed],routers:[]}},loading:false,retry(){}});
+ assert.match(html,/Başarısız: 1/);assert.match(html,/Belirsiz: Sayım kaynağı yok/);
+ assert.match(html,/Başarısız · Değişiklik uygulanmadı/);assert.match(html,/Uygulanmadı; güncel değer abone detayındadır/);
+});

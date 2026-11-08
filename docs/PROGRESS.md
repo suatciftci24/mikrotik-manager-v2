@@ -4597,3 +4597,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Normal `git push origin main-guncel` denendi; push BLOCKED:
   `Could not resolve host: github.com`. Yerel tek commit korunur.
   Uzak okuma başarılıydı; ağ erişiminde normal push gerekir. Force push yok.
+
+## V2.6 — merkezi audit / rapor / MikAjanı operasyon bütünlüğü — 2026-11-08
+
+- Başlangıç main-guncel/5df920f temiz, tracking aynı; bekleyen commit yok.
+  Kurallar/güncel kabul okundu. İlk normal push DNS BLOCKED; yerel iş sürdü.
+- History API cached receipt artık kanonik Event kimlik/revizyon/tür/zaman,
+  public değişiklikler ve router ilişkisiyle doğrulanır; uyuşmazlık409.
+  UUID GET-only recovery/atomic write/yetki/kaynak sınırları değişmedi.
+- Günlük rapor kayıtlı kalıcı PPPoE başarısızlığını ayrı gösterir; başarı
+  kartı APPLIED. Replay tekil, unknown/unrecorded başarı değil. Global
+  belirsiz/legacy başarısız sayım kaynağı olmadığı açık kabul sınırlamasıdır.
+- MikAjanı URL olay bağlamı, yetkili bilinen router/alarm linkleri ve bounded
+  geri dönüş; senaryo bulguları kayıtlı hedefe bağlanmaz. Rapor lookup'ları
+  Map indekslidir. Yeni API/bileşen/menü/bağımlılık yok.
+- PASS: 68 hedefli frontend,5 backend test; tek frontend build ve diff.
+  Kabul: docs/V26_EXPIRY_REPORT_CONSISTENCY_ACCEPTANCE.md son bölüm.
+- Chromium EPERM BLOCKED, tekrar yok; gerçek mobil/HTTP/PG/üretim kabulü
+  iddia edilmez. Bundle622.39kB uyarısı sürer. V1/V2.5/VDS/cihaz/RADIUS/
+  IPsec/canlıDB/deploy/restart/migration/silme yok. Canlı aktarım yapılmadı.
+
+- Görev sonu normal push da BLOCKED: `Could not resolve host: github.com`.
+  Tek yeni yerel commit korundu; main-guncel tracking dalından bir commit
+  ileride. Ağ düzeldiğinde normal push gerekir; force push yapılmadı.

@@ -114,12 +114,12 @@ test('V2.2 future recovery cannot supply an end or duration in a current outage 
 const managedAccount={revision:5,id:'demo-managed-sub-a',customer_name:'Kalıcı demo',username:'synthetic.a',access_type:'PPPOE',source:'LOCAL',router_id:'demo-managed-router-new'};
 const receipt=(request_id,extra={})=>({request_id,item_id:managedAccount.id,success:true,recorded:true,revision:3,operation:'EXTEND',actor_id:'demo-user',router_id:'demo-managed-router-old',occurred_at:now.toISOString(),previous:{expires_on:'2026-10-27'},values:{expires_on:'2026-11-26'},...extra});
 const workspace=(receipts)=>({accounts:[managedAccount],receipts,routers:[{id:'demo-managed-router-old',fields:{name:'Önceki sentetik router'}}]});
-test('V2.3 persistent PPPoE receipts retain historical router and values, exclude failed, future and Hotspot',()=>{
+test('V2.3 persistent PPPoE receipts retain historical router and values, separate failed, exclude future and Hotspot',()=>{
  const input={...source([detail('legacy','r1',[operation('legacy-op',now.toISOString())])]),workspace:workspace([receipt('renew'),receipt('failed',{success:false}),receipt('future',{occurred_at:'2026-10-27T10:00:00Z'}),receipt('hotspot',{item_id:'demo-managed-sub-h'})])};
  input.workspace.accounts.push({...managedAccount,id:'demo-managed-sub-h',access_type:'HOTSPOT'});
  const report=buildManagementReport(input,filter,now);
- assert.equal(report.pppoeOperations,2);assert.equal(report.operations.length,2);
- const saved=report.operations.find(row=>row.workspace);assert.equal(saved.request_id,'renew');assert.equal(saved.audit_result,'APPLIED');assert.equal(saved.revision,3);assert.equal(saved.router_id,'demo-managed-router-old');assert.equal(saved.router_name,'Önceki sentetik router');assert.equal(saved.previous_expires_on,'2026-10-27');assert.equal(saved.expires_on,'2026-11-26');
+ assert.equal(report.pppoeOperations,2);assert.equal(report.operations.length,3);
+ const saved=report.operations.find(row=>row.workspace&&row.audit_result==='APPLIED');assert.equal(saved.request_id,'renew');assert.equal(saved.audit_result,'APPLIED');assert.equal(saved.revision,3);assert.equal(saved.router_id,'demo-managed-router-old');assert.equal(saved.router_name,'Önceki sentetik router');assert.equal(saved.previous_expires_on,'2026-10-27');assert.equal(saved.expires_on,'2026-11-26');
  assert.equal(buildManagementReport(input,{...filter,router:'demo-managed-router-old'},now).pppoeOperations,1);
  assert.equal(buildManagementReport(input,{...filter,router:managedAccount.router_id},now).pppoeOperations,0);
  assert.equal(buildManagementReport(input,{...filter,kind:'PLAN_CHANGE'},now).pppoeOperations,0);
@@ -181,5 +181,18 @@ test('newer committed receipt cannot be combined with a stale account or inconsi
  assert.throws(()=>buildManagementReport({...source(),workspace:{...workspace([saved]),accounts:[{...managedAccount,revision:2}]}},filter,now),/revizyonu doğrulanamadı/);
  assert.throws(()=>buildManagementReport({...source(),workspace:{...workspace([saved]),accounts:[{...managedAccount,revision:3,expires_on:'2000-01-01'}]}},filter,now),/güncel revizyonla eşleşmedi/);
  const matched=buildManagementReport({...source(),workspace:{...workspace([saved]),accounts:[{...managedAccount,revision:3,expires_on:saved.values.expires_on}]}},filter,now);assert.equal(matched.pppoeOperations,1);
- for(const extra of [{recorded:false},{success:false}])assert.equal(buildManagementReport({...source(),workspace:workspace([receipt('unconfirmed',extra)])},filter,now).operations.length,0);
+ assert.equal(buildManagementReport({...source(),workspace:workspace([receipt('unconfirmed',{recorded:false})])},filter,now).operations.length,0);
+});
+
+
+test('UUID replay collapses, recorded failure stays separate and unknown requests never count as success',()=>{
+ const saved=receipt('saved'),failed=receipt('failed',{success:false,previous:{},values:{}});
+ const input={...source(),workspace:workspace([saved,saved,failed,receipt('unrecorded',{recorded:false})])};
+ const report=buildManagementReport(input,filter,now);
+ assert.equal(report.operations.length,2);assert.equal(report.pppoeOperations,1);
+ assert.deepEqual(report.outcomes,{applied:1,failed:1,unknown:null});
+ assert.equal(report.operations.find(row=>row.request_id==='failed').audit_result,'FAILED');
+ assert.throws(()=>buildManagementReport({...input,workspace:workspace([receipt('bad',{success:null})])},filter,now),/audit sonucu/);
+ for(const field of [{item_id:'foreign'},{revision:99},{revision:-1}])assert.throws(()=>buildManagementReport({...input,workspace:workspace([receipt('failed',{success:false,...field})])},filter,now),/doğrulanamadı/);
+ assert.equal(buildManagementReport(input,{...filter,source:'RADIUS'},now).operations.length,0);
 });
