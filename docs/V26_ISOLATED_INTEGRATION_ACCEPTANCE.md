@@ -23,7 +23,12 @@ Branch/base: `main-guncel` / `68fdac3`
   created PostgreSQL 16 cluster and HTTP listener to loopback, and runs no
   migration. After the attempt that root was absent. The harness did not expose
   a more specific failure reason, so the failure is left unresolved rather
-  than guessed.
+  than guessed. Root cause of the generic report was identified: unittest
+  represents `setUpClass` failure with an error-holder that did not carry the
+  fixture class's `stage`. The harness now preserves that stage without printing
+  exception text or credentials. A prior V2.6 local HTTP preflight recorded a
+  loopback `EPERM`, but that historical result does not prove the exact stage
+  of this run; HTTP was not retried.
 - **BLOCKED — browser acceptance.** One synthetic-only management-center
   browser attempt stopped before Chromium launch when its loopback HTTP server
   received `listen EPERM`. Per the task boundary it was not retried and no
@@ -40,6 +45,37 @@ name is present. It was not applied to any database. No matching
 `010_operator_role.down.sql` exists; therefore a rollback is not prepared, and
 removing OPERATOR support would require checking for OPERATOR rows before
 restoring the prior constraint. No migration was run.
+
+### Safe rollback procedure (documentation only; not executed)
+
+1. Obtain separate approval naming the exact isolated V2 target and maintenance
+   window. Confirm it is not V1, V2.5, a live DB, or the currently protected
+   V2.6 acceptance DB. Take and verify a restorable backup before any future
+   database change.
+2. Read the database name, schema owner, table definition, all role-related
+   CHECK constraints, and role counts from that exact target. Confirm the
+   migration was applied there and that `v2_demo.users` and/or
+   `v26_acceptance.users` are the intended schemas. Do not infer the target from
+   a hostname or environment label alone.
+3. Require zero `OPERATOR` rows in every target schema. If any exist, stop:
+   do not delete or silently demote users. A separately approved, audited role
+   reassignment is needed before rollback. Also confirm all remaining role
+   values fit the prior `ADMIN` / `VIEWER` constraint.
+4. In a reviewed transaction on the confirmed isolated target, replace only
+   `users_role_check` with `CHECK (role IN ('ADMIN','VIEWER'))` for each schema
+   whose `users` table exists. Abort the transaction on any unexpected
+   constraint definition, schema, or row. Do not use `CASCADE` or drop a table.
+5. Before commit, validate the restored constraint and role counts; after
+   commit, repeat read-only checks and verify representative login/authorization
+   behavior. If any validation fails, roll back the transaction. Preserve the
+   verified backup and a change receipt.
+
+The rollback is conditional because the forward migration contains no matching
+down file and might have been applied to either or both isolated schemas. The
+forward migration itself only replaces a CHECK constraint and does not delete
+rows; rollback will fail safely while OPERATOR rows violate the older policy.
+Its repeatability also assumes the expected constraint name exists; inspect for
+additional differently named role checks before any future application.
 
 ## Remaining acceptance limits
 

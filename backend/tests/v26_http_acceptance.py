@@ -24,6 +24,22 @@ class AcceptanceBlocked(RuntimeError):
     pass
 
 
+ACTIVE_ACCEPTANCE_CLASS = None
+
+
+def failed_acceptance_stage(result):
+    """Keep the last safe fixture stage when unittest reports setUpClass errors."""
+    failures = result.errors + result.failures
+    if not failures:
+        return None
+    for test, _ in failures:
+        stage = getattr(test, 'stage', None)
+        if stage:
+            return stage
+    stage = getattr(ACTIVE_ACCEPTANCE_CLASS, 'stage', None)
+    return stage or 'FIXTURE_SETUP_OR_CLEANUP'
+
+
 def preflight():
     """No sockets/processes/DB IO; refuse rather than reuse an existing fixture."""
     if os.getuid() <= 0 or os.getuid() != os.geteuid() or Path.cwd() != SOURCE:
@@ -102,6 +118,7 @@ class LoopbackClient:
 
 
 def acceptance_suite():
+    global ACTIVE_ACCEPTANCE_CLASS
     # Lazy import keeps --help and offline harness tests free of app/DB setup.
     from backend.tests.test_v26_identity_postgres import V26IdentityPostgres
 
@@ -295,6 +312,7 @@ def acceptance_suite():
             self.checked(self.client.get(receipts[0][0]), 401)
 
     # Explicitly select only the NEW socket scenario, never inherited PASS tests.
+    ACTIVE_ACCEPTANCE_CLASS = RealHttpAcceptance
     return unittest.TestSuite([RealHttpAcceptance('test_new_real_http_acceptance')])
 
 
@@ -311,8 +329,9 @@ def main(argv=None):
         if result.wasSuccessful() and result.testsRun == 1 and not result.skipped:
             print('PASS: disposable PostgreSQL16 + real loopback HTTP acceptance; cleanup complete')
             return 0
-        for test, _ in result.errors + result.failures:
-            print('BLOCKED: acceptance stage=' + getattr(test, 'stage', 'FIXTURE_SETUP_OR_CLEANUP'))
+        stage = failed_acceptance_stage(result)
+        if stage:
+            print('BLOCKED: acceptance stage=' + stage)
         if result.skipped:
             print('BLOCKED: acceptance skipped')
         return 1

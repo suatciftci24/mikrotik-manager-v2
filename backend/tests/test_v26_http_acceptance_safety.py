@@ -11,6 +11,18 @@ from backend.tests import v26_http_acceptance as acceptance
 
 
 class HttpAcceptanceSafetyTests(TestCase):
+    def test_failed_class_setup_preserves_stage_without_emitting_exception_details(self):
+        case = Mock(stage=None)
+        result = Mock(errors=[(case, 'private exception text')], failures=[])
+        previous = acceptance.ACTIVE_ACCEPTANCE_CLASS
+        try:
+            acceptance.ACTIVE_ACCEPTANCE_CLASS = Mock(stage='POSTGRES_START')
+            self.assertEqual(acceptance.failed_acceptance_stage(result), 'POSTGRES_START')
+            case.stage = 'HTTP_LISTENER_BIND'
+            self.assertEqual(acceptance.failed_acceptance_stage(result), 'HTTP_LISTENER_BIND')
+        finally:
+            acceptance.ACTIVE_ACCEPTANCE_CLASS = previous
+
     def test_explicit_run_and_existing_root_refuse_before_suite(self):
         with patch.object(acceptance, 'acceptance_suite') as suite, \
              redirect_stderr(io.StringIO()):

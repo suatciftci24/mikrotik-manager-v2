@@ -18,6 +18,18 @@
 - Kabul raporu: `docs/V26_ISOLATED_INTEGRATION_ACCEPTANCE.md`. V1/V2.5/VDS,
   canlı router/RADIUS/IPsec, DB, deploy/restart/silme ve push yok.
 
+## V2.6 kabul engellerini giderme — 2026-11-08
+
+- HTTP kabulü tekrar edilmedi. Önceki `FIXTURE_SETUP_OR_CLEANUP` çıktısının
+  nedeni harness tanılamasının `setUpClass` aşamasını kaybetmesiydi; harness
+  artık aşama adını güvenli biçimde koruyor. Eski loopback `EPERM` kaydı bu
+  çalışmanın kesin fixture arızası sayılmadı. Tekrarsız, soketsiz tanılama testi
+  eklendi.
+- Chromium `listen EPERM` ortam engeli olarak BLOCKED kaldı; tekrar veya
+  güvenlik gevşetmesi yok.
+- `010_operator_role.sql` için koşullu, veri korumalı rollback önkoşulları ve
+  doğrulama prosedürü kabul raporuna eklendi. Migration/rollback çalıştırılmadı.
+
 ## V2.6 Alarm ve Olay Yönetimi Merkezi — 2026-11-08
 
 - Mevcut Alarm Merkezi, WAN/MikAjanı alarm projeksiyonu ve ADMIN ACK/READ
