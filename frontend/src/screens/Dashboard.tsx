@@ -3,6 +3,7 @@ import { DashboardV1Health } from '../components/DashboardV1Health';
 import { OperationReport } from './OperationReport';
 import { InternetReport } from './InternetReport';
 import { ManagementReport } from './ManagementReport';
+import { AuditCenter } from './AuditCenter';
 import { useListFilter } from '../lib/useListFilter';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { ArrowRight, RefreshCw, Router as RouterIcon, Users, CalendarClock, AlertTriangle, Activity, WifiOff, Bot, LayoutDashboard } from 'lucide-react';
@@ -22,10 +23,10 @@ type Navigate = (screen: ScreenKey, params?: Record<string,string>) => void;
 function SummaryTile({title,value,note,icon,onClick,label,disabled=false}: {title:string;value:number|string|null;note:string;icon:ReactNode;onClick:()=>void;label:string;disabled?:boolean}){
   return <button className="metric-card daily-tile" onClick={onClick} aria-label={label} disabled={disabled}><span className="metric-card-top"><span>{title}</span><span className="metric-icon blue">{icon}</span></span><strong className="daily-value">{value===null?'Veri yok':typeof value==='number'?value.toLocaleString('tr-TR'):value}</strong><span className="metric-foot"><span>{note}</span><ArrowRight size={14}/></span></button>;
 }
-const dashboardViews=['OVERVIEW','DAILY_REPORT','INTERNET_REPORT','OPERATIONS_REPORT'] as const;
+const dashboardViews=['OVERVIEW','DAILY_REPORT','INTERNET_REPORT','OPERATIONS_REPORT','AUDIT_CENTER'] as const;
 export function Dashboard({onNavigate}: {onNavigate: Navigate}) {
   const [view,setView]=useListFilter('dashboard','view',dashboardViews,'OVERVIEW');
-  return view==='OPERATIONS_REPORT'?<OperationReport/>:view==='INTERNET_REPORT'?<InternetReport/>:view==='DAILY_REPORT'?<ManagementReport onBack={()=>setView('OVERVIEW')}/>:<DashboardOverview onNavigate={onNavigate} onReport={()=>setView('DAILY_REPORT')} onInternet={()=>setView('INTERNET_REPORT')}/>;
+  return view==='AUDIT_CENTER'?<AuditCenter/>:view==='OPERATIONS_REPORT'?<OperationReport/>:view==='INTERNET_REPORT'?<InternetReport/>:view==='DAILY_REPORT'?<ManagementReport onBack={()=>setView('OVERVIEW')}/>:<DashboardOverview onNavigate={onNavigate} onReport={()=>setView('DAILY_REPORT')} onInternet={()=>setView('INTERNET_REPORT')}/>;
 }
 const dashboardSources=['DEMO','V1_INVENTORY'] as const;
 function DashboardOverview(props:{onNavigate:Navigate;onReport:()=>void;onInternet:()=>void}){

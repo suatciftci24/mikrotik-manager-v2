@@ -18,7 +18,7 @@ def demo_examples(now=None):
     for index, source in enumerate(('LOCAL', 'RADIUS')):
         command = SubscriberCreate.model_validate(dict(customer_name=f'SENTETİK Entegrasyon {index+1}', username=f'demo.integration.{index+1}', source=source,
             router_id=f'demo-router-00{index+1}', plan='Fiber 100', status='PAUSED', expires_on=today.isoformat(), request_id=key(f'create-{index}'), confirmed=True))
-        item, event = calculate_create(command, 'demo-seed', [])
+        item, event = calculate_create(command, 'demo-seed', [], now=now)
         event['occurred_at'] = stamp(4)
         events = [event]
         for operation, value in [('PLAN_CHANGE', 'Fiber 500'), ('STATUS_CHANGE', 'ACTIVE')]:
@@ -30,7 +30,7 @@ def demo_examples(now=None):
             events.insert(0, event)
         change = ExpiryChange.model_validate(dict(operation='RENEWAL', expires_on=(today+timedelta(days=3 if index == 0 else 30)).isoformat(), expected_expires_on=item['expires_on'],
             expected_revision=item['revision'], expected_source=source, request_id=key(f'renew-{index}'), confirmed=True))
-        item, event = calculate_change(item, change, 'demo-seed')
+        item, event = calculate_change(item, change, 'demo-seed', now=now)
         event['occurred_at'] = stamp(1)
         events.insert(0, event)
         observations=[]

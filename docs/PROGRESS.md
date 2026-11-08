@@ -1,5 +1,26 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6 Raporlama ve Denetim Merkezi — 2026-11-08
+
+- Dashboard içindeki tek Raporlama ve Denetim Merkezi; PPPoE/Hotspot legacy
+  audit, ADMIN kapsamlı kalıcı abone işlem audit'i, ADMIN kullanıcı audit'i ve
+  yetkili router WAN olayları için aynı tarih/router/aktör/işlem/sonuç/arama,
+  sayfalama ve kaynak görünümünü sunar. Kaynak geçişleri URL'de korunur.
+- `/reports/audit-center` backend'de `can_view_reports` router kapsamını uygular;
+  kullanıcı ve kalıcı abone audit kaynakları `current_admin` ile kapalıdır.
+  WAN olayları işlem sonucu olarak SUCCESS sayılmaz. Eski PPPoE kaynağının
+  yalnız başarılı kayıt kanıtı olduğu ve başarısız/belirsiz sayımların yokluğu
+  açıkça bildirilir. Kullanıcı audit JSON'u allowlist edilir, e-posta maskelenir.
+- CSV yalnız mevcut yetkili/filtreli sayfayı, alan allowlist'iyle dışa aktarır;
+  formül başlangıçları nötrleştirilir, zaman Türkiye saatine çevrilir.
+- Tarihli sentetik rapor fixture'ının verilen `now` değerini domain doğrulamasına
+  aktarmaması düzeltildi; normal çağrılar gerçek Türkiye tarihini kullanır.
+- PASS: backend `test_audit_center` 5 test, `test_operation_reports` 10 test,
+  Python syntax check; frontend `auditCenter` + `operationReport` hedef Node
+  dosyaları, typecheck ve production build. BLOCKED: canlı DB/HTTP ve browser
+  kabulü çalıştırılmadı; V1/V2.5/canlı kaynaklar, migration ve deploy yok.
+- Kabul ayrıntısı: `docs/V26_REPORTING_AUDIT_CENTER_ACCEPTANCE.md`.
+
 ## V2.6 kullanıcı / operatör yetki sınırları — 2026-11-08
 
 - Mevcut ADMIN/VIEWER + router grant modeline OPERATOR rolü eklendi. OPERATOR

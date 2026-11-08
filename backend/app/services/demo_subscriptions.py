@@ -22,7 +22,7 @@ def request_fingerprint(item_id, actor_id, change):
     return json.dumps([item_id, actor_id, change.model_dump_json()], separators=(',', ':'))
 
 
-def calculate_change(item, change: ExpiryChange, actor_id: str, items=None):
+def calculate_change(item, change: ExpiryChange, actor_id: str, items=None, now=None):
     request_id = str(change.request_id)
     if hasattr(change, 'action'):
         return calculate_quick(item, change, actor_id, items)
@@ -36,7 +36,8 @@ def calculate_change(item, change: ExpiryChange, actor_id: str, items=None):
     expected = change.expected_expires_on.isoformat() if change.expected_expires_on else None
     if item['revision'] != change.expected_revision or old != expected or item['source'] != change.expected_source:
         raise DemoChangeError(409, 'Kayıt değişmiş. Güncel tarihi yeniden yükleyip onaylayın.')
-    today = datetime.now(ZoneInfo('Europe/Istanbul')).date()
+    now=now or datetime.now(timezone.utc)
+    today = now.astimezone(ZoneInfo('Europe/Istanbul')).date()
     if change.expires_on < today:
         raise DemoChangeError(422, 'Yeni bitiş tarihi Türkiye gününe göre geçmişte olamaz.')
     new = change.expires_on.isoformat()
@@ -45,7 +46,7 @@ def calculate_change(item, change: ExpiryChange, actor_id: str, items=None):
     if change.operation == 'RENEWAL' and (old is None or change.expires_on <= date.fromisoformat(old)):
         raise DemoChangeError(422, 'Yenileme için mevcut bitiş tarihinden daha ileri bir tarih seçin.')
     updated = {**item, 'expires_on': new, 'revision': item['revision'] + 1}
-    event = {'id': request_id, 'occurred_at': datetime.now(timezone.utc).isoformat(),
+    event = {'id': request_id, 'occurred_at': now.astimezone(timezone.utc).isoformat(),
              'previous_expires_on': old, 'expires_on': new, 'operation': change.operation,
              'source': item['source'], 'actor_id': actor_id, 'is_demo': True,
              'previous_values': {'plan': item['plan'], 'expires_on': old},

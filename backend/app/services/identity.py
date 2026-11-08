@@ -192,14 +192,22 @@ def list_users(page,size,query=''):
 
 
 @storage_errors
-def audit_users(page,size):
+def audit_users(page,size,*,start=None,until=None,actor_id='',operation='',result='',query=''):
     store=adapter();schema=schema_name(store.schema)
     with store.engine.connect() as connection:
         store._verify(connection)
-        if not ready(connection,schema):return dict(items=[],total=0)
-        total=connection.execute(text(f'SELECT count(*) FROM {schema}.user_audit')).scalar_one()
-        rows=connection.execute(text(f'SELECT id,actor_id,target_id,operation,previous_values,new_values,result,occurred_at FROM {schema}.user_audit ORDER BY occurred_at DESC,id LIMIT :size OFFSET :offset'),dict(size=size,offset=(page-1)*size)).mappings()
-        return dict(items=[dict(row) for row in rows],total=total)
+        if not ready(connection,schema):return dict(items=[],total=0,available=False)
+        clauses=[];params=dict(size=size,offset=(page-1)*size)
+        if start is not None:clauses.append('occurred_at >= :start');params['start']=start
+        if until is not None:clauses.append('occurred_at < :until');params['until']=until
+        for key,value in (('actor_id',actor_id),('operation',operation),('result',result)):
+            if value:clauses.append(f'{key} = :{key}');params[key]=value
+        if query:
+            clauses.append('(id ILIKE :query OR actor_id ILIKE :query OR target_id ILIKE :query OR operation ILIKE :query)');params['query']='%'+query+'%'
+        where=(' WHERE '+' AND '.join(clauses)) if clauses else ''
+        total=connection.execute(text(f'SELECT count(*) FROM {schema}.user_audit'+where),params).scalar_one()
+        rows=connection.execute(text(f'SELECT id,actor_id,target_id,operation,previous_values,new_values,result,occurred_at FROM {schema}.user_audit'+where+' ORDER BY occurred_at DESC,id LIMIT :size OFFSET :offset'),params).mappings()
+        return dict(items=[dict(row) for row in rows],total=total,available=True)
 
 
 def initialize_users():

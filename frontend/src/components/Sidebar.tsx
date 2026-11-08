@@ -42,7 +42,7 @@ export function Sidebar({ active, onNavigate, user, onLogout, realInventory=fals
           <Icon size={17} strokeWidth={active === item.key ? 2 : 1.75} /><span>{item.label}</span>
           {item.key === 'mikajani' && <i className="nav-spark">✦</i>}
         </button>
-        {item.key==='dashboard'&&<a className="nav-item internet-report-entry" href="#module=dashboard&view=INTERNET_REPORT"><ArrowDownUp size={17}/><span>İnternet Kullanım ve Bağlantı Raporları</span></a>}
+        {item.key==='dashboard'&&<><a className="nav-item internet-report-entry" href="#module=dashboard&view=INTERNET_REPORT"><ArrowDownUp size={17}/><span>İnternet Kullanım ve Bağlantı Raporları</span></a>{Object.values(user.permissions??{}).some(grant=>grant.can_view===true&&grant.can_view_reports===true)&&<a className="nav-item internet-report-entry" href="#module=dashboard&view=AUDIT_CENTER"><Activity size={17}/><span>Raporlama ve Denetim Merkezi</span></a>}</>}
       </div>;
     })}</div>
     <div className="sidebar-bottom">

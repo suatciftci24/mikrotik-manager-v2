@@ -148,16 +148,24 @@ class SubscriberOperationsService:
             return {**result,'status':'SUCCESS' if receipt['success'] else 'FAILED','response':receipt,'audit':evidence}
 
     @boundary
-    def history(self,item_id='',operation='ALL',result='ALL',page=1,page_size=25):
+    def history(self,item_id='',operation='ALL',result='ALL',page=1,page_size=25,*,start=None,until=None,router_id='',actor_id='',query=''):
         with self.sessions() as session:
             self.check(session);clauses=[]
+            if start:clauses.append(Event.occurred_at>=start)
+            if until:clauses.append(Event.occurred_at<until)
             if item_id:clauses.append(Event.subscriber_id==item_id)
+            if router_id:clauses.append(Account.router_id==router_id)
+            if actor_id:clauses.append(Event.actor_id==actor_id)
             if operation!='ALL':clauses.append(Event.operation==operation)
+            if query:
+                pattern='%'+query+'%'
+                clauses.append((Event.id.ilike(pattern))|(Event.actor_id.ilike(pattern))|(Event.subscriber_id.ilike(pattern))|(Account.fields['customer_name'].as_string().ilike(pattern))|(Account.fields['username'].as_string().ilike(pattern)))
             if result!='ALL':
                 success=Event.changes['_management']['receipt']['success'].as_boolean()
-                clauses.append(success.is_(False) if result=='FAILED' else (success.is_(True)|success.is_(None)))
-            total=session.scalar(select(func.count()).select_from(Event).where(*clauses))
-            rows=session.scalars(select(Event).where(*clauses).order_by(Event.occurred_at.desc(),Event.id).offset((page-1)*page_size).limit(page_size)).all()
+                clauses.append(success.is_(False) if result=='FAILED' else success.is_(True) if result=='SUCCESS' else success.is_(None))
+            statement=select(Event).join(Account,Account.id==Event.subscriber_id).where(*clauses)
+            total=session.scalar(select(func.count()).select_from(Event).join(Account,Account.id==Event.subscriber_id).where(*clauses))
+            rows=session.scalars(statement.order_by(Event.occurred_at.desc(),Event.id).offset((page-1)*page_size).limit(page_size)).all()
             return dict(items=[event_receipt(e) for e in rows],total=total,page=page,page_size=page_size,is_demo=True)
 
 operations=SubscriberOperationsService()

@@ -22,12 +22,13 @@ def history_event(command, actor_id, source, operation, previous, values):
             'previous_values': previous, 'new_values': values}
 
 
-def calculate_create(command, actor_id, items):
+def calculate_create(command, actor_id, items, now=None):
     router = next((r for r in ROUTERS if r['id'] == command.router_id and r['is_demo'] is True), None)
     if router is None:
         raise DemoChangeError(422, 'Geçerli bir sentetik router seçin.')
     price = plan_price(command.plan)
-    today = datetime.now(ZoneInfo('Europe/Istanbul')).date()
+    today = (now.astimezone(ZoneInfo('Europe/Istanbul')).date() if now is not None
+             else datetime.now(ZoneInfo('Europe/Istanbul')).date())
     if command.expires_on is not None and command.expires_on < today:
         raise DemoChangeError(422, 'Bitiş tarihi Türkiye gününe göre geçmişte olamaz.')
     # Keep the domain router+username uniqueness, including cross-source conflicts.
