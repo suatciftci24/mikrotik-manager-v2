@@ -33,7 +33,7 @@ class PilotOperatorIdentityTests(TestCase):
         with patch.dict(os.environ,{},clear=True):self.assertFalse(router_registry.operator_allowed(user))
     def test_missing_inactive_viewer_partial_and_untrusted_fields_never_emit_id(self):
         user=identity.public_user(self.account())
-        for change,state in (({'active':False},'INACTIVE'),({'role_code':'VIEWER'},'NOT_ADMIN'),({'can_manage_users':False},'INSUFFICIENT_SCOPE'),({'revision':None},'UNVERIFIED'),({'is_demo':False},'UNVERIFIED'),({'id':None},'UNVERIFIED'),({'active':None},'UNVERIFIED')):
+        for change,state in (({'active':False},'INACTIVE'),({'role_code':'VIEWER'},'NOT_ADMIN'),({'role_code':'OPERATOR'},'NOT_ADMIN'),({'can_manage_users':False},'INSUFFICIENT_SCOPE'),({'revision':None},'UNVERIFIED'),({'is_demo':False},'UNVERIFIED'),({'id':None},'UNVERIFIED'),({'active':None},'UNVERIFIED')):
             output=pilot_identity({**user,**change})
             self.assertEqual(output['state'],state);self.assertIsNone(output['candidate'])
         self.assertIsNone(pilot_identity({'name':'Demo Operatör','role':'Sistem Yöneticisi'})['candidate'])

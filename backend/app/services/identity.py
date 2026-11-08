@@ -50,7 +50,7 @@ def public_user(user,management=False,*,bootstrap_closed=None):
     origin='BOOTSTRAP_DEMO' if user['id']=='demo-user' else 'LOCAL' if closed and user.get('account_origin')=='LOCAL' else 'DEMO'
     login_enabled=bool(user['active'] and (not closed or origin=='LOCAL'))
     return {**{k:user[k] for k in ('id','username','name','email','active','revision')},'role_code':user['role'],
-            'role':'Sistem Yöneticisi' if user['role']=='ADMIN' else 'Gözlemci','is_demo':True,
+            'role':{'ADMIN':'Sistem Yöneticisi','OPERATOR':'Operatör','VIEWER':'Gözlemci'}.get(user['role'],'Gözlemci'),'is_demo':True,
             'account_origin':origin,'bootstrap_closed':bool(closed),'login_enabled':login_enabled,
             'can_manage_users':user['role']=='ADMIN' and login_enabled and all(user['permissions'].get(r['id'],{}).get('can_view') is True for r in ROUTERS),
             'permissions':{id:grant for id,grant in user['permissions'].items() if management or grant.get('can_view') is True}}
@@ -100,7 +100,7 @@ class UserChange(BaseModel):
     request_id:str=Field(pattern=r'^[0-9a-fA-F-]{36}$')
     name:str=Field(min_length=1,max_length=120)
     email:str=Field(min_length=1,max_length=180)
-    role:Literal['ADMIN','VIEWER']
+    role:Literal['ADMIN','OPERATOR','VIEWER']
     active:bool
     permissions:dict[str,Grant]
     expected_revision:int=Field(ge=0)
@@ -114,6 +114,7 @@ class UserChange(BaseModel):
     def valid_scope(self):
         if set(self.permissions)-{r['id'] for r in ROUTERS}:raise ValueError('Bilinmeyen router izni')
         if self.role=='VIEWER' and any(getattr(grant,p) for grant in self.permissions.values() for p in WRITE_FLAGS):raise ValueError('VIEWER değişiklik yetkisi alamaz')
+        if self.role=='OPERATOR' and any(grant.can_ack_alarms for grant in self.permissions.values()):raise ValueError('OPERATOR alarm onay yetkisi alamaz')
         return self
 
 class UserCreate(UserChange):

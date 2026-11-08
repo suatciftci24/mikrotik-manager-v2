@@ -1,5 +1,22 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6 kullanıcı / operatör yetki sınırları — 2026-11-08
+
+- Mevcut ADMIN/VIEWER + router grant modeline OPERATOR rolü eklendi. OPERATOR
+  yalnız can_view ve atanmış can_manage_pppoe/can_manage_hotspot kapsamlarında
+  işlem yapabilir; user/system yönetimi ve alarm onayı ADMIN'de, VIEWER salt
+  okunur kalır. Abone/quick PPPoE/fotoğraf ve router API'leri backend scope
+  denetimlerini kullanır; yetki her istekte yeniden okunur.
+- Admin kullanıcı ekranı rol/durum/yetki düzenlemesi, inceleme-onay ve audit
+  görünümünü korur; son aktif admin/self-demotion kilitleri ve secret redaction
+  aynıdır. `010_operator_role.sql` yalnız dosya olarak hazırlandı; uygulanmadı.
+- PASS: 5 frontend UserManagement testi; 83 hedef backend testi; typecheck,
+  production build ve diff check. BLOCKED: DB/HTTP/browser kabulü yapılmadı;
+  migration uygulanmadı (görev güvenlik sınırı).
+- Kabul ayrıntısı: `docs/V26_USER_AUTHORIZATION_ACCEPTANCE.md`. Canlı V1/V2.5,
+  VDS, router/RADIUS/IPsec, DB, servis, deploy ve migration işlemi yok.
+- Yerel görev commit'i oluşturuldu; push yapılmadı.
+
 ## Abone Detay Merkezi kurulum/iş fotoğrafları — 2026-11-08
 
 - V2.6 izole kabul runtime kimliğiyle açılan yeni fotoğraf sekmesi; JPEG/PNG

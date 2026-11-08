@@ -96,10 +96,12 @@ class SubscriberPhotoTests(unittest.TestCase):
             subject = subscriber_center.photo_subject("demo-sub-photo-test", {"id": "reader"})
             self.assertEqual(subject["source"], "RADIUS")
             self.assertEqual(subject["access_type"], "HOTSPOT")
+            operator = subscriber_center.photo_subject("demo-sub-photo-test", {"id": "operator", "role_code": "OPERATOR", "manage": True}, write=True)
+            self.assertEqual(operator["id"], "demo-sub-photo-test")
             with self.assertRaises(HTTPException) as denied:
                 subscriber_center.photo_subject("demo-sub-photo-test", {"id": "reader"}, write=True)
         self.assertEqual(denied.exception.status_code, 403)
-        self.assertEqual(calls, [("demo-sub-photo-test", "can_view"), ("demo-sub-photo-test", "can_view"), ("demo-sub-photo-test", "can_manage_hotspot")])
+        self.assertEqual(calls, [("demo-sub-photo-test", "can_view"), ("demo-sub-photo-test", "can_view"), ("demo-sub-photo-test", "can_manage_hotspot"), ("demo-sub-photo-test", "can_view"), ("demo-sub-photo-test", "can_manage_hotspot")])
 
 
 if __name__ == "__main__":

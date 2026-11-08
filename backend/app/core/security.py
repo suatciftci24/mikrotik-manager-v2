@@ -48,14 +48,14 @@ def current_demo_user(v2_session: str | None = Cookie(default=None)) -> dict:
 
 def current_demo_mutator(user: dict = Depends(current_demo_user),
                          x_v2_demo_action: str | None = Header(default=None)) -> dict:
-    if x_v2_demo_action != 'expiry' or not user.get('is_demo') or user.get('role') != 'Sistem Yöneticisi':
+    if x_v2_demo_action != 'expiry' or not user.get('is_demo') or user.get('role_code') not in ('ADMIN','OPERATOR'):
         raise HTTPException(status_code=403, detail='Demo değişiklik yetkisi gerekli')
     return user
 
 
 def current_demo_account_mutator(user: dict = Depends(current_demo_user),
                                  x_v2_demo_action: str | None = Header(default=None)) -> dict:
-    if x_v2_demo_action != 'subscriber-management' or not user.get('is_demo') or user.get('role') != 'Sistem Yöneticisi':
+    if x_v2_demo_action != 'subscriber-management' or not user.get('is_demo') or user.get('role_code') not in ('ADMIN','OPERATOR'):
         raise HTTPException(status_code=403, detail='Demo abone yönetim yetkisi gerekli')
     return user
 
@@ -73,5 +73,6 @@ def current_admin(user:dict=Depends(current_demo_user)):
 
 
 def current_user_mutator(user:dict=Depends(current_admin),x_v2_demo_action:str|None=Header(default=None)):
+    current_admin(user)
     if x_v2_demo_action!='user-management':raise HTTPException(403,'Kullanıcı yönetim onayı gerekli')
     return user

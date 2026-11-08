@@ -18,7 +18,7 @@ def pilot_identity(user):
     elif user.get('account_origin')!='LOCAL' or user.get('bootstrap_closed') is not True:state='UNVERIFIED'
     elif user.get('active') is False:state='INACTIVE'
     elif (user.get('active') is not True or type(revision) is not int or revision<0
-            or user.get('role_code') not in ('ADMIN','VIEWER') or type(user.get('can_manage_users')) is not bool):
+            or user.get('role_code') not in ('ADMIN','OPERATOR','VIEWER') or type(user.get('can_manage_users')) is not bool):
         state='UNVERIFIED'
     elif user['role_code']!='ADMIN':state='NOT_ADMIN'
     elif not user['can_manage_users']:state='INSUFFICIENT_SCOPE'

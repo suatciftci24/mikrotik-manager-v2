@@ -55,6 +55,23 @@ class IdentityTests(TestCase):
             with self.assertRaises(ValidationError):identity.UserChange(**base,permissions=grants)
         with self.assertRaises(ValidationError):identity.UserCreate(**base,permissions={},username='synthetic',password='short')
 
+    def test_operator_has_only_explicit_router_writes_and_never_admin_or_alarm_access(self):
+        rid=ROUTERS[0]['id']
+        operator=user([rid],role='OPERATOR',can_manage_pppoe=True,can_manage_hotspot=True,can_ack_alarms=False)
+        self.assertEqual(az.allowed(operator,'can_manage_pppoe'),{rid})
+        self.assertEqual(az.allowed(operator,'can_manage_hotspot'),{rid})
+        self.assertEqual(az.allowed(operator,'can_ack_alarms'),set())
+        self.assertFalse(operator['can_manage_users'])
+        with self.assertRaises(HTTPException):security.current_admin(operator)
+        with self.assertRaises(HTTPException):security.current_user_mutator(operator,'user-management')
+        self.assertEqual(security.current_demo_mutator(operator,'expiry'),operator)
+        self.assertEqual(security.current_demo_account_mutator(operator,'subscriber-management'),operator)
+        with self.assertRaises(HTTPException):security.current_demo_mutator({**operator,'role_code':'VIEWER'},'expiry')
+        base=dict(request_id=str(uuid4()),name='Operator',email='operator@test.local',role='OPERATOR',active=True,expected_revision=0,confirmed=True)
+        payload=identity.UserChange(**base,permissions={rid:{'can_view':True,'can_manage_pppoe':True}})
+        self.assertTrue(payload.permissions[rid].can_manage_pppoe)
+        with self.assertRaises(ValidationError):identity.UserChange(**base,permissions={rid:{'can_view':True,'can_ack_alarms':True}})
+
     def test_validation_response_does_not_echo_password_or_model_input(self):
         secret='never-echo-this-password'
         error=SimpleNamespace(errors=lambda:[dict(loc=('body','password'),msg='Field invalid',type='value_error',input=secret,ctx={'input':secret})])

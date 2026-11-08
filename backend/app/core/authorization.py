@@ -6,10 +6,16 @@ WRITE_FLAGS=('can_manage_pppoe','can_manage_hotspot','can_ack_alarms')
 
 def is_admin(user):return user.get('role_code')=='ADMIN' or user.get('role')=='Sistem Yöneticisi'
 
+def can_manage_role(user,permission):
+    role=user.get('role_code')
+    if permission in ('can_manage_pppoe','can_manage_hotspot'):
+        return role in ('ADMIN','OPERATOR')
+    return role=='ADMIN'
+
 def allowed(user,permission='can_view'):
     grants=user.get('permissions',{})
     return {r['id'] for r in ROUTERS if grants.get(r['id'],{}).get('can_view') is True and grants.get(r['id'],{}).get(permission) is True
-            and (permission not in WRITE_FLAGS or is_admin(user))}
+            and (permission not in WRITE_FLAGS or can_manage_role(user,permission))}
 
 def routers_for(user,permission='can_view'):
     ids=allowed(user,permission);return [r for r in ROUTERS if r['id'] in ids]

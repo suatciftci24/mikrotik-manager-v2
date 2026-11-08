@@ -8,7 +8,7 @@ import type { LucideIcon } from 'lucide-react';
 import {runtimeIdentity,type RuntimeProfile} from '../lib/runtimeProfile';
 
 export type ScreenKey = 'dashboard' | 'routers' | 'subscribers' | 'radius' | 'operations' | 'mikajani' | 'system';
-export type User = { pilot_identity?:PilotIdentity|null;account_origin?:'BOOTSTRAP_DEMO'|'DEMO'|'LOCAL';bootstrap_closed?:boolean;login_enabled?:boolean;id: string; name: string; email: string; role: string; role_code?:'ADMIN'|'VIEWER';can_manage_users?:boolean;active?:boolean;revision?:number;username?:string;permissions?:Record<string,Record<string,boolean>>; is_demo: boolean };
+export type User = { pilot_identity?:PilotIdentity|null;account_origin?:'BOOTSTRAP_DEMO'|'DEMO'|'LOCAL';bootstrap_closed?:boolean;login_enabled?:boolean;id: string; name: string; email: string; role: string; role_code?:'ADMIN'|'OPERATOR'|'VIEWER';can_manage_users?:boolean;active?:boolean;revision?:number;username?:string;permissions?:Record<string,Record<string,boolean>>; is_demo: boolean };
 
 const nav: { key: ScreenKey; label: string; icon: LucideIcon; group: string }[] = [
   { key: 'dashboard', label: 'Genel Bakış', icon: LayoutDashboard, group: 'WORKSPACE' },

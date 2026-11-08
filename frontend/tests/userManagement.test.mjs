@@ -15,13 +15,15 @@ test('permission UI denies by default, foreign router and VIEWER write escalatio
  assert.equal(can(null,'r1','can_view'),false);assert.equal(can(user,'r2','can_view'),false);assert.equal(can(user,'r1','can_view'),true);
  assert.equal(can({...user,permissions:{r1:{can_view:true,can_manage_pppoe:true}}},'r1','can_manage_pppoe'),false);
  assert.equal(can({...user,role_code:'ADMIN',permissions:{r1:{can_view:true,can_manage_pppoe:true}}},'r1','can_manage_pppoe'),true);
+ const operator={...user,role_code:'OPERATOR',permissions:{r1:{can_view:true,can_manage_pppoe:true,can_ack_alarms:false}}};
+ assert.equal(can(operator,'r1','can_manage_pppoe'),true);assert.equal(can(operator,'r2','can_manage_pppoe'),false);assert.equal(can(operator,'r1','can_ack_alarms'),false);
 });
 test('VIEWER cannot load user management data through the screen',()=>{
  for(const identity of [user,{...user,role_code:'ADMIN',can_manage_users:false}]){assert.match(render(identity,{}),/ADMIN yetkisi gerekli/);assert.deepEqual(globalThis.__userCalls,[]);}
 });
 test('admin user list exposes role, status, edit, audit and bounded pagination',()=>{
- const html=render({...user,role_code:'ADMIN',can_manage_users:true},{data:{items:[user],routers:[{id:'r1',name:'Demo Router'}],total:26,storage_ready:true},loading:false,retry(){}});
- for(const label of ['Merkezi Kullanıcı','new.viewer','VIEWER','Etkin','yetkilerini düzenle','Kullanıcı audit tablosu','Sonraki kullanıcı sayfası','Kullanıcı ara'])assert.ok(html.includes(label),label);
+ const html=render({...user,role_code:'ADMIN',can_manage_users:true},{data:{items:[user,{...user,username:'scoped.operator',role_code:'OPERATOR',role:'Operatör'}],routers:[{id:'r1',name:'Demo Router'}],total:26,storage_ready:true},loading:false,retry(){}});
+ for(const label of ['Merkezi Kullanıcı','new.viewer','VIEWER','scoped.operator','OPERATOR','Operatör','Etkin','yetkilerini düzenle','Kullanıcı audit tablosu','Sonraki kullanıcı sayfası','Kullanıcı ara'])assert.ok(html.includes(label),label);
  assert.doesNotMatch(html,/password_hash|scrypt\$/);
 });
 test('missing user setup, loading and failed request remain explicit',()=>{
