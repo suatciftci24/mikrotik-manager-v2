@@ -59,6 +59,12 @@ def failed_acceptance_diagnostic(result):
             match = re.search(r'(?:AcceptanceBlocked|AssertionError|TimeoutError|OSError): ([A-Z][A-Z0-9_]{3,100})', trace)
             if match:
                 diagnostic += ' failure_code=' + match.group(1)
+    if stage == 'BROWSER_ACCEPTANCE':
+        for _, trace in result.errors + result.failures:
+            import re
+            classes = re.findall(r'(?m)^([A-Za-z_][A-Za-z0-9_.]*)(?::|$)', trace)
+            if classes:
+                diagnostic += ' exception_type=' + classes[-1][:80]
     failure = ACTIVE_ACCEPTANCE_BIND_ERROR
     if failure and failure['stage'] == stage:
         diagnostic += ' error_class=' + failure['error_class']
