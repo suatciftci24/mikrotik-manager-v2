@@ -1,5 +1,30 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6 Ev WSL sentetik Chromium kabul hazırlığı — 2026-11-08
+
+- Yeni `backend.tests.run_v26_chromium_acceptance_wsl` çalıştırıcısı Home WSL,
+  doğru repo/dal, temiz çalışma ağacı, sahiplik ve mevcut yerel tarayıcı
+  araçlarını fail-closed doğrular. Alt süreç ortamından DB/V2/Python/loader ve
+  tarayıcı override değişkenleri çıkarılır.
+- Kabul paketi; runtime profile, ADMIN/OPERATOR/VIEWER, Abone, Router,
+  Dashboard, Operasyon, Fotoğraflar, Raporlama ve Alarm için dokuz mevcut Node
+  test dosyasını ve sentetik tam-uygulama tarayıcı senaryosunu birleştirir.
+  Senaryo gerçek `runtime_profile` olarak yalnız `v26-isolated-acceptance`
+  ister; API'leri sentetik GET fixture'larıyla karşılar, mutasyonları ve uzak
+  origin isteklerini engeller.
+- Tarayıcı senaryosu yalnız 127.0.0.1 ephemeral port, tek kullanımlık `/tmp`
+  dizini ve çalıştırıcının başlattığı Chromium'u kullanır; PostgreSQL/HTTP
+  kabul servisi başlatmaz, kalıcı ekran görüntüsü bırakmaz. Bu görevde Chromium
+  ve HTTP kabul çalıştırılmadı. Tarihsel loopback EPERM tekrarlanmadı.
+- PASS: soketsiz runner politika/source contract testleri (3 unittest) ve
+  hedefli dokuz Node test dosyası (9/9); browser script syntax check ve diff
+  whitespace check. Typecheck/build çalıştırılmadı; uygulama kaynak kodu
+  değişmedi. BLOCKED:
+  Chromium kabulü çalıştırılmadı; mevcut checkout'ta Playwright yerel entry
+  point'i yok. Kabul raporu ve Ev WSL tek komutu:
+  `docs/V26_ISOLATED_INTEGRATION_ACCEPTANCE.md`.
+- V2.6 kabul DB, V1/V2.5, servis, migration, deploy veya veri değiştirme yok.
+
 ## Ev WSL disposable PostgreSQL + HTTP kabulü — 2026-11-08
 
 - Kullanıcı Ev WSL'den şu sonucu doğruladı: `PASS: disposable PostgreSQL16 +

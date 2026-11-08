@@ -105,6 +105,56 @@ task; the successful Ev WSL result above was provided by the user.
 - **BLOCKED:** Chromium was not run and remains unverified. No migration or DB
   operation was performed by this documentation update.
 
+## Home WSL synthetic Chromium acceptance — prepared, not run
+
+- A dedicated manual runner, `backend.tests.run_v26_chromium_acceptance_wsl`,
+  is prepared for the Home WSL host. Its read-only gates require the exact repo
+  and `main-guncel`, clean worktree, non-root repo owner, expected WSL identity,
+  and locally installed Node, esbuild, Playwright, and a usable existing Linux
+  browser. It strips inherited V2/PG/Python/loader/browser override variables
+  from child processes. Any preflight or browser failure is non-PASS.
+- Before launching Chromium, it selects the local browser without launching or
+  downloading it, then runs existing socketless V2.6 suites for runtime
+  profile, ADMIN/OPERATOR/VIEWER permissions, subscribers, routers, Dashboard,
+  Operations, photos, reporting, and alarms. It then runs the full-app
+  management-center browser scenario. The browser scenario requires `/api/ready`
+  to identify exactly `v26-isolated-acceptance`, asserts the V2.6 workspace and
+  brand identity, intercepts API requests with synthetic GET fixtures, aborts
+  non-GET and foreign-origin requests, and no longer enters the V1 inventory.
+- The browser scenario uses only an OS-assigned ephemeral `127.0.0.1` port and
+  a unique `/tmp/v26-browser-acceptance-*` directory. It writes no screenshots
+  or persistent receipts. `finally`/process-exit cleanup owns only that temp
+  directory, the local listener, and the Playwright browser it launched. The
+  browser flow does not start PostgreSQL or use the HTTP acceptance harness;
+  therefore it cannot connect to the existing V2.6 acceptance DB or collide
+  with the HTTP runner's 18996/55433 ports. No pre-existing process is stopped
+  or signalled.
+- **PASS — socketless runner policy checks:** wrong repo, host/WSL, owner,
+  branch, dirty tree, or missing browser toolchain are rejected; child
+  environment allowlisting and synthetic-only browser source contract are
+  covered without sockets or browser startup.
+- **BLOCKED — actual Chromium acceptance:** deliberately not run in this task.
+  The current checkout has no `frontend/.local/browser-tools` Playwright entry
+  point, so the manual preflight fails closed here unless Home WSL has that
+  already-installed local toolchain. No browser, HTTP acceptance, or backend
+  service was started in this task. The historical loopback `EPERM` remains a
+  prior environment block and was not retried.
+
+From the Home WSL terminal, after the local Playwright/browser toolchain is
+already installed and the committed worktree is clean, the one command is:
+
+```bash
+cd /home/suat/Codex-Projects/mikrotik-manager-v2 && PYTHONPATH=backend backend/.venv/bin/python -m backend.tests.run_v26_chromium_acceptance_wsl
+```
+
+Expected success is exit 0 after the nine listed Node contract files pass and
+the synthetic management-center browser checks complete, ending with
+`PASS: V2.6 isolated synthetic browser acceptance; owned temporary files cleaned`.
+Identity/toolchain/resource failures produce `BLOCKED: HOME_WSL_*`; browser
+assertion failures remain non-PASS. This command was documented but not run.
+PostgreSQL is unnecessary for this browser-only flow; the separate
+user-confirmed disposable PostgreSQL + HTTP PASS above remains current.
+
 ## Migration review (static only)
 
 `migrations/versions/010_operator_role.sql` follows the identity schema in

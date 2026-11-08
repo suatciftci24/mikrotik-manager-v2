@@ -1,14 +1,14 @@
 // Full app, intercepted synthetic GET responses only. No backend or existing DB is used.
 import assert from 'node:assert/strict';
-import {mkdtempSync,writeFileSync,readFileSync,mkdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join,resolve} from 'node:path';
+import {join} from 'node:path';
 import {createServer} from 'node:http';
 import {build} from 'esbuild';
 import {selectBrowser} from './browserRuntime.mjs';
 const {chromium}=await import('../../.local/browser-tools/node_modules/playwright/index.mjs');
-const temp=mkdtempSync(join(tmpdir(),'v2-centers-')),output=resolve('../.local/browser-acceptance/management-centers');
-mkdirSync(output,{recursive:true});
+const temp=mkdtempSync(join(tmpdir(),'v26-browser-acceptance-'));
+process.on('exit',()=>{try{rmSync(temp,{recursive:true,force:true});}catch{}});
 const time='2026-11-05T10:00:00Z';
 const router={id:'demo-router-fixture',name:'Sentetik Router',site:'Test',model:'Test',management_address:'192.0.2.1',status:'ONLINE',cpu_percent:0,memory_percent:20,subscriber_count:2,last_seen:time,is_demo:true};
 const subscriber={id:'demo-sub-fixture',customer_name:'Sentetik Abone',username:'synthetic.test',router_name:router.name,router_id:router.id,source:'LOCAL',plan:'Test 100',monthly_price:100,status:'ACTIVE',expires_on:'2027-12-01',revision:1,is_demo:true,ip_address:'192.0.2.2',joined_at:'2026-01-01',can_manage_pppoe:true};
@@ -22,10 +22,10 @@ await build({stdin:{contents:"import React from 'react';import {createRoot} from
 writeFileSync(join(temp,'index.html'),'<!doctype html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="/theme.js"></script><link rel="stylesheet" href="/fixture.css"></head><body><div id="root"></div><script src="/fixture.js"></script></body></html>');
 writeFileSync(join(temp,'theme.js'),readFileSync('public/theme.js'));
 const server=createServer((req,res)=>{const path=req.url.split('?')[0]==='/'?'index.html':req.url.slice(1).split('?')[0];if(!['index.html','theme.js','fixture.js','fixture.css'].includes(path)){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html');res.end(readFileSync(join(temp,path)));});
-await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
-const base='http://127.0.0.1:'+server.address().port;
-let browser;const violations=[],errors=[],reads=[];
+let browser,base;const violations=[],errors=[],reads=[];
 try{
+ await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
+ base='http://127.0.0.1:'+server.address().port;
  browser=await chromium.launch(selectBrowser(chromium));
  const context=await browser.newContext({viewport:{width:1440,height:1000},serviceWorkers:'block'});
  let viewer=false;
@@ -36,6 +36,7 @@ try{
   reads.push(url.pathname);
   let value;
   switch(url.pathname){
+   case '/api/ready':value={status:'ready',runtime_profile:'v26-isolated-acceptance'};break;
    case '/api/v1/auth/me':value=viewer?{...account,role:'Gözlemci',role_code:'VIEWER',can_manage_users:false,permissions:{[router.id]:{can_view:true}}}:account;break;
    case '/api/v1/preferences':value={values:{app_name:'MikroTik Manager V2',timezone:'Europe/Istanbul',page_size:25,theme:'light',notifications_enabled:true,notification_levels:['P1','P2','P3','P4']},is_demo:true};break;
    case '/api/v1/routers':value={items:[router],is_demo:true};break;
@@ -43,7 +44,6 @@ try{
    case '/api/v1/router-workspace/routers':value={...empty,items:[{id:persistent.router_id,revision:1,kind:'DEMO_ROUTER',fields:{name:'Sentetik çalışma routerı',management_address:'192.0.2.3',model:'Test',site:'Test'},is_demo:true,device_connected:false}],total:1};break;
    case '/api/v1/subscriber-workspace':value={...empty,items:[persistent],total:1};break;
    case '/api/v1/router-registry':case '/api/v1/subscribers/demo-history':case '/api/v1/subscriber-workspace/management/history':value=empty;break;
-   case '/api/v1/v1-inventory':value={source:'V1_INVENTORY_EXPORT',is_demo:false,availability:'AVAILABLE',items:[]};break;
    case '/api/v1/mikajani/scenarios':value={items:[{key:'test',name:'Test senaryosu'}]};break;
    case '/api/v1/mikajani/analysis':value=analysis;break;
    case '/api/v1/alarms':value={...empty,routers:[router],summary:{active:0,critical:0,unread:0},generated_at:time,coverage:{connection_available:false,ipsec_available:false,note:'Sentetik kaynak'},storage_ready:false,can_ack:false};break;
@@ -53,8 +53,9 @@ try{
   return route.fulfill({json:value});
  });
  const page=await context.newPage();page.setDefaultTimeout(10000);page.on('pageerror',error=>errors.push(error.message));
- const go=async hash=>{await page.goto(base+'/'+hash);await page.locator('.workspace-context').waitFor();};
+ const go=async hash=>{await page.goto(base+'/'+hash);await page.getByText('V2.6 İzole Kabul Ortamı',{exact:false}).waitFor();assert.match(await page.locator('.workspace-context').innerText(),/V2\.6 İzole Kabul Ortamı/);assert.doesNotMatch(await page.locator('.workspace-context').innerText(),/Demo çalışma alanı/);};
  await go('#module=routers');
+ assert.equal(await page.locator('.brand-copy small').innerText(),'MANAGER V2.6');
  await page.getByRole('button',{name:router.name,exact:true}).waitFor();
  const picker=page.getByRole('combobox',{name:'Veri kaynağı'});
  assert.equal(await picker.locator('option').count(),4);
@@ -66,10 +67,7 @@ try{
  await page.getByText('Kayıt ve pilot işlemleri',{exact:true}).click();
  await page.getByRole('button',{name:'Bağlantısız envanter kaydı',exact:true}).waitFor();
  await page.getByRole('button',{name:'Salt okunur pilot hazırlığı',exact:true}).waitFor();
- await picker.selectOption('V1_INVENTORY');await page.getByRole('heading',{name:'Gerçek V1 envanteri',exact:true}).waitFor();
- assert.equal(await page.getByRole('button',{name:'Gerçek router formu',exact:true}).count(),0);
- assert.match(await page.locator('.workspace-context').innerText(),/Salt okunur/);
- ok('Router: dört ayrı kaynak, tek sentetik ekleme, yalnız kayıtlı cihaz kapsamında pilot, V1 salt okunur');
+ ok('Router: sentetik demo, kalıcı demo ve kayıtlı cihaz kapsamı');
  await go('#module=subscribers');await page.getByRole('button',{name:subscriber.customer_name,exact:true}).waitFor();
  await page.getByRole('combobox',{name:'Abone görünümü'}).selectOption('PERSISTENT');
  await page.getByRole('heading',{name:'Kalıcı sentetik PPPoE / Hotspot aboneleri'}).waitFor();
@@ -108,7 +106,6 @@ try{
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,module+' '+width+' '+theme);
     assert.equal(await page.locator('.workspace-context .demo-banner-tag').isVisible(),true,'Access scope remains visible on mobile');
    }
-   await page.screenshot({path:join(output,width+'-'+theme+'.png'),fullPage:true});
   }
  }
  ok('Beş ekran: 1440 / 375 px, Beyaz / Gece, sayfa yatay taşması yok');
@@ -121,8 +118,8 @@ try{
  assert.equal(reads.slice(prior).includes('/api/v1/router-registry'),false);
  ok('VIEWER: yazma düğmeleri gizli, doğrudan kayıtlı cihaz hash erişimi reddedilir');
  assert.deepEqual(violations,[]);assert.deepEqual(errors,[]);
+ assert.ok(reads.includes('/api/ready'),'explicit V2.6 runtime profile readiness was not read');
  receipt.status='PASS';ok('Harici istek, mutation, beklenmeyen API ve tarayıcı hatası yok');
 }finally{
- writeFileSync(join(output,'summary.json'),JSON.stringify({...receipt,violations,errors},null,2));
- await browser?.close();await new Promise(resolve=>server.close(resolve));rmSync(temp,{recursive:true,force:true});
+ try{await browser?.close();}finally{await new Promise(resolve=>server.listening?server.close(resolve):resolve());rmSync(temp,{recursive:true,force:true});}
 }
