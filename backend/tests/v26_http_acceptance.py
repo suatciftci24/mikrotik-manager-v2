@@ -48,6 +48,11 @@ def failed_acceptance_diagnostic(result):
     if not stage:
         return None
     diagnostic = 'stage=' + stage
+    if stage == 'BROWSER_ACCEPTANCE':
+        for _, traceback_text in result.errors + result.failures:
+            if 'BROWSER_ACCEPTANCE_DID_NOT_COMPLETE' in traceback_text:
+                diagnostic += ' reason=BROWSER_PROCESS_FAILED'
+                break
     failure = ACTIVE_ACCEPTANCE_BIND_ERROR
     if failure and failure['stage'] == stage:
         diagnostic += ' error_class=' + failure['error_class']

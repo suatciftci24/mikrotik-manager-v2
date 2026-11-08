@@ -129,8 +129,15 @@ def main(argv=None) -> int:
             return tests
 
     def run_browser_while_disposable_http_and_postgres_are_alive():
-        browser = _run([node, 'tests/managementCenters.browser.mjs'], cwd=frontend, env=env)
-        if browser:
+        browser = subprocess.run(
+            [node, 'tests/managementCenters.browser.mjs'],
+            cwd=frontend, env=env, capture_output=True, text=True, check=False,
+            timeout=120,
+        )
+        for line in (browser.stdout + '\n' + browser.stderr).splitlines():
+            if line.startswith(('PASS:', 'BLOCKED: browser_phase=', 'FAIL: browser_phase=')):
+                print(line, flush=True)
+        if browser.returncode:
             raise http_runner.acceptance.AcceptanceBlocked('BROWSER_ACCEPTANCE_DID_NOT_COMPLETE')
 
     # The HTTP harness owns both fixed loopback listeners, its fresh PG16 cluster,
