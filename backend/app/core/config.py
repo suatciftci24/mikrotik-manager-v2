@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 @dataclass(frozen=True)
 class Settings:
     app_name: str = 'MikroTik Manager V2'
-    environment: str = 'local-demo'
+    environment: str = os.environ.get('V2_ENVIRONMENT', 'local-demo')
     database_url: str = os.environ.get(
         'V2_DATABASE_URL',
         'postgresql+psycopg://v2_local:v2_local@127.0.0.1:55432/mikrotik_manager_v2',
