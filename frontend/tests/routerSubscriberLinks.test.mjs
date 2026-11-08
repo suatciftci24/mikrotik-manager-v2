@@ -35,9 +35,24 @@ test('detail Back restores the bounded cross-center hash instead of losing tab/f
  const require=createRequire(import.meta.url),hooks={...React,useEffect:()=>{},useRef:value=>({current:value}),useState:initial=>[typeof initial==='function'?initial():initial,()=>{}]};
  const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/lib/useDetailNavigation.ts',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',external:['react']}).outputFiles[0].text;
  const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
- const back='#module=routers&id='+router+'&router_tab=hotspot&router_sub_query=test&router_sub_page=2';let replaced=null,dispatched=0;
+ const targets=['#module=routers&id='+router+'&router_tab=hotspot&router_sub_query=test&router_sub_page=2','#module=dashboard&view=DAILY_REPORT&period=LAST_24&kind=PPPOE&section=recent-operations','#module=operations&alarm_id=fixture&alarm_page=2'];let replaced=null,dispatched=0;
  const previousWindow=globalThis.window,previousHashEvent=globalThis.HashChangeEvent;
  globalThis.HashChangeEvent=class {constructor(type){this.type=type;}};
+ try{for(const back of targets){
  globalThis.window={location:{hash:linkedDetailHash({module:'subscribers',id:account.id,workspace:'PERSISTENT'},back),pathname:'/',search:''},history:{replaceState:(_s,_t,url)=>{replaced=url;}},dispatchEvent:()=>{dispatched++;}};
- try{module.exports.useDetailNavigation('subscribers').back();assert.equal(replaced,'/'+back);assert.equal(dispatched,1);}finally{globalThis.window=previousWindow;globalThis.HashChangeEvent=previousHashEvent;}
+ module.exports.useDetailNavigation('subscribers').back();assert.equal(replaced,'/'+back);assert.equal(dispatched,targets.indexOf(back)+1);
+ }}finally{globalThis.window=previousWindow;globalThis.HashChangeEvent=previousHashEvent;}
+});
+
+test('daily and operation reports and selected alarm preserve bounded return filters',()=>{
+ for(const from of [
+  '#module=dashboard&view=DAILY_REPORT&report_source=DEMO&period=LAST_24&kind=PPPOE&section=recent-operations',
+  '#module=dashboard&view=OPERATIONS_REPORT&category=CONNECTION&router_id=r1&page=3',
+  '#module=operations&alarm_id=alarm-fixture&alarm_router=r1&alarm_page=2',
+ ]){
+  const link=linkedDetailHash({module:'subscribers',id:account.id,workspace:'PERSISTENT'},from);
+  assert.equal(new URLSearchParams(link.slice(1)).get('return_to'),from);
+  assert.equal(detailReturnHash(from+'&return_to='+encodeURIComponent(from)),from);
+ }
+ for(const value of ['#module=dashboard&view=OVERVIEW','#module=dashboard&view=SYSTEM','#module=radius&id=x','#module=routers','#module=subscribers','#module=operations&x='+('a'.repeat(4000))])assert.equal(detailReturnHash(value),null);
 });

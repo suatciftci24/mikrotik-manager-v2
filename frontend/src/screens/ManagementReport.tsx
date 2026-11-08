@@ -1,3 +1,4 @@
+import { linkedDetailHash } from '../lib/detailLinks';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RefreshCw, Activity, CalendarClock, WifiOff, ArrowLeftRight } from 'lucide-react';
 import { buildManagementReport, loadManagementReport, managementFilterFromHash, managementReportHash, reportKinds, reportPeriods, managementSourceFromHash } from '../lib/managementReport';
@@ -17,7 +18,7 @@ import { expiryDate, expiryInfo, remainingDays, turkeyToday } from '../lib/expir
 
 const dependencies=['/routers','/subscribers','/router-events','/subscriber-workspace','/router-workspace/routers'] as const;
 const number=(value:number|null)=>value===null?'Veri yok':value.toLocaleString('tr-TR');
-const link=(kind:'routers'|'subscribers',id:string)=>'#'+new URLSearchParams({module:kind,id,...(id.startsWith('demo-managed-')?(kind==='routers'?{source:'MANAGED_DEMO'}:{workspace:'PERSISTENT'}):{})}).toString();
+const link=(kind:'routers'|'subscribers',id:string)=>linkedDetailHash({module:kind,id,...(kind==='routers'?{source:id.startsWith('demo-managed-')?'MANAGED_DEMO':'DEMO'}:{workspace:id.startsWith('demo-managed-')?'PERSISTENT':'LEGACY'})},typeof window==='undefined'?'':window.location.hash);
 const expiryChoices=[['TODAY','Bugün'],['WITHIN_3','3 gün'],['WITHIN_7','7 gün'],['WITHIN_30','30 gün'],['EXPIRED','Süresi dolmuş'],['UNKNOWN','Bilinmeyen'],['VALID','Geçerli'],['ALL','Tümü']] as const;
 export function ManagementReport({onBack}:{onBack:()=>void}){
   const [source,setSource]=useState(()=>managementSourceFromHash(typeof window==='undefined'?'':window.location.hash));

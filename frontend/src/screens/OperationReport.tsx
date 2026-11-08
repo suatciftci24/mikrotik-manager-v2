@@ -15,7 +15,7 @@ const dependencies=['/routers','/subscribers','/router-events','/mikajani'] as c
 export function OperationReport(){
  const [filter,setFilter]=useState(()=>operationFilter(typeof window==='undefined'?'':window.location.hash));
  const resource=useResource<OperationReportData>('/reports/operations?'+operationQuery(filter),undefined,dependencies);
- const [selected,setSelected]=useState<DailyOperation|ConnectionRecord|MikaEvent|null>(null);
+ const [selected,setSelected]=useState<(DailyOperation&{router_id?:string|null})|ConnectionRecord|MikaEvent|null>(null);
  useEffect(()=>{const read=()=>{setFilter(operationFilter(window.location.hash));setSelected(null);};window.addEventListener('hashchange',read);return()=>window.removeEventListener('hashchange',read);},[]);
  useEffect(()=>{const tick=()=>{if(!document.hidden)resource.retry();};const timer=window.setInterval(tick,60000);window.addEventListener('focus',tick);document.addEventListener('visibilitychange',tick);return()=>{window.clearInterval(timer);window.removeEventListener('focus',tick);document.removeEventListener('visibilitychange',tick);};},[resource.retry]);
  const change=(value:Partial<ReportFilter>)=>{const next={...filter,...value,page:value.page??1};setFilter(next);setSelected(null);window.history.replaceState(null,'',window.location.pathname+window.location.search+operationHash(next));};
@@ -48,8 +48,8 @@ export function OperationReport(){
     <p role="status">{data.total} kayıt · Sayfa {filter.page} / {Math.max(1,Math.ceil(data.total/data.page_size))}</p><div className="daily-links"><button className="button-secondary" disabled={filter.page===1} onClick={()=>change({page:filter.page-1})}>Önceki sayfa</button><button className="button-secondary" disabled={filter.page*data.page_size>=data.total} onClick={()=>change({page:filter.page+1})}>Sonraki sayfa</button></div>
    </section>
   </>}
-  {selected&&!error&&filter.category==='AUDIT'&&<OperationDetails event={selected as DailyOperation} onClose={()=>setSelected(null)} onSubscriber={id=>{window.location.hash=link('subscribers',id);}}/>}
-  {selected&&!error&&filter.category==='CONNECTION'&&<AlarmEventDetails event={(selected as ConnectionRecord).lifecycle} routerName={names[(selected as ConnectionRecord).router_id]??'Veri yok'} onClose={()=>setSelected(null)}/>}
-  {selected&&!error&&filter.category==='MIKA'&&<EventDialog event={selected as MikaEvent} names={names} onClose={()=>setSelected(null)}/>}
+  {selected&&!resource.loading&&!error&&filter.category==='AUDIT'&&<OperationDetails event={selected as DailyOperation} onClose={()=>setSelected(null)} onSubscriber={id=>{window.location.hash=link('subscribers',id);}} onRouter={'router_id' in selected&&selected.router_id?()=>{window.location.hash=link('routers',selected.router_id!);}:undefined} onHistory={()=>{window.location.hash=link('subscribers',(selected as DailyOperation).subscriber_id)+'&tab=history';}}/>}
+  {selected&&!resource.loading&&!error&&filter.category==='CONNECTION'&&<AlarmEventDetails event={(selected as ConnectionRecord).lifecycle} routerName={names[(selected as ConnectionRecord).router_id]??'Veri yok'} onClose={()=>setSelected(null)}/>}
+  {selected&&!resource.loading&&!error&&filter.category==='MIKA'&&<EventDialog event={selected as MikaEvent} names={names} onClose={()=>setSelected(null)}/>}
  </div>;
 }

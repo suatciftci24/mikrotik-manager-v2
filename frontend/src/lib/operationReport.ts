@@ -1,3 +1,4 @@
+import {linkedDetailHash} from './detailLinks.ts';
 import type { DailyOperation } from './dailySummary';
 import type { Router } from './api';
 import type { AlarmEvent, RouterEvent } from './routerEvents';
@@ -12,7 +13,7 @@ export function operationQuery(filter:ReportFilter){return new URLSearchParams({
 export function operationHash(filter:ReportFilter){return '#module=dashboard&view=OPERATIONS_REPORT&'+operationQuery(filter);}
 export type ConnectionRecord=RouterEvent&{lifecycle:AlarmEvent};
 export type OperationReportData={items:(DailyOperation|ConnectionRecord|MikaEvent)[];routers:Router[];total:number;page:number;page_size:number;read_at:string;from_at:string;until_at:string;connections_available:boolean;is_demo:true;read_only:true;summary:{subscribers:number;active:number;paused:number;activated:number;deactivated:number;operations:number;failures:null;open_events:number|null;connections:number|null;router_status:Record<string,number>}};
-export function operationDetailHash(module:'routers'|'subscribers',id:string,filter:ReportFilter){return '#'+new URLSearchParams({module,id,report_start:filter.start,report_end:filter.end,report_router:filter.router_id});}
+export function operationDetailHash(module:'routers'|'subscribers',id:string,filter:ReportFilter){const params=new URLSearchParams(linkedDetailHash({module,id,...(module==='routers'?{source:id.startsWith('demo-managed-')?'MANAGED_DEMO':'DEMO'}:{workspace:id.startsWith('demo-managed-')?'PERSISTENT':'LEGACY'})},operationHash(filter)).slice(1));params.set('report_start',filter.start);params.set('report_end',filter.end);params.set('report_router',filter.router_id);return '#'+params;}
 export function detailOperationHash(kind:'routers'|'subscribers',id:string,hash:string){
  const p=new URLSearchParams(hash.replace(/^#/,'')),base=operationFilter('');
  return operationHash({...base,start:p.get('report_start')??base.start,end:p.get('report_end')??base.end,router_id:kind==='routers'?id:p.get('report_router')??'',subscriber_id:kind==='subscribers'?id:''});

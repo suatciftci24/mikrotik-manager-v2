@@ -58,4 +58,5 @@ test('authorized alarm targets preserve source, IDs and report category without 
  assert.match(html,/source=DEMO/);assert.match(html,/workspace=LEGACY/);
  assert.match(html,/module=mikajani/);assert.match(html,/category=CONNECTION/);assert.match(html,/router_id=r\+%26\+1/);
  assert.doesNotMatch(html,/start=|event=undefined|id=undefined/);
+ for(const module of ['routers','subscribers']){const href=[...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1].replaceAll('&amp;','&')).find(value=>value.startsWith('#module='+module));assert.equal(new URLSearchParams(href.slice(1)).get('return_to'),alarmHash(alarmFilter(''),alarm.id));}
 });

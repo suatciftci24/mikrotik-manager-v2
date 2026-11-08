@@ -24,7 +24,7 @@ function render(resource){globalThis.__reportResource=resource;try{return render
 test('report renders named filters, synthetic labels, current-state scope and encoded detail links',()=>{
  const html=render({data,loading:false,retry(){}});
  for(const label of ['Bugün','Dün','Son 7 Gün','Son 30 Gün','İşlem / olay','Filtreleri temizle','SENTETİK','geçmişe ait durum tahmini değildir'])assert.ok(html.includes(label));
- assert.match(html,/href="#module=subscribers&amp;id=s\+%26\+1"/);assert.match(html,/href="#module=routers&amp;id=r\+%26\+1"/);
+ assert.match(html,/href="#module=subscribers&amp;id=s\+%26\+1&amp;workspace=LEGACY"/);assert.match(html,/href="#module=routers&amp;id=r\+%26\+1&amp;source=DEMO"/);
  assert.match(html,/Kaydedilmiş olay kaynağı yok/);assert.match(html,/aria-label="Günlük yönetim işlemleri tablosu"/);
  assert.doesNotMatch(html,/href="#module=routers&amp;id=undefined"/);
 });

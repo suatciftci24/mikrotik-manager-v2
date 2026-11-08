@@ -3,19 +3,21 @@ import {LegacySubscriberActions} from './LegacySubscriberActions';
 import {dailyLabels} from '../lib/subscriberManagementCenter';
 import {expiryDate} from '../lib/expiry';
 import {useEffect,useRef,useState,type KeyboardEvent,type ReactNode} from 'react';
+import {useListFilter} from '../lib/useListFilter';
 import {useResource} from '../lib/useResource';
 import {subscriberCenterTabs,safeSubscriberCenter,subscriberRouterHash,accountStatus,type SubscriberCenterData,type SubscriberTab,type CenterSubscriber} from '../lib/subscriberCenter';
 import {ResourceState,Facts,dateTime} from './Resource';
 import {PageHeading} from './PageHeading';
 import {ExpirySummary} from './Expiry';
 import {useTurkeyToday} from '../lib/useTurkeyToday';
+const tabKeys=subscriberCenterTabs.map(([key])=>key);
 const dependencies=['/subscribers','/subscriber-workspace'] as const;
 export function SubscriberDeviceCenter({id,onBack,onEdit,onRenew,onManage,legacy}:{id:string;onBack:()=>void;onEdit?:(item:CenterSubscriber)=>void;onRenew?:(item:CenterSubscriber)=>void;onManage?:(item:CenterSubscriber)=>void;legacy?:ReactNode}){
  const resource=useResource<SubscriberCenterData>('/subscriber-center/'+encodeURIComponent(id),undefined,dependencies);
- const [tab,setTab]=useState<SubscriberTab>('overview');const heading=useRef<HTMLHeadingElement>(null);
- useEffect(()=>{const read=()=>{const value=new URLSearchParams(window.location.hash.slice(1)).get('tab');setTab(subscriberCenterTabs.some(([key])=>key===value)?value as SubscriberTab:'overview');};read();heading.current?.focus();window.scrollTo(0,0);window.addEventListener('hashchange',read);return()=>window.removeEventListener('hashchange',read);},[id]);
+ const [tab,setTab]=useListFilter('subscribers','tab',tabKeys,'overview');const heading=useRef<HTMLHeadingElement>(null);
+ useEffect(()=>{heading.current?.focus();window.scrollTo(0,0);},[id]);
  const data=resource.data;const error=resource.error||(data&&!safeSubscriberCenter(data,id)?'Abone kaynağı veya router ID bağı doğrulanamadı; detay gösterilmedi.':undefined);
- return <section className="screen-stack"><button className="detail-back button-secondary" onClick={onBack}>← Abone listesine dön</button><PageHeading title="Abone Detay Merkezi" eyebrow="SENTETİK DEMO · CANLI İŞLEM YOK" description="Kayıtlı hesap bilgileri gösterilir; cihaz ve RADIUS bağlantısı başlatılmaz." headingRef={heading}/><ResourceState {...resource} error={error}/>{data&&!resource.loading&&!error&&<SubscriberDeviceCenterView data={data} tab={tab} onTab={setTab} onEdit={onEdit} onRenew={onRenew} onManage={onManage} legacy={legacy}/>}</section>;
+ return <section className="screen-stack"><button className="detail-back button-secondary" onClick={onBack}>← Geri dön</button><PageHeading title="Abone Detay Merkezi" eyebrow="SENTETİK DEMO · CANLI İŞLEM YOK" description="Kayıtlı hesap bilgileri gösterilir; cihaz ve RADIUS bağlantısı başlatılmaz." headingRef={heading}/><ResourceState {...resource} error={error}/>{data&&!resource.loading&&!error&&<SubscriberDeviceCenterView data={data} tab={tab} onTab={setTab} onEdit={onEdit} onRenew={onRenew} onManage={onManage} legacy={legacy}/>}</section>;
 }
 export function SubscriberDeviceCenterView({data,tab,onTab,onEdit,onRenew,onManage,legacy}:{data:SubscriberCenterData;tab:SubscriberTab;onTab:(tab:SubscriberTab)=>void;onEdit?:(item:CenterSubscriber)=>void;onRenew?:(item:CenterSubscriber)=>void;onManage?:(item:CenterSubscriber)=>void;legacy?:ReactNode}){
  const writable=canChangeWorkspace(data,!!(onEdit||onRenew||onManage));

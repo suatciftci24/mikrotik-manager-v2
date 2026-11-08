@@ -13,7 +13,7 @@ export function RouterDeviceCenter({id,onBack,actions,legacy,security}:{id:strin
  const [tab,setTab]=useListFilter('routers','router_tab',tabKeys,'overview');const heading=useRef<HTMLHeadingElement>(null);
  useEffect(()=>{heading.current?.focus();window.scrollTo(0,0);},[id]);
  const data=resource.data;const error=(resource.error?routerCenterError(resource.error):undefined)||(data&&!validRouterCenter(data,id)?'Router kaynağı veya kayıt kimliği doğrulanamadı; detay gösterilmedi.':undefined);
- return <section className="screen-stack router-device-center"><button className="button-secondary detail-back" onClick={onBack}>← Router listesine dön</button><PageHeading eyebrow="ROUTER YÖNETİMİ · KAYITLI BİLGİLER" title="Router Detay Merkezi" description="Kaydedilmiş bilgiler gösterilir. Bu sayfa cihaz bağlantısı başlatmaz." headingRef={heading}/><ResourceState {...resource} error={error}/>
+ return <section className="screen-stack router-device-center"><button className="button-secondary detail-back" onClick={onBack}>← Geri dön</button><PageHeading eyebrow="ROUTER YÖNETİMİ · KAYITLI BİLGİLER" title="Router Detay Merkezi" description="Kaydedilmiş bilgiler gösterilir. Bu sayfa cihaz bağlantısı başlatmaz." headingRef={heading}/><ResourceState {...resource} error={error}/>
  {data&&!resource.loading&&!error&&<RouterDeviceCenterView data={data} tab={tab} onTab={setTab} actions={actions} legacy={legacy} security={security}/>}</section>;
 }
 export function RouterDeviceCenterView({data,tab,onTab,actions,legacy,security}:{data:RouterCenterData;tab:RouterCenterTab;onTab:(tab:RouterCenterTab)=>void;actions?:ReactNode;legacy?:ReactNode;security?:ReactNode}){

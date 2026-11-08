@@ -49,3 +49,61 @@ Normal `git push origin main-guncel` denendi; `Could not resolve host:
 github.com` nedeniyle push BLOCKED. Başlangıç ls-remote başarılıydı; push
 anındaki DNS engeli uzak güncelleme kanıtı değildir. Ağ erişiminde normal
 push gerekir; force push kullanılmadı.
+
+## 0c72519 sonrası akış tamamlama — 2026-11-08
+
+Başlangıç main-guncel/0c72519 ve temiz ağaç doğrulandı. Altın Kurallar,
+güncel ilerleme ve özellik koruma kaydı okundu. Kullanıcının önceki HTTP200
+ve VDS'deki yedi kaynak dosyasının 0c72519 ile eşitlik çıktısı korunur;
+bu çıktı tarayıcı kabulü veya sunulan bundle eşitliği sayılmaz. Bu görevde
+VDS'ye erişilmedi. Kesinti sonrası aynı 11 yerel değişiklik korundu; son
+commit yine 0c72519, uzak main-guncel de ls-remote ile aynı SHA doğrulandı.
+
+Tamamlanan mevcut LAST_24/PPPOE bağlantısı ve veri sonrası kaydırma yeniden
+yazılmadı. Bulunan eksikler mevcut yardımcılar üzerinden düzeltildi:
+
+- Detayların Geri dön düğmesi artık günlük rapor veya operasyon raporunun
+  filtre/sayfa/bölümünü, alarm merkezinin seçili alarm ve filtrelerini korur.
+  linkedDetailHash ve detailReturnHash kullanılır; aynı uygulama hedefleri
+  sınırlıdır, dış URL/izin verilmeyen merkez ve 4000 karakter üstü dönüş
+  reddedilir; return_to zinciri iç içe çoğaltılmaz. Kaynak açık seçilir.
+- Abone sekmesi ortak useListFilter ile URL'ye yazılır; yenileme ve hash
+  değişiminde doğrulanmış sekme korunur. LOCAL/RADIUS, workspace/legacy ve
+  yazma politikaları değiştirilmedi. İki detay merkezinde geri düğmesi etiketi
+  gerçek dönüş davranışını kapsar; mobil yerleşim/CSS değiştirilmedi.
+- Operasyon raporu audit dialog'u da mevcut abone/router/geçmiş geçişlerini
+  sağlar; yükleme sırasında eski dialog gösterilmez. Alarm kimliği değişince
+  dialog yeniden kurulur; önceki alarmın onay durumu/istek kimliği taşınmaz.
+
+### Doğrulanan sınır
+
+**Yerel hedefli kabul PASS; gerçek Chromium kabulü BLOCKED.** Mevcut
+`managementCenter.browser.mjs --v23-final` yerel sunucu başlangıcında
+`listen EPERM: operation not permitted 127.0.0.1` verdi. Sunucudan bağımsız
+Chromium başlangıcı da yerel kurulu chromium-1248'de
+`setsockopt: Operation not permitted` / SIGTRAP ile engellendi. İzinleri
+gevşetme, kişisel profile bağlanma veya canlı hedefe geçme yapılmadı.
+Bu nedenle DOM tıklama, gerçek kaydırma ve mobil görünüm için yeni Chromium
+PASS/screenshot kanıtı yoktur. Eski browser PASS kayıtları silinmedi.
+
+6 dosyada toplam **39 hedefli sentetik test PASS**:
+operationsNavigation (5), routerSubscriberLinks (5), managementReportView (6),
+alarmCenter (6), operationReport (5), subscriberCenter (12).
+React SSR/hook/URL düzeyinde son24 veri sonrası kaydırma, kaynak hatası/boş/
+yükleme ayrımı, router ve geçmiş geçişleri, sekme URL'si, dönüş bağlamı,
+yetkisiz alarm bağlantıları ve mevcut kaynak/yazma politikaları doğrulandı.
+Bu testler tarayıcı veya gerçek backend yetkilendirme kabulünün yerine geçmez.
+Yeni çok hedefli Back testindeki tek hata, HashChangeEvent taklidinin ilk
+hedef sonrası erken kaldırılmasıydı; finally döngünün dışına alındı, gerçek
+assertion'lar korundu ve ilgili testler PASS. Kesinti öncesi başlayan tek
+`npm run build` oturumunun tamamlanmış exit0 sonucu kesinti sonrası alındı:
+TypeScript/Vite PASS, mevcut >500kB bundle uyarısı sürer. Ürün kaynakları
+sonrasında değişmedi; başarılı build tekrarlanmadı. Diff kontrolü PASS.
+
+Yeni API/bileşen/menü veya bağımlılık yok. V1/V2.5/VDS/router/RADIUS/IPsec/
+veritabanı/migration/veri silme/deploy/restart işlemi yapılmadı. Tarihsel genel
+kabul, Dashboard rollback ve güncel PG/HTTP kanıt engelleri kapatılmadı.
+
+Bu devam görevinin normal `git push origin main-guncel` denemesi de
+`Could not resolve host: github.com` ile BLOCKED kaldı. Yerel commit hazır;
+ağ erişiminde normal push gerekir. Force push veya canlı işlem yapılmadı.

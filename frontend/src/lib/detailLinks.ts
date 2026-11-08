@@ -2,7 +2,10 @@
 export function detailReturnHash(hash:string){
  if(hash.length>4000||!hash.startsWith('#'))return null;
  const params=new URLSearchParams(hash.slice(1));
- if(!['routers','subscribers'].includes(params.get('module')??'')||!params.get('id'))return null;
+ const module=params.get('module');
+ const detail=['routers','subscribers'].includes(module??'')&&!!params.get('id');
+ const report=module==='dashboard'&&['DAILY_REPORT','OPERATIONS_REPORT'].includes(params.get('view')??'');
+ if(!detail&&!report&&module!=='operations')return null;
  params.delete('return_to');return '#'+params.toString();
 }
 export function linkedDetailHash(target:{module:'routers'|'subscribers';id:string;source?:string;workspace?:string},fromHash=''){

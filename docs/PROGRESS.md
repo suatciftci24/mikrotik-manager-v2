@@ -4415,3 +4415,29 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   `git push origin main-guncel` BLOCKED: github.com DNS çözümlemesi başarısız
   (`Could not resolve host`); önceki ls-remote başarılı olsa da push bağlantısı
   kurulamadı. Sonraki adım ağ erişiminde aynı normal push; force push yok.
+
+## V2.6 — merkezler arası dönüş ve sekme sürekliliği — 2026-11-08
+
+- Başlangıç main-guncel/0c72519 temiz; Altın Kurallar, son navigasyon kabulü
+  ve özellik koruma envanteri okundu. Kesinti sonrası yerel değişiklikler
+  korundu; uzak main-guncel ls-remote ile 0c72519 olarak doğrulandı.
+- Son24 rapor/kaydırma yeniden yazılmadı. Mevcut bounded return yardımcıları
+  günlük/operasyon raporu ve alarm merkezini kapsar; detaydan geri dönüşte
+  filtre/sayfa/bölüm/seçili alarm korunur. Dış URL/izin dışı hedef ve recursive
+  dönüş reddi sürer. Abone sekmesi ortak URL filtresine bağlandı.
+- Operasyon audit dialog'unda router/geçmiş geçişleri tamamlandı; loading
+  sırasında eski dialog gösterilmez. Alarm kimliği değişiminde onay/istek
+  durumu yeniden kurulur. LOCAL/RADIUS ve mevcut sunucu yetkileri korunur.
+- PASS: 6 dosyada 39 hedefli sentetik test; tek tsc/Vite build exit0 (kesinti
+  öncesi başlayan oturumun sonucu alındı), diff. Back testinin erken temizlenen
+  HashChangeEvent fixture'ı düzeltildi; başarılı build tekrar edilmedi.
+- Chromium BLOCKED: loopback listen EPERM; bağımsız kurulu Chromium da
+  setsockopt EPERM/SIGTRAP. Yeni tarayıcı/mobil kabulü iddia edilmez.
+  Ayrıntılar docs/V26_NAVIGATION_FLOW_ACCEPTANCE.md son bölümünde.
+- Kullanıcı önceki HTTP200/yedi VDS kaynak eşitliğini bildirmişti; bu mevcut
+  bundle/tarayıcı kabulü sayılmadı. Tarihsel Dashboard/PG-HTTP engelleri açık.
+- V1/V2.5/VDS/router/RADIUS/IPsec/DB/deploy/restart/migration/silme yok;
+  yalnız bu kapsam mevcut değişikliklerle tek commit olarak kaydedildi.
+- Normal `git push origin main-guncel` BLOCKED: `Could not resolve host:
+  github.com`. Başlangıç uzak okuması başarılı olsa da push DNS aşamasında
+  engellendi. Sonraki tek aktarım adımı ağ erişiminde aynı normal push.
