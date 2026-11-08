@@ -118,17 +118,24 @@ task; the successful Ev WSL result above was provided by the user.
   reuses the existing cache without mismatch or an unnecessary browser download.
   The version/revision mapping is recorded in the [Playwright project issue](https://github.com/microsoft/playwright/issues/43664).
 - `playwright-core` is now an exact frontend devDependency in `package.json` and
-  `package-lock.json`. The package tarball and its lock integrity were found in
-  the local npm cache, but the cache lacks registry metadata; offline install
-  returned `ENOTCACHED`, and the single network-enabled install stopped with
-  `ERR_SSL_CIPHER_OPERATION_FAILED`. No retry was made and the package was not
-  installed into `node_modules`. Thus code/lock preparation is PASS while local
-  dependency installation remains BLOCKED until the Home WSL registry is
-  reachable.
-- Home WSL frontend dependency installation command (from the repo root):
+  `package-lock.json`. The first offline attempt preceded the lock entry and
+  returned `ENOTCACHED` because registry metadata was absent. After pinning the
+  exact package integrity in the lock, one lockfile-based offline install
+  succeeded from the cached tarball: `npm install --ignore-scripts --offline
+  --no-audit --no-fund` (`added 1 package`). No npm scripts were run.
+- TLS diagnosis for the earlier online attempt: Node `v24.22.0`, npm `11.19.1`,
+  OpenSSL `3.5.8`, registry `https://registry.npmjs.org/`, `strict-ssl=true`,
+  with no npm proxy, HTTPS proxy, or custom CA file configured, and no proxy or
+  Node TLS override environment variables present. The error was
+  `ERR_SSL_CIPHER_OPERATION_FAILED` from the Node/OpenSSL TLS cipher operation;
+  it was not a certificate-validation
+  bypass. Since offline installation succeeded, no second online attempt was
+  made and SSL verification remained enabled.
+- Home WSL frontend dependency installation command (from the repo root,
+  reuses available lockfile tarballs without contacting the registry):
 
   ```bash
-  cd /home/suat/Codex-Projects/mikrotik-manager-v2/frontend && npm ci --ignore-scripts
+  cd /home/suat/Codex-Projects/mikrotik-manager-v2/frontend && npm install --ignore-scripts --offline --no-audit --no-fund
   ```
 
 - Chromium installation is needed only if the executable above is missing. It
@@ -163,14 +170,15 @@ task; the successful Ev WSL result above was provided by the user.
   or signalled.
 - **PASS — socketless runner policy checks:** wrong repo, host/WSL, owner,
   branch, dirty tree, or missing browser toolchain are rejected; child
-  environment allowlisting and synthetic-only browser source contract are
-  covered without sockets or browser startup.
+  environment allowlisting, exact dependency lock, and synthetic-only browser
+  source contract are covered without sockets or browser startup. The policy
+  suite has 4 passing tests.
 - **BLOCKED — actual Chromium acceptance:** deliberately not run in this task.
-  The pinned dependency is not installed in this checkout because npm registry
-  TLS failed as noted above; the manual runner preflight therefore fails
-  closed until `npm ci` succeeds. No browser, HTTP acceptance, or backend
-  service was started in this task. The historical loopback `EPERM` remains a
-  prior environment block and was not retried.
+  The manual Playwright preflight passed, and package `1.64.1` resolves to the
+  executable under `chromium-1248`; the browser binary was not launched. No
+  browser, HTTP acceptance, or backend service was started in this task. The
+  historical loopback `EPERM` remains a prior environment block and was not
+  retried.
 
 From the Home WSL terminal, after the local Playwright/browser toolchain is
 already installed and the committed worktree is clean, the one command is:

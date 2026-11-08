@@ -16,7 +16,7 @@
   dizini ve çalıştırıcının başlattığı Chromium'u kullanır; PostgreSQL/HTTP
   kabul servisi başlatmaz, kalıcı ekran görüntüsü bırakmaz. Bu görevde Chromium
   ve HTTP kabul çalıştırılmadı. Tarihsel loopback EPERM tekrarlanmadı.
-- PASS: soketsiz runner politika/source contract testleri (3 unittest) ve
+- PASS: soketsiz runner politika/source contract testleri (4 unittest) ve
   hedefli dokuz Node test dosyası (9/9); browser script syntax check ve diff
   whitespace check. Typecheck/build çalıştırılmadı; uygulama kaynak kodu
   değişmedi. BLOCKED: Chromium kabulü çalıştırılmadı. Kabul raporu ve Ev WSL
@@ -32,11 +32,16 @@
   önbelleğindeki executable ile uyumlu. Chromium ikilisi
   `$HOME/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome` altında
   bulunuyor ve çalıştırılabilir; browser çalıştırılmadı.
-- PASS: Playwright manifest/lock statik tutarlılık ve runner güvenlik testleri.
-  BLOCKED: npm registry TLS hatası yüzünden `node_modules` kurulumu
-  tamamlanamadı; tekrarlanmadı. HTTP/Chromium kabul testleri çalıştırılmadı.
-  Yalnız repo npm kurulumu ve gerekirse kullanıcı cache'ine Chromium kurulumu
-  için komutlar kabul raporuna eklendi.
+- TLS teşhisi: registry HTTPS ve `strict-ssl=true`; npm proxy, HTTPS proxy,
+  cafile veya TLS override yok. Önceki ağlı denemedeki hata sınıfı
+  `ERR_SSL_CIPHER_OPERATION_FAILED` (Node v24.22.0 / npm 11.19.1 / OpenSSL
+  3.5.8). Tekrarlı ağ denemesi yapılmadı.
+- PASS: lockfile'a bağlı offline npm kurulumu (`added 1 package`), yüklü paket
+  sürümü `1.64.1`, `chromium.executablePath()` revizyonu r1248 ve executable
+  preflight; 4 runner güvenlik testi. Chromium binary launch edilmedi.
+  BLOCKED: HTTP ve Chromium kabul testleri bu görevde çalıştırılmadı; tarihsel
+  loopback `EPERM` yeniden denenmedi. Gerekirse kullanıcı cache'ine Chromium
+  kurulumu ve kesin kabul komutu kabul raporunda.
 
 ## Ev WSL disposable PostgreSQL + HTTP kabulü — 2026-11-08
 
