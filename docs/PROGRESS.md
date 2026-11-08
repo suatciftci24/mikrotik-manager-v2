@@ -1,5 +1,23 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6 izole entegrasyon ve kabul — 2026-11-08
+
+- Başlangıç `main-guncel` / `68fdac3`, temiz çalışma ağacı. Mevcut merkez
+  sözleşmeleri ve en son kabul kayıtları gözden geçirildi.
+- PASS: 125 hedefli backend unittest; 11 hedefli frontend Node test dosyası;
+  frontend typecheck ve production build. Doğrulamalar ADMIN/OPERATOR/VIEWER,
+  router scope, fotoğraf erişimi, PPPoE UUID recovery, alarm ACK/audit, rapor,
+  Dashboard ve operasyon görünümünü kapsadı.
+- BLOCKED: tek disposable PostgreSQL/HTTP denemesi fixture setup/cleanup
+  aşamasında redacted hata verdi; mevcut V2.6 DB'ye bağlanılmadı. Tek sentetik
+  Chromium denemesi loopback `listen EPERM` ile durdu; tekrar veya güvenlik
+  gevşetmesi yapılmadı.
+- `010_operator_role.sql` yalnız statik incelendi; sıralama ve beklenen
+  `users_role_check` adı altında tekrar çalıştırılabilirlik makul. Down dosyası
+  yok, geri alma planı hazır değil. Hiçbir migration uygulanmadı.
+- Kabul raporu: `docs/V26_ISOLATED_INTEGRATION_ACCEPTANCE.md`. V1/V2.5/VDS,
+  canlı router/RADIUS/IPsec, DB, deploy/restart/silme ve push yok.
+
 ## V2.6 Alarm ve Olay Yönetimi Merkezi — 2026-11-08
 
 - Mevcut Alarm Merkezi, WAN/MikAjanı alarm projeksiyonu ve ADMIN ACK/READ
