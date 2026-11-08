@@ -56,20 +56,17 @@ Branch/base: `main-guncel` / `68fdac3`
   browser phase, error class, allowlisted error code, and integer errno, while
   preserving the original error trace on stderr. It does not relax Chromium
   sandbox or TLS settings.
-- **BLOCKED — targeted browser diagnosis.** The committed browser-only runner
-  passed its local Playwright/executable preflight, then stopped at
-  `acceptance stage=HTTP_LISTENER_BIND` before PostgreSQL or Chromium. This
-  environment did not provide the bind exception class/errno, so the bind
-  restriction's exact OS cause is unknown. Review found the harness created
-  the socket outside its guarded exception block; a `socket()` syscall failure
-  therefore produced only the stage. The diagnostic now guards socket creation,
-  bind, and listen, and reports error class, numeric/named errno, syscall, and
-  the fixed loopback host/port (`127.0.0.1:18996` or `:55433`). The prior
-  evidence cannot distinguish port conflict from WSL/seccomp/permission
-  restrictions. Chromium was not reached, so the user's earlier
-  `BROWSER_ACCEPTANCE` failure remains undiagnosed. No repeat bind/browser
-  attempt was made. Do not report browser acceptance as PASS until the full
-  fail-closed command succeeds.
+- **BLOCKED — targeted browser diagnosis (latest controlled attempt).** The
+  fail-closed browser-only runner passed its Home WSL/tool preflight and
+  reported `stage=HTTP_LISTENER_BIND error_class=PermissionError errno=1
+  errno_name=EPERM syscall=socket host=127.0.0.1 port=18996`. The failure
+  occurred while creating the IPv4 stream socket, before `bind()`, PostgreSQL,
+  HTTP application startup, or Chromium. This rules out a port collision and
+  identifies a process-level socket permission/sandbox restriction; the
+  available evidence cannot distinguish the WSL kernel from an enclosing
+  execution sandbox. No harness bind defect remains indicated. The one
+  controlled attempt is complete and was not repeated. Chromium and the prior
+  browser scenario remain unverified; do not report browser acceptance PASS.
 
 ## Isolated HTTP harness prerequisites and procedure
 

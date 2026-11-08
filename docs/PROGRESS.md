@@ -4920,13 +4920,14 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   etmez. Gerçek `v26-isolated-acceptance` readiness doğrulandıktan sonra
   browser çalışır. Hata çıktısı aşama/sınıf/errno ile sınırlı; Chromium sandbox
   ve TLS ayarları değişmez.
-- Önceki tek browser-only runner denemesi Playwright preflight sonrasında
-  `HTTP_LISTENER_BIND` aşamasında durdu; DB/HTTP uygulama/Chromium başlamadı.
-  Gerçek sınıf/errno kaydı yoktu. Kaynak incelemesi socket oluşturmanın try
-  bloğu dışında olduğunu gösterdi; şimdi socket/bind/listen exception'ları
-  sınıf, numeric/named errno, syscall ve sabit loopback host/port ile güvenli
-  biçimde raporlanır. Mevcut kanıt port çakışması ile WSL/yetki engelini
-  ayırmıyor. Tek kontrollü deneme tekrar edilmedi.
-- PASS: 19 hedefli soketsiz Python güvenlik testi ve diff kontrolü. BROWSER
-  kök nedeni kanıtlanmadı; Chromium kabulü BLOCKED ve PASS iddiası yok. Tek
-  yerel commit oluşturulacak; push yok.
+- Son kontrollü Ev WSL runner denemesi: Playwright/tool preflight PASS; ardından
+  `HTTP_LISTENER_BIND error_class=PermissionError errno=1 EPERM syscall=socket
+  host=127.0.0.1 port=18996`. Socket oluşturma reddedildiği için bind/port
+  çakışması, PostgreSQL, HTTP uygulaması ve Chromium başlamadı. Port çakışması
+  elendi; süreç socket izni/sandbox engeli kanıtlandı, bunun WSL kernel'i mi
+  üst çalışma sandbox'ı mı olduğu belirlenemedi. Harness yakalama kodu bu
+  çıktıyı sağladı; kod kaynaklı bind hatası saptanmadı. Tek deneme tamamlandı,
+  tekrar yok.
+- Önceki görevde hedefli soketsiz Python testleri 19/19 PASS idi. Bu görevde
+  yalnız kabul belgeleri güncellendi; diff kontrolü yapılır. Chromium kabulü
+  BLOCKED, PASS iddiası yok. Yerel commit oluşturulacak; push yok.
