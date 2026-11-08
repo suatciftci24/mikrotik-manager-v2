@@ -135,10 +135,15 @@ const server=createServer((req,res)=>{const path=req.url.split('?')[0]==='/'?'in
  const safeName=/^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(error?.name||'')?error.name:'Error';
  const safeCode=/^[A-Z0-9_-]{1,40}$/.test(String(error?.code||''))?String(error.code):null;
  const safeErrno=Number.isInteger(error?.errno)?error.errno:null;
+ const safeDetail=String(error?.message||'').replace(/https?:\/\/[^\s)]+/gi,'[url]')
+  .replace(/(?:\/home\/|\/tmp\/)[^\s)]+/g,'[path]')
+  .replace(/\b[A-Za-z0-9_-]{32,}\b/g,'[redacted]')
+  .replace(/[^A-Za-z0-9 .,:;_()'/-]/g,'?').replace(/\s+/g,' ').trim().slice(0,180);
  const outcome=phase==='STATIC_HTTP_BIND'||phase==='CHROMIUM_LAUNCH'?'BLOCKED':
   (safeName==='AssertionError'||safeName==='TimeoutError'?'FAIL':'BLOCKED');
  console.error(`${outcome}: browser_phase=${phase} error_class=${safeName}`+
-  (safeCode?` code=${safeCode}`:'')+(safeErrno!==null?` errno=${safeErrno}`:''));
+  (safeCode?` code=${safeCode}`:'')+(safeErrno!==null?` errno=${safeErrno}`:'')+
+  (safeDetail?` detail=${safeDetail}`:''));
  throw error;
 }finally{
  try{await browser?.close();}finally{await new Promise(resolve=>server.listening?server.close(resolve):resolve());rmSync(temp,{recursive:true,force:true});}

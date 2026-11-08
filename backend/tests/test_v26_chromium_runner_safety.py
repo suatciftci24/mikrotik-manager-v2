@@ -72,7 +72,9 @@ class V26ChromiumRunnerSafety(TestCase):
         self.assertIn("phase='CHROMIUM_LAUNCH'", browser)
         self.assertIn('error_class=${safeName}', browser)
         self.assertIn('errno=${safeErrno}', browser)
-        self.assertNotIn('${error.message}', browser)
+        self.assertIn("replace(/https?:\\/\\/[^\\s)]+/gi,'[url]')", browser)
+        self.assertIn('.slice(0,180)', browser)
+        self.assertNotIn('detail=${error.message}', browser)
         self.assertNotIn('${error.stack}', browser)
 
     def test_playwright_dependency_is_exact_and_lockfile_matches(self):
