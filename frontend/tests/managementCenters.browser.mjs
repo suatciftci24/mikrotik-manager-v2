@@ -64,7 +64,7 @@ const server=createServer((req,res)=>{const path=req.url.split('?')[0]==='/'?'in
   return route.fulfill({json:value});
  });
  const page=await context.newPage();page.setDefaultTimeout(10000);page.on('pageerror',error=>errors.push(error.message));
- const go=async hash=>{await page.goto(base+'/'+hash);await page.getByText('V2.6 İzole Kabul Ortamı',{exact:false}).waitFor();assert.match(await page.locator('.workspace-context').innerText(),/V2\.6 İzole Kabul Ortamı/);assert.doesNotMatch(await page.locator('.workspace-context').innerText(),/Demo çalışma alanı/);};
+ const go=async hash=>{await page.goto(base+'/'+hash);await page.locator('.workspace-context strong').first().waitFor();assert.match(await page.locator('.workspace-context').innerText(),/V2\.6 İzole Kabul Ortamı/);assert.doesNotMatch(await page.locator('.workspace-context').innerText(),/Demo çalışma alanı/);};
  await go('#module=routers');
  assert.equal(await page.locator('.brand-copy small').innerText(),'MANAGER V2.6');
  await page.getByRole('button',{name:router.name,exact:true}).waitFor();
@@ -138,7 +138,7 @@ const server=createServer((req,res)=>{const path=req.url.split('?')[0]==='/'?'in
  const safeDetail=String(error?.message||'').replace(/https?:\/\/[^\s)]+/gi,'[url]')
   .replace(/(?:\/home\/|\/tmp\/)[^\s)]+/g,'[path]')
   .replace(/\b[A-Za-z0-9_-]{32,}\b/g,'[redacted]')
-  .replace(/[^A-Za-z0-9 .,:;_()'/-]/g,'?').replace(/\s+/g,' ').trim().slice(0,180);
+  .replace(/[^\p{L}\p{N} .,:;_()'/-]/gu,'?').replace(/\s+/g,' ').trim().slice(0,180);
  const outcome=phase==='STATIC_HTTP_BIND'||phase==='CHROMIUM_LAUNCH'?'BLOCKED':
   (safeName==='AssertionError'||safeName==='TimeoutError'?'FAIL':'BLOCKED');
  console.error(`${outcome}: browser_phase=${phase} error_class=${safeName}`+

@@ -74,6 +74,8 @@ class V26ChromiumRunnerSafety(TestCase):
         self.assertIn('errno=${safeErrno}', browser)
         self.assertIn("replace(/https?:\\/\\/[^\\s)]+/gi,'[url]')", browser)
         self.assertIn('.slice(0,180)', browser)
+        self.assertIn("page.locator('.workspace-context strong').first().waitFor()", browser)
+        self.assertNotIn("getByText('V2.6 İzole Kabul Ortamı',{exact:false})", browser)
         self.assertNotIn('detail=${error.message}', browser)
         self.assertNotIn('${error.stack}', browser)
 
