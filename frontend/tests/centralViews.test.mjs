@@ -9,7 +9,7 @@ import {projectRouterEvents} from '../src/lib/routerEvents.ts';
 import {buildDailySummary} from '../src/lib/dailySummary.ts';
 const require=createRequire(import.meta.url);
 async function compile(path){
- const result=await build({entryPoints:[fileURLToPath(new URL(path,import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'saved-resource',setup(builder){
+ const result=await build({entryPoints:[fileURLToPath(new URL(path,import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],loader:{'.css':'empty'},plugins:[{name:'saved-resource',setup(builder){
   builder.onResolve({filter:/lib\/useResource$/},()=>({path:'saved-resource',namespace:'test'}));
   builder.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function useResource(path){return path===\"/dashboard/summary\"?{data:globalThis.__centralSummary,loading:false,retry(){}}:path==="/router-events"?{data:globalThis.__alarmData??null,loading:false,retry(){}}:{loading:true,retry(){}}}',loader:'js'}));
  }}]});

@@ -8,7 +8,7 @@ import * as React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 const require=createRequire(import.meta.url);
 let effects=0;
-const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/DashboardPppoe.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/DashboardPppoe.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],loader:{'.css':'empty'}}).outputFiles[0].text;
 const module={exports:{}};
 new Function('require','module','exports',code)(name=>name==='react'?{...React,useEffect:()=>{effects++;}}:require(name),module,module.exports);
 const render=subscribers=>renderToStaticMarkup(React.createElement(module.exports.DashboardPppoe,{data:{is_demo:true,generated_at:'2026-10-31T09:00:00Z',routers:[{last_seen:'2026-10-31T08:00:00Z'}],subscribers}}));
@@ -20,9 +20,11 @@ test('dashboard separates source inventory from unknown measurement without moun
  assert.doesNotMatch(html,/2026-10-31|09:00|08:00/);assert.equal(effects,0);
  assert.match(html,/#module=routers/);assert.match(html,/#module=subscribers/);
 });
-test('empty inventory retains unknown freshness and dashboard hides the panel while refreshing',()=>{
+test('empty inventory stays explicit and current Dashboard exposes PPPoE summary without the retired panel',()=>{
  const html=render({local:0,radius:0,unknown_source:0});
  assert.match(html,/LOCAL: 0/);assert.match(html,/Son ölçüm: <strong>Bilinmiyor/);
  const screen=readFileSync(new URL('../src/screens/Dashboard.tsx',import.meta.url),'utf8');
- assert.match(screen,/!resource.loading&&<DashboardPppoe data=\{data\}/);
+ assert.match(screen,/<SummaryTile title="PPPoE işlemleri"/);
+ assert.match(screen,/dashboardToday\(data,null\)\.pppoe/);
+ assert.doesNotMatch(screen,/DashboardPppoe/);
 });

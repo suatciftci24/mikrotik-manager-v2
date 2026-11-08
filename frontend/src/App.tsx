@@ -1,28 +1,43 @@
 import {PendingSubscriberOperations} from './components/PendingSubscriberOperations';
 import {pendingIdentity,identityStamp} from './lib/pendingSubscriberOperations';
 import {workspaceContext} from './lib/workspaceContext';
-import {SystemCenter} from './screens/SystemCenter';
 import {applyPresentation,presentationSnapshot,presentationDefaults,type Presentation} from './lib/presentation';
 import {PermissionContext} from './lib/permissions';
 import {invalidateResources} from './lib/resourceEvents';
-import { AlarmCenter } from './components/AlarmCenter';
 import { screenFromHash } from './lib/useDetailNavigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
 import { ArrowRight, Bell, Menu, X } from 'lucide-react';
 import { Sidebar, MobileHeader, type ScreenKey, type User } from './components/Sidebar';
 import { Header, DemoBanner } from './components/Header';
 import { CommandPalette } from './components/Overlay';
-import { Dashboard } from './screens/Dashboard';
-import { Routers } from './screens/Routers';
-import { Subscribers } from './screens/Subscribers';
 import { ModuleScreen } from './screens/Modules';
-import { Operations } from './screens/Operations';
-import { Mikajani } from './screens/Mikajani';
 import { Login } from './screens/Login';
 import { api } from './lib/api';
 import './styles.css';
 
+function lazyScreens(){return {
+ Dashboard:lazy(()=>import('./screens/Dashboard').then(module=>({default:module.Dashboard}))),
+ Routers:lazy(()=>import('./screens/Routers').then(module=>({default:module.Routers}))),
+ Subscribers:lazy(()=>import('./screens/Subscribers').then(module=>({default:module.Subscribers}))),
+ Operations:lazy(()=>import('./screens/Operations').then(module=>({default:module.Operations}))),
+ Mikajani:lazy(()=>import('./screens/Mikajani').then(module=>({default:module.Mikajani}))),
+ SystemCenter:lazy(()=>import('./screens/SystemCenter').then(module=>({default:module.SystemCenter}))),
+ AlarmCenter:lazy(()=>import('./components/AlarmCenter').then(module=>({default:module.AlarmCenter}))),
+};}
+type BoundaryProps={children:ReactNode;resetKey:string;onRetry:()=>void};
+type BoundaryState={error:Error|null};
+export class LazyChunkBoundary extends Component<BoundaryProps,BoundaryState>{
+ state:BoundaryState={error:null};
+ static getDerivedStateFromError(error:Error):BoundaryState{return {error};}
+ componentDidCatch(_error:Error,_info:ErrorInfo){}
+ componentDidUpdate(previous:BoundaryProps){if(previous.resetKey!==this.props.resetKey&&this.state.error)this.setState({error:null});}
+ render(){return this.state.error?<section className="panel" role="alert"><h2>Bölüm yüklenemedi</h2><p>İnternet bağlantınızı kontrol edip bu bölümü yeniden deneyin. Açık ekran ve oturum korunur.</p><button className="button-primary" onClick={this.props.onRetry}>Yeniden dene</button></section>:this.props.children;}
+}
+
+
 export default function App(){
+ const [chunkAttempt,setChunkAttempt]=useState(0);
+ const screens=useMemo(()=>lazyScreens(),[chunkAttempt]);
  const [locationHash,setLocationHash]=useState(()=>window.location.hash);
  const [user,setUser]=useState<User|null>(null);const [checking,setChecking]=useState(true);const [active,setActive]=useState<ScreenKey>(()=>screenFromHash(window.location.hash));const [palette,setPalette]=useState(false);const [mobileMenu,setMobileMenu]=useState(false);const [toast,setToast]=useState('');const [notice,setNotice]=useState(false);
  const notify=useCallback((message:string)=>{setToast(message);window.setTimeout(()=>setToast(''),3200);},[]);
@@ -55,6 +70,6 @@ export default function App(){
  const realInventory=active==='routers'&&routerParams.get('source')==='V1_INVENTORY'||active==='dashboard'&&(!routerParams.get('view')||routerParams.get('view')==='OVERVIEW')&&routerParams.get('dashboard_source')==='V1_INVENTORY';
  const context=workspaceContext(active,locationHash);
  const panelAddress=window.location.host;
- return <PermissionContext.Provider key={identityStamp(user)} value={user}><div className="app-shell"><div className={`sidebar-container ${mobileMenu?'mobile-open':''}`}><Sidebar context={context} panelAddress={panelAddress} realInventory={realInventory} active={active} onNavigate={navigate} user={user} onLogout={logout}/><button className="mobile-scrim" onClick={()=>setMobileMenu(false)} aria-label="Menüyü kapat"/></div><main className="main-area"><MobileHeader onMenu={()=>setMobileMenu(true)}/><Header context={context} realInventory={realInventory} registeredInventory={registeredInventory} active={active} user={user} onOpenSearch={()=>setPalette(true)} onOpenNotifications={()=>setNotice(true)}/><div className="content-area"><PendingSubscriberOperations/><DemoBanner context={context} panelAddress={panelAddress} realInventory={realInventory} registeredInventory={registeredInventory}/>{active==='dashboard'?<Dashboard onNavigate={navigate}/>:active==='routers'?<Routers onToast={notify}/>:active==='subscribers'?<Subscribers onToast={notify}/>:active==='operations'?<Operations onRouter={id=>navigate('routers',{id})}/>:active==='mikajani'?<Mikajani/>:active==='system'?<SystemCenter/>:<ModuleScreen screen={active}/>}<footer className="app-footer"><span>© 2026 MikroTik Manager V2 <i>·</i> Yönetim paneli</span><span><span className="pulse-dot"/>V2 · {context.access}</span></footer></div></main>
- {palette&&<CommandPalette onClose={()=>setPalette(false)} onNavigate={navigate}/>} {notice&&<div className="notice-scrim" onMouseDown={e=>{if(e.target===e.currentTarget)setNotice(false);}}><section className="notice-popover" role="region" aria-label="Bildirimler" onClickCapture={e=>{if((e.target as Element).closest?.('a[href^="#"]'))setNotice(false);}}><header><strong>Bildirimler</strong><button className="icon-button" aria-label="Bildirimleri kapat" onClick={()=>setNotice(false)}><X size={16}/></button></header><AlarmCenter notifications/></section></div>}{toast&&<div className="toast" role="status" aria-live="polite"><span className="toast-mark"><Bell size={14}/></span>{toast}<button aria-label="Bildirimi kapat" onClick={()=>setToast('')}><X size={14}/></button></div>}</div></PermissionContext.Provider>;
+ return <PermissionContext.Provider key={identityStamp(user)} value={user}><div className="app-shell"><div className={`sidebar-container ${mobileMenu?'mobile-open':''}`}><Sidebar context={context} panelAddress={panelAddress} realInventory={realInventory} active={active} onNavigate={navigate} user={user} onLogout={logout}/><button className="mobile-scrim" onClick={()=>setMobileMenu(false)} aria-label="Menüyü kapat"/></div><main className="main-area"><MobileHeader onMenu={()=>setMobileMenu(true)}/><Header context={context} realInventory={realInventory} registeredInventory={registeredInventory} active={active} user={user} onOpenSearch={()=>setPalette(true)} onOpenNotifications={()=>setNotice(true)}/><div className="content-area"><PendingSubscriberOperations/><DemoBanner context={context} panelAddress={panelAddress} realInventory={realInventory} registeredInventory={registeredInventory}/><LazyChunkBoundary resetKey={`${active}:${chunkAttempt}`} onRetry={()=>setChunkAttempt(value=>value+1)}><Suspense fallback={<div className="resource-state" role="status" aria-live="polite">Bölüm yükleniyor…</div>}>{active==='dashboard'?<screens.Dashboard onNavigate={navigate}/>:active==='routers'?<screens.Routers onToast={notify}/>:active==='subscribers'?<screens.Subscribers onToast={notify}/>:active==='operations'?<screens.Operations onRouter={id=>navigate('routers',{id})}/>:active==='mikajani'?<screens.Mikajani/>:active==='system'?<screens.SystemCenter/>:<ModuleScreen screen={active}/>}</Suspense></LazyChunkBoundary><footer className="app-footer"><span>© 2026 MikroTik Manager V2 <i>·</i> Yönetim paneli</span><span><span className="pulse-dot"/>V2 · {context.access}</span></footer></div></main>
+ {palette&&<CommandPalette onClose={()=>setPalette(false)} onNavigate={navigate}/>} {notice&&<LazyChunkBoundary resetKey={`notice:${chunkAttempt}`} onRetry={()=>setChunkAttempt(value=>value+1)}><Suspense fallback={<div className="notice-scrim" role="status">Bildirimler yükleniyor…</div>}><div className="notice-scrim" onMouseDown={e=>{if(e.target===e.currentTarget)setNotice(false);}}><section className="notice-popover" role="region" aria-label="Bildirimler" onClickCapture={e=>{if((e.target as Element).closest?.('a[href^="#"]'))setNotice(false);}}><header><strong>Bildirimler</strong><button className="icon-button" aria-label="Bildirimleri kapat" onClick={()=>setNotice(false)}><X size={16}/></button></header><screens.AlarmCenter notifications/></section></div></Suspense></LazyChunkBoundary>}{toast&&<div className="toast" role="status" aria-live="polite"><span className="toast-mark"><Bell size={14}/></span>{toast}<button aria-label="Bildirimi kapat" onClick={()=>setToast('')}><X size={14}/></button></div>}</div></PermissionContext.Provider>;
 }

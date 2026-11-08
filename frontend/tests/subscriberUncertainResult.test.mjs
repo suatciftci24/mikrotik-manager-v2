@@ -30,7 +30,7 @@ for(const fault of ['lost-response','truncated-json','wrong-receipt','timeout'])
    const results=entries.map(e=>{
     if(!receipts.has(e.request_id)){
      applied++;
-     receipts.set(e.request_id,{item_id:e.item_id,request_id:e.request_id,operation:e.operation,actor_id:'synthetic.actor',revision:2,previous:{},success:true,recorded:true,values:{expires_on:e.value},occurred_at:'2026-11-06T12:00:00Z',error:null});
+     receipts.set(e.request_id,{item_id:e.item_id,request_id:e.request_id,operation:e.operation,actor_id:'synthetic.actor',revision:2,router_id:e.expected_router_id,previous_router_id:e.expected_router_id,previous:{},success:true,recorded:true,values:{expires_on:e.value},occurred_at:'2026-11-06T12:00:00Z',error:null});
     }
     return receipts.get(e.request_id);
    });

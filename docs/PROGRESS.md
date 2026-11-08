@@ -1,5 +1,34 @@
 # MikroTik Manager V2 — İlerleme
 
+## DetailCenter hook fixture düzeltmesi — 2026-11-08
+
+- PASS: `frontend/tests/detailCenter.test.mjs` mock'u gerçek `/subscribers/`
+  yolu ve useResource başlangıcındaki attempt/loader kimliğiyle eşleştirildi.
+  Loading ve error eski kaydı/işlemleri gizler; ready güncel kaydı gösterir.
+- Yalnız istenen `node --experimental-transform-types --test tests/detailCenter.test.mjs`
+  frontend dizininde çalıştırıldı: exit 0, fail 0 (runner dosya düzeyinde 1 PASS
+  raporladı; dosyada 9 test tanımlı). Uygulama ve diğer mevcut değişiklikler korundu.
+- Chromium/build/canlı işlem/commit/push yok. Başlangıç main-guncel/e3f202d.
+  Bu dar test düzeltmesi tamamlandı; ek işlem başlatılmadı.
+
+## Belirsiz PPPoE sonucu ve V2.6 overlay regresyonları — 2026-11-08
+
+- PASS: iki hedef Node testi. PPPoE fixture artık doğrulayıcıyla uyumlu kayıt
+  receipt'i kullanıyor; tek POST sonrası aynı UUID ile GET doğrulaması korunuyor.
+- QuickActions V2.6 bundle'ından pending journal/recovery altyapısı ayrıldı;
+  helper'lar dar modüllere çıkarıldı. Overlay testleri artık aynı UUID GET
+  akışını ve tek POST sınırını doğruluyor.
+- Chromium/build/canlı işlem/deploy/migration/commit/push yok.
+
+## V2.6 frontend son yerel doğrulaması — 2026-11-08
+
+- QuickActions için scoped in-memory request kayıtları eklendi: UUID, item ID ve
+  işlem türü; timeout sonrası aynı UUID GET ile doğrulama sürer, POST tekrarı yok.
+- PASS: üç hedefli test; toplu 71/71 Node test dosyası; typecheck ve build.
+- BLOCKED: `dashboardHistorical.test.mjs`, talimat gereği
+  `reconstruct-v26-dashboard.py` çalıştırılmadı. Chromium EPERM tekrar edilmedi.
+- Canlı sistem/V1/V2.5/VDS/router/RADIUS/IPsec/DB/deploy/migration işlemi yok.
+
 ## Onaylı gerçek router envanteri tamamlandı — 2026-11-02
 
 - PASS: tek SSH ön kontrolü VDS_SSH_OK. Mevcut dar canlı onayla yalnız

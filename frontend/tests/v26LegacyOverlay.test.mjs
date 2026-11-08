@@ -126,16 +126,18 @@ if(root!==frontend)test('every VDS file outside the 10-file overlay remains byte
 
 for(const action of ['EXTEND','PLAN','STATUS'])test(`${action} description, retry errors and matching success refresh`,async()=>{
  const render=dialog('QuickActions',{rows:[row],today:'2026-11-06',initialAction:action,onClose(){}});
- const calls=[],events=[];let attempt=0,saved=0;
+ const calls=[],events=[];let attempt=0,saved=0,postBody;
  const oldFetch=globalThis.fetch,oldWindow=globalThis.window;
  globalThis.window={dispatchEvent:e=>events.push(e)};
  globalThis.fetch=async(url,init)=>{
   calls.push({url,init});attempt++;
-  if(attempt===1)throw Error('Synthetic lost response');
-  if(attempt===2)return {ok:true,json:async()=>({results:[{item_id:'demo-sub-foreign',success:true,result:detail}]})};
-  const entry=JSON.parse(init.body).entries[0],c=entry.change;
+  if(init?.method==='POST'){postBody=init.body;throw Error('Synthetic lost response');}
+  assert.equal(init?.method,undefined,'recovery must use GET');
+  if(attempt===2)return {ok:true,json:async()=>({request_id:url.split('/').at(-1),status:'UNKNOWN',response:null})};
+  const entry=JSON.parse(postBody).entries[0],c=entry.change;
   const updated={...row,revision:2,...(action==='EXTEND'?{expires_on:c.expires_on}:action==='PLAN'?{plan:c.plan,monthly_price:35}:{status:c.status})};
-  return {ok:true,json:async()=>({results:[{item_id:row.id,success:true,result:{...detail,item:updated}}]})};
+  const result={...detail,item:updated,history:[{id:entry.change.request_id,is_demo:true,actor_id:'synthetic.actor',source:'LOCAL',operation:'RENEWAL',occurred_at:'2026-11-06T12:00:00Z'}]};
+  return {ok:true,json:async()=>({request_id:entry.change.request_id,status:'SUCCESS',response:result})};
  };
  try{
   let tree=render({onSaved(){saved++;}}),text=html(tree);
@@ -145,15 +147,17 @@ for(const action of ['EXTEND','PLAN','STATUS'])test(`${action} description, retr
   nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});assert.equal(calls.length,0);
   const approve=()=>nodes(render({onSaved(){saved++;}})).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula');
   await approve().props.onClick();assert.match(html(render()),/Synthetic lost response/);assert.equal(saved,0);
-  await approve().props.onClick();assert.match(html(render()),/eşleşmedi/);assert.equal(saved,0);
-  await approve().props.onClick();assert.equal(saved,1);
-  assert.equal(new Set(calls.map(c=>c.init.body)).size,1); // identical UUID/revision/consent on recovery
+  const recover=()=>nodes(render({onSaved(){saved++;}})).find(n=>n.type==='button'&&String(n.props.children).includes('sorgula'));
+  await recover().props.onClick();assert.equal(saved,0);assert.match(html(render()),/belirsiz/);
+  await recover().props.onClick();assert.equal(saved,1);
+  assert.equal(calls.filter(c=>c.init?.method==='POST').length,1);
+  assert.ok(calls.slice(1).every(c=>c.url.endsWith('/'+JSON.parse(postBody).entries[0].change.request_id)));
   const command=JSON.parse(calls[0].init.body).entries[0].change;
   assert.equal(command.expected_revision,1);assert.equal(command.expected_source,'LOCAL');assert.equal(command.confirmed,true);
   if(action!=='EXTEND')assert.equal(command.expires_on,row.expires_on);
-  assert.match(html(render()),action==='PLAN'?/Güncel paket: Demo 200/:action==='STATUS'?/Güncel durum: Aktif/:/Güncel bitiş/);
+  assert.match(html(render()),action==='PLAN'?/İşlemde kaydedilen paket: Demo 200/:action==='STATUS'?/İşlemde kaydedilen durum: Aktif/:/İşlemde kaydedilen bitiş/);
   for(const prefix of ['/subscribers','/subscriber-center','/reports','/dashboard'])assert.ok(events.at(-1).detail.includes(prefix));
-  const completed=nodes(render()).find(n=>n.type==='button'&&n.props.children==='İşlem tamamlandı');await completed.props.onClick();assert.equal(calls.length,3);
+  assert.equal(calls.length,3);
  }finally{globalThis.fetch=oldFetch;globalThis.window=oldWindow;}
 });
 test('quick preview rejects unauthorized, unknown-source and missing-router subscribers',()=>{
@@ -174,7 +178,7 @@ test('rejected requests and per-record revision errors keep preview and never re
   try{
    nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
    await nodes(render()).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();
-   const text=html(render());assert.match(text,failure==='permission'?/Synthetic permission denied/:/Synthetic stale revision/);
+   const text=html(render());assert.match(text,failure==='permission'?/Bu işlem veya sonuç kaydı için yetkiniz yok/:/Synthetic stale revision/);
    assert.match(text,/Eski → Yeni/);assert.doesNotMatch(text,/Kaydedildi|İşlem tamamlandı/);
   }finally{globalThis.fetch=oldFetch;globalThis.window=oldWindow;}
  }

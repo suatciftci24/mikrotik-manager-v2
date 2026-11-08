@@ -138,3 +138,36 @@ deploy/restart/migration/veri silme yok. Geliştirmeler canlıya aktarılmadı.
 - Görev sonu normal push da BLOCKED: `Could not resolve host: github.com`.
   Tek yeni yerel commit korundu; main-guncel tracking dalından bir commit
   ileride. Ağ düzeldiğinde normal push gerekir; force push yapılmadı.
+
+## Kalan teknik işler — çalışma devam ediyor
+
+Global belirsiz işlem sayısı mevcut kalıcı şemadan üretilemez: audit yalnız
+atomik olarak kaydedilmiş denemeleri tutar; gönderimden önce/sonra bağlantısı
+kopmuş ancak audit'i yazılmamış istekler listelenmez. Actor bazlı UUID GET bu
+tek isteği kanıtlar, global envanter sunmaz. Bu nedenle belirsiz toplam
+bilinmiyor/null olmalı. Kalıcı ve tam sayım için en küçük sözleşme,
+POST'tan önce UUID+actor+account+router+source+expected revision içeren
+idempotent intent/attempt kaydı, terminal APPLIED/FAILED atomik audit bağı ve
+TTL sonrası unresolved durumudur. Bu şema/depo değişikliği migration ve
+atomiklik tasarımı gerektirir; mevcut görevde eklenmedi. Başarı yanlış
+üretilmemelidir.
+
+Bundle değişikliği ve test/build sonuçları aşağıdaki görev kaydında izlenir.
+
+## Lazy loading doğrulaması — 2026-11-08
+
+`frontend/src/App.tsx` içindeki mevcut React.lazy/Suspense yapısı TypeScript ve
+React derlemesinden geçti. İlk build `src/App.tsx(4,9): error TS2440: Import
+declaration conflicts with local declaration of 'SystemCenter'.` hatası verdi;
+lazy SystemCenter tanımını gölgeleyen eski statik import kaldırıldı. İkinci
+`npm run build` PASS: tsc ve Vite; giriş chunkı 286.90 kB (gzip 89.02 kB),
+önceki 622.39 kB (gzip 179.34 kB). Dashboard 73.15 kB, Subscribers 65.15 kB,
+Routers 25.99 kB, Mikajani 8.70 kB, AlarmCenter 12.64 kB ayrı chunk oldu.
+Rapor Operations içinden bölünüyor; ana girişte 500 kB uyarısı kalmadı.
+
+BLOCKED: Lazy import chunk'ı ağ/yükleme hatasıyla reddedilirse uygulama
+seviyesinde görünür kurtarma/yeniden deneme arayüzü yok. Suspense yalnız beklerken
+yükleme durumu sağlar; hata boundary değildir. Kullanıcı talimatı gereği bu
+kurtarma eklenmedi, başarılı code-splitting kabulü iddia edilmez. Chromium
+EPERM bilinen engeli nedeniyle denenmedi. Test/browser kabulü çalıştırılmadı.
+Bu oturumda commit veya push yapılmadı.

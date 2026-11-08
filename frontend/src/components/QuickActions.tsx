@@ -1,5 +1,6 @@
-import {rememberPending,forgetPending} from '../lib/pendingSubscriberOperations';
-import {legacySavedReceipt,subscriberOperationError} from '../lib/subscriberOperationRecovery';
+import {legacySavedReceipt} from '../lib/legacySubscriberReceipt';
+import {subscriberOperationError} from '../lib/subscriberOperationError';
+import {rememberQuickActionRequest,forgetQuickActionRequest} from '../lib/quickActionRequests';
 import {subscriberSaveDependencies} from '../lib/subscriberDependencies';
 import '../styles/subscriber-edit-highlight.css';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
@@ -81,7 +82,7 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
         }));
       }else{
         sent.current=true;
-        for(const entry of review)rememberPending(String(entry.change.request_id),'/subscribers/demo-requests/'+String(entry.change.request_id));
+        for(const entry of review)rememberQuickActionRequest({requestId:String(entry.change.request_id),itemId:entry.item_id,action:String(entry.change.action)});
         const response=await api<{results:Result[]}>('/subscribers/demo-quick',{method:'POST',signal:controller.signal,headers:{'X-V2-Demo-Action':'expiry'},body:JSON.stringify({entries:review})});
         if(!Array.isArray(response?.results)||response.results.length!==review.length||new Set(response.results.map(r=>r?.item_id)).size!==review.length)throw new Error('İşlem sonuçları onaylanan kayıtlarla eşleşmedi.');
         next=review.map(entry=>{
@@ -92,13 +93,13 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
         });
       }
       const newlyConfirmed=next.some(result=>result.success&&!resolved.current.has(result.item_id));
-      for(const result of next)if(!result.uncertain){resolved.current.set(result.item_id,result);const entry=review.find(e=>e.item_id===result.item_id)!;forgetPending(String(entry.change.request_id));}
+      for(const result of next)if(!result.uncertain){resolved.current.set(result.item_id,result);const entry=review.find(e=>e.item_id===result.item_id)!;forgetQuickActionRequest(String(entry.change.request_id));}
       setResults(next);if(newlyConfirmed)onSaved?.();
     }
     catch(e){
       if(!query&&e instanceof ApiError&&[400,401,403,404,409,422].includes(e.status)){
         const failed=review.map(entry=>({item_id:entry.item_id,success:false,status:e.status,error:subscriberOperationError(e)}));
-        for(const result of failed){resolved.current.set(result.item_id,result);forgetPending(String(review.find(entry=>entry.item_id===result.item_id)!.change.request_id));}
+        for(const result of failed){resolved.current.set(result.item_id,result);forgetQuickActionRequest(String(review.find(entry=>entry.item_id===result.item_id)!.change.request_id));}
         setResults(failed);setError('İstek reddedildi. Güncel kayıttan yeni önizleme oluşturun.');
       }else setError(subscriberOperationError(e)+' Kalıcı sonuç doğrulanamadı; işlem uygulanmış olabilir. Yeni önizleme oluşturmadan aynı istekle sonucu alın.');
     }

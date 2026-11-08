@@ -8,7 +8,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {routerDetailSummary,subscriberWarnings,assignedRouter,routerSubscribersHash,subscriberTextContext,unknownDetail} from '../src/lib/detailCenter.ts';
 const require=createRequire(import.meta.url);
 function compile(path,react=React){
- const code=buildSync({entryPoints:[fileURLToPath(new URL(path,import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+ const code=buildSync({entryPoints:[fileURLToPath(new URL(path,import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],loader:{'.css':'empty'}}).outputFiles[0].text;
  const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?react:require(name),module,module.exports);return module.exports;
 }
 const router={id:'demo-router-001',name:'Demo · Router',model:'Demo model',routeros_version:'7.demo',management_address:'192.0.2.1',site:'Demo',status:'ONLINE',cpu_percent:0,memory_percent:10,subscriber_count:649,last_seen:'2026-10-28T09:00:00Z',uptime:'1g',is_demo:true};
@@ -62,21 +62,17 @@ test('subscriber details expose shared quick operations, audit identity and bloc
  assert.match(blocked,/Kaynak bilinmiyor/);
  assert.equal((blocked.match(/<button[^>]*disabled=""/g)||[]).length,3);
 });
-test('detail quick modal stays mounted with same subscriber snapshot during loading and error',()=>{
- let states=[],index=0;
- let resource={path:'/subscribers/'+subscriber.id,data:detail,loading:false};
+test('detail hides stale subscriber and quick operations while loading or failed, then restores ready view',()=>{
+ const path='/subscribers/'+subscriber.id;
+ let resource={data:detail,loading:false};
  const hooks={...React,useRef:()=>({current:null}),useEffect(){},useCallback:fn=>fn,
-  useState(initial){const i=index++;if(initial&&typeof initial==='object'&&'path'in initial)return[resource,()=>{}];
-   if(!(i in states))states[i]=typeof initial==='function'?initial():initial;
-   return[states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];}};
+  useState(initial){return initial&&typeof initial==='object'&&'path'in initial?[initial.path===path?{...initial,...resource}:initial,()=>{}]:[typeof initial==='function'?initial():initial,()=>{}];}};
  const {DetailCenter}=compile('../src/screens/Details.tsx',hooks);
- const render=()=>{index=0;return nodes(DetailCenter({kind:'subscribers',id:subscriber.id,onBack(){}}));};
- let tree=render();tree.find(n=>n.type?.name==='SubscriberDetails').props.onQuick('EXTEND');
- tree=render();const first=tree.find(n=>n.props?.initialAction==='EXTEND');assert.ok(first);
- for(const next of [{...resource,loading:true},{path:resource.path,loading:false,error:'HTTP failure'}]){
-  resource=next;tree=render();const modal=tree.find(n=>n.props?.initialAction==='EXTEND');
-  assert.ok(modal);assert.equal(modal.props.rows[0],first.props.rows[0]);
- }
+ const render=()=>renderToStaticMarkup(React.createElement(DetailCenter,{kind:'subscribers',id:subscriber.id,onBack(){}}));
+ let html=render();assert.match(html,/Demo paket\/profil değiştir/);assert.match(html,/Abonelik uyarıları/);
+ resource={data:detail,loading:true};html=render();assert.match(html,/Veriler yükleniyor/);assert.doesNotMatch(html,/Demo paket\/profil değiştir/);assert.doesNotMatch(html,/Test Abone/);
+ resource={data:detail,loading:false,error:'HTTP failure'};html=render();assert.match(html,/HTTP failure/);assert.doesNotMatch(html,/Demo paket\/profil değiştir/);assert.doesNotMatch(html,/Test Abone/);
+ resource={data:{...detail,item:{...subscriber,customer_name:'Güncel Abone',revision:2}},loading:false};html=render();assert.match(html,/Demo paket\/profil değiştir/);assert.match(html,/Güncel Abone/);assert.doesNotMatch(html,/Test Abone/);
 });
 
 test('quick preview cannot run before router/catalog data are ready',()=>{

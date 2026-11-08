@@ -7,6 +7,6 @@ test('workspace route missing reports stale backend help; missing record keeps i
   globalThis.fetch=async()=>({ok:false,status:404,json:async()=>({detail:'Not Found'})});
   await assert.rejects(()=>api('/router-workspace/routers'),/çalışan backend sürümünde bulunamadı/);
   globalThis.fetch=async()=>({ok:false,status:404,json:async()=>({detail:'Kayıt bu çalışma alanında bulunamadı.'})});
-  await assert.rejects(()=>api('/router-workspace/routers/missing'),/^Error: Kayıt bu çalışma alanında bulunamadı\.$/);
+  await assert.rejects(()=>api('/router-workspace/routers/missing'),/^ApiError: Kayıt bu çalışma alanında bulunamadı\.$/);
  }finally{globalThis.fetch=original;}
 });

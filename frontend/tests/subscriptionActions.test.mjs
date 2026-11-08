@@ -43,7 +43,7 @@ test('persistent renewal preserves request ID and reads the committed receipt wi
  }finally{globalThis.fetch=previousFetch;globalThis.window=previousWindow;}
 });
 
-const validationCode=buildSync({stdin:{contents:"export {QuickActions} from './src/components/QuickActions';export {pendingIdentity,pendingOperations} from './src/lib/pendingSubscriberOperations';",resolveDir:process.cwd(),loader:'tsx'},bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+const validationCode=buildSync({stdin:{contents:"export {QuickActions} from './src/components/QuickActions';export {pendingQuickActionRequests} from './src/lib/quickActionRequests';",resolveDir:process.cwd(),loader:'tsx'},bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
 for(const action of ['EXTEND','PLAN','STATUS','CREATE'])test(`${action}: mismatched success never notifies; same frozen command recovers once`,async()=>{
  const slots=[];let cursor=0,notifications=0;const calls=[];
  const plans=[{name:'Demo',monthly_price:10},{name:'New',monthly_price:20}];
@@ -84,7 +84,6 @@ for(const scenario of ['timeout','rejected'])test(`quick ${scenario}: persisted 
  const module={exports:{}};new Function('require','module','exports',validationCode)(name=>name==='react'?hooks:require(name),module,module.exports);
  const before={fetch:globalThis.fetch,window:globalThis.window,localStorage:globalThis.localStorage,setTimeout:globalThis.setTimeout,clearTimeout:globalThis.clearTimeout};
  const values={};globalThis.localStorage={getItem:k=>values[k]??null,setItem(k,v){values[k]=v;this[k]=v;},removeItem(k){delete values[k];delete this[k];}};globalThis.window={dispatchEvent:event=>events.push(event)};
- module.exports.pendingIdentity({id:'actor',role_code:'ADMIN',active:true});
  globalThis.setTimeout=fn=>{timeout=fn;return 1;};globalThis.clearTimeout=()=>{};
  let entry;globalThis.fetch=async(url,init)=>{calls.push(init.method??'GET');
   if(init.method==='POST'){entry=JSON.parse(init.body).entries[0];if(scenario==='rejected')return {ok:true,json:async()=>({results:[{item_id:row.id,success:false,status:409,error:'Kayıt revizyonu değişti.'}]})};return new Promise((_,reject)=>init.signal.addEventListener('abort',()=>reject(new DOMException('Timeout','AbortError'))));}
@@ -96,7 +95,7 @@ for(const scenario of ['timeout','rejected'])test(`quick ${scenario}: persisted 
  try{
   nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});const request=click();if(scenario==='timeout')timeout();await request;
   assert.equal(saved,0);assert.equal(calls.length,1);
-  if(scenario==='rejected'){assert.equal(module.exports.pendingOperations().length,0);assert.match(renderToStaticMarkup(render()),/1 başarısız \/ 0 belirsiz/);await click();assert.equal(calls.length,1);}
-  else{assert.equal(module.exports.pendingOperations().length,1);assert.deepEqual(Object.keys(module.exports.pendingOperations()[0]).sort(),['actor','created','id','kind']);await click();assert.equal(saved,0);assert.equal(module.exports.pendingOperations().length,1);assert.match(renderToStaticMarkup(render()),/0 başarısız \/ 1 belirsiz/);await click();assert.equal(saved,1);assert.equal(module.exports.pendingOperations().length,0);assert.deepEqual(calls,['POST','GET','GET']);for(const prefix of ['/subscribers','/subscriber-center','/dashboard','/reports'])assert.ok(events.filter(e=>e.type==='v2-resource-change').at(-1).detail.includes(prefix));}
+  if(scenario==='rejected'){assert.equal(module.exports.pendingQuickActionRequests().length,0);assert.match(renderToStaticMarkup(render()),/1 başarısız \/ 0 belirsiz/);await click();assert.equal(calls.length,1);}
+  else{assert.equal(module.exports.pendingQuickActionRequests().length,1);assert.deepEqual(Object.keys(module.exports.pendingQuickActionRequests()[0]).sort(),['action','itemId','requestId']);await click();assert.equal(saved,0);assert.equal(module.exports.pendingQuickActionRequests().length,1);assert.match(renderToStaticMarkup(render()),/0 başarısız \/ 1 belirsiz/);await click();assert.equal(saved,1);assert.equal(module.exports.pendingQuickActionRequests().length,0);assert.deepEqual(calls,['POST','GET','GET']);for(const prefix of ['/subscribers','/subscriber-center','/dashboard','/reports'])assert.ok(events.filter(e=>e.type==='v2-resource-change').at(-1).detail.includes(prefix));}
  }finally{Object.assign(globalThis,before);}
 });
