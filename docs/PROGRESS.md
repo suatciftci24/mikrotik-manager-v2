@@ -4920,10 +4920,13 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   etmez. Gerçek `v26-isolated-acceptance` readiness doğrulandıktan sonra
   browser çalışır. Hata çıktısı aşama/sınıf/errno ile sınırlı; Chromium sandbox
   ve TLS ayarları değişmez.
-- Hedefli soketsiz Python güvenlik testleri 18/18, Node browser-script syntax
-  ve diff kontrolü PASS. Tek browser-only teşhis denemesi Playwright preflight
-  sonrasında `HTTP_LISTENER_BIND` aşamasında durdu; DB/HTTP uygulama/Chromium
-  başlamadı ve errno/class sunulmadı. Tekrar deneme yapılmadı. Harness bind
-  sınıfı/errno'sunu stage uyuşmazlığında da taşıyacak şekilde düzeltildi.
-- BROWSER_ACCEPTANCE kök nedeni bu ortamda halen kanıtlanmadı; browser PASS
-  iddia edilmez. Değişiklikler yerel tek commit'e alınacak; push yok.
+- Önceki tek browser-only runner denemesi Playwright preflight sonrasında
+  `HTTP_LISTENER_BIND` aşamasında durdu; DB/HTTP uygulama/Chromium başlamadı.
+  Gerçek sınıf/errno kaydı yoktu. Kaynak incelemesi socket oluşturmanın try
+  bloğu dışında olduğunu gösterdi; şimdi socket/bind/listen exception'ları
+  sınıf, numeric/named errno, syscall ve sabit loopback host/port ile güvenli
+  biçimde raporlanır. Mevcut kanıt port çakışması ile WSL/yetki engelini
+  ayırmıyor. Tek kontrollü deneme tekrar edilmedi.
+- PASS: 19 hedefli soketsiz Python güvenlik testi ve diff kontrolü. BROWSER
+  kök nedeni kanıtlanmadı; Chromium kabulü BLOCKED ve PASS iddiası yok. Tek
+  yerel commit oluşturulacak; push yok.

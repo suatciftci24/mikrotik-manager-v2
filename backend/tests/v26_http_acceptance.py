@@ -52,23 +52,35 @@ def failed_acceptance_diagnostic(result):
     if failure and failure['stage'] == stage:
         diagnostic += ' error_class=' + failure['error_class']
         diagnostic += ' errno=' + str(failure['errno'])
+        diagnostic += ' errno_name=' + failure['errno_name']
+        diagnostic += ' syscall=' + failure['syscall']
+        diagnostic += ' host=' + failure['host']
+        diagnostic += ' port=' + str(failure['port'])
     elif failure and failure['stage'] in ('HTTP_LISTENER_BIND', 'POSTGRES_LISTENER_RESERVE'):
         # unittest may report a class-setup stage through a different TestCase
         # instance; retain the captured bind evidence without exposing exception text.
         diagnostic += ' bind_stage=' + failure['stage']
         diagnostic += ' bind_error_class=' + failure['error_class']
         diagnostic += ' bind_errno=' + str(failure['errno'])
+        diagnostic += ' bind_errno_name=' + failure['errno_name']
+        diagnostic += ' bind_syscall=' + failure['syscall']
+        diagnostic += ' bind_host=' + failure['host']
+        diagnostic += ' bind_port=' + str(failure['port'])
     return diagnostic
 
 
-def capture_bind_error(stage, error):
+def capture_bind_error(stage, error, syscall):
     global ACTIVE_ACCEPTANCE_BIND_ERROR
     error_class = type(error).__name__
     if not error_class.isidentifier():
         error_class = 'OSError'
     code = error.errno if type(error.errno) is int else 'unknown'
+    host, port = (HOST, PORT) if stage == 'HTTP_LISTENER_BIND' else (HOST, DATABASE_PORT)
+    syscall = syscall if syscall in ('socket', 'bind', 'listen') else 'unknown'
     ACTIVE_ACCEPTANCE_BIND_ERROR = {
         'stage': stage, 'error_class': error_class, 'errno': code,
+        'errno_name': errno.errorcode.get(code, 'UNKNOWN') if type(code) is int else 'UNKNOWN',
+        'syscall': syscall, 'host': host, 'port': port,
     }
 
 
@@ -182,25 +194,32 @@ def acceptance_suite(during_acceptance=None, browser_only=False):
             # Bind once, before PG setup. Occupied/forbidden API port means stop;
             # never send synthetic credentials to another listener.
             cls.stage = 'HTTP_LISTENER_BIND'
-            listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            cls.addClassCleanup(listener.close)
+            listener = None
+            syscall = 'socket'
             try:
+                listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                cls.addClassCleanup(listener.close)
+                syscall = 'bind'
                 listener.bind((HOST, PORT))
+                syscall = 'listen'
+                listener.listen(128)
             except OSError as error:
-                capture_bind_error(cls.stage, error)
+                capture_bind_error(cls.stage, error, syscall)
                 raise
-            listener.listen(128)
             cls.listener = listener
             # Refuse collisions with another local PostgreSQL/service before
             # creating any fixture files. Never connect to the occupying process.
             cls.stage = 'POSTGRES_LISTENER_RESERVE'
-            reservation = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            cls.pg_port_reservation = reservation
-            cls.addClassCleanup(reservation.close)
+            reservation = None
+            syscall = 'socket'
             try:
+                reservation = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                cls.pg_port_reservation = reservation
+                cls.addClassCleanup(reservation.close)
+                syscall = 'bind'
                 reservation.bind((HOST, DATABASE_PORT))
             except OSError as error:
-                capture_bind_error(cls.stage, error)
+                capture_bind_error(cls.stage, error, syscall)
                 raise
             super().setUpClass()
 

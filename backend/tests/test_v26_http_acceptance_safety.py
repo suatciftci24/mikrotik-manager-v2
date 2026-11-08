@@ -29,12 +29,14 @@ class HttpAcceptanceSafetyTests(TestCase):
         try:
             acceptance.ACTIVE_ACCEPTANCE_BIND_ERROR = {
                 'stage': 'HTTP_LISTENER_BIND', 'error_class': 'PermissionError', 'errno': errno.EPERM,
+                'errno_name': 'EPERM', 'syscall': 'bind', 'host': '127.0.0.1', 'port': 18996,
             }
             result = Mock(errors=[(Mock(stage=None), 'private path and credential')], failures=[])
             acceptance.ACTIVE_ACCEPTANCE_CLASS = Mock(stage='HTTP_LISTENER_BIND')
             diagnostic = acceptance.failed_acceptance_diagnostic(result)
             self.assertEqual(diagnostic,
-                             'stage=HTTP_LISTENER_BIND error_class=PermissionError errno=1')
+                             'stage=HTTP_LISTENER_BIND error_class=PermissionError errno=1 '
+                             'errno_name=EPERM syscall=bind host=127.0.0.1 port=18996')
             self.assertNotIn('private', diagnostic)
         finally:
             acceptance.ACTIVE_ACCEPTANCE_BIND_ERROR = previous
@@ -45,12 +47,14 @@ class HttpAcceptanceSafetyTests(TestCase):
         try:
             acceptance.ACTIVE_ACCEPTANCE_BIND_ERROR = {
                 'stage': 'HTTP_LISTENER_BIND', 'error_class': 'PermissionError', 'errno': errno.EPERM,
+                'errno_name': 'EPERM', 'syscall': 'bind', 'host': '127.0.0.1', 'port': 18996,
             }
             result = Mock(errors=[(Mock(stage='HTTP_SERVER_START'), 'private')], failures=[])
             diagnostic = acceptance.failed_acceptance_diagnostic(result)
             self.assertEqual(diagnostic,
                              'stage=HTTP_SERVER_START bind_stage=HTTP_LISTENER_BIND '
-                             'bind_error_class=PermissionError bind_errno=1')
+                             'bind_error_class=PermissionError bind_errno=1 bind_errno_name=EPERM '
+                             'bind_syscall=bind bind_host=127.0.0.1 bind_port=18996')
         finally:
             acceptance.ACTIVE_ACCEPTANCE_BIND_ERROR = previous
 
@@ -143,10 +147,30 @@ class HttpAcceptanceSafetyTests(TestCase):
                 diagnostic = acceptance.failed_acceptance_diagnostic(
                     Mock(errors=[(Mock(stage=None), 'private')], failures=[]))
                 self.assertEqual(diagnostic,
-                                 'stage=HTTP_LISTENER_BIND error_class=PermissionError errno=1')
+                                 'stage=HTTP_LISTENER_BIND error_class=PermissionError errno=1 '
+                                 'errno_name=EPERM syscall=bind host=127.0.0.1 port=18996')
             finally:
                 cls.doClassCleanups()
             socket.return_value.close.assert_called_once()
+
+    def test_socket_creation_failure_is_captured_with_fixed_loopback_target(self):
+        from backend.tests.test_v26_identity_postgres import V26IdentityPostgres
+        cls = type(next(iter(acceptance.acceptance_suite())))
+        failure = PermissionError(errno.EPERM, 'synthetic socket restriction')
+        with patch('socket.socket', side_effect=failure) as socket_factory, \
+             patch.object(V26IdentityPostgres, 'setUpClass') as setup:
+            try:
+                with self.assertRaises(PermissionError):
+                    cls.setUpClass()
+                socket_factory.assert_called_once()
+                setup.assert_not_called()
+                diagnostic = acceptance.failed_acceptance_diagnostic(
+                    Mock(errors=[(Mock(stage=None), 'private')], failures=[]))
+                self.assertEqual(diagnostic,
+                                 'stage=HTTP_LISTENER_BIND error_class=PermissionError errno=1 '
+                                 'errno_name=EPERM syscall=socket host=127.0.0.1 port=18996')
+            finally:
+                cls.doClassCleanups()
 
     def test_database_port_conflict_blocks_before_cluster_setup(self):
         from backend.tests.test_v26_identity_postgres import V26IdentityPostgres
@@ -164,7 +188,8 @@ class HttpAcceptanceSafetyTests(TestCase):
                 setup.assert_not_called()
                 result = Mock(errors=[(Mock(stage=None), 'private')], failures=[])
                 self.assertEqual(acceptance.failed_acceptance_diagnostic(result),
-                                 'stage=POSTGRES_LISTENER_RESERVE error_class=OSError errno=98')
+                                 'stage=POSTGRES_LISTENER_RESERVE error_class=OSError errno=98 '
+                                 'errno_name=EADDRINUSE syscall=bind host=127.0.0.1 port=55433')
             finally:
                 cls.doClassCleanups()
         http_socket.close.assert_called_once()
