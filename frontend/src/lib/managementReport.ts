@@ -8,7 +8,7 @@ import { observationTime } from './subscriberObservation.ts';
 import { loadRouterEvents } from './routerEvents.ts';
 import type { AlarmEvent } from './routerEvents.ts';
 
-export const reportPeriods={TODAY:'Bugün',YESTERDAY:'Dün',LAST_7:'Son 7 Gün',LAST_30:'Son 30 Gün'} as const;
+export const reportPeriods={LAST_24:'Son 24 saat',TODAY:'Bugün',YESTERDAY:'Dün',LAST_7:'Son 7 Gün',LAST_30:'Son 30 Gün'} as const;
 export type ManagementPeriod=keyof typeof reportPeriods;
 export const reportKinds={ALL:'Tüm işlem ve olaylar',OPERATIONS:'Tüm yönetim işlemleri',PPPOE:'PPPoE işlemleri',CREATE:'Abone oluşturma',PLAN_CHANGE:'Paket/profil değiştirme',STATUS_CHANGE:'Hesap durumu değiştirme',RENEWAL:'Abonelik yenileme',DATE_EDIT:'Bitiş tarihi düzenleme',INTERNET_DOWN:'İnternet kesintisi',INTERNET_UP:'Bağlantı geri gelmesi',WAN_CHANGE:'WAN değişikliği'} as const;
 export type ReportOperation=DailyOperation & {router_id:string|null;workspace?:boolean;label?:string};
@@ -19,6 +19,7 @@ export const managementExpiryFilters=['ALL','EXPIRED','TODAY','WITHIN_3','WITHIN
 export function managementSourceFromHash(hash:string){return new URLSearchParams(hash.replace(/^#/, '')).get('report_source')==='V1_INVENTORY'?'V1_INVENTORY':'DEMO';}
 export function managementRange(period:ManagementPeriod|'LAST_30',now=new Date()){
   if((!Object.hasOwn(reportPeriods,period)&&period!=='LAST_30')||!Number.isFinite(now.getTime()))throw new Error('Geçerli rapor dönemi ve zamanı gerekli.');
+  if(period==='LAST_24')return {start:turkeyToday(new Date(now.getTime()-86400000)),end:turkeyToday(now),from:now.getTime()-86400000,until:now.getTime()+1,cutoff:now.getTime()};
   const today=turkeyToday(now),day=Date.parse(today+'T00:00:00Z');
   const shift=(offset:number)=>new Date(day+offset*86400000).toISOString().slice(0,10);
   const start=period==='YESTERDAY'?shift(-1):period==='LAST_7'?shift(-6):period==='LAST_30'?shift(-29):today;

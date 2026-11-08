@@ -5,7 +5,7 @@ import { detailText } from '../lib/subscriberObservation';
 import { Facts, dateTime } from './Resource';
 import { SourceBadge } from './Status';
 
-export function OperationDetails({event,onClose,onSubscriber}:{event:DailyOperation;onClose:()=>void;onSubscriber:(id:string)=>void}) {
+export function OperationDetails({event,onClose,onSubscriber,onRouter,onHistory}:{event:DailyOperation;onClose:()=>void;onSubscriber:(id:string)=>void;onRouter?:()=>void;onHistory?:()=>void}) {
   const dialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{
     const origin=document.activeElement as HTMLElement|null;
@@ -23,6 +23,6 @@ export function OperationDetails({event,onClose,onSubscriber}:{event:DailyOperat
       ['Yetkili kaynak',<SourceBadge source={event.source}/>],['İşlemi yapan',detailText(event.actor_id)],
       ['Zaman (Türkiye)',dateTime(event.occurred_at)],['Önceki değerler',previous],['Yeni değerler',next],
     ]}/>
-    <div className="expiry-editor-actions"><button className="button-secondary" onClick={onClose}>Kapat</button><button className="button-primary" onClick={()=>{onClose();onSubscriber(event.subscriber_id);}}>Abone detayını aç</button></div>
+    <div className="expiry-editor-actions"><button className="button-secondary" onClick={onClose}>Kapat</button><button className="button-primary" onClick={()=>{onClose();onSubscriber(event.subscriber_id);}}>Abone detayını aç</button>{onRouter?<button className="button-secondary" onClick={()=>{onClose();onRouter();}}>Router detayını aç</button>:<span>Router bağlantısı yok: kayıt bağı doğrulanamadı.</span>}{onHistory&&<button className="button-secondary" onClick={()=>{onClose();onHistory();}}>İşlem geçmişini aç</button>}</div>
   </dialog>;
 }

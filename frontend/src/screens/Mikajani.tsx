@@ -29,6 +29,7 @@ export function Mikajani() {
       <p>DEMO / SENTETİK. Öneriler otomatik uygulanmaz. Gerçek AI API çağrısı yoktur.</p>{scenario&&<p className="demo-save-notice">Ayrı sentetik senaryo seçili; kayıtlı aboneler veya routerlar değiştirilmez. Senaryo saati sabittir.</p>}
     </section>
     <ResourceState {...resource}/>
+    {selected&&data&&!resource.loading&&!resource.error&&!event&&<p role="status">İlgili MikAjanı kanıtı bu kaynakta bulunamadı veya görüntüleme yetkiniz yok. Mevcut olayları inceleyebilirsiniz.</p>}
     {data&&!resource.loading&&!resource.error&&<>
       <section className="panel mika-panel"><h2>Operasyonel özet</h2><p>{data.operational_summary}</p><p>Kaynak: {data.source} · Değerlendirme: {dateTime(data.evaluated_at)} · Yanıt: {dateTime(data.generated_at)}</p>
         <div className="mika-counts">{['P1','P2','P3','P4'].map(p=><button className="button-secondary" key={p} onClick={()=>{setPriority(p as typeof priorities[number]);setState('ACTIVE');}}>{p} · {data.summary[p]??0}</button>)}<span>Çözülen: {data.summary.resolved} · Sağlığı belirsiz: {data.summary.uncertain}</span></div>

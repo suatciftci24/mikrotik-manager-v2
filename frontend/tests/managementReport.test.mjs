@@ -149,3 +149,13 @@ test('V2.3 admin loader reads all audit pages; incomplete workspace is unavailab
  calls.length=0;await loadManagementReport('/management/report');assert.ok(calls.every(url=>!url.includes('workspace')));
  }finally{globalThis.fetch=original;}
 });
+
+test('rolling 24 hours includes exact lower bound, crosses Turkey midnight and excludes future and untyped operations',()=>{
+ const input=source([detail('a','r1',[
+  operation('old','2026-10-26T08:59:59.999Z'),operation('lower','2026-10-26T09:00:00Z'),operation('now',now.toISOString()),operation('future','2026-10-27T09:00:00.001Z'),
+ ]),detail('b','r1',[operation('untyped',now.toISOString())],{access_type:null})]);
+ const rolling={period:'LAST_24',router:'',kind:'PPPOE'};
+ assert.deepEqual(managementFilterFromHash(managementReportHash(rolling)),rolling);
+ assert.deepEqual(buildManagementReport(input,rolling,now).operations.map(e=>e.id),['now','lower']);
+ assert.equal(managementRange('LAST_24',now).from,now.getTime()-86400000);
+});

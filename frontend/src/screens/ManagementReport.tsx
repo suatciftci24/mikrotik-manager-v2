@@ -43,17 +43,24 @@ function SyntheticManagementReport({onBack}:{onBack:()=>void}){
   const [now,setNow]=useState(()=>new Date());
   const [selected,setSelected]=useState<{kind:'operation'|'event';id:string}|null>(null);
   const heading=useRef<HTMLHeadingElement>(null);
+  const operationsSection=useRef<HTMLElement>(null);
+  const [hash,setHash]=useState(()=>typeof window==='undefined'?'':window.location.hash);
   useEffect(()=>{
     heading.current?.focus();
-    const read=()=>setFilter(managementFilterFromHash(window.location.hash));
+    const read=()=>{setFilter(managementFilterFromHash(window.location.hash));setHash(window.location.hash);setSelected(null);};
     const tick=()=>setNow(new Date());
     const timer=window.setInterval(tick,30000);
     window.addEventListener('hashchange',read);window.addEventListener('focus',tick);document.addEventListener('visibilitychange',tick);
     return()=>{window.clearInterval(timer);window.removeEventListener('hashchange',read);window.removeEventListener('focus',tick);document.removeEventListener('visibilitychange',tick);};
   },[]);
-  const change=(next:ManagementFilter)=>{setFilter(next);setSelected(null);window.history.replaceState(null,'',window.location.pathname+window.location.search+managementReportHash(next));};
+  const change=(next:ManagementFilter)=>{setFilter(next);setSelected(null);setHash(managementReportHash(next));window.history.replaceState(null,'',window.location.pathname+window.location.search+managementReportHash(next));};
   let report:ReturnType<typeof buildManagementReport>|undefined,error=resource.error;
   try{if(resource.data)report=buildManagementReport(resource.data,filter,now);}catch(failure){error=failure instanceof Error?failure.message:'Rapor oluşturulamadı.';}
+  useEffect(()=>{
+    if(resource.loading||error||!report||new URLSearchParams(hash.slice(1)).get('section')!=='recent-operations')return;
+    operationsSection.current?.scrollIntoView({behavior:'smooth',block:'start'});
+    operationsSection.current?.focus({preventScroll:true});
+  },[resource.loading,error,!!report,hash]);
   const routerOptions=[...(resource.data?.routers??[]),...(resource.data?.workspace?.routers.map(row=>({id:row.id,name:row.fields.name}))??[])];
   const names=new Map(routerOptions.map(router=>[router.id,router.name]));
   const operation=selected?.kind==='operation'?report?.operations.find(event=>event.id===selected.id):undefined;
@@ -80,7 +87,9 @@ function SyntheticManagementReport({onBack}:{onBack:()=>void}){
         <p className="daily-description">Bugünün Türkiye takvimine göre · mevcut demo aboneleri · rapor döneminden bağımsız.</p>
         {report.expiryRows.length?<div className="table-scroll" role="region" tabIndex={0} aria-label="Abonelik bitişleri tablosu"><table className="data-table"><thead><tr><th>ABONE</th><th>ROUTER</th><th>BİTİŞ TARİHİ</th><th>KALAN GÜN / DURUM</th></tr></thead><tbody>{report.expiryRows.map(row=><tr key={row.id}><td><a className="record-link" href={link('subscribers',row.id)}>{row.customer_name||row.username}</a></td><td>{row.router_name}</td><td>{expiryDate(row.expires_on)}</td><td>{remainingDays(expiryInfo(row.expires_on,turkeyToday(now)).days)}</td></tr>)}</tbody></table></div>:<p className="missing-data">Bu bitiş filtresinde kayıtlı sentetik abone yok.</p>}
       </section>
-      <section className="panel central-events management-pppoe"><div className="panel-title"><h2>PPPoE ve yönetim işlemleri</h2><button className="record-link" onClick={()=>change({...filter,kind:'PPPOE'})}>Yalnız PPPoE</button></div>
+      <section ref={operationsSection} id="recent-operations" tabIndex={-1} className="panel central-events management-pppoe"><div className="panel-title"><h2>{filter.period==='LAST_24'?'Son 24 saat PPPoE ve yönetim işlemleri':'PPPoE ve yönetim işlemleri'}</h2><button className="record-link" onClick={()=>change({...filter,kind:'PPPOE'})}>Yalnız PPPoE</button></div>
+      {report.workspaceError&&<p role="alert">Kalıcı işlem geçmişi alınamadı: {report.workspaceError}. Görünen kayıtlar yalnız erişilebilen sentetik kaynakları kapsar.</p>}
+      {!workspace&&<p>Kalıcı işlem geçmişini görüntülemek için merkezi yönetim yetkisi gerekli; mevcut demo geçmişi gösteriliyor.</p>}
       {!report.historyAvailable&&<p className="missing-data">İşlem kaynağı eksik; toplam Veri yok. Yalnız alınabilen kayıtlar gösterilir.</p>}
       {report.operations.length?<div className="table-scroll" role="region" tabIndex={0} aria-label="Günlük yönetim işlemleri tablosu"><table className="data-table"><thead><tr><th>ABONE / ROUTER</th><th>İŞLEM</th><th>ZAMAN · TÜRKİYE</th><th>DEĞİŞEN DEĞERLER</th></tr></thead><tbody>{report.operations.map(item=>{const [previous,next]=historyValues(item);return <tr key={item.id}><td><a className="record-link" href={link('subscribers',item.subscriber_id)}>{item.customer_name||item.username||item.subscriber_id}</a><small>{item.router_id?<a className="record-link" href={link('routers',item.router_id)}>{names.get(item.router_id)??item.router_name}</a>:item.router_name||'Veri yok'}</small></td><td><button className="record-link" onClick={()=>setSelected({kind:'operation',id:item.id})}>{item.label??operationLabel(item.operation)}</button><small>{item.access_type==='PPPOE'?'PPPoE':'Tür belirtilmemiş'} · {item.workspace?'Kalıcı çalışma alanı':'Mevcut demo'}</small></td><td>{dateTime(item.occurred_at)}</td><td className="management-values">{previous} → {next}</td></tr>;})}</tbody></table></div>:<p className="missing-data">Veri yok. Filtrelerle eşleşen kayıtlı yönetim işlemi yok.</p>}
       </section>
@@ -94,7 +103,7 @@ function SyntheticManagementReport({onBack}:{onBack:()=>void}){
         <div className="daily-links"><a className="record-link" href="#module=subscribers&workspace=HISTORY">Merkezi İşlem Geçmişini aç</a><a className="record-link" href={'#'+new URLSearchParams({module:'dashboard',view:'OPERATIONS_REPORT',router_id:filter.router,start:report.range.start,end:report.range.end})}>Operasyon ve audit raporu</a></div>
       </details>
     </>}
-    {operation&&<OperationDetails event={operation} onClose={()=>setSelected(null)} onSubscriber={id=>{window.location.hash=link('subscribers',id);}}/>}
+    {operation&&<OperationDetails event={operation} onClose={()=>setSelected(null)} onSubscriber={id=>{window.location.hash=link('subscribers',id);}} onRouter={operation.router_id?()=>{window.location.hash=link('routers',operation.router_id!);}:undefined} onHistory={()=>{window.location.hash=link('subscribers',operation.subscriber_id)+'&tab=history';}}/>}
     {event&&<AlarmEventDetails event={event.lifecycle} routerName={names.get(event.router_id)??event.router_id} onClose={()=>setSelected(null)}/>}
   </div>;
 }

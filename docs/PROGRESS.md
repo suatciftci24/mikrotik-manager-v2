@@ -4392,3 +4392,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Canlı bakım/yazma/deploy/restart için yeni hedefe özgü açık onay gerekir;
   bu görev uygulamaz. VDS/V1/V2.5/router/RADIUS/IPsec/mevcut DB/stash ve
   kullanıcı dosyaları korunur; yalnız izole sentetik test verisi kullanıldı.
+
+## V2.6 — Dashboard / günlük yönetim / alarm navigasyonu — 2026-11-08
+
+- Başlangıç main-guncel/749c9b6 temiz; uzak dal aynı SHA. Altın Kurallar,
+  güncel ilerleme/genel kabul/özellik koruma raporları incelendi; tarihsel
+  Dashboard rollback ve güncel PG/HTTP kabul engelleri kapatılmış sayılmadı.
+- Dashboard son24 bağlantısı mevcut raporda DEMO/LAST_24/PPPOE açar;
+  veri sonrası mevcut işlem bölümüne kaydırır ve odaklar. Takvim günü ile
+  kayan pencere ayrıldı; yükleme/hata/boş ve V1 ayrımı korunur.
+- İşlem dialog'undan abone/router/mevcut geçmiş sekmesi; alarm hedeflerinde
+  açık kaynak, boş router reddi, ortak rapor/MikAjanı yetkisi ve bulunamayan
+  kanıt açıklaması. Kalıcı geçmiş hatası/yetki kapsamı listede görünür.
+- PASS: 5 dosyada 42 hedefli sentetik test, son kaynakla tsc/Vite build ve
+  diff kontrolü. İlk TS strip-only/hook fixture araç kusurları düzeltildi;
+  başarılı kapsam gereksiz tekrar edilmedi. Ara build sonrası ürün değiştiği
+  için son build yenilendi; mevcut büyük bundle uyarısı sürer.
+- Kabul: docs/V26_NAVIGATION_FLOW_ACCEPTANCE.md. Yeni API/bileşen/menü yok;
+  mevcut mobil yapı ve sunucu yetkileri korunur. Tarayıcı/canlı kabul yok.
+- V1/V2.5/VDS/router/RADIUS/IPsec/DB/deploy/restart/migration/veri silme
+  yapılmadı. Yerel değişiklikler tek commit ile kaydedildi. Normal
+  `git push origin main-guncel` BLOCKED: github.com DNS çözümlemesi başarısız
+  (`Could not resolve host`); önceki ls-remote başarılı olsa da push bağlantısı
+  kurulamadı. Sonraki adım ağ erişiminde aynı normal push; force push yok.
