@@ -186,7 +186,10 @@ input::placeholder{color:var(--muted);opacity:1}
 .router-device-summary,.router-device-panel{min-width:0;overflow-wrap:anywhere}
 .subscriber-actions-menu{position:relative}.subscriber-actions-menu>summary{cursor:pointer;list-style:none}.subscriber-actions-menu>summary::-webkit-details-marker{display:none}.subscriber-actions-options{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}.subscriber-actions-options button{min-height:40px}.subscriber-actions-menu[open]>summary{filter:brightness(1.06)}
 .router-device-tabs{display:flex;flex-wrap:wrap;gap:6px;height:auto;max-width:100%}
-.router-device-tabs button{white-space:normal;min-height:40px}
+.router-device-tabs button{white-space:normal;min-height:44px}
+.router-device-summary .detail-facts>div{padding:8px 0}
+.router-access-filter{max-width:240px;margin:16px 0}
+.router-device-panel summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .router-device-summary .page-heading-row{flex-wrap:wrap;gap:12px}
 .router-device-panel details>summary{cursor:pointer;color:var(--text-primary);padding:12px 0}
 .wan-cell{display:grid;gap:3px;min-width:100px}.wan-cell small{color:var(--text-secondary);font-size:var(--font-caption);line-height:1.4}

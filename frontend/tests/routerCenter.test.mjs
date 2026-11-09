@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {buildSync} from 'esbuild';
 import * as React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {routerCenterTabs,validRouterCenter,routerCenterPath,routerCenterStatus,routerCenterError} from '../src/lib/routerCenter.ts';
+import {routerCenterTabs,primaryRouterTab,routerSubscriberListHash,validRouterCenter,routerCenterPath,routerCenterStatus,routerCenterError} from '../src/lib/routerCenter.ts';
 import {routerAlarmPath,routerAlarmTarget} from '../src/lib/alarms.ts';
 const data={source:'PERSISTENT_DEMO',is_demo:true,device_connection_started:false,item:{id:'demo-managed-router-fixture',name:'TEST-EV-V2',identity:null,model:'Sentetik model',routeros_version:null,management_address:'192.0.2.10',site:'Ev',status:'UNMEASURED',last_success_at:null,last_seen_at:null,cpu_percent:null,memory_percent:null,uptime:null},sections:Object.fromEntries(routerCenterTabs.map(([key])=>[key,['overview','events','security'].includes(key)?'AVAILABLE':'UNMEASURED'])),events:[{action:'CREATED',actor_id:'demo-user',occurred_at:'2026-10-29T12:00:00Z',revision:1}]};
 const require=createRequire(import.meta.url);
@@ -14,9 +14,9 @@ const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/Rout
 const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?react:require(name),module,module.exports);
 const view=(tab,overrides={},onTab=()=>{})=>module.exports.RouterDeviceCenterView({data:{...data,...overrides},tab,onTab});
 const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.children).flatMap(nodes)]:[];
-test('all seven sections render and TEST-EV-V2 keeps unknown measurements and synthetic labels',()=>{
+test('all four sections render and TEST-EV-V2 keeps unknown measurements and synthetic labels',()=>{
  for(const [tab,label] of routerCenterTabs){
-  const html=renderToStaticMarkup(view(tab));assert.match(html,/TEST-EV-V2/);assert.match(html,/SENTETİK DEMO/);assert.match(html,/Ölçülmedi/);assert.equal((html.match(/role="tab"/g)??[]).length,7);assert.ok(html.includes(label));assert.doesNotMatch(html,/undefined%|null%|NaN/);
+  const html=renderToStaticMarkup(view(tab));assert.match(html,/TEST-EV-V2/);assert.match(html,/SENTETİK DEMO/);assert.match(html,/Veri yok/);assert.equal((html.match(/role="tab"/g)??[]).length,4);assert.ok(html.includes(label));assert.doesNotMatch(html,/undefined%|null%|NaN/);
  }
  assert.match(renderToStaticMarkup(view('events')),/Sentetik kayıt eklendi/);
  assert.match(renderToStaticMarkup(view('security')),/Cihaz bağlantısı, parola veya sertifika gerektirmez/);
@@ -24,9 +24,9 @@ test('all seven sections render and TEST-EV-V2 keeps unknown measurements and sy
 test('tabs expose selected state, click and keyboard navigation without requests',()=>{
  let selected=null;const tree=view('overview',{},tab=>{selected=tab;});const tabs=nodes(tree).filter(n=>n.props?.role==='tab');
  assert.equal(tabs[0].props['aria-selected'],true);assert.equal(tabs[1].props.tabIndex,-1);
- tabs[3].props.onClick();assert.equal(selected,'pppoe');
- tabs[0].props.onKeyDown({key:'ArrowLeft',preventDefault:()=>{}});assert.equal(selected,'security');
- tabs[0].props.onKeyDown({key:'End',preventDefault:()=>{}});assert.equal(selected,'security');
+ tabs[2].props.onClick();assert.equal(selected,'subscribers');
+ tabs[0].props.onKeyDown({key:'ArrowLeft',preventDefault:()=>{}});assert.equal(selected,'events');
+ tabs[0].props.onKeyDown({key:'End',preventDefault:()=>{}});assert.equal(selected,'events');
 });
 test('source mismatch fails closed and saved router missing sections prepare without live claims',()=>{
  assert.equal(validRouterCenter(data,data.item.id),true);
@@ -50,7 +50,7 @@ test('router detail separates last successful connection from measurement and ma
 
 test('only the static synthetic router links to its exact filtered alarm scope',()=>{
  const staticData={...data,source:'STATIC_DEMO',item:{...data.item,id:'demo-router-001',name:'Test Router'}};
- const html=renderToStaticMarkup(view('overview',staticData));
+ const html=renderToStaticMarkup(view('events',staticData));
  const href=[...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1].replaceAll('&amp;','&')).find(value=>value.startsWith('#module=operations'));
  assert.ok(href);assert.equal(new URLSearchParams(href.slice(1)).get('alarm_router'),'demo-router-001');
  assert.match(html,/Bu router’ın alarm ve olaylarını aç/);
@@ -78,4 +78,20 @@ test('missing module and denied inventory errors are understandable without hidi
  assert.match(routerCenterError('Not Found'),/çalışan backend/);
  assert.match(routerCenterError('ONBOARDING_OPERATOR_NOT_AUTHORIZED'),/yetkilendirilmemiş/);
  assert.equal(routerCenterError('Sentetik router bulunamadı.'),'Sentetik router bulunamadı.');
+});
+
+test('legacy section links select their new parent and subscriber center filters by exact identity',()=>{
+ for(const [old,parent] of [['security','overview'],['interfaces','wan'],['pppoe','subscribers'],['hotspot','subscribers']])assert.equal(primaryRouterTab(old),parent);
+ for(const [id,key,workspace] of [['demo-router-001','router_id','LEGACY'],['demo-managed-router-fixture','workspace_router','PERSISTENT']]){
+  const params=new URLSearchParams(routerSubscriberListHash(id).slice(1));assert.equal(params.get(key),id);assert.equal(params.get('workspace'),workspace);assert.equal(params.has('router'),false);
+ }
+ const html=renderToStaticMarkup(view('subscribers'));assert.match(html,/Abone Merkezi’nde bu routerı aç/);assert.match(html,/workspace_router=demo-managed-router-fixture/);
+ const registered=renderToStaticMarkup(view('subscribers',{source:'REGISTERED',is_demo:false,item:{...data.item,id:'registered-fixture',status:'PENDING_VERIFICATION'}}));assert.doesNotMatch(registered,/Abone Merkezi’nde/);assert.match(registered,/gerçek veri okuması kapalı/);assert.doesNotMatch(registered,/API verisi alınamadı/);
+});
+
+test('subscriber access selection reuses one scoped list and preserves legacy Hotspot links',()=>{
+ let selected=null;const tree=view('subscribers',{},tab=>{selected=tab;});
+ const select=nodes(tree).find(node=>node.type==='select');assert.equal(select.props.value,'PPPOE');
+ select.props.onChange({target:{value:'HOTSPOT'}});assert.equal(selected,'hotspot');
+ const html=renderToStaticMarkup(view('hotspot'));assert.match(html,/Hotspot hesap kayıtları/);assert.doesNotMatch(html,/PPPoE hesap kayıtları/);
 });

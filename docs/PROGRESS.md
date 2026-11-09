@@ -1,5 +1,41 @@
 # MikroTik Manager V2 — İlerleme
 
+## Ofis Router Merkezi — 2026-11-09
+
+- Başlangıç `office-development` / `b06d1fa`, temiz ağaç. Yedi parçalı detay
+  dört ana sekmede toplandı: Genel Durum, WAN/Bağlantı, Aboneler, Geçmiş.
+  Kompakt özet kayıtlı CPU/RAM, yönetim adresi ve ayrı ölçüm/başarılı bağlantı
+  zamanlarını gösterir. Eksik değerler Veri yok; sıfır yüzdeler korunur.
+  Listeye açık sentetik veri kaynağı eklendi; WAN eksikliği Veri yok olur.
+- Eski interfaces/security/pppoe/hotspot hash hedefleri korunur. Arayüz ve
+  güvenlik ayrıntıları açılınca yüklenir; mevcut demo düzenleme, rapor ve alarm
+  erişimi korunur. PPPoE/Hotspot tek seçim ve tek bağlı abone listesi kullanır.
+  Kayıtlı cihazdaki mevcut PPPoE gözlemi kapalı ayrıntıdan otomatik yüklenmez.
+  Tab ok/Home/End odağı, mobil kırılım ve 44px hedefler korunur/iyileştirilir.
+- Gerçek kök neden: router-center subscribers yolu yalnız ham router_id'ye
+  bakıyordu. Eski demo kayıtlarında yalnız router_name olabilir; önceki commit
+  ana abone listesinde canonical bağı döndürse de bu yol aynı çözümlemeyi
+  kullanmıyordu. Ortak authorization.router_id/public_item kullanıldı. Açık
+  yabancı ID veya belirsiz isim eşleşmez; kalıcı payload değiştirilmez.
+- Abone detayına mevcut bounded dönüş bağlamıyla geçilir. Abone Merkezi linki
+  legacy için router_id, kalıcı kaynak için workspace_router kullanır; isim
+  filtresi ve farklı veri kaynağına geçiş yok. Kayıtlı gerçek cihaz için
+  desteklenmeyen demo işlem/link gösterilmez; mevcut kaynak yetkileri değişmedi.
+- PASS: 20 farklı hedefli frontend testi (routerCenter 9, routerSubscriberLinks
+  6, routerReport 5); 9 backend unittest (router_center), TypeScript ve son
+  Vite build. Başlangıçtaki backend komutu PYTHONPATH eksikliği nedeniyle
+  import edemedi; doğru PYTHONPATH=backend ile testlerin tamamı geçti.
+  Son erişim türü/boş-hata testleri eklenince yalnız etkilenen iki frontend
+  dosyası ve değişen ürünün build'i tekrarlandı; rapor testleri tekrarlanmadı.
+- Gerçek browser/mobil layout kabulü BLOCKED: önceki görevde doğrulanan eksik
+  playwright-core nedeniyle browser çalıştırılmadı/kurulmadı. SSR/hook testleri
+  gerçek tarayıcı kabulü sayılmaz. DB/HTTP harness veya socket testi yok.
+- API/UI restart, DB erişimi/yazma, migration, veri silme, canlı/VDS/router/
+  RADIUS/IPsec erişimi ve push yapılmadı. 11 demo abonesi, suatciftci hesabı,
+  iki stash ve backup/office-20261109 korunur. Backend okuma düzeltmesi çalışan
+  süreç yeniden başlatılmadığından sonraki normal API başlangıcında devreye girer.
+
+
 ## Ofis hızlı işlem menüsü / legacy router bağı — 2026-11-09
 
 - Başlangıç `office-development` / `c783493`, temiz ağaç; iki stash korundu.

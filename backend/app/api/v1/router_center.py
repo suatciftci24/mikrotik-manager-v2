@@ -2,7 +2,7 @@
 from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
 from app.core.security import current_demo_user,current_admin
-from app.core.authorization import require_router
+from app.core.authorization import require_router,router_id,public_item
 from app.api.v1.router_registry import reader as registry_reader,execute as registry_execute
 from app.api.v1.router_workspace import execute as workspace_execute
 from app.services.router_registry import registry
@@ -42,8 +42,8 @@ def subscribers(id:str,access_type:str=Query(...,pattern='^(PPPOE|HOTSPOT)$'),qu
         return dict(items=[],total=None,page=page,page_size=page_size,is_demo=False,source='REGISTERED',availability='PREPARING')
     require_router(user,id)
     from app.services import demo_subscriptions
-    rows=[row for row in demo_subscriptions.store.list_items() if row.get('is_demo') is True and row.get('router_id')==id and row.get('access_type')==access_type and (status=='ALL' or row.get('status')==status) and (not query or query.casefold() in (row.get('username','')+' '+row.get('customer_name','')).casefold())]
-    return dict(items=[legacy_center({'item':row}).item for row in rows[(page-1)*page_size:page*page_size]],total=len(rows),page=page,page_size=page_size,is_demo=True,source='LEGACY_DEMO',availability='AVAILABLE')
+    rows=[row for row in demo_subscriptions.store.list_items() if row.get('is_demo') is True and router_id(row)==id and row.get('access_type')==access_type and (status=='ALL' or row.get('status')==status) and (not query or query.casefold() in (row.get('username','')+' '+row.get('customer_name','')).casefold())]
+    return dict(items=[legacy_center({'item':public_item(row,user)}).item for row in rows[(page-1)*page_size:page*page_size]],total=len(rows),page=page,page_size=page_size,is_demo=True,source='LEGACY_DEMO',availability='AVAILABLE')
 
 
 @router.get('/{id}/pppoe-observations', response_model=PppoeSnapshot)
