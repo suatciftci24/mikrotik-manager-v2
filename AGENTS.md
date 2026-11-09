@@ -122,3 +122,14 @@ regresyonda doğrula. Sunucu yetkilerini veya kaynak güvenliğini gevşetme.
 - Yeni panel, veritabani veya servis olusturulmaz.
 - Canli dagitim, migration ve servis yeniden baslatma
   icin yeni ve acik kullanici onayi gerekir.
+
+
+## Ofis ve Ev Git Senkronizasyonu
+
+- GitHub main-guncel ortak kaynak daldir.
+- Her oturum basinda yerel degisiklikler korunarak senkronizasyon yapilir.
+- Tamamlanan tum gelistirmeler ilgili dosyalariyla commit ve push edilir.
+- Oturum sonunda yerel HEAD ile GitHub HEAD esitligi dogrulanir.
+- Push basarisizsa is tamamlandi olarak bildirilmez.
+- Yerel degisiklikler incelenmeden silinmez.
+- Gizli bilgiler, veritabani dosyalari ve gecici dosyalar GitHub'a gonderilmez.
