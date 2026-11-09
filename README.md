@@ -22,10 +22,17 @@ In the **office WSL terminal**, as the OS user owning this repository and its
 already running isolated PostgreSQL cluster, run:
 
 ```bash
-cd ~/Codex-Projects/mikrotik-manager-v2 && ./first-admin.sh
+cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && ./local-admin.sh
 ```
 
-The command asks for a new username, display name and email, then a password
+This office command uses only the existing local `v2_demo` identity schema;
+it never runs migrations, creates tables, resets passwords or starts services.
+Inherited database/profile overrides are removed. If identity tables or their
+setup state are missing/inconsistent, it reports BLOCKED without schema repair.
+If setup is already complete, it exits successfully without a password prompt
+or account changes. Use the exact username selected during setup, not email.
+
+For first setup, the command asks for a new username, display name and email, then a password
 twice using hidden TTY input. The operator chooses the password (14–128
 characters) and types `OLUSTUR` to confirm. There is no web bootstrap endpoint,
 password argument, generated/default password, environment password or automatic
@@ -47,14 +54,19 @@ actual `data_directory` (`.local/postgres-v2-demo`), and the V2 schema marker.
 Only `v2_local` / `mikrotik_manager_v2` / port `55432` is accepted. It does not
 start a DB/service, repair permissions, install dependencies or read pilot secrets.
 
-Setup explicitly applies versioned `004` (if users are absent) and `009` in the
-same PostgreSQL transaction as a new, independent `v2-user-…` LOCAL ADMIN, its
+The existing identity schema must already support LOCAL accounts and the setup
+seal. The office command inserts a new, independent `v2-user-…` LOCAL ADMIN, its
 `FIRST_ADMIN_CREATE` audit (local operator UID) and permanent singleton seal.
 It shares the user-management advisory lock and locks schema state, preventing
-two concurrent first ADMIN creations. A failure rolls back schema/account/audit/seal;
+two concurrent first ADMIN creations. A failure rolls back account/audit/seal;
 commit success is reported only after the transaction exits. Existing demo
 accounts, routers, subscribers, settings and audit histories are preserved.
 The existing synthetic alarm actor constraint also accepts LOCAL account IDs.
+
+The older `first-admin.sh` supports explicit schema upgrades and is not the
+migration-free office command above. Normal `dev.sh` never calls either setup
+command. PostgreSQL keeps the account/hash across application restarts; opaque
+in-memory sessions expire on restart, so sign in again with the same credentials.
 
 New LOCAL passwords use salted scrypt (`N=131072, r=8, p=1`, 16-byte random salt,
 32-byte result), following [OWASP's scrypt guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html).

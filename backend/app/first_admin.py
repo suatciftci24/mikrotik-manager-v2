@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.services.demo_subscriptions import DemoStorageUnavailable
-from app.services.first_admin import FirstAdminIdentity, FirstAdminInput, FirstAdminStore, SetupBlocked, local_owner, require
+from app.services.first_admin import FirstAdminIdentity, FirstAdminInput, FirstAdminStore, ExistingSchemaAdminStore, SetupBlocked, local_owner, require
 
 
 FIELD_POLICIES = {
@@ -69,24 +69,32 @@ def collect_input():
 def main(argv=None, *, v26=False):
     argv = sys.argv[1:] if argv is None else argv
     # Do not echo unknown args: an operator may accidentally supply a secret.
-    if argv not in (['--create'], ['--status']):
+    if argv not in (['--create'], ['--status'], ['--create-existing-schema']):
         print('BLOCKED: USE_FIRST_ADMIN_SH_WITHOUT_PASSWORD_ARGUMENTS', file=sys.stderr)
         return 1
     engine = None
+    existing_schema = argv == ['--create-existing-schema']
     try:
+        require(not (existing_schema and v26), 'LOCAL_PROFILE_REQUIRED')
         if v26:
             from app.services.v26_identity import owner, V26FirstAdminStore
             uid = owner()
         else:
             uid = local_owner()
-        if argv == ['--create']:
+        if argv in (['--create'], ['--create-existing-schema']):
             require_tty()  # Stop before DB IO/prompts if input/output is redirected.
         from app.core.database import engine
-        store = V26FirstAdminStore(engine) if v26 else FirstAdminStore(engine)
+        store = (V26FirstAdminStore(engine) if v26 else
+                 ExistingSchemaAdminStore(engine) if existing_schema else FirstAdminStore(engine))
         state = store.status()
         if argv == ['--status']:
             print('FIRST_ADMIN_SETUP_CLOSED' if state.closed else 'FIRST_ADMIN_SETUP_NOT_COMPLETED')
             return 0
+        if existing_schema:
+            require(state.users_ready and state.modern, 'LOCAL_IDENTITY_SCHEMA_REQUIRED_NO_MIGRATION')
+            if state.closed:
+                print('FIRST_ADMIN_ALREADY_CONFIGURED; mevcut hesap/parola korunuyor; parola sıfırlanmadı.')
+                return 0
         require(not state.closed, 'FIRST_ADMIN_SETUP_CLOSED')
         payload = collect_input()
         print('Bu işlem ayrı LOCAL ADMIN oluşturur ve demo girişlerini kalıcı kapatır. Pilot kapısını açmaz.')
@@ -96,6 +104,9 @@ def main(argv=None, *, v26=False):
         print('V2 operatör ID: ' + user['id'])
         return 0
     except SetupBlocked as failure:
+        if existing_schema and str(failure) == 'FIRST_ADMIN_SETUP_CLOSED':
+            print('FIRST_ADMIN_ALREADY_CONFIGURED; mevcut hesap/parola korunuyor; parola sıfırlanmadı.')
+            return 0
         print('BLOCKED: ' + str(failure), file=sys.stderr)
     except (DemoStorageUnavailable, SQLAlchemyError):
         print('BLOCKED: V2_POSTGRESQL_OR_IDENTITY_STATE_UNAVAILABLE; veri veya hesap sıfırlanmadı.', file=sys.stderr)

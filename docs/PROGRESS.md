@@ -1,5 +1,39 @@
 # MikroTik Manager V2 — İlerleme
 
+## Ofis kalıcı LOCAL ADMIN / migration çalıştırmayan kurulum — 2026-11-09
+
+- `office-development` / `91cbf85` temiz başlangıç; iki stash korundu.
+  Kullanıcı PG/API/UI READY ve 11 mevcut abone bildirdi. Frontend boş kullanıcı
+  adı/parolayı aynen gönderiyor, credentials=include kullanıyor. Auth DB'den
+  hesap/aktiflik/kaynak/mühür ve salted scrypt doğruluyor; cookie HttpOnly,
+  SameSite=strict, /api. LOCAL hash zaten DB'de kalıcı; dev.sh hesap/parola
+  yeniden oluşturmuyor. Restart yalnız process içi oturumları düşürür, ilk
+  POST login401'i tek başına açıklamaz. Kullanıcı adı tam eşitlikle aranır;
+  LOCAL hesap için e-posta alias'ı yok.
+- Gerçek DB kimlik durumu tek salt okunur, sabit yerel hedef denemesinde
+  DemoStorageUnavailable ile BLOCKED kaldı. Bu nedenle kullanıcının gerçek
+  401 nedeni (hesap yok/yanlış ad/parola/pasif/kaynak) kanıtlanmadı; parola
+  veya hesap durumu tahminle değiştirilmedi. Canlı/VDS erişimi yapılmadı.
+- Mevcut first-admin.sh gerektiğinde migration yapıyordu. Yeni local-admin.sh
+  yalnız mevcut yerel 55432/mikrotik_manager_v2/v2_local hedefine gider;
+  inherited DSN/profil temizlenir, repo/PGDATA/UID/marker/mühür doğrulanır.
+  ExistingSchemaAdminStore DDL/upgrade yapmaz; şema eksikse parola istemeden
+  BLOCKED. Hazır şemada gizli TTY, iki parola girişi ve açık OLUSTUR onayıyla
+  ayrı LOCAL ADMIN + audit + mühür atomik yazılır. Mühür kapalıysa exit0,
+  prompt/hash/hesap değişikliği yok. Çakışan kullanıcı adı veya tutarsız mühür
+  otomatik onarılmaz. Varsayılan parola veya parola sıfırlama eklenmedi.
+- PASS: önce 31 hedefli mevcut/yeni ilk-admin testleri; ek rollback/mühür ve
+  shell izolasyon senaryolarıyla yeni paketin 10 testi PASS. Toplam 34 farklı
+  test; Bash syntax ve diff kontrolü PASS. Gerçek scrypt kullanıldı. Ayrı
+  Python sürecinde sentetik SQL modeliyle aynı LOCAL parola/hash/login ve
+  yeni oturum doğrulandı; eski token geçersiz. Bu gerçek PostgreSQL veya
+  tarayıcı/restart kabulü değildir; onlar sandbox nedeniyle BLOCKED.
+- Gerçek DB'ye yazma/migration/seed/silme ve servis restartı yok; 11 abone ve
+  geçmiş yeniden sayılmadı/değiştirilmedi. Push yok. Normal Ofis WSL tek kurulum
+  komutu: `cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && ./local-admin.sh`.
+  Eksik kimlik şeması varsa komut güvenli BLOCKED verir; bu görev migration
+  yetkisi vermediği için şema hazırlığı veya yetkisiz kurtarma yapmaz.
+
 ## Ofis dev.sh API başlangıcında eksik Pillow — 2026-11-09
 
 - Başlangıç `office-development` / `f386811`, temiz çalışma ağacı; iki stash

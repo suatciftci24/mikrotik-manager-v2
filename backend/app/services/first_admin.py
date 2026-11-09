@@ -145,6 +145,16 @@ class FirstAdminStore:
         return public
 
 
+class ExistingSchemaAdminStore(FirstAdminStore):
+    """Local owner setup without DDL, migrations, resets or implicit schema repair."""
+
+    def __init__(self, engine):
+        super().__init__(engine, schema='v2_demo')
+
+    def _upgrade(self, connection, state):
+        require(state.users_ready and state.modern, 'LOCAL_IDENTITY_SCHEMA_REQUIRED_NO_MIGRATION')
+
+
 def create_local_admin(connection, payload, local_uid, schema="v2_demo"):
     """Caller owns the authorized transaction; no migration, commit or external IO."""
     schema = schema_name(schema)
