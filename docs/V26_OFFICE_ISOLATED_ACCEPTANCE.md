@@ -2,6 +2,34 @@
 
 Result: **BLOCKED**. Base: `main-guncel` / `f386811`; initial worktree clean.
 
+## Follow-up: host comparison and supported permission request
+
+- Starting commit `7ff20cc` and both stash object IDs were preserved; the
+  worktree was clean. The user reports successful IPv4/IPv6 loopback binds
+  in the normal office WSL terminal. This supports an enclosing Codex
+  execution restriction as the likely cause, rather than a general host
+  socket prohibition; the exact enforcing layer remains unverified.
+- One current sandbox check, restricted to IPv4 `127.0.0.1:0`, again failed
+  at socket creation with `PermissionError errno=1`. No service was contacted.
+  A command-specific `require_escalated` request for only that probe was
+  rejected by the tool policy: `sandbox_approval=false`. No approval question
+  reached the user, and no unsandboxed command ran. The session also disallows
+  rules/skill approvals and restricts network access. No permission setting
+  was changed or alternate execution channel used.
+- Read-only disposable harness preflight passed again: acceptance root absent,
+  PG16 executables and Python dependencies available. The harness reserves
+  HTTP and database loopback sockets before creating its private directory or
+  PostgreSQL cluster. Preparation was therefore deferred until permitted
+  sockets are available; creating a second runtime cannot resolve this block.
+  No actual acceptance run or database startup was attempted after the probe.
+- The requested single GitHub DNS check failed with `gaierror errno=-3`.
+  No fetch/push or repeated DNS attempt was made. Remote branch divergence
+  remains unknown.
+- **BLOCKED:** actual PostgreSQL/HTTP/browser acceptance. No product-code
+  defect was established. Required next condition: this session must expose
+  a supported command-scoped permission approval for the loopback test and
+  isolated harness. Permanent sandbox disablement is not required or proposed.
+
 - The existing launcher is tracked at
   `deploy/v1-inventory/v26-isolated-run.sh`, last changed by `11eeaed`.
   It is not a repository-root launcher: it requires its working directory,

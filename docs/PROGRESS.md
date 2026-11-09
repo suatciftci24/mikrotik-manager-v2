@@ -1,5 +1,21 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6 sandbox izin karşılaştırması — 2026-11-09
+
+- **BLOCKED**: `7ff20cc` ve iki stash korundu. Kullanıcı normal ofis WSL
+  IPv4/IPv6 bind PASS bildirdi; Codex içindeki tek `127.0.0.1:0` kontrolü
+  socket oluştururken yine `PermissionError errno=1` verdi. Codex yürütme
+  kısıtlaması olası kök neden; kesin uygulama katmanı doğrulanmadı.
+- Komuta özel socket testi yükseltme isteği araç tarafından
+  `sandbox_approval=false` nedeniyle reddedildi; kullanıcı onayı sorulamadı,
+  sandbox dışı komut çalışmadı ve izin ayarı değiştirilmedi.
+- Disposable harness önkoşulları PASS, `/tmp` kabul kökü yok. Harness socket
+  rezervasyonundan önce DB/dosya hazırlamadığı için gereksiz ortam oluşturulmadı;
+  gerçek kabul/PG başlatma bu engelden sonra denenmedi.
+- Tek GitHub DNS kontrolü `gaierror errno=-3`: fetch/push yapılmadı.
+  Yalnız rapor güncellendi; canlı/üretim/stash/veri işlemi yok. Ayrıntılar:
+  `docs/V26_OFFICE_ISOLATED_ACCEPTANCE.md`.
+
 ## V2.6 ofis izole kabul incelemesi — 2026-11-09
 
 - **BLOCKED**: `main-guncel` / `f386811` temiz başlangıç; iki stash korundu.
