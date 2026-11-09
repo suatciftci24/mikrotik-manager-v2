@@ -1,5 +1,40 @@
 # MikroTik Manager V2 — İlerleme
 
+## Ofis Abone Merkezi sadeleştirme — 2026-11-09
+
+- `office-development` / `668aa11` temiz başlangıç; iki stash korundu. Altın
+  Kurallar, özellik koruma kabulü ve iki kaynak için mevcut işlem/audit akışları
+  okundu. Backend veya veri modeli değişikliği gerekmedi.
+- Kompakt özet: abone adı, PPPoE/Hotspot kullanıcı adı, paket, hesap durumu,
+  bitiş ve Türkiye takvim gününe göre kalan süre. Dört ana sekme: Abonelik,
+  İşlemler, Geçmiş, Bağlantı. Eski package/expiry linkleri Abonelik'e gider;
+  photos linki aynı sekmedeki yetkili fotoğraf açılır bölümünü korur.
+- İşlemler yalnız bir sekmede; mevcut LegacySubscriberActions/QuickActions,
+  SubscriberRenewal ve SubscriberDailyActions kullanılıyor. Kaynak/depo/router/
+  yetki, revizyon, UUID, önizleme ve açık onay kontrolleri değişmedi. Mevcut
+  subscriberSaveDependencies ile liste/detay/Dashboard/geçmiş yenileniyor.
+- İç içe eski tam detay görünümü yerine ek legacy bilgiler ilgili sekmeye
+  taşındı: katılım/aylık tutar, uyarılar, raporlar ve operasyon raporu bağlantısı;
+  işlemlerde router/toplu işlem bağlantıları; bağlantıda kaynak açıklaması ve
+  mevcut demo PPPoE gözlem bileşeni. Yinelenen başlık/geri butonu ve audit yok.
+- Geçmişte işlem/UUID/önceki-yeni değer/aktör/revizyon/sonuç ve İstanbul saati
+  korunur. Eksik alanlar Veri yok; başarısız/eksik sonuç başarı sayılmaz.
+  Bağlantı sekmesi router ID, LOCAL/RADIUS, sentetik IP/örnek zamanını gösterir;
+  canlı oturum/son bağlantı kanıtı yoksa Bilinmiyor/Ölçülmedi. Hesap ACTIVE veya
+  last_seen bağlantı kanıtına dönüştürülmez. Tema/beyaz çerçeveler korunur;
+  özet masaüstünde dört, dar ekranda iki sütundur; sekmeler klavyeyle gezilir.
+- PASS: 9 hedefli frontend test dosyası (subscriberCenter, detailCenter,
+  subscriberManagement, subscriptionActions, subscriberDailyManagement,
+  subscriberFilters, subscriberObservation, managementReportView,
+  resourceInvalidation), typecheck, TypeScript/Vite build ve diff kontrolü.
+  Node24 doğrudan TypeScript importlarında --experimental-transform-types
+  kullanıldı. Eski beş-sekme test beklentileri dört sekme + iç fotoğraf
+  sözleşmesine güncellendi; yetki/işlem kontrolleri gevşetilmedi.
+- Gerçek browser/HTTP/PG kabulü yapılmadı; sandbox sınırı tekrar denenmedi.
+  API/UI/DB süreçlerine müdahale, 11 mevcut abone/audit/veri üzerinde yazma,
+  yönetici/login değişikliği, migration, seed, VDS/canlı erişim veya push yok.
+  Yeni bağımlılık eklenmedi. Bu frontend testleri gerçek DB kabulü değildir.
+
 ## Ofis kalıcı LOCAL ADMIN / migration çalıştırmayan kurulum — 2026-11-09
 
 - `office-development` / `91cbf85` temiz başlangıç; iki stash korundu.

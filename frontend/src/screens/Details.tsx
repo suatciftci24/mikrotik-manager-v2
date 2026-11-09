@@ -1,3 +1,4 @@
+import type {SubscriberTab} from '../lib/subscriberCenter';
 import {canChangeLegacy} from '../lib/subscriberActions';
 import {PppoeObservations} from '../components/PppoeObservations';
 import {detailOperationHash} from '../lib/operationReport';
@@ -137,4 +138,23 @@ export function SubscriberDetails({detail}: {detail: SubscriberDetail}) {
       })}</ol> : <p className="missing-data">Veri yok. Henüz kaydedilmiş bir demo işlemi yok.</p>}
     </DetailSection>
   </div>;
+}
+
+/** Extra legacy fields stay in their own source; the center owns summary/audit. */
+export function LegacySubscriberSupplement({id,tab}:{id:string;tab:SubscriberTab}) {
+ const resource=useResource<SubscriberDetailData>('/subscribers/'+encodeURIComponent(id),undefined,DETAIL_DEPENDENCIES);
+ const [reportsOpen,setReportsOpen]=useState(false);const today=useTurkeyToday();
+ const detail=resource.data;
+ const error=resource.error||(detail&&(detail.item?.id!==id||detail.is_demo!==true||detail.item?.is_demo!==true)?'Sentetik abone kaynağı doğrulanamadı.':undefined);
+ const s=detail?.item;
+ return <><ResourceState {...resource} error={error}/>{detail&&s&&!resource.loading&&!error&&<>
+ {tab==='overview'?<><Facts items={[
+ ['Katılım tarihi',detailText(s.joined_at)],['Aylık tutar',monthlyPriceText(s.monthly_price)]
+ ]}/><SubscriberWarnings subscriber={s} today={today}/>
+ <a className="record-link" href={detailOperationHash('subscribers',id,typeof window==='undefined'?'':window.location.hash)}>Bu kaydın operasyon raporu</a>
+ <details onToggle={event=>setReportsOpen(event.currentTarget.open)}><summary>Abone raporları</summary>{reportsOpen&&<SubscriberReports key={id} subscriber={s} today={today}/>}</details></>
+ :tab==='actions'?<SubscriberRouterLinks subscriber={s}/>
+ :tab==='connections'?<><SourceExplanation source={s.source}/><PppoeObservations routerId={s.router_id} isDemo={s.is_demo} accountId={s.id} source={s.source}/></>
+ :null}
+ </>}</>;
 }

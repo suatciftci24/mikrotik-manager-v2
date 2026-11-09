@@ -94,3 +94,29 @@ test('quick action select labels exclude option text and catalog errors',()=>{
   assert.ok(html.includes('<option'),`${initialAction}: real selection options remain rendered`);
  }
 });
+
+test('legacy supplements retain extra fields, reports and observations without duplicate detail or audit',()=>{
+ let resource={data:detail,loading:false},reportsOpen=false;
+ const hooks={...React,useRef:value=>({current:value}),useEffect(){},useCallback:fn=>fn,
+  useState(initial){
+   if(initial&&typeof initial==='object'&&'path' in initial)return [{...initial,...resource},()=>{}];
+   if(initial===false)return [reportsOpen,value=>{reportsOpen=value;}];
+   return [typeof initial==='function'?initial():initial,()=>{}];
+  }};
+ const {LegacySubscriberSupplement}=compile('../src/screens/Details.tsx',hooks);
+ const render=tab=>LegacySubscriberSupplement({id:subscriber.id,tab});
+ let tree=render('overview'),html=renderToStaticMarkup(tree);
+ for(const text of ['Katılım tarihi','Aylık tutar','Abonelik uyarıları','Abone raporları','Bu kaydın operasyon raporu'])assert.ok(html.includes(text),text);
+ assert.doesNotMatch(html,/Abone Detay Merkezi|İşlem geçmişi|demo-event-id/);
+ const disclosure=nodes(tree).find(node=>node.type==='details');
+ disclosure.props.onToggle({currentTarget:{open:true}});tree=render('overview');
+ assert.ok(nodes(tree).some(node=>typeof node.type==='function'&&node.type.name==='SubscriberReports'));
+ html=renderToStaticMarkup(render('actions'));assert.match(html,/Aynı routerda toplu uzatmaya git/);
+ html=renderToStaticMarkup(render('connections'));assert.match(html,/LOCAL/);assert.match(html,/PPPoE|Demo izolasyonu/);
+ assert.equal(renderToStaticMarkup(render('history')),'');
+ for(const changed of [{data:detail,loading:true},{data:detail,loading:false,error:'SQL unavailable'},
+                       {data:{...detail,item:{...subscriber,id:'foreign'}},loading:false}]){
+  resource=changed;html=renderToStaticMarkup(render('overview'));
+  assert.doesNotMatch(html,/Abonelik uyarıları|Abone raporları|demo-event-id/);
+ }
+});

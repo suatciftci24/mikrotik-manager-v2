@@ -12,21 +12,32 @@ const hooks={...React,useContext:()=>undefined,useEffect:()=>{},useRef:value=>({
 const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/SubscriberDeviceCenter.tsx',import.meta.url))],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
 const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
 const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.children).flatMap(nodes)]:[];
-test('five tabs render account and session separately; expire and connection gaps stay unknown',()=>{
- for(const [tab] of subscriberCenterTabs){const tree=module.exports.SubscriberDeviceCenterView({data,tab,onTab:()=>{}});const html=renderToStaticMarkup(tree);assert.match(html,/Sentetik Abone/);assert.match(html,/HOTSPOT/);assert.match(html,/Hesap etkin/);assert.match(html,/canlı oturum ölçülmedi/);assert.match(html,/bağlantı kanıtı yok/);assert.equal((html.match(/role="tab"/g)??[]).length,5);}
- const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data,tab:'expiry',onTab:()=>{}}));assert.match(html,/bilinmiyor/i);
+test('four tabs keep the compact summary while connection evidence stays in its own panel',()=>{
+ assert.deepEqual(subscriberCenterTabs.map(([,label])=>label),['Abonelik','İşlemler','Geçmiş','Bağlantı']);
+ for(const [tab] of subscriberCenterTabs){
+  const tree=module.exports.SubscriberDeviceCenterView({data,tab,onTab:()=>{}});const html=renderToStaticMarkup(tree);
+  for(const text of ['Sentetik Abone','HOTSPOT','Hesap etkin','test.ev','Demo 100','Bitiş tarihi','Kalan gün'])assert.ok(html.includes(text),text);
+  assert.equal((html.match(/role="tab"/g)??[]).length,4);
+  assert.equal((html.match(/aria-selected="true"/g)??[]).length,1);
+  if(tab==='connections'){assert.match(html,/canlı oturum ölçülmedi/);assert.match(html,/bağlantı kanıtı yok/);}
+  else assert.doesNotMatch(html,/Son bağlantı|Sentetik kayıt IP adresi/);
+ }
+ for(const tab of ['package','expiry']){
+  const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data,tab,onTab(){}}));
+  assert.match(html,/id="subscriber-panel-overview"/);assert.match(html,/Veri yok/);
+ }
 });
-test('installation photos are an opt-in V2.6 detail tab and require a verified subscriber binding',()=>{
+test('installation photos are an opt-in disclosure without a fifth tab and require a verified subscriber binding',()=>{
  const tree=module.exports.SubscriberDeviceCenterView({data,tab:'photos',onTab(){},photosEnabled:true});
- assert.equal(nodes(tree).filter(node=>node.props?.role==='tab').length,6);
+ assert.equal(nodes(tree).filter(node=>node.props?.role==='tab').length,4);
  const photos=nodes(tree).find(node=>typeof node.type==='function'&&node.type.name==='SubscriberPhotos');assert.ok(photos);
  assert.equal(photos.props.id,data.item.id);assert.equal(photos.props.source,'LOCAL');assert.equal(photos.props.canManage,false);
  const denied=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,item:{...data.item,source:null}},tab:'photos',onTab(){},photosEnabled:true}));
  assert.match(denied,/doğrulanmış LOCAL\/RADIUS kaynağı/);assert.doesNotMatch(denied,/subscriber-photo-grid/);
- assert.equal(nodes(module.exports.SubscriberDeviceCenterView({data,tab:'overview',onTab(){}})).filter(node=>node.props?.role==='tab').length,5);
+ assert.equal(nodes(module.exports.SubscriberDeviceCenterView({data,tab:'overview',onTab(){}})).filter(node=>node.props?.role==='tab').length,4);
 });
 test('tab click and keyboard navigation do not trigger network or mutators',()=>{
- let selected;const tree=module.exports.SubscriberDeviceCenterView({data,tab:'overview',onTab:value=>{selected=value;}});const tabs=nodes(tree).filter(n=>n.props?.role==='tab');tabs[2].props.onClick();assert.equal(selected,'expiry');tabs[0].props.onKeyDown({key:'End',preventDefault:()=>{}});assert.equal(selected,'connections');
+ let selected;const tree=module.exports.SubscriberDeviceCenterView({data,tab:'overview',onTab:value=>{selected=value;}});const tabs=nodes(tree).filter(n=>n.props?.role==='tab');tabs[2].props.onClick();assert.equal(selected,'history');tabs[0].props.onKeyDown({key:'End',preventDefault:()=>{}});assert.equal(selected,'connections');
 });
 test('router links use exact ID and source; a matching display name never creates a link',()=>{
  assert.match(subscriberRouterHash(data.item),/source=MANAGED_DEMO/);assert.match(subscriberRouterHash(data.item),/id=demo-managed-router-fixture/);
@@ -62,7 +73,7 @@ test('renewal history shows previous/new dates, time and applied result without 
 test('missing router keeps subscriber detail and renders no invented router link',()=>{
  const missing={...data,item:{...data.item,router_name:null,router_model:null,router_missing:true,router_source:'UNKNOWN'}};
  assert.equal(safeSubscriberCenter(missing,missing.item.id),true);
- const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:missing,tab:'overview',onTab:()=>{}}));
+ const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:missing,tab:'connections',onTab:()=>{}}));
  assert.match(html,/Router kaydı bulunamadı/);assert.match(html,/demo-managed-router-fixture/);assert.doesNotMatch(html,/href="#module=routers/);
 });
 
@@ -89,24 +100,25 @@ test('shared action policy rejects wrong source, permission, persistence and rou
  assert.equal(policy.exports.canChangeWorkspace(data,false),false);
  for(const patch of [{source:null},{router_missing:true},{router_source:'UNKNOWN'},{access_type:null}])assert.equal(!!policy.exports.canChangeWorkspace({...data,item:{...data.item,...patch}},true),false);
 });
-test('workspace actions share one detail entry point across summary, package and expiry tabs',()=>{
+test('workspace actions have one visible entry point and keep exact canonical callbacks',()=>{
  const calls=[];
- const props={data,onTab(){},onEdit:r=>calls.push(['edit',r.id]),onRenew:r=>calls.push(['renew',r.id]),onManage:r=>calls.push(['manage',r.id])};
- for(const tab of ['overview','package','expiry']){
-  const tree=module.exports.SubscriberDeviceCenterView({...props,tab});
-  const menu=nodes(tree).find(n=>n.type==='details'&&n.props.className==='subscriber-actions-menu');assert.ok(menu);
-  for(const label of ['Abone bilgilerini düzenle','Aboneliği uzat','Paket / durum / tarih işlemleri'])assert.ok(renderToStaticMarkup(menu).includes(label));
-  nodes(menu).find(n=>n.type==='button'&&renderToStaticMarkup(n).includes('Aboneliği uzat')).props.onClick();
-  nodes(menu).find(n=>n.type==='button'&&renderToStaticMarkup(n).includes('Paket / durum / tarih işlemleri')).props.onClick();
+ const props={data,onTab(){},onEdit:r=>calls.push(['edit',r]),onRenew:r=>calls.push(['renew',r]),onManage:r=>calls.push(['manage',r])};
+ const tree=module.exports.SubscriberDeviceCenterView({...props,tab:'actions'});
+ const menu=nodes(tree).find(n=>n.props?.className==='subscriber-actions-menu');assert.ok(menu);
+ for(const [label,kind] of [['Abone bilgilerini düzenle','edit'],['Aboneliği uzat','renew'],['Paket / durum / tarih işlemleri','manage']]){
+  const buttons=nodes(menu).filter(n=>n.type==='button'&&renderToStaticMarkup(n).includes(label));assert.equal(buttons.length,1);buttons[0].props.onClick();
+  assert.deepEqual(calls.at(-1),[kind,data.item]);
  }
- assert.equal(calls.filter(([kind])=>kind==='renew').length,3);
- assert.equal(calls.filter(([kind])=>kind==='manage').length,3);
- const denied=module.exports.SubscriberDeviceCenterView({...props,data:{...data,item:{...data.item,source:null}},tab:'overview'});
- assert.doesNotMatch(renderToStaticMarkup(denied),/subscriber-actions-menu|İşlemler/);
+ for(const tab of ['overview','history','connections','package','expiry'])assert.equal(nodes(module.exports.SubscriberDeviceCenterView({...props,tab})).some(n=>n.props?.className==='subscriber-actions-menu'),false);
+ for(const patch of [{source:null},{router_missing:true},{router_source:'UNKNOWN'}]){
+  const denied=module.exports.SubscriberDeviceCenterView({...props,data:{...data,item:{...data.item,...patch}},tab:'actions'});
+  assert.doesNotMatch(renderToStaticMarkup(denied),/subscriber-actions-menu/);
+  assert.match(renderToStaticMarkup(denied),/merkezi yönetim yetkisi/);
+ }
 });
 test('legacy detail exposes existing quick action surface without hiding it in demo disclosure',()=>{
  const legacy={...data,source:'LEGACY_DEMO',persistence:'local-postgresql-demo',item:{...data.item,id:'demo-sub-fixture',router_id:'demo-router-fixture',router_source:'STATIC_DEMO'}};
- const tree=module.exports.SubscriberDeviceCenterView({data:legacy,tab:'overview',onTab(){}});
+ const tree=module.exports.SubscriberDeviceCenterView({data:legacy,tab:'actions',onTab(){}});
  const surface=nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='LegacySubscriberActions');
  assert.ok(surface);assert.equal(surface.props.id,legacy.item.id);
 });
@@ -138,4 +150,39 @@ test('history shows UUID and historical/current revisions separately and retains
   for(const link of links)assert.equal(new URLSearchParams(link.props.href.slice(1)).get('return_to'),hash);
   assert.doesNotMatch(html,/Uygulandı · Sentetik kayıt/);
  }finally{globalThis.window=before;}
+});
+
+
+test('summary preserves exact account values and keeps expiry independent of account activity',()=>{
+ const item={...data.item,customer_name:'Örnek Abone',username:'pppoe.example',plan:'Paket 200',status:'PAUSED',expires_on:'2099-12-31'};
+ const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,item},tab:'overview',onTab(){}}));
+ for(const value of ['Örnek Abone','pppoe.example','Paket 200','Hesap pasif','31 Ara 2099','gün kaldı'])assert.ok(html.includes(value),value);
+ assert.doesNotMatch(html,/canlı oturum ölçülmedi|Oturum durumu|subscriber-actions-menu/);
+});
+
+test('connection panel labels saved IP and times as synthetic and never infers a session',()=>{
+ const item={...data.item,status:'ACTIVE',ip_address:'192.0.2.19',last_seen_at:'2026-11-05T21:30:00Z',last_connected_at:'2026-11-05T21:00:00Z'};
+ const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,item},tab:'connections',onTab(){}}));
+ for(const value of ['Sentetik kayıt IP adresi','192.0.2.19','Son sentetik örnek','Kaydedilmiş bağlantı zamanı (sentetik)','6 Kas 2026','00:30','Bilinmiyor · canlı oturum ölçülmedi','Bilinmiyor · bağlantı kanıtı yok'])assert.ok(html.includes(value),value);
+ assert.doesNotMatch(html,/Çevrimiçi|Oturum açık|Bağlı oturum/);
+ const empty=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,item:{...data.item,ip_address:'—',last_seen_at:'invalid'}},tab:'connections',onTab(){}}));
+ assert.match(empty,/Ölçülmedi/);assert.doesNotMatch(empty,/Geçersiz tarih|>—</);
+});
+
+test('history preserves both sides and all missing fields have explicit empty states',()=>{
+ const history=[{operation:'STATUS',occurred_at:'2026-11-05T21:30:00Z',actor_id:'test.operator',revision:2,result:'APPLIED',date_changed:false,previous_values:{status:'ACTIVE',plan:'Eski Paket'},new_values:{status:'PAUSED',plan:'Yeni Paket'}}];
+ const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,history},tab:'history',onTab(){}}));
+ for(const value of ['Önceki değerler','Yeni değerler','Eski Paket','Yeni Paket','Etkin','Devre dışı','test.operator','6 Kas 2026','00:30'])assert.ok(html.includes(value),value);
+ const missing=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,history:[{operation:'',occurred_at:'invalid',actor_id:'',revision:null,date_changed:false}]},tab:'history',onTab(){}}));
+ assert.match(missing,/Veri yok/);assert.doesNotMatch(missing,/undefined|null|Geçersiz tarih|Uygulandı/);
+});
+
+test('supplement is routed by active section and cannot introduce a duplicate audit panel',()=>{
+ const seen=[];
+ for(const tab of ['overview','actions','history','connections']){
+  const tree=module.exports.SubscriberDeviceCenterView({data,tab,onTab(){},legacy:active=>{seen.push(active);return React.createElement('aside',null,'extra details');}});
+  const html=renderToStaticMarkup(tree);
+  assert.equal(html.includes('extra details'),tab!=='history');
+ }
+ assert.deepEqual(seen,['overview','actions','history','connections']);
 });

@@ -11,7 +11,7 @@ test('mixed operation labels and before/after values retain expiry semantics',()
  const state={...base,operation:'STATUS_CHANGE',previous_values:{status:'ACTIVE'},new_values:{status:'PAUSED'}};
  assert.match(historyValues(state)[0],/Etkin/);assert.match(historyValues(state)[1],/Devre dışı/);
  const created={...base,operation:'CREATE',previous_values:{},new_values:{username:'demo.new',access_type:'PPPOE',expires_on:null}};
- assert.equal(historyValues(created)[0],'Kayıt yok');assert.match(historyValues(created)[1],/demo.new/);assert.match(operationLabel(created.operation),/PPPoE/);
+ assert.equal(historyValues(created)[0],'Veri yok');assert.match(historyValues(created)[1],/demo.new/);assert.match(operationLabel(created.operation),/PPPoE/);
  assert.equal(statusText('unexpected'),'Veri yok');
 });
 test('new persistent operations update daily counts and status/source distribution at Turkey midnight',()=>{
