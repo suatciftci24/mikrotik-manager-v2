@@ -108,3 +108,17 @@ uygunluk politikasını `subscriberActions.ts`, yenileme bağımlılıklarını
 `subscriberSaveDependencies` üzerinden tut. Yeni işlem yüzeyi eklerken kaynak,
 yetki, kalıcı depo ve router bağı reddi ile başarılı işlem erişimini hedefli
 regresyonda doğrula. Sunucu yetkilerini veya kaynak güvenliğini gevşetme.
+
+## V2.6 Zorunlu Saglik Kontrolu
+
+- Her gelistirme veya degisiklik komutundan once ve sonra
+  https://v26.mikmanager.com.tr/ kontrol edilir.
+- HTTPS erisimi, API ve ilgili servislerin sagligi dogrulanir.
+- Yalnizca gercek ve dogrulanmis API endpointleri kullanilir.
+- Hata varsa islem durdurulur; guvenli geri alma degerlendirilir.
+- Dogrulanmayan islem basarili olarak bildirilmez.
+- Gereksiz tekrar testleri yapilmaz; hedefli kontroller uygulanir.
+- V1, V2.5, gercek routerlar, RADIUS ve mevcut veriler korunur.
+- Yeni panel, veritabani veya servis olusturulmaz.
+- Canli dagitim, migration ve servis yeniden baslatma
+  icin yeni ve acik kullanici onayi gerekir.
