@@ -8,7 +8,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {safeSubscriberCenter,subscriberRouterHash,subscriberCenterTabs} from '../src/lib/subscriberCenter.ts';
 const data={source:'PERSISTENT_WORKSPACE',is_demo:true,device_connection_started:false,persistence:'local-postgresql-workspace',item:{id:'demo-managed-sub-fixture',username:'test.ev',customer_name:'Sentetik Abone',router_id:'demo-managed-router-fixture',router_name:'TEST-EV-V2',router_source:'PERSISTENT_DEMO',access_type:'HOTSPOT',source:'LOCAL',plan:'Demo 100',status:'ACTIVE',expires_on:null,revision:1,ip_address:null,last_seen_at:null,last_connected_at:null,session_status:'UNKNOWN'},history:[],connection_history:[]};
 const require=createRequire(import.meta.url);
-const hooks={...React,useContext:()=>undefined,useEffect:()=>{},useRef:value=>({current:value}),useState:value=>[typeof value==='function'?value():value,()=>{}]};
+const hooks={...React,useId:()=>':center:',useContext:()=>undefined,useEffect:()=>{},useRef:value=>({current:value}),useState:value=>[typeof value==='function'?value():value,()=>{}]};
 const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/SubscriberDeviceCenter.tsx',import.meta.url))],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
 const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
 const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.children).flatMap(nodes)]:[];

@@ -44,7 +44,10 @@ def subscriber_for(user,id,permission='can_view'):
 
 def public_item(item,user):
     # Saved telemetry/history is a report capability, not a can_view side channel.
-    return {**item,'can_manage_pppoe':router_id(item) in allowed(user,'can_manage_pppoe'),'demo_report':item.get('demo_report') if router_id(item) in allowed(user,'can_view_reports') else None}
+    # Expose the same unambiguous legacy binding already used by require_router.
+    # Read projection only: never rewrite the saved subscriber or guess authority.
+    bound_router = router_id(item)
+    return {**item,'router_id':bound_router,'can_manage_pppoe':bound_router in allowed(user,'can_manage_pppoe'),'demo_report':item.get('demo_report') if bound_router in allowed(user,'can_view_reports') else None}
 
 
 def public_detail(detail,user):

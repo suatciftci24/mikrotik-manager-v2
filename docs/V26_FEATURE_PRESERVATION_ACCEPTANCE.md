@@ -38,6 +38,25 @@ okunur; depolar birleştirilmez.
 
 ## Doğrulama ve engeller
 
+### Ofis satır menüsü düzeltmesi — 2026-11-09
+
+`office-development`, taban `c783493`: eski router_name-only demo kayıtları
+backend'in mevcut tekil authorization çözümlemesiyle router_id okuma alanını
+alır; depodaki kayıtlar değiştirilmez. Explicit ID için isim fallback'i ve
+çift isim için tahmin yoktur. LOCAL/RADIUS işlem yetkisi rol ve ilgili router
+izninden gelir; hesap ACTIVE/PAUSED veya ONLINE/OFFLINE gözlemi menü kapısı
+değildir. Yetkisiz/unknown kayıtlar yalnız geçmiş ve anlaşılır neden görür.
+
+Satır menüsü akış içindeki details yerine viewport'a sınırlandırılan native
+auto-popover üst katmanını kullanır. Outside/Escape, klavye gezinimi, focus,
+scroll/resize konumlaması vardır; eski modal/ön seçim/UUID/onay/audit akışları
+değişmedi. 31 frontend + 4 backend hedefli test, TypeScript ve build PASS.
+Gerçek browser kabulü BLOCKED: mevcut Playwright paketi kurulu değil; tek
+offline kurulum ENOTCACHED, yeni dependency/lock değişikliği yok. Sentetik,
+serversiz browser testi hazırlandı; gerçek layout/pointer PASS iddiası yok.
+Yerel servis restartı yapılmadı; backend projeksiyonu sonraki API başlangıcında
+etkinleşir. Gerçek DB/veri/hesap veya canlı sistem işlemi ve push yok.
+
 ### Ofis doğrudan hızlı işlemler — 2026-11-09
 
 `office-development`, başlangıç `9040743`: Hızlı İşlemler tek düğmesi yerine

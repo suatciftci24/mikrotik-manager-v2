@@ -21,7 +21,7 @@ function harness(path,resource=()=>undefined,identity){
  const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
  return {exports:module.exports,render(name,props){cursor=0;return module.exports[name](props);}};
 }
-const {canSelectLegacyAction,canChangeWorkspaceItem}=harness('src/lib/subscriberActions.ts').exports;
+const {canSelectLegacyAction,canChangeWorkspaceItem,legacyActionUnavailableReason}=harness('src/lib/subscriberActions.ts').exports;
 function stubGlobals(t){
  const before={window:globalThis.window,document:globalThis.document,fetch:globalThis.fetch,HashChangeEvent:globalThis.HashChangeEvent};t.after(()=>Object.assign(globalThis,before));
  const location={hash:'#module=subscribers&workspace=LEGACY&query=test&status=ACTIVE',pathname:'/',search:''};
@@ -29,14 +29,29 @@ function stubGlobals(t){
  globalThis.HashChangeEvent=class extends Event {};
  globalThis.document={activeElement:null};globalThis.fetch=()=>{throw new Error('Unexpected network request');};return location;
 }
-test('compact actions restore focus, stop row navigation and support Escape',()=>{
- const h=harness('src/components/SubscriberQuickButtons.tsx'),calls=[];let stopped=false,focused=false,closed=false;
- const menu={removeAttribute(name){assert.equal(name,'open');closed=true;},querySelector(){return {focus(){focused=true;}};}};
- const tree=h.exports.SubscriberQuickButtons({compact:true,status:'ACTIVE',label:row.customer_name,onAction:a=>calls.push(a),onHistory:()=>calls.push('history')});
- tree.props.onClick({stopPropagation(){stopped=true;}});assert.ok(stopped);assert.match(renderToStaticMarkup(tree),/aria-label="Sentetik Abone işlemleri"/);
- for(const [text,action] of [['Abonelik Uzat','EXTEND'],['Paket Değiştir','PLAN'],['Hesabı Kapat','STATUS'],['İşlem Geçmişi','history']]){nodes(tree).find(n=>n.type==='button'&&n.props.children===text).props.onClick({currentTarget:{closest:()=>menu}});assert.equal(calls.at(-1),action);assert.ok(focused&&closed);}
- tree.props.onKeyDown({key:'Escape',currentTarget:menu});
- const readOnly=renderToStaticMarkup(h.exports.SubscriberQuickButtons({status:'PAUSED',onHistory:quiet}));assert.doesNotMatch(readOnly,/Abonelik Uzat|Paket Değiştir|Hesabı Aç/);assert.match(readOnly,/İşlem Geçmişi/);
+test('compact menu uses an auto top-layer popover and restores focus on selection/Escape',()=>{
+ const h=harness('src/components/SubscriberQuickButtons.tsx'),calls=[];let stopped=false,focused=false,isOpen=false;
+ const first={focus(){focused=true;}};
+ const popup={style:{},matches:()=>isOpen,showPopover(){isOpen=true;},hidePopover(){isOpen=false;},querySelectorAll:()=>[first],getBoundingClientRect:()=>({width:220,height:180})};
+ const before=globalThis.window;globalThis.window={innerWidth:360,innerHeight:640};
+ try{
+  const props={compact:true,status:'ACTIVE',label:row.customer_name,onAction:a=>calls.push(a),onHistory:()=>calls.push('history')};
+  let tree=h.render('SubscriberQuickButtons',props);
+  tree.props.onClick({stopPropagation(){stopped=true;}});assert.ok(stopped);
+  const trigger=nodes(tree).find(n=>n.type==='button'&&n.props['aria-haspopup']==='menu');
+  const panel=nodes(tree).find(n=>n.props?.popover==='auto');assert.ok(panel);assert.equal(panel.props.role,'menu');
+  trigger.props.ref.current={focus(){focused=true;},getBoundingClientRect:()=>({left:280,right:350,top:400,bottom:440})};panel.props.ref.current=popup;
+  trigger.props.onClick();assert.ok(isOpen&&focused);assert.equal(popup.style.left,'130px');
+  panel.props.onToggle({nativeEvent:{newState:'open'}});tree=h.render('SubscriberQuickButtons',props);
+  assert.equal(nodes(tree).find(n=>n.type==='button'&&n.props['aria-haspopup']==='menu').props['aria-expanded'],true);
+  for(const [text,action] of [['Abonelik Uzat','EXTEND'],['Paket Değiştir','PLAN'],['Hesabı Kapat','STATUS'],['İşlem Geçmişi','history']]){
+   isOpen=true;nodes(tree).find(n=>n.type==='button'&&n.props.children===text).props.onClick({currentTarget:{}});assert.equal(calls.at(-1),action);assert.equal(isOpen,false);
+  }
+  isOpen=true;panel.props.onKeyDown({key:'Escape',preventDefault(){},stopPropagation(){}});assert.equal(isOpen,false);
+  // Native light-dismiss emits toggle=closed for outside clicks; React must track it.
+  panel.props.onToggle({nativeEvent:{newState:'closed'}});tree=h.render('SubscriberQuickButtons',props);
+  assert.equal(nodes(tree).find(n=>n.type==='button'&&n.props['aria-haspopup']==='menu').props['aria-expanded'],false);
+ }finally{globalThis.window=before;}
 });
 test('legacy row action opens a canonical preset loader without losing filters or opening detail',t=>{
  const location=stubGlobals(t),before=location.hash;
@@ -120,4 +135,23 @@ test('legacy detail delegates only the canonical authorized snapshot to its stab
  const surface=nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='SubscriberQuickButtons');
  surface.props.onAction('STATUS');assert.deepEqual(calls,[[detail,'STATUS']]);
  assert.equal(nodes(tree).some(n=>typeof n.type==='function'&&n.type.name==='QuickActions'),false);
+});
+
+
+test('LOCAL active/paused and authorized RADIUS expose identical actions irrespective of session hints',()=>{
+ const h=harness('src/components/SubscriberQuickButtons.tsx');
+ for(const [source,status,expected] of [['LOCAL','ACTIVE','Hesabı Kapat'],['LOCAL','PAUSED','Hesabı Aç'],['RADIUS','ACTIVE','Hesabı Kapat']]){
+  for(const session_status of ['ONLINE','OFFLINE','UNKNOWN']){
+   const item={...row,source,status,session_status};assert.equal(canSelectLegacyAction(item),true);
+   const tree=h.render('SubscriberQuickButtons',{status,onAction:quiet,onHistory:quiet,compact:true});
+   const labels=nodes(tree).filter(n=>n.type==='button'&&n.props.role==='menuitem').map(n=>n.props.children);
+   assert.deepEqual(labels,['Abonelik Uzat','Paket Değiştir',expected,'İşlem Geçmişi']);
+  }
+ }
+ for(const item of [{...row,source:'RADIUS',can_manage_pppoe:false},{...row,source:null}]){
+  assert.equal(canSelectLegacyAction(item),false);const reason=legacyActionUnavailableReason(item);assert.ok(reason);
+  const tree=h.render('SubscriberQuickButtons',{status:item.status,onHistory:quiet,compact:true,unavailableReason:reason});
+  assert.deepEqual(nodes(tree).filter(n=>n.type==='button'&&n.props.role==='menuitem').map(n=>n.props.children),['İşlem Geçmişi']);
+  assert.ok(renderToStaticMarkup(tree).includes(reason));
+ }
 });

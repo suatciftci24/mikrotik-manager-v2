@@ -1,5 +1,44 @@
 # MikroTik Manager V2 — İlerleme
 
+## Ofis hızlı işlem menüsü / legacy router bağı — 2026-11-09
+
+- Başlangıç `office-development` / `c783493`, temiz ağaç; iki stash korundu.
+  Gerçek DB'ye bağlanmadan eski demo fixture'ları ve authorization yolu birlikte
+  incelendi. Eski ACTIVE LOCAL/RADIUS kayıtlarında yalnız router_name var;
+  frontend işlem politikası router_id istiyor. Backend mevcut router_id()
+  çözümleyicisi aynı kayıtları zaten tekil isim bağıyla yetkilendiriyordu ama
+  public_item bu bağı yanıta taşımıyordu. Sorun ACTIVE/ONLINE yasağı değil,
+  API okuma projeksiyonu ile frontend kimlik kapısı arasındaki uyumsuzluk.
+- public_item artık mevcut backend yetki çözümlemesinin ID sonucunu liste ve
+  canonical detaya taşır. Kaydedilmiş payload değiştirilmez; explicit ID varsa
+  isim fallback'i yapılmaz, eksik/çift isim bağı None ve yetkisiz kalır. Rol,
+  router izni ve LOCAL/RADIUS tek kaynak kuralları değişmedi. İzinli RADIUS demo
+  işlemleri açık; yetkisiz RADIUS ve bilinmeyen kaynakta neden açıklanır.
+- Eski details menüsü tablo akışını büyütüyor; yatay scroll/mobile overflow ve
+  sticky stacking altında sorun oluşturuyor, outside-click kapanışı yoktu.
+  Ortak menü native auto-popover üst katmanına taşındı. Sabit viewport/visual
+  viewport konumu kenarlara sıkıştırılır, gerekirse yukarı açılır ve içerik kendi
+  içinde kayar; satır boyutunu değiştirmez. Native outside/Escape light-dismiss,
+  aria-expanded, ok/Home/End, trigger focus dönüşü ve scroll/resize yeniden
+  konumlama var. Açıklamalar yetki kazandırmaz; durum yalnız Aç/Kapat etiketini
+  belirler, ONLINE/OFFLINE menüyü engellemez.
+- PASS: 31 farklı hedefli frontend testi (subscriberCenter,
+  subscriberQuickWorkflow, subscriberMenuPosition) ve 4 backend projection testi;
+  TypeScript, frontend build, browser-script syntax ve diff kontrolü. Liste/
+  canonical ID eşitliği, eski ACTIVE/PAUSED LOCAL, yetkili/yetkisiz RADIUS,
+  unknown, ambiguous/foreign router, viewport/keyboard/focus ve mevcut doğru
+  abone/modal/işlem/history/çift gönderim/refresh davranışları doğrulandı.
+- Gerçek desktop/mobile browser testi BLOCKED: projede zaten tanımlı
+  playwright-core node_modules altında yok; tek offline kurulum ENOTCACHED ile
+  başarısız. Manifest/lock değiştirilmedi, yeni bağımlılık veya browser kurulmadı.
+  Yeni test yalnız sentetik HTML ile, serversiz ve dış istekler kapalı çalışmak
+  üzere `frontend/tests/subscriberRowMenu.browser.mjs` içinde hazır; bu oturumda
+  tarayıcı açılmadı. Unit sonuçları gerçek pointer/layout kabulü sayılmadı.
+- Çalışan yerel API/UI restart edilmedi; backend okuma projeksiyonu sonraki API
+  başlangıcında devreye girer. 11 demo abonesi/PG/suatciftci hesabı üzerinde DB
+  erişimi/yazma, migration/silme, canlı/VDS/router/RADIUS/IPsec erişimi, eski
+  harness, reset/rebase/stash değişikliği veya push yok.
+
 ## Ofis hızlı abone işlemleri — 2026-11-09
 
 - `office-development` / `9040743` temiz başlangıç, iki stash korundu. Mevcut

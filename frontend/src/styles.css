@@ -332,9 +332,10 @@ input::placeholder{color:var(--muted);opacity:1}
 .subscriber-quick-buttons,.renewal-shortcuts{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 .subscriber-quick-buttons button,.renewal-shortcuts button{min-height:40px}
 .renewal-shortcuts button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
-.subscriber-row-actions{display:inline-block;vertical-align:top;margin:4px 0;min-width:110px}
-.subscriber-row-actions>summary{cursor:pointer;list-style:none;min-height:40px}
-.subscriber-row-actions>summary::-webkit-details-marker{display:none}
-.subscriber-row-actions .subscriber-quick-buttons{display:grid;grid-template-columns:1fr;min-width:150px;margin:6px 0 0}
-.subscriber-row-actions button{width:100%;white-space:normal;text-align:left}
-@media(max-width:600px){.subscriber-quick-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.subscriber-quick-buttons button{height:auto;white-space:normal;min-height:44px}.subscriber-row-actions .subscriber-quick-buttons{width:auto;grid-template-columns:1fr}.renewal-shortcuts button{flex:1;min-height:44px}}
+.subscriber-row-actions{display:inline-block;vertical-align:top;margin:4px 0}
+.subscriber-row-actions>button{min-height:40px}
+.subscriber-row-popover{position:fixed;inset:auto;margin:0;padding:8px;width:240px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);box-shadow:0 8px 28px #0003;white-space:normal}
+.subscriber-row-popover .subscriber-quick-buttons{display:grid;grid-template-columns:1fr;width:100%;margin:0;gap:6px}
+.subscriber-row-popover button{width:100%;white-space:normal;text-align:left;justify-content:flex-start;min-height:44px}
+.subscriber-action-reason{margin:4px 0 8px;font-size:var(--font-small);line-height:1.5;color:var(--text-secondary);overflow-wrap:anywhere}
+@media(max-width:600px){.subscriber-quick-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.subscriber-quick-buttons button{height:auto;white-space:normal;min-height:44px}.renewal-shortcuts button{flex:1;min-height:44px}}
