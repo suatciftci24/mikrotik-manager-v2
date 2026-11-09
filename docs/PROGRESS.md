@@ -1,5 +1,35 @@
 # MikroTik Manager V2 — İlerleme
 
+## Ofis dev.sh API başlangıcında eksik Pillow — 2026-11-09
+
+- Başlangıç `office-development` / `f386811`, temiz çalışma ağacı; iki stash
+  korundu. İlk olarak `.local/runtime/accept-api-tzil9cde/api.log` okundu:
+  `app.main → subscriber_center → subscriber_photos:16` import zinciri
+  `ModuleNotFoundError: No module named 'PIL'` ile sonlanıyor. Logdaki kapanış
+  bir port çakışması değil, uygulama import hatasıdır.
+- Pillow `backend/requirements.txt` içinde mevcut (`>=11,<13`), fakat `.venv`
+  içinde yok. `dev.sh` yalnız fastapi/sqlalchemy/psycopg/uvicorn kontrol ettiği
+  için eksik Pillow'da requirements kurulumunu atlıyordu. En küçük düzeltme:
+  mevcut bağımlılık probuna `from PIL import Image, ImageOps` eklendi.
+  Başarısız kurulum `set -e` sayesinde DB/API/UI adımlarından önce durur.
+- Yerel PG16 hedefi yalnız repo altındaki `.local/postgres-v2-demo`, loopback
+  55432 ve standart demo DB/rol; mevcut marker/data_directory/yetki kontrolü
+  korunuyor. Normal başlangıç initdb/seed/migration çalıştırmıyor. API/UI
+  yönetimi dolu/yabancı portları reddediyor; yalnız kendi açtığı çocukları
+  kapatıyor. Bu işte bu kodlara veya port ayarlarına değişiklik yapılmadı.
+- PASS: 3 yeni dev.sh bootstrap testi + mevcut 6 local-demo DB güvenlik testi
+  (toplam 9, fake araç/mock; gerçek DB/socket yok), `bash -n dev.sh` ve diff
+  kontrolü. Eksik Pillow, tam ortam ve kurulum hatasında doğru sıralama test
+  edildi. Eski kabul harness testleri çalıştırılmadı.
+- Gerçek UI/API hazır kontrolü BLOCKED/doğrulanmadı: tek Pillow kurulum
+  denemesi uygun dağıtım bulamadı; kurulum tamamlanmadı. Bilinen sandbox socket
+  kısıtı tekrar denenmedi; dev.sh gerçek başlangıcı çalıştırılmadı. Normal Ofis
+  WSL doğrulaması: `cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && ./dev.sh`.
+  Bu komut eksik Pillow varsa mevcut requirements kurulumunu artık tetikler.
+- Kullanıcının bildirdiği 11 mevcut abone yeniden sayılmadı; PostgreSQL'e
+  erişim/yazma, migration, seed veya veri silme yapılmadı. Canlı/VDS/router/
+  RADIUS/IPsec, reset/rebase/stash değişikliği ve push yok.
+
 ## V2.6 Chromium callback TypeError ve browser acceptance — 2026-11-08
 
 - Altın Kurallar, güncel ilerleme/kabul kaydı ve temiz `main-guncel` durumu
