@@ -2,6 +2,45 @@
 
 Result: **BLOCKED**. Base: `main-guncel` / `f386811`; initial worktree clean.
 
+## Import-stage diagnosis on base 4cc4f4b
+
+The user reports real Office WSL acceptance stopped at
+`ISOLATED_ENGINE_AND_APP_IMPORT`, after loopback socket tests passed. A fresh
+import-only reproduction in the same repository virtualenv, with socket,
+database connection and subprocess creation blocked, identified
+`ModuleNotFoundError: PIL` at `app/services/subscriber_photos.py:16`, reached
+from `app.main` through `app.api.v1.subscriber_center`. Pillow is already
+declared as `Pillow>=11,<13` in `backend/requirements.txt`; the virtualenv lacks
+the dependency. No database or network error was observed in this reproduction.
+
+The fixture previously grouped engine declaration, engine patching, application
+import and client creation under one stage, and its redacted reporter omitted
+the exception class/dependency. Dependency preflight now imports Pillow and
+its Image extension before any fixture resource is acquired. A shared helper
+captures only allowlisted dependency/error classes and repository source line
+metadata, including errors wrapped by unittest. Exception messages, locals,
+DSNs, arbitrary module names and raw traceback/source text are not printed.
+The explicit `--import-only` CLI tests the fixture/app import graph without
+creating a database, HTTP server or PostgreSQL process; connection and process
+entry points are blocked in that mode. Its PASS is only an import result.
+
+PASS: 36 focused offline import, HTTP safety and cleanup tests, plus whitespace
+check. Import-only diagnostic reproduced the missing Pillow dependency.
+An offline/no-index installation attempt found no compatible local Pillow
+distribution and installed nothing. Real PostgreSQL/HTTP/browser acceptance
+was not run. The local dependency block remains open until Pillow is installed;
+this is not a full-acceptance PASS. No DNS/GitHub/push or production action ran.
+
+Next single command, **normal Office WSL terminal only**. The first step needs
+package-index access to install only the dependency range already declared by
+the project; no package installation was performed successfully in this task.
+The acceptance step runs only if installation succeeds, and its own preflight
+still rejects missing/broken dependencies, existing roots and occupied ports:
+
+```bash
+cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && env -i PATH=/usr/bin:/bin HOME="$HOME" LANG=C.UTF-8 "$PWD/.venv/bin/python" -s -m pip --isolated install 'Pillow>=11,<13' && env -i PATH=/usr/bin:/bin HOME="$HOME" LANG=C.UTF-8 PYTHONPATH="$PWD:$PWD/backend" "$PWD/.venv/bin/python" -s -m backend.tests.v26_http_acceptance --run
+```
+
 ## Cleanup hardening on base 976fc64
 
 The earlier cleanup findings are addressed in test-only source. The HTTP

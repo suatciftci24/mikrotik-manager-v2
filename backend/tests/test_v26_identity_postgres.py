@@ -20,6 +20,7 @@ from app.services.v26_identity import V26FirstAdminStore
 from backend.tests.v26_disposable_cluster import DisposableClusterGuard
 from backend.tests.v26_owned_resources import OwnedRoot
 from backend.tests.v26_http_acceptance import defer_interrupts
+from backend.tests.v26_import_diagnostic import capture_import_failure
 
 SOURCE = Path(__file__).resolve().parents[2]
 
@@ -110,17 +111,18 @@ class V26IdentityPostgres(unittest.TestCase):
         os.chdir(cls.root)
         cls.addClassCleanup(os.chdir, before)
         cls.stage = 'ISOLATED_ENGINE_AND_APP_IMPORT'
-        cls.engine = create_engine(url, hide_parameters=True)
-        cls.addClassCleanup(cls.engine.dispose)
-        engine_patch = patch('app.core.database.engine', cls.engine)
-        engine_patch.start()
-        cls.addClassCleanup(engine_patch.stop)
-        adapter_patch = patch.object(demo_subscriptions.store, '_adapter', None)
-        adapter_patch.start()
-        cls.addClassCleanup(adapter_patch.stop)
-        from app.main import app
-        cls.client = cls.make_client(app)
-        cls.addClassCleanup(cls.client.close)
+        with capture_import_failure():
+            cls.engine = create_engine(url, hide_parameters=True)
+            cls.addClassCleanup(cls.engine.dispose)
+            engine_patch = patch('app.core.database.engine', cls.engine)
+            engine_patch.start()
+            cls.addClassCleanup(engine_patch.stop)
+            adapter_patch = patch.object(demo_subscriptions.store, '_adapter', None)
+            adapter_patch.start()
+            cls.addClassCleanup(adapter_patch.stop)
+            from app.main import app
+            cls.client = cls.make_client(app)
+            cls.addClassCleanup(cls.client.close)
 
     def setUp(self):
         self.client.cookies.clear()

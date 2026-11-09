@@ -7,7 +7,6 @@ import argparse
 import errno
 import http.client
 from http.cookies import SimpleCookie
-import importlib.util
 import json as codec
 import os
 import signal
@@ -16,6 +15,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+from backend.tests import v26_import_diagnostic as import_diagnostic
 
 SOURCE = Path(__file__).resolve().parents[2]
 ROOT = Path('/tmp/mikrotik-v26-acceptance')
@@ -94,6 +94,8 @@ def failed_acceptance_diagnostic(result):
     if not stage:
         return None
     diagnostic = 'stage=' + stage
+    if stage == 'ISOLATED_ENGINE_AND_APP_IMPORT' and import_diagnostic.LAST_IMPORT_FAILURE:
+        diagnostic += ' ' + import_diagnostic.LAST_IMPORT_FAILURE
     if stage == 'BROWSER_ACCEPTANCE':
         for _, traceback_text in result.errors + result.failures:
             if 'BROWSER_ACCEPTANCE_DID_NOT_COMPLETE' in traceback_text:
@@ -173,9 +175,10 @@ def preflight():
     for name in ('initdb', 'pg_ctl', 'createdb', 'postgres'):
         if not os.access(PG / name, os.X_OK):
             raise AcceptanceBlocked('POSTGRESQL16_TOOLS_REQUIRED')
-    for name in ('uvicorn', 'psycopg', 'sqlalchemy', 'fastapi'):
-        if importlib.util.find_spec(name) is None:
-            raise AcceptanceBlocked('ACCEPTANCE_DEPENDENCY_MISSING')
+    try:
+        import_diagnostic.check_dependencies()
+    except RuntimeError as error:
+        raise AcceptanceBlocked(str(error)) from None
 
 
 def isolated_environment(values):
@@ -506,11 +509,42 @@ def acceptance_suite(during_acceptance=None, browser_only=False):
     return unittest.TestSuite([RealHttpAcceptance(selected)])
 
 
+def import_only_diagnostic():
+    """Import the same fixture/app graph without socket, DB or process creation."""
+    import sys
+    import socket
+    class NoSocket(socket.socket):
+        def __new__(cls, *args, **kwargs):
+            raise AcceptanceBlocked('IMPORT_SOCKET_FORBIDDEN')
+    try:
+        if Path.cwd() != SOURCE or 'app.main' in sys.modules:
+            raise AcceptanceBlocked('IMPORT_DIAGNOSTIC_REQUIRES_FRESH_REPO_PROCESS')
+        with patch.dict(os.environ, isolated_environment({}), clear=True), \
+             patch('socket.socket', NoSocket), \
+             patch('sqlalchemy.engine.Engine.connect', side_effect=AcceptanceBlocked('IMPORT_DB_FORBIDDEN')), \
+             patch('psycopg.connect', side_effect=AcceptanceBlocked('IMPORT_DB_FORBIDDEN')), \
+             patch('subprocess.Popen', side_effect=AcceptanceBlocked('IMPORT_PROCESS_FORBIDDEN')):
+            with import_diagnostic.capture_import_failure():
+                import_diagnostic.check_dependencies()
+                import_diagnostic.import_application_graph()
+        print('PASS: isolated fixture/app imports only; no socket/database/process startup')
+        return 0
+    except Exception as error:
+        print('BLOCKED: stage=ISOLATED_ENGINE_AND_APP_IMPORT ' + import_diagnostic.details(error))
+        return 1
+
+
 def main(argv=None, during_acceptance=None, browser_only=False):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--run', required=True, action='store_true',
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--import-only', action='store_true',
+                      help='socketless fixture/app import diagnostic; no PostgreSQL startup')
+    mode.add_argument('--run', action='store_true',
                         help='create and destroy a new synthetic cluster; never reuse an existing DB')
-    parser.parse_args(argv)
+    arguments = parser.parse_args(argv)
+    if arguments.import_only:
+        return import_only_diagnostic()
+    import_diagnostic.LAST_IMPORT_FAILURE = None
     try:
         preflight()
         with patch.dict(os.environ, isolated_environment(os.environ), clear=True):

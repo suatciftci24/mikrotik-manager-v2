@@ -1,5 +1,27 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6 import aşaması / eksik Pillow teşhisi — 2026-11-09
+
+- `4cc4f4b` tabanı ve iki stash korundu. Kullanıcı normal Ofis WSL kabulünde
+  `ISOLATED_ENGINE_AND_APP_IMPORT` BLOCKED bildirdi. Aynı repo `.venv` ile
+  socket/DB/süreç oluşturmayı engelleyen import denemesi gerçek hatayı üretti:
+  `app.main → app.api.v1.subscriber_center → app.services.subscriber_photos:16`,
+  `ModuleNotFoundError: PIL`. Pillow mevcut requirements içinde zaten tanımlı;
+  eksik olan yerel bağımlılık kurulumu. Önceki preflight Pillow'u kapsamıyordu.
+- Preflight artık Pillow ve `PIL.Image` dahil bağımlılıkları PG/dizin/socket
+  hazırlığından önce import eder. Import hatasında yalnız allowlist dağıtım,
+  hata sınıfı ve repo içi kaynak/satır raporlanır; mesaj/DSN/parola/ham traceback
+  yazılmaz. Shared diagnostic modülü `-m`/fixture import farkında da çalışır.
+- `--import-only` modu aynı fixture/app import grafiğini socket, Engine.connect,
+  psycopg.connect ve subprocess.Popen engelleriyle çalıştırır; PG/HTTP açmaz.
+  Teşhis artık açıkça `dependency=Pillow ... missing_dependency=Pillow` verdi.
+- PASS: 36 hedefli import/HTTP safety/cleanup unittest ve diff check. Gerçek
+  PG/HTTP/browser kabulü çalıştırılmadı. Offline Pillow kurulumunda uygun paket
+  bulunamadı; ortam bağımlılık engeli açık. İnternet kurulumu denenmedi.
+- DNS/push/canlı bağlantı/deploy/restart/migration yok. Sonraki tek Ofis WSL
+  komutu kabul raporunda: önce mevcut requirements aralığındaki Pillow'u kurar;
+  yalnız kurulum başarılıysa izole gerçek kabulü çalıştırır.
+
 ## V2.6 izole harness cleanup güvenliği — 2026-11-09
 
 - `976fc64` tabanında yalnız test harness'i değişti; iki stash korundu.
