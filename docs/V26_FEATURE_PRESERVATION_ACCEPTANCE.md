@@ -38,6 +38,26 @@ okunur; depolar birleştirilmez.
 
 ## Doğrulama ve engeller
 
+### Ofis doğrudan hızlı işlemler — 2026-11-09
+
+`office-development`, başlangıç `9040743`: Hızlı İşlemler tek düğmesi yerine
+doğrudan uzatma/paket/hesap aç-kapat ve geçmiş girişleri var. Aynı ortak butonlar
+iki liste kaynağında kompakt, klavye erişimli satır menüsü olarak kullanılır;
+detay bağlantıları ve filtreler korunur. Legacy listeden işlem seçildiğinde
+canonical detay okunup mevcut politika doğrulanmadan modal açılmaz.
+
+QuickActions/SubscriberRenewal/SubscriberDailyActions mevcut POST ve receipt
+akışlarını korur; yalnız başlangıç işlemi/durum ön seçimi ve 30/90/özel tarih
+kısayolları eklendi. Workspace paket karşılaştırması formda da görünür.
+Önizleme/onay, revizyon/UUID/rol/kaynak/router ve audit kuralları değişmedi.
+Legacy modal seçimi canonical snapshot'ını saklar; detay yenilenirken üst
+seviyedeki modal/sonuç kaybolmaz. Başarılı işlem sonrası yönlendirme yok.
+
+PASS: yedi ilgili frontend dosyasında 45 farklı hedefli test, TypeScript ve
+frontend build; çift gönderim, receipt koruma, invalidation, kaynak/yetki reddi,
+preset, filtre/konum ve focus davranışı doğrulandı. Gerçek browser/HTTP/PG
+kabulü çalıştırılmadı. DB/hesap/servis/canlı erişim veya push yok.
+
 ### Ofis detay sadeleştirmesi — 2026-11-09
 
 `office-development`, başlangıç `668aa11`: mevcut işlem diyalogları ve

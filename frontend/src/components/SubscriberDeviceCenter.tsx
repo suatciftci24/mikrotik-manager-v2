@@ -1,4 +1,7 @@
+import {QuickActions,type QuickAction} from './QuickActions';
+import type {SubscriberDetailData} from '../lib/api';
 import {linkedDetailHash} from '../lib/detailLinks';
+import {SubscriberQuickButtons} from './SubscriberQuickButtons';
 import {canChangeWorkspace} from '../lib/subscriberActions';
 import {LegacySubscriberActions} from './LegacySubscriberActions';
 import {dailyLabels} from '../lib/subscriberManagementCenter';
@@ -15,15 +18,17 @@ import {useTurkeyToday} from '../lib/useTurkeyToday';
 import {can,useIdentity} from '../lib/permissions';
 import {SubscriberPhotos} from './SubscriberPhotos';
 const dependencies=['/subscribers','/subscriber-workspace'] as const;
-export function SubscriberDeviceCenter({id,onBack,onEdit,onRenew,onManage,legacy,photosEnabled=false}:{id:string;onBack:()=>void;onEdit?:(item:CenterSubscriber)=>void;onRenew?:(item:CenterSubscriber)=>void;onManage?:(item:CenterSubscriber)=>void;legacy?:ReactNode|((tab:SubscriberTab)=>ReactNode);photosEnabled?:boolean}){
+export function SubscriberDeviceCenter({id,onBack,onEdit,onRenew,onManage,legacy,photosEnabled=false}:{id:string;onBack:()=>void;onEdit?:(item:CenterSubscriber)=>void;onRenew?:(item:CenterSubscriber)=>void;onManage?:(item:CenterSubscriber,action?:'PLAN'|'STATUS')=>void;legacy?:ReactNode|((tab:SubscriberTab)=>ReactNode);photosEnabled?:boolean}){
+ const [legacyAction,setLegacyAction]=useState<{detail:SubscriberDetailData;action:QuickAction}|null>(null);
+ const today=useTurkeyToday();
  const resource=useResource<SubscriberCenterData>('/subscriber-center/'+encodeURIComponent(id),undefined,dependencies);
  const tabKeys=[...subscriberCenterTabs.map(([key])=>key),'package','expiry',...(photosEnabled?['photos' as const]:[])] as const;
  const [tab,setTab]=useListFilter('subscribers','tab',tabKeys,'overview');const heading=useRef<HTMLHeadingElement>(null);
  useEffect(()=>{heading.current?.focus();window.scrollTo(0,0);},[id]);
  const data=resource.data;const error=resource.error||(data&&!safeSubscriberCenter(data,id)?'Abone kaynağı veya router ID bağı doğrulanamadı; detay gösterilmedi.':undefined);
- return <section className="screen-stack"><button className="detail-back button-secondary" onClick={onBack}>← Geri dön</button><PageHeading title="Abone Detay Merkezi" eyebrow="SENTETİK DEMO · CANLI İŞLEM YOK" description="Kayıtlı hesap bilgileri gösterilir; cihaz ve RADIUS bağlantısı başlatılmaz." headingRef={heading}/><ResourceState {...resource} error={error}/>{data&&!resource.loading&&!error&&<SubscriberDeviceCenterView data={data} tab={tab} onTab={setTab} onEdit={onEdit} onRenew={onRenew} onManage={onManage} legacy={legacy} photosEnabled={photosEnabled}/>}</section>;
+ return <section className="screen-stack">{legacyAction&&<QuickActions rows={[legacyAction.detail.item]} today={today} initialAction={legacyAction.action} onClose={()=>setLegacyAction(null)}/>}<button className="detail-back button-secondary" onClick={onBack}>← Geri dön</button><PageHeading title="Abone Detay Merkezi" eyebrow="SENTETİK DEMO · CANLI İŞLEM YOK" description="Kayıtlı hesap bilgileri gösterilir; cihaz ve RADIUS bağlantısı başlatılmaz." headingRef={heading}/><ResourceState {...resource} error={error}/>{data&&!resource.loading&&!error&&<SubscriberDeviceCenterView data={data} tab={tab} onTab={setTab} onEdit={onEdit} onRenew={onRenew} onManage={onManage} onLegacyAction={(detail,action)=>setLegacyAction({detail,action})} legacy={legacy} photosEnabled={photosEnabled}/>}</section>;
 }
-export function SubscriberDeviceCenterView({data,tab,onTab,onEdit,onRenew,onManage,legacy,photosEnabled=false}:{data:SubscriberCenterData;tab:SubscriberTab;onTab:(tab:SubscriberTab)=>void;onEdit?:(item:CenterSubscriber)=>void;onRenew?:(item:CenterSubscriber)=>void;onManage?:(item:CenterSubscriber)=>void;legacy?:ReactNode|((tab:SubscriberTab)=>ReactNode);photosEnabled?:boolean}){
+export function SubscriberDeviceCenterView({data,tab,onTab,onEdit,onRenew,onManage,onLegacyAction,legacy,photosEnabled=false}:{data:SubscriberCenterData;tab:SubscriberTab;onTab:(tab:SubscriberTab)=>void;onEdit?:(item:CenterSubscriber)=>void;onRenew?:(item:CenterSubscriber)=>void;onManage?:(item:CenterSubscriber,action?:'PLAN'|'STATUS')=>void;onLegacyAction?:(detail:SubscriberDetailData,action:QuickAction)=>void;legacy?:ReactNode|((tab:SubscriberTab)=>ReactNode);photosEnabled?:boolean}){
  const writable=canChangeWorkspace(data,!!(onEdit||onRenew||onManage));
  const identity=useIdentity();const r=data.item;const today=useTurkeyToday();const buttons=useRef<(HTMLButtonElement|null)[]>([]);const routerHash=subscriberRouterHash(r,typeof window==='undefined'?'':window.location.hash);
  const tabs=subscriberCenterTabs;const activeTab=subscriberTab(tab);
@@ -53,12 +58,11 @@ export function SubscriberDeviceCenterView({data,tab,onTab,onEdit,onRenew,onMana
  </>
  :activeTab==='actions'?<><p>Yalnız yetkili sentetik kayıt işlemleri. Eski → yeni karşılaştırmasını inceleyin ve açıkça onaylayın; gerçek cihaz veya RADIUS hesabı değiştirilmez.</p>
  <section className="inventory-toolbar" aria-label="Abone işlemleri">
- {data.source==='LEGACY_DEMO'&&<LegacySubscriberActions key={r.id} id={r.id}/>}
- {writable&&<div className="subscriber-actions-menu"><div className="subscriber-actions-options">
- {onRenew&&<button className="button-primary" onClick={()=>onRenew(r)}>Aboneliği uzat</button>}
- {onManage&&<button className="button-secondary" onClick={()=>onManage(r)}>Paket / durum / tarih işlemleri</button>}
- {onEdit&&<button className="button-secondary" onClick={()=>onEdit(r)}>Abone bilgilerini düzenle</button>}
- </div></div>}
+ {data.source==='LEGACY_DEMO'&&<LegacySubscriberActions key={r.id} id={r.id} onHistory={()=>onTab('history')} onSelect={onLegacyAction}/>}
+ {data.source==='PERSISTENT_WORKSPACE'&&<div className="subscriber-actions-menu">
+ <SubscriberQuickButtons status={r.status} onHistory={()=>onTab('history')} available={[...(onRenew?['EXTEND' as const]:[]),...(onManage?['PLAN' as const,'STATUS' as const]:[])]} onAction={writable?action=>{if(action==='EXTEND')onRenew?.(r);else onManage?.(r,action);}:undefined}/>
+ {writable&&onEdit&&<button className="record-link" onClick={()=>onEdit(r)}>Abone bilgilerini düzenle</button>}
+ </div>}
  {data.source==='PERSISTENT_WORKSPACE'&&!writable&&<p role="status">İşlemler için merkezi yönetim yetkisi, kalıcı demo deposu ve doğrulanmış kaynak/router bağı gerekli.</p>}
  </section>{supplementary}</>
  :activeTab==='history'?<>{data.history.length?<ol className="registry-history">{data.history.map((e,index)=><li key={index}><strong>{dailyLabels[e.operation]??({DATE_EDIT:'Bitiş tarihi düzenlendi',PLAN_CHANGE:'Paket değiştirildi',STATUS_CHANGE:'Hesap durumu değiştirildi'} as Record<string,string>)[e.operation]??detailText(e.operation)}</strong><span>İşlem UUID: {detailText(e.request_id)} · İşlem revizyonu: {e.revision??'Veri yok'} · Güncel abonelik revizyonu: {r.revision}</span><span>Yetkili kaynak: {e.source??'Veri yok'} · {observationTime(e.occurred_at)?dateTime(e.occurred_at):'Veri yok'} · İşlemi yapan: {detailText(e.actor_id)}</span>{e.date_changed&&<span>Eski bitiş: {expiryInfo(e.previous_expires_on,today).days===null?'Veri yok':expiryDate(e.previous_expires_on)} → Yeni bitiş: {expiryInfo(e.expires_on,today).days===null?'Veri yok':expiryDate(e.expires_on)}</span>}<span>Sonuç: {e.result==='FAILED'?'Başarısız · Kayıt değiştirilmedi':e.result==='APPLIED'?'Uygulandı · Sentetik kayıt':'Veri yok'}</span>{e.router_id&&<span>İşlemdeki router: {e.router_id.startsWith(data.source==='PERSISTENT_WORKSPACE'?'demo-managed-router-':'demo-router-')?<a className="record-link" href={linkedDetailHash({module:'routers',id:e.router_id,source:data.source==='PERSISTENT_WORKSPACE'?'MANAGED_DEMO':'DEMO'},typeof window==='undefined'?'':window.location.hash)}>{e.router_id}</a>:e.router_id}</span>}<a className="record-link" href={linkedDetailHash({module:'subscribers',id:r.id,workspace:data.source==='PERSISTENT_WORKSPACE'?'PERSISTENT':'LEGACY'},typeof window==='undefined'?'':window.location.hash)}>Abone detayını aç</a><div className="registry-history-changes"><div><strong>Önceki değerler</strong>: {valuesText(e.previous_values)}</div><div><strong>Yeni değerler</strong>: {valuesText(e.new_values)}</div></div>{e.error&&<span>{e.error}</span>}</li>)}</ol>:<p className="missing-data">Veri yok. Kayıtlı işlem geçmişi bulunmuyor.</p>}<p>Gösterilen audit işlem anını anlatır; eski revizyon güncel hesap durumunun yerine geçmez. Belirsiz istek bu listeden başarılı sayılmaz. En fazla son 50 kayıt işlemi; bağlantı geçmişi değildir. Zamanlar Türkiye saatinde (Europe/Istanbul) gösterilir.</p></>

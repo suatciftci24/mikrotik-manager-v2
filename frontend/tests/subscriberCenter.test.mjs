@@ -100,20 +100,24 @@ test('shared action policy rejects wrong source, permission, persistence and rou
  assert.equal(policy.exports.canChangeWorkspace(data,false),false);
  for(const patch of [{source:null},{router_missing:true},{router_source:'UNKNOWN'},{access_type:null}])assert.equal(!!policy.exports.canChangeWorkspace({...data,item:{...data.item,...patch}},true),false);
 });
-test('workspace actions have one visible entry point and keep exact canonical callbacks',()=>{
- const calls=[];
- const props={data,onTab(){},onEdit:r=>calls.push(['edit',r]),onRenew:r=>calls.push(['renew',r]),onManage:r=>calls.push(['manage',r])};
+test('workspace actions keep direct preset callbacks and history navigation in the current center',()=>{
+ const calls=[];let selected;
+ const props={data,onTab(value){selected=value;},onEdit:r=>calls.push(['edit',r]),onRenew:r=>calls.push(['renew',r]),onManage:(r,action)=>calls.push(['manage',r,action])};
  const tree=module.exports.SubscriberDeviceCenterView({...props,tab:'actions'});
  const menu=nodes(tree).find(n=>n.props?.className==='subscriber-actions-menu');assert.ok(menu);
- for(const [label,kind] of [['Abone bilgilerini düzenle','edit'],['Aboneliği uzat','renew'],['Paket / durum / tarih işlemleri','manage']]){
-  const buttons=nodes(menu).filter(n=>n.type==='button'&&renderToStaticMarkup(n).includes(label));assert.equal(buttons.length,1);buttons[0].props.onClick();
-  assert.deepEqual(calls.at(-1),[kind,data.item]);
+ const shared=nodes(menu).find(n=>typeof n.type==='function'&&n.type.name==='SubscriberQuickButtons');assert.ok(shared);
+ const buttons=nodes(shared.type(shared.props)).filter(n=>n.type==='button');
+ const event={currentTarget:{closest:()=>null}};
+ for(const [label,expected] of [['Abonelik Uzat',['renew',data.item]],['Paket Değiştir',['manage',data.item,'PLAN']],['Hesabı Kapat',['manage',data.item,'STATUS']]]){
+  const button=buttons.find(n=>n.props.children===label);assert.ok(button);button.props.onClick(event);assert.deepEqual(calls.at(-1),expected);
  }
- for(const tab of ['overview','history','connections','package','expiry'])assert.equal(nodes(module.exports.SubscriberDeviceCenterView({...props,tab})).some(n=>n.props?.className==='subscriber-actions-menu'),false);
+ buttons.find(n=>n.props.children==='İşlem Geçmişi').props.onClick(event);assert.equal(selected,'history');
+ nodes(menu).find(n=>n.type==='button'&&n.props.children==='Abone bilgilerini düzenle').props.onClick();assert.deepEqual(calls.at(-1),['edit',data.item]);
+ for(const tab of ['overview','history','connections'])assert.equal(nodes(module.exports.SubscriberDeviceCenterView({...props,tab})).some(n=>n.props?.className==='subscriber-actions-menu'),false);
  for(const patch of [{source:null},{router_missing:true},{router_source:'UNKNOWN'}]){
   const denied=module.exports.SubscriberDeviceCenterView({...props,data:{...data,item:{...data.item,...patch}},tab:'actions'});
-  assert.doesNotMatch(renderToStaticMarkup(denied),/subscriber-actions-menu/);
-  assert.match(renderToStaticMarkup(denied),/merkezi yönetim yetkisi/);
+  const surface=nodes(denied).find(n=>typeof n.type==='function'&&n.type.name==='SubscriberQuickButtons');
+  assert.equal(surface.props.onAction,undefined);assert.deepEqual(nodes(surface.type(surface.props)).filter(n=>n.type==='button').map(n=>n.props.children),['İşlem Geçmişi']);
  }
 });
 test('legacy detail exposes existing quick action surface without hiding it in demo disclosure',()=>{
@@ -123,7 +127,7 @@ test('legacy detail exposes existing quick action surface without hiding it in d
  assert.ok(surface);assert.equal(surface.props.id,legacy.item.id);
 });
 
-test('legacy toolbar opens one QuickActions entry and blocks unauthorized records',()=>{
+test('legacy direct buttons select the existing modal action and deny unauthorized records',()=>{
  const built=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/LegacySubscriberActions.tsx',import.meta.url))],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
  let action=null,allowed=true;
  const detail={is_demo:true,persistence:'local-postgresql-demo',item:{...data.item,id:'demo-sub-fixture',is_demo:true,can_manage_pppoe:true}};
@@ -134,9 +138,11 @@ test('legacy toolbar opens one QuickActions entry and blocks unauthorized record
  }};
  const mod={exports:{}};new Function('require','module','exports',built)(name=>name==='react'?mock:require(name),mod,mod.exports);
  const render=()=>mod.exports.LegacySubscriberActions({id:detail.item.id});
- const button=nodes(render()).find(n=>n.type==='button'&&n.props.children==='Hızlı İşlemler');assert.ok(button);button.props.onClick();
- const dialog=nodes(render()).find(n=>typeof n.type==='function'&&n.type.name==='QuickActions');assert.ok(dialog);assert.equal(dialog.props.initialAction,'EXTEND');assert.equal(dialog.props.rows[0].id,detail.item.id);
- allowed=false;assert.equal(nodes(render()).filter(n=>n.type==='button').length,0);assert.equal(nodes(render()).some(n=>typeof n.type==='function'&&n.type.name==='QuickActions'),false);
+ for(const value of ['EXTEND','PLAN','STATUS']){
+  const surface=nodes(render()).find(n=>typeof n.type==='function'&&n.type.name==='SubscriberQuickButtons');assert.ok(surface);surface.props.onAction(value);
+  const dialog=nodes(render()).find(n=>typeof n.type==='function'&&n.type.name==='QuickActions');assert.ok(dialog);assert.equal(dialog.props.initialAction,value);assert.equal(dialog.props.rows[0].id,detail.item.id);dialog.props.onClose();
+ }
+ allowed=false;const denied=nodes(render());assert.equal(denied.find(n=>typeof n.type==='function'&&n.type.name==='SubscriberQuickButtons').props.onAction,undefined);assert.equal(denied.some(n=>typeof n.type==='function'&&n.type.name==='QuickActions'),false);
 });
 
 test('history shows UUID and historical/current revisions separately and retains return filters in links',()=>{

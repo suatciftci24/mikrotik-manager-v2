@@ -1,3 +1,4 @@
+import {nextAccountStatus} from '../lib/subscriberActions';
 import {legacySavedReceipt} from '../lib/legacySubscriberReceipt';
 import {subscriberOperationError} from '../lib/subscriberOperationError';
 import {rememberQuickActionRequest,forgetQuickActionRequest} from '../lib/quickActionRequests';
@@ -20,8 +21,8 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
   const options=useResource<DemoOptions>('/subscribers/demo-options');
   const routers=useResource<{items:Router[]}>('/routers');
   const [action,setAction]=useState<QuickAction>(initialAction??(rows.length?'EXTEND':'CREATE'));
-  const [days,setDays]=useState('30'); const [custom,setCustom]=useState('');
-  const [plan,setPlan]=useState(''); const [status,setStatus]=useState('ACTIVE');
+  const [days,setDays]=useState(rows.some(row=>!row.expires_on)?'CUSTOM':'30'); const [custom,setCustom]=useState('');
+  const [plan,setPlan]=useState(''); const [status,setStatus]=useState(rows.length===1?nextAccountStatus(rows[0].status):'ACTIVE');
   const [router,setRouter]=useState(rows[0]?.router_name??'');
   const [source,setSource]=useState('LOCAL'); const [username,setUsername]=useState(''); const [name,setName]=useState('');
   const [review,setReview]=useState<Entry[]|null>(null); const [results,setResults]=useState<Result[]|null>(null);
@@ -129,6 +130,7 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
       </div>}
       {(action==='CREATE'||action==='PLAN')&&<label className="form-label"><span id={`${fieldId}-plan`}>Yeni paket</span><select aria-labelledby={`${fieldId}-plan`} required value={plan} onChange={e=>setPlan(e.target.value)}><option value="">Paket seçin</option>{options.data?.plans.map(p=><option key={p.name} value={p.name}>{p.name} · {p.monthly_price} TL</option>)}</select>{options.error&&<span role="alert">{options.error}</span>}</label>}
       {action==='STATUS'&&<label className="form-label"><span id={`${fieldId}-status`}>Yeni durum</span><select aria-labelledby={`${fieldId}-status`} value={status} onChange={e=>setStatus(e.target.value)}><option value="ACTIVE">Etkin</option><option value="PAUSED">Devre dışı (duraklatıldı)</option></select></label>}
+      {action==='EXTEND'&&<div className="renewal-shortcuts" aria-label="Hızlı uzatma seçimi">{[['30','30 gün'],['90','90 gün'],['CUSTOM','Özel tarih']].map(([value,label])=><button type="button" key={value} className="button-secondary" aria-pressed={days===value} onClick={()=>setDays(value)}>{label}</button>)}</div>}
       {action==='EXTEND'&&<label className="form-label"><span id={`${fieldId}-extension`}>Uzatma</span><select aria-labelledby={`${fieldId}-extension`} value={days} onChange={e=>setDays(e.target.value)}><option value="7">7 gün</option><option value="15">15 gün</option><option value="30">30 gün</option><option value="60">60 gün</option><option value="90">90 gün</option><option value="CUSTOM">Özel bitiş tarihi</option></select></label>}
       {(action==='CREATE'||action==='EXTEND'&&days==='CUSTOM')&&<label className="form-label">Yeni bitiş tarihi<input required type="date" min={today} value={custom} onChange={e=>setCustom(e.target.value)}/></label>}
 
@@ -139,7 +141,7 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
       {review.map((entry,i)=><section key={entry.item_id} className="quick-preview"><strong>{rows[i]?.customer_name??name} · {rows[i]?.username??username}</strong><p>{String(entry.change.router_name)} ({String(entry.change.router_id)}) · {String(entry.change.expected_source)}</p><p>Abone kimliği: {entry.item_id}</p><p>Bitiş: {expiryDate(rows[i]?.expires_on??null)} → {expiryDate(entry.change.expires_on as string|null)}</p>{(action==='PLAN'||action==='CREATE')&&<p>Paket: {rows[i]?.plan??'Yok'} → {plan} · Aylık tutar: {rows[i]?.monthly_price??0} → {options.data?.plans.find(p=>p.name===plan)?.monthly_price??'Bilinmiyor'} TL</p>}{(action==='STATUS'||action==='CREATE')&&<p>Durum: {rows[i]?.status??'Yok'} → {status}</p>}</section>)}
       {results&&<div role="status">{results.filter(r=>r.success).length} başarılı / {results.filter(r=>!r.success&&!r.uncertain).length} başarısız / {results.filter(r=>r.uncertain).length} belirsiz{results.map(r=><p key={r.item_id}>{rows.find(row=>row.id===r.item_id)?.customer_name??name}: {r.success?(action==='PLAN'?`Kaydedildi · İşlemde kaydedilen paket: ${r.result?.item.plan} · Aylık tutar: ${r.result?.item.monthly_price} TL`:action==='STATUS'?`Kaydedildi · İşlemde kaydedilen durum: ${r.result?.item.status==='ACTIVE'?'Aktif':'Pasif'}`:`Kaydedildi · İşlemde kaydedilen bitiş: ${expiryDate(r.result?.item.expires_on??null)}`):r.error??'İşlem uygulanmadı.'}</p>)}</div>}
       <p>Yanıt kaybolursa aynı UUID ile yalnız kayıtlı sonuç okunur; işlem yeniden gönderilmez. Sonuç geçmiş işlemi doğrular; liste, detay ve raporlar güncel kayıtları yeniden okur.</p>
-      <div className="expiry-editor-actions"><button className="button-secondary" disabled={pending} onClick={()=>{onClose();}}>Kapat ve güncel listeden yeniden seç</button><button className="button-primary" disabled={pending||!!results?.every(r=>!r.uncertain)} onClick={save}>{pending?'Kaydediliyor…':results?.every(r=>!r.uncertain)?'Sonuçlar doğrulandı':results?'Kayıtlı eksik sonuçları sorgula':attempted?'Kayıtlı sonucu sorgula':'Onayla ve uygula'}</button></div>
+      <div className="expiry-editor-actions"><button className="button-primary" disabled={pending||!!results?.every(r=>!r.uncertain)} onClick={save}>{pending?'Kaydediliyor…':results?.every(r=>!r.uncertain)?'Sonuçlar doğrulandı':results?'Kayıtlı eksik sonuçları sorgula':attempted?'Kayıtlı sonucu sorgula':'Onayla ve uygula'}</button></div>
     </>}
     {error&&<p role="alert" className="form-error">{error}</p>}
     <button className="button-secondary expiry-editor-cancel" disabled={pending} onClick={onClose}>Kapat</button>

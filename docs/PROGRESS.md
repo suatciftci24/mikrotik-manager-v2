@@ -1,5 +1,42 @@
 # MikroTik Manager V2 — İlerleme
 
+## Ofis hızlı abone işlemleri — 2026-11-09
+
+- `office-development` / `9040743` temiz başlangıç, iki stash korundu. Mevcut
+  dört sekme, canonical kaynak/yetki politikası ve üç işlem modalı incelendi;
+  backend, veri modeli veya yeni bağımlılık gerekmedi.
+- İşlemler sekmesinde Abonelik Uzat / Paket Değiştir / duruma uygun Hesabı
+  Aç-Kapat / İşlem Geçmişi doğrudan görünür. Legacy QuickActions ilgili işlemle,
+  workspace uzatma SubscriberRenewal ile, PLAN/STATUS SubscriberDailyActions
+  ön seçimiyle açılır. Düzenleme ve modal içindeki diğer mevcut işlemler korunur.
+- İki abone listesinde detay bağlantısının yanında ortak kompakt satır menüsü
+  var. İşlem seçmek detaya yönlendirmez veya yazma yapmaz. Legacy modal açılmadan
+  önce güncel canonical detaydan kaynak/depo/yetki yeniden doğrulanır; satır
+  başına gereksiz detay isteği yok. Geçmiş seçimi ilgili detayın history sekmesini
+  açar; mevcut filtre parametreleri korunur. Menü tıklaması satır navigasyonuna
+  yayılmaz; Escape/focus dönüşü ve mobil dokunma alanları desteklenir.
+- Legacy/workspace yenilemede 30/90 gün ve özel tarih kısayolları mevcut takvim
+  formülünü kullanır; diğer mevcut süreler korunur. Yeni durum kayıtlı durumun
+  karşıtıyla başlar. Workspace PLAN alanında mevcut ve yazılan yeni paket birlikte
+  görünür; legacy paket/fiyat karşılaştırması korunur.
+- Önizleme, açık onay, UUID/revizyon/rol/router/kaynak doğrulaması ve receipt
+  kurtarma değiştirilmedi. Çift gönderim korumaları mevcut modallerde kalır.
+  subscriberSaveDependencies detay/liste/Dashboard/geçmişi yeniden okutur;
+  başarı kullanıcıyı başka sayfaya götürmez. Legacy seçimi güncel canonical
+  snapshot'ını sabitler; detay modalı resource yenileme sınırının üzerinde
+  barındırılır, background yüklemede unmount olup sonucunu/UUID korumasını
+  sıfırlamaz. Gereksiz ikinci kapat düğmesi kaldırıldı.
+- PASS: 45 farklı hedefli frontend testi (subscriberCenter,
+  subscriberQuickWorkflow, subscriptionActions, subscriberDailyManagement,
+  subscriberRenewal, subscriberFilters, resourceInvalidation); TypeScript,
+  TypeScript/Vite build ve diff kontrolü. Yeni kapsam: preset/erişim reddi,
+  30/90/özel tarih, mevcut-yeni paket, çift tıklamada tek POST ve bağlı kaynak
+  invalidation, modal korunumu, filtre/konum ve klavye/focus davranışı.
+- Gerçek HTTP/PG/browser kabulü veya eski harness testleri çalıştırılmadı.
+  11 demo abonesi, PostgreSQL, suatciftci hesabı/giriş sistemi üzerinde işlem
+  yok; API/UI süreçleri yeniden başlatılmadı. Migration/silme/reset/rebase,
+  VDS/canlı/router/RADIUS/IPsec erişimi, stash değişikliği ve push yok.
+
 ## Ofis Abone Merkezi sadeleştirme — 2026-11-09
 
 - `office-development` / `668aa11` temiz başlangıç; iki stash korundu. Altın
