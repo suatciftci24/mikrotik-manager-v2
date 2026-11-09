@@ -1,5 +1,18 @@
 # MikroTik Manager V2 — İlerleme
 
+## Ofis → Ev GitHub senkronizasyonu — 2026-11-09 — BLOCKED
+
+- office-development/30f067c temiz başlangıç. Yerel origin/main-guncel
+  f386811'e göre 0 geri / 6 ileri; aktarılacak altı ofis commitinde eski yerel
+  main-guncel üzerindeki 7ff20cc, 976fc64, 4cc4f4b ve 77d5a0a yok.
+- Tek fetch denemesi github.com DNS çözümlemesinde başarısız oldu. Güncel uzak
+  SHA ve gerçek fast-forward uygunluğu doğrulanamadı; push denenmedi. Bu kayıt
+  yalnız yerel belgelemedir, senkronizasyon başarısı değildir.
+- İki stash ve backup/office-20261109 (77d5a0a) korunur; DB, abone/admin verisi,
+  servis, deploy, reset/rebase veya force-push işlemi yok. Ağ erişimi sağlanınca
+  fetch ve ancestry kontrolü yeniden yapılmadan push edilmemeli.
+
+
 ## Ofis Router Merkezi — 2026-11-09
 
 - Başlangıç `office-development` / `b06d1fa`, temiz ağaç. Yedi parçalı detay
