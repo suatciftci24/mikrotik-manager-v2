@@ -1,5 +1,22 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6 ofis izole kabul incelemesi — 2026-11-09
+
+- **BLOCKED**: `main-guncel` / `f386811` temiz başlangıç; iki stash korundu.
+  Betik mevcut: `deploy/v1-inventory/v26-isolated-run.sh`; beklediği
+  `/tmp/mikrotik-v26-acceptance` runtime ortamı bu oturumda yok.
+- Profil/DB hedefleri ve önceki kabul kayıtları incelendi. Yerel disposable
+  harness önkoşulları PASS; ev WSL wrapper ofis yolunu reddediyor.
+  Tek socket kontrolü `127.0.0.1:18996` için socket oluştururken
+  `PermissionError errno=1` verdi; bind/DB/uygulama başlatmaya geçilmedi.
+  Ürün hatası kanıtlanmadı; güvenlik kapıları değiştirilmedi.
+- PASS: mevcut betik Bash syntax kontrolü. Gerçek PG/HTTP/browser kabulü bu
+  ortamda doğrulanmadı. Uzak dal kontrolü GitHub DNS hatasıyla BLOCKED;
+  push yapılmadı. Canlı sağlık bağlantısı kullanıcı yasağı gereği yapılmadı.
+- Ayrıntı: `docs/V26_OFFICE_ISOLATED_ACCEPTANCE.md`. Sonraki önkoşul izole
+  loopback socket izni olan yürütme ortamı ve push öncesi uzak dal doğrulaması.
+  V1/V2.5/canlı/DB/migration/restart/deploy/veri işlemi yok.
+
 ## V2.6 Chromium callback TypeError ve browser acceptance — 2026-11-08
 
 - Altın Kurallar, güncel ilerleme/kabul kaydı ve temiz `main-guncel` durumu
