@@ -2,6 +2,51 @@
 
 Result: **BLOCKED**. Base: `main-guncel` / `f386811`; initial worktree clean.
 
+## Cleanup hardening on base 976fc64
+
+The earlier cleanup findings are addressed in test-only source. The HTTP
+harness now installs/restores SIGINT/SIGTERM handlers and uses an outer
+`finally` to drain remaining instance/class callbacks even on interrupted
+class setup. Acquisition and shutdown critical sections defer signals; tool
+children explicitly unblock SIGINT/SIGTERM. Tool timeout, unconfirmed process
+state or failed cleanup is non-PASS and preserves the owned root.
+
+`OwnedRoot` creates the fixed root exclusively, captures its device/inode/UID,
+keeps directory descriptors, and revalidates ownership, private permissions,
+canonical paths and data-directory identity before destructive cleanup.
+Deletion requires a stopped cluster, no postmaster PID file, no running HTTP
+thread, and symlink-safe descriptor-relative `shutil.rmtree`. No existing root
+is adopted, removed or automatically repaired.
+
+PostgreSQL shutdown checks data identity/version, PID-file ownership/target,
+process UID, exact PG16 executable, cwd, `-D` argument and process start ticks.
+A Linux pidfd pins that process; identity is rechecked before sending only
+that postmaster fast-shutdown SIGINT and waiting for its exit. There is no
+global kill/pkill or `pg_ctl stop`. SIGKILL and host failure cannot guarantee
+cleanup; any surviving acceptance root blocks the next run without removal.
+
+PASS: 42 socketless unit/mock tests across cleanup, HTTP safety, disposable
+guard and HTTP runner policies; diff whitespace check. Real PostgreSQL/HTTP
+and browser acceptance were not run. No permission setting, existing cluster,
+production endpoint, stash, deployment or migration was changed. DNS/push
+were not attempted. These static/unit results supersede the cleanup audit
+findings, not the historical environment BLOCKED or actual acceptance status.
+
+Normal **Office WSL terminal only**, repository owner, using already installed
+repository `.venv` and PG16 tools (no download, sudo, existing DB or service):
+
+```bash
+cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && env -i PATH=/usr/bin:/bin HOME="$HOME" LANG=C.UTF-8 PYTHONPATH="$PWD:$PWD/backend" "$PWD/.venv/bin/python" -s -m backend.tests.v26_http_acceptance --run
+```
+
+The harness checks non-root repository ownership, exact cwd, absent runtime
+root, PG16/Python and Linux pidfd prerequisites. It reserves only IPv4 loopback
+18996/55433 before creating the root and refuses occupied ports without
+contacting their listeners. It initializes a fresh private PG16 cluster under
+`/tmp/mikrotik-v26-acceptance/postgres-test`, role `v26_acceptance`, database
+`mikrotik_v26_acceptance`, and its own HTTP server. A pre-existing database is
+neither required nor accepted. The command above was source-reviewed, not run.
+
 ## Follow-up: host comparison and supported permission request
 
 - Starting commit `7ff20cc` and both stash object IDs were preserved; the

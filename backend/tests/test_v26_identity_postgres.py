@@ -3,7 +3,8 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
 import secrets
-import shutil
+import time
+import signal
 import subprocess
 import unittest
 from unittest.mock import patch
@@ -17,22 +18,33 @@ from app.services.first_admin import FirstAdminInput, SetupBlocked
 from app.services.identity_setup import inspect_setup
 from app.services.v26_identity import V26FirstAdminStore
 from backend.tests.v26_disposable_cluster import DisposableClusterGuard
+from backend.tests.v26_owned_resources import OwnedRoot
+from backend.tests.v26_http_acceptance import defer_interrupts
 
 SOURCE = Path(__file__).resolve().parents[2]
 
 
 @unittest.skipUnless(os.environ.get('V2_RUN_V26_IDENTITY_TESTS') == '1', 'Explicit disposable cluster opt-in required')
 class V26IdentityPostgres(unittest.TestCase):
-    @staticmethod
-    def run_pg(arguments):
-        # Capture tool errors for the redacted acceptance reporter; never echo argv/secrets.
-        return subprocess.run(arguments, check=True, timeout=40, capture_output=True, text=True)
+    @classmethod
+    def run_pg(cls, arguments):
+        # Defer interruption until the tool exits; child PostgreSQL must NOT
+        # inherit our temporarily blocked SIGINT/SIGTERM mask.
+        with defer_interrupts():
+            try:
+                return subprocess.run(
+                    arguments, check=True, timeout=40, capture_output=True, text=True,
+                    preexec_fn=lambda: signal.pthread_sigmask(
+                        signal.SIG_UNBLOCK, {signal.SIGINT, signal.SIGTERM}))
+            except subprocess.TimeoutExpired:
+                # A tool may have spawned descendants. Preserve for inspection.
+                cls.owned.pg_stopped = False
+                raise
 
     @classmethod
     def remove_stopped_root(cls):
-        if (cls.root / 'postgres-test' / 'postmaster.pid').exists():
-            raise RuntimeError('OWN_CLUSTER_STILL_RUNNING_ROOT_PRESERVED')
-        shutil.rmtree(cls.root)
+        with defer_interrupts():
+            cls.owned.remove()
 
     @classmethod
     def make_client(cls, app):
@@ -44,8 +56,9 @@ class V26IdentityPostgres(unittest.TestCase):
         cls.stage = 'PRIVATE_CLUSTER_DIRECTORY'
         cls.root = v26_acceptance.ROOT
         # Refuse any pre-existing acceptance environment, including symlinks.
-        cls.root.mkdir(mode=0o700)
-        cls.addClassCleanup(cls.remove_stopped_root)
+        with defer_interrupts():
+            cls.owned = OwnedRoot(cls.root)
+            cls.addClassCleanup(cls.remove_stopped_root)
         for name in ('backend', 'migrations', 'socket'):
             (cls.root / name).mkdir(mode=0o700)
         cls.pg = getattr(cls, 'pg', Path('/usr/lib/postgresql/16/bin'))
@@ -54,6 +67,9 @@ class V26IdentityPostgres(unittest.TestCase):
         pwfile = cls.root / 'test-password'
         pwfile.write_text(cls.password)
         pwfile.chmod(0o600)
+        with defer_interrupts():
+            cls.data.mkdir(mode=0o700)
+            cls.owned.capture_data()
         cls.stage = 'POSTGRES_INITDB'
         cls.run_pg([str(cls.pg / 'initdb'), '-D', str(cls.data), '-U', 'v26_acceptance',
                         '--auth-local=trust', '--auth-host=scram-sha-256', '--pwfile='+str(pwfile)])
@@ -67,12 +83,17 @@ class V26IdentityPostgres(unittest.TestCase):
         guard_patch.start()
         cls.addClassCleanup(guard_patch.stop)
         def stop_own_cluster():
-            if (cls.data / 'postmaster.pid').exists():
-                cls.run_pg([str(cls.pg / 'pg_ctl'), '-D', str(cls.data), '-m', 'fast', '-w', 'stop'])
+            with defer_interrupts():
+                cls.owned.stop()
         cls.addClassCleanup(stop_own_cluster)
         cls.stage = 'POSTGRES_START'
-        cls.run_pg([str(cls.pg / 'pg_ctl'), '-D', str(cls.data), '-l', str(cls.root / 'postgres.log'),
-                        '-o', '-h 127.0.0.1 -p 55433 -k '+str(cls.root / 'socket'), '-w', 'start'])
+        with defer_interrupts():
+            cls.owned.verify_data()
+            cls.owned.start_after = int(time.time())
+            cls.owned.pg_stopped = False
+            cls.run_pg([str(cls.pg / 'pg_ctl'), '-D', str(cls.data), '-l', str(cls.root / 'postgres.log'),
+                            '-o', '-h 127.0.0.1 -p 55433 -k '+str(cls.root / 'socket'), '-w', 'start'])
+            cls.owned.capture_process()
         cls.stage = 'POSTGRES_CREATE_DATABASE'
         cls.run_pg([str(cls.pg / 'createdb'), '-h', str(cls.root / 'socket'), '-p', '55433',
                         '-U', 'v26_acceptance', 'mikrotik_v26_acceptance'])

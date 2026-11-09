@@ -1,5 +1,29 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6 izole harness cleanup güvenliği — 2026-11-09
+
+- `976fc64` tabanında yalnız test harness'i değişti; iki stash korundu.
+  SIGINT/SIGTERM handler'ları ve dış `finally`, yarım class setup dahil yalnız
+  kayıtlı instance/class cleanup işlemlerini tamamlar; handler'lar geri yüklenir.
+- Yeni `v26_owned_resources.py`, atomik oluşturulan sabit `/tmp` kökünün
+  inode/sahiplik/izin/symlink kimliğini ve data dizinini denetler. Silme,
+  sabit parent fd üzerinden symlink güvenli rmtree ile yapılır; şüphede kök
+  korunur. HTTP thread kapanmazsa veya PG durumu belirsizse silinmez.
+- PG kapanışı PID dosyasına tek başına dayanmaz: data kimliği, sürüm,
+  süreç UID/executable/cwd/argv/start ticks ve PID dosyası hedefi doğrulanır.
+  Doğrulama sonrası pidfd ile yalnız aynı postmaster'a fast-shutdown SIGINT
+  gönderilir; çıkışı beklenir. Genel kill/pkill veya pg_ctl stop kullanılmaz.
+- Kritik kaynak edinimi ve cleanup sırasında kesintiler ertelenir. PG araçları
+  bloke sinyal maskesini miras almaz; araç timeout'unda belirsiz kök korunur.
+  SIGKILL/host kaybında cleanup garantisi yok; sonraki çalıştırma mevcut kökü
+  reddeder ve otomatik silmez.
+- PASS: 42 hedefli offline unittest ve diff kontrolü. Normal/hatalı bitiş,
+  SIGINT/SIGTERM, yarım setup, PID değişimi, symlink/inode/UID/port reddi,
+  timeout ve cleanup hatası test edildi. Gerçek PG/HTTP/browser kabulü sandbox
+  sınırı nedeniyle çalıştırılmadı; gerçek kabul PASS olarak bildirilmez.
+- DNS/push/canlı sağlık kontrolü/deploy/migration/restart/üretim erişimi yok.
+  Ofis WSL komutu ve sınırlar: `docs/V26_OFFICE_ISOLATED_ACCEPTANCE.md`.
+
 ## V2.6 sandbox izin karşılaştırması — 2026-11-09
 
 - **BLOCKED**: `7ff20cc` ve iki stash korundu. Kullanıcı normal ofis WSL

@@ -10,6 +10,8 @@ from http.cookies import SimpleCookie
 import importlib.util
 import json as codec
 import os
+import signal
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -24,6 +26,50 @@ DATABASE_PORT = 55433
 
 class AcceptanceBlocked(RuntimeError):
     pass
+
+
+class AcceptanceInterrupted(KeyboardInterrupt):
+    pass
+
+
+@contextmanager
+def acceptance_signals():
+    previous = {}
+    def interrupt(number, frame):
+        raise AcceptanceInterrupted()
+    try:
+        for number in (signal.SIGINT, signal.SIGTERM):
+            previous[number] = signal.signal(number, interrupt)
+        yield
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
+
+
+@contextmanager
+def defer_interrupts():
+    old = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM})
+    try:
+        yield
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, old)
+
+
+def finish_owned_cleanups(case):
+    # unittest does not guarantee class cleanup if BaseException escapes setup.
+    # Ignore repeat signals only while draining this case's registered callbacks.
+    previous = {n: signal.signal(n, signal.SIG_IGN)
+                for n in (signal.SIGINT, signal.SIGTERM)}
+    try:
+        ok = case.doCleanups()
+        cls = type(case)
+        if cls._class_cleanups:
+            cls.doClassCleanups()
+        if not ok or getattr(cls, 'tearDown_exceptions', []):
+            raise AcceptanceBlocked('OWN_RESOURCE_CLEANUP_FAILED_ROOT_PRESERVED')
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
 
 
 ACTIVE_ACCEPTANCE_CLASS = None
@@ -117,11 +163,14 @@ def verify_owned_acceptance_database(connection, store):
 
 def preflight():
     """No sockets/processes/DB IO; refuse rather than reuse an existing fixture."""
-    if os.getuid() <= 0 or os.getuid() != os.geteuid() or Path.cwd() != SOURCE:
+    if (os.getuid() <= 0 or os.getuid() != os.geteuid() or Path.cwd() != SOURCE
+            or SOURCE.stat().st_uid != os.getuid()):
         raise AcceptanceBlocked('LOCAL_REPO_OWNER_REQUIRED')
     if os.path.lexists(ROOT):
         raise AcceptanceBlocked('ACCEPTANCE_ROOT_ALREADY_EXISTS')
-    for name in ('initdb', 'pg_ctl', 'createdb'):
+    if not all(hasattr(signal, name) for name in ('pthread_sigmask', 'pidfd_send_signal')) or not hasattr(os, 'pidfd_open'):
+        raise AcceptanceBlocked('LINUX_PIDFD_REQUIRED')
+    for name in ('initdb', 'pg_ctl', 'createdb', 'postgres'):
         if not os.access(PG / name, os.X_OK):
             raise AcceptanceBlocked('POSTGRESQL16_TOOLS_REQUIRED')
     for name in ('uvicorn', 'psycopg', 'sqlalchemy', 'fastapi'):
@@ -220,8 +269,9 @@ def acceptance_suite(during_acceptance=None, browser_only=False):
             listener = None
             syscall = 'socket'
             try:
-                listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                cls.addClassCleanup(listener.close)
+                with defer_interrupts():
+                    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    cls.addClassCleanup(listener.close)
                 syscall = 'bind'
                 listener.bind((HOST, PORT))
                 syscall = 'listen'
@@ -236,9 +286,10 @@ def acceptance_suite(during_acceptance=None, browser_only=False):
             reservation = None
             syscall = 'socket'
             try:
-                reservation = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                cls.pg_port_reservation = reservation
-                cls.addClassCleanup(reservation.close)
+                with defer_interrupts():
+                    reservation = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    cls.pg_port_reservation = reservation
+                    cls.addClassCleanup(reservation.close)
                 syscall = 'bind'
                 reservation.bind((HOST, DATABASE_PORT))
             except OSError as error:
@@ -259,13 +310,17 @@ def acceptance_suite(during_acceptance=None, browser_only=False):
                                           kwargs={'sockets': [cls.listener]}, daemon=True)
 
             def stop():
-                cls.server.should_exit = True
-                cls.thread.join(timeout=10)
-                if cls.thread.is_alive():
-                    raise AcceptanceBlocked('OWN_HTTP_PROCESS_STOP_FAILED')
+                with defer_interrupts():
+                    cls.server.should_exit = True
+                    cls.thread.join(timeout=10)
+                    if cls.thread.is_alive():
+                        raise AcceptanceBlocked('OWN_HTTP_PROCESS_STOP_FAILED')
+                    cls.owned.http_running = False
 
-            cls.thread.start()
-            cls.addClassCleanup(stop)
+            with defer_interrupts():
+                cls.owned.http_running = True
+                cls.thread.start()
+                cls.addClassCleanup(stop)
             deadline = time.monotonic() + 5
             while not cls.server.started:
                 if not cls.thread.is_alive() or time.monotonic() >= deadline:
@@ -464,7 +519,12 @@ def main(argv=None, during_acceptance=None, browser_only=False):
                 suite = acceptance_suite(during_acceptance, browser_only=browser_only)
             else:
                 suite = acceptance_suite()
-            suite.run(result)
+            case = next(iter(suite))
+            with acceptance_signals():
+                try:
+                    suite.run(result)
+                finally:
+                    finish_owned_cleanups(case)
         if result.wasSuccessful() and result.testsRun == 1 and not result.skipped:
             if browser_only:
                 print('PASS: disposable PostgreSQL16 + loopback V2.6 readiness diagnostic; cleanup complete')
@@ -477,6 +537,8 @@ def main(argv=None, during_acceptance=None, browser_only=False):
         if result.skipped:
             print('BLOCKED: acceptance skipped')
         return 1
+    except (AcceptanceInterrupted, KeyboardInterrupt):
+        print('BLOCKED: ACCEPTANCE_INTERRUPTED')
     except AcceptanceBlocked as error:
         print('BLOCKED: ' + str(error))
     except Exception as error:
