@@ -8,13 +8,13 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {buildDailySummary} from '../src/lib/dailySummary.ts';
 const require=createRequire(import.meta.url);
 async function compile(path){
- const result=await build({entryPoints:[fileURLToPath(new URL(path,import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'saved-report-source',setup(builder){
+ const result=await build({entryPoints:[fileURLToPath(new URL(path,import.meta.url))],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'saved-report-source',setup(builder){
   builder.onResolve({filter:/lib\/useResource$/},()=>({path:'report-resource',namespace:'test'}));
   builder.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function useResource(path){return path==="/dashboard/summary"?{data:globalThis.__dailySummary,loading:false,retry(){}}:path==="/management/report"?globalThis.__reportResource:{data:null,loading:false,retry(){}}}',loader:'js'}));
  }}]});
  const module={exports:{}};new Function('require','module','exports',result.outputFiles[0].text)(require,module,module.exports);return module.exports;
 }
-const {ManagementReport}=await compile('../src/screens/ManagementReport.tsx');
+const {ManagementReport,SyntheticManagementReport}=await compile('../src/screens/ManagementReport.tsx');
 const {Dashboard}=await compile('../src/screens/Dashboard.tsx');
 const now=new Date().toISOString();
 const routers=[{id:'r & 1',name:'Sentetik router',status:'ONLINE',is_demo:true}];
@@ -40,7 +40,7 @@ test('Dashboard opens the report in its existing module and direct report links 
   globalThis.window={location:{hash:''}};
   const dashboard=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));assert.match(dashboard,/Günlük Yönetim Merkezi/);
   globalThis.window.location.hash='#module=dashboard&view=DAILY_REPORT&period=TODAY';
-  const report=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));assert.match(report,/Günlük Yönetim Merkezi · V2.3/);assert.match(report,/Dashboard’a dön/);
+  const report=renderToStaticMarkup(createElement(Dashboard,{onNavigate(){}}));assert.match(report,/Günlük Yönetim Merkezi/);assert.match(report,/Dashboard’a dön/);
  }finally{globalThis.window=previous;delete globalThis.__dailySummary;delete globalThis.__reportResource;}
 });
 
@@ -76,4 +76,16 @@ test('recorded failure is visible without presenting attempted values as applied
  const html=render({data:{...data,workspace:{accounts:[account],receipts:[failed],routers:[]}},loading:false,retry(){}});
  assert.match(html,/<dt>Başarısız · kayıtlı audit<\/dt><dd>1<\/dd>/);assert.match(html,/<dt>Sonucu belirsiz<\/dt><dd>Sayım yok<\/dd>/);
  assert.match(html,/Başarısız · Değişiklik uygulanmadı/);assert.match(html,/Uygulanmadı; güncel değer abone detayındadır/);
+});
+
+
+test('operations reuses the daily report with filters, source evidence and router age without live claims',()=>{
+ const previous=globalThis.window;globalThis.window={location:{hash:'#module=operations&period=LAST_24&expiry=ALL'}};
+ globalThis.__reportResource={data,loading:false,retry(){}};
+ try{
+  const html=renderToStaticMarkup(createElement(SyntheticManagementReport,{center:'operations',onBack(){}}));
+  for(const text of ['Operasyon Merkezi · Günlük Yönetim','Güncel paket','Hesap durumu','Son 24 saat','HIZLI İŞLEMLER','İŞLEM ANINDAKİ KAYNAK','demo-user','Router dikkat kapsamı','Canlı durum bilinmiyor','Güncellik bilinmiyor'])assert.ok(html.includes(text),text);
+  assert.match(html,/return_to=%23module%3Doperations/);
+  assert.doesNotMatch(html,/status-badge online/);
+ }finally{globalThis.window=previous;delete globalThis.__reportResource;}
 });

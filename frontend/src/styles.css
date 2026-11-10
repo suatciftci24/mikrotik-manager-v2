@@ -348,3 +348,9 @@ input::placeholder{color:var(--muted);opacity:1}
 .router-inventory .seen-cell small{display:block;color:var(--text-secondary);white-space:normal}
 .router-inventory .record-link,.router-inventory .filter-tabs button,.router-device-panel .table-footer button{min-height:44px}
 .router-device-panel .table-footer{flex-wrap:wrap;gap:8px}
+
+.management-expiries .panel-title{flex-wrap:wrap;gap:12px}
+.management-report .management-filters select{max-width:100%}
+.management-report .record-link,.management-report .filter-tabs button{min-height:44px}
+.management-report td small{display:block;overflow-wrap:anywhere}
+@media(max-width:600px){.management-report .router-report-controls{display:grid;grid-template-columns:1fr}.management-report .management-filters .form-label{min-width:0}.management-report .subscriber-actions-menu{min-width:180px}}

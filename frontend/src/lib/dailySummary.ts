@@ -3,7 +3,7 @@ import { api, type Router, type SubscriberDetailData, type SubscriberHistoryEven
 import { expiryInfo, turkeyToday } from './expiry.ts';
 import { subscriberSource } from './source.ts';
 
-export type DailyOperation = SubscriberHistoryEvent & {request_id?:string;router_id?:string|null;audit_result?:'APPLIED'|'FAILED'|'UNKNOWN';subscriber_id: string; customer_name: string; router_name:string; username:string; access_type:'PPPOE'|null};
+export type DailyOperation = Omit<SubscriberHistoryEvent,'source'> & {source:'LOCAL'|'RADIUS'|null;request_id?:string;router_id?:string|null;audit_result?:'APPLIED'|'FAILED'|'UNKNOWN';subscriber_id: string; customer_name: string; router_name:string; username:string; access_type:'PPPOE'|'HOTSPOT'|null};
 export type DailySummary = {
   generated_at: string; as_of_date: string; is_demo: true;
   routers: Router[];

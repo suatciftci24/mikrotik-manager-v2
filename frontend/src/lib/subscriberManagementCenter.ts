@@ -3,7 +3,7 @@ import type {CenterSubscriber} from './subscriberCenter';
 import {extensionDate} from './quick.ts';
 export type DailyAction='EDIT'|'PLAN'|'STATUS'|'EXPIRE'|'EXTEND'|'ROUTER';
 export type DailyEntry={request_id:string;item_id:string;expected_revision:number;expected_router_id:string;expected_source:'LOCAL'|'RADIUS';operation:DailyAction;value:string|null;days:30|60|90|null;expected_expires_on:string|null;confirmed:true};
-export type OperationReceipt={item_id:string;request_id:string;success:boolean;recorded:boolean;operation:string;actor_id:string;router_id:string|null;previous_router_id:string|null;previous:Record<string,string|null>;values:Record<string,string|null>;occurred_at:string;revision:number;error:string|null};
+export type OperationReceipt={source?:'LOCAL'|'RADIUS'|null;item_id:string;request_id:string;success:boolean;recorded:boolean;operation:string;actor_id:string;router_id:string|null;previous_router_id:string|null;previous:Record<string,string|null>;values:Record<string,string|null>;occurred_at:string;revision:number;error:string|null};
 export const dailyLabels:Record<string,string>={EDIT:'Abone bilgisi',PLAN:'Paket / profil',STATUS:'Hesap durumu',EXPIRE:'Bitiş tarihi',EXTEND:'Abonelik uzatma',ROUTER:'Router değişikliği',CREATE:'Sentetik kayıt eklendi',UPDATE:'Sentetik kayıt düzenlendi',RENEWAL:'Abonelik uzatıldı'};
 export function dailyEntries(rows:CenterSubscriber[],action:DailyAction,value:string,days:30|60|90,today:string,id:()=>string):DailyEntry[]{
  if(!rows.length||rows.length>100)throw new Error('1–100 sentetik abone seçin.');

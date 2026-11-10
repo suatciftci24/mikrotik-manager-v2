@@ -2,7 +2,7 @@ import type { Subscriber } from './api.ts';
 import { expiryInfo, type ExpiryStatus } from './expiry.ts';
 
 /** Counts the filtered inventory once; cumulative cards must never be added together. */
-export function buildSubscriptionAlerts(rows:Subscriber[],today:string) {
+export function buildSubscriptionAlerts(rows:Pick<Subscriber,'id'|'is_demo'|'expires_on'>[],today:string) {
   const buckets:Record<ExpiryStatus,number>={EXPIRED:0,TODAY:0,WITHIN_3:0,WITHIN_7:0,WITHIN_30:0,ACTIVE:0,UNKNOWN:0};
   const ids=new Set<string>();
   for (const row of rows) {

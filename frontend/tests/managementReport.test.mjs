@@ -201,3 +201,35 @@ test('failed result stays unknown when only the successful legacy history source
  const report=buildManagementReport(source([detail('legacy','r1',[operation('saved',now.toISOString())])]),filter,now);
  assert.deepEqual(report.outcomes,{applied:1,failed:null,unknown:null});
 });
+
+test('operations context defaults to rolling day and preserves current filters in bounded center links',()=>{
+ const selected={period:'LAST_24',router:'r1',kind:'OPERATIONS',expiry:'EXPIRED',source:'RADIUS',plan:'Demo',account_status:'ACTIVE'};
+ assert.equal(managementFilterFromHash('#module=operations').period,'LAST_24');
+ assert.deepEqual(managementFilterFromHash(managementReportHash(selected,'operations')),selected);
+ const params=new URLSearchParams(managementSubscribersHash(selected).slice(1));
+ for(const [key,value] of [['router_id','r1'],['plan','Demo'],['status','ACTIVE'],['source','RADIUS'],['expiry','EXPIRED']])assert.equal(params.get(key),value);
+ const managed=new URLSearchParams(managementSubscribersHash({...selected,router:'demo-managed-router-a'}).slice(1));
+ assert.equal(managed.get('workspace'),'PERSISTENT');assert.equal(managed.get('workspace_router'),'demo-managed-router-a');assert.equal(managed.get('workspace_status'),'ACTIVE');assert.equal(managed.has('router_id'),false);
+});
+test('historical authority filters never borrow the current legacy or workspace authority',()=>{
+ const legacy=detail('historical','r1',[operation('old','2026-10-27T08:00:00Z')]);
+ legacy.item.source='RADIUS';
+ const input={...source([legacy]),workspace:workspace([receipt('saved',{source:'LOCAL'}),receipt('no-proof')])};
+ const local=buildManagementReport(input,{...filter,source:'LOCAL'},now);
+ assert.ok(local.operations.some(row=>row.id==='old'));assert.equal(local.operations.find(row=>row.workspace).source,'LOCAL');
+ const unknown=buildManagementReport(input,{...filter,source:'UNKNOWN'},now);
+ assert.equal(unknown.operations.length,1);assert.equal(unknown.operations[0].source,null);
+ assert.equal(buildManagementReport(input,{...filter,source:'RADIUS'},now).operations.length,0);
+});
+test('operational expiry counts include unique workspace accounts independently of overlapping periods',()=>{
+ const account={...managedAccount,expires_on:'2026-10-27',plan:'Demo',status:'ACTIVE'};
+ const input={...source([]),workspace:{...workspace([]),accounts:[account,account]}};
+ const result=buildManagementReport(input,{...filter,expiry:'ALL',plan:'Demo',account_status:'ACTIVE'},now,true);
+ assert.equal(result.expirySummary.total,1);assert.equal(result.expirySummary.today,1);assert.equal(result.expirySummary.within_3,1);assert.equal(result.expirySummary.within_30,1);
+ assert.equal(result.expiryRows.length,1);
+ assert.equal(buildManagementReport(input,{...filter,plan:'absent'},now,true).expiryRows.length,0);
+ const hotspot={...managedAccount,id:'demo-managed-sub-hotspot',access_type:'HOTSPOT'};
+ const withHotspot={...source([]),workspace:{...workspace([receipt('hotspot',{item_id:hotspot.id,source:'RADIUS'})]),accounts:[hotspot]}};
+ assert.equal(buildManagementReport(withHotspot,filter,now).operations.length,0);
+ assert.equal(buildManagementReport(withHotspot,filter,now,true).operations[0].access_type,'HOTSPOT');
+});

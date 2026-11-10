@@ -85,7 +85,11 @@ class DailyManagement(cases.SubscriberTransactions):
         command=self.operation(item,'STATUS','ACTIVE',expected_source='LOCAL')
         result=self.ops.execute(command,'actor');self.assertFalse(result['success'])
         failed=next(e for e in self.workspace.detail(item.id).history if e.request_id==str(command.request_id))
-        self.assertEqual(failed.source,'RADIUS')  # Actual saved authority, not the rejected expectation.
+        self.assertEqual(failed.source,'RADIUS')
+        from app.schemas.subscriber_management_center import OperationHistory
+        history=OperationHistory.model_validate(self.ops.history(item_id=item.id))
+        self.assertTrue(all(event.source=='RADIUS' for event in history.items))
+        # Actual saved authority, not the rejected expectation.
         with self.sessions.begin() as session:
             row=session.get(Account,item.id)
             row.source='LOCAL';row.fields={**row.fields,'source':'LOCAL'}

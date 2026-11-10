@@ -169,6 +169,7 @@ class SubscriberOperationsService:
             statement=select(Event).join(Account,Account.id==Event.subscriber_id).where(*clauses)
             total=session.scalar(select(func.count()).select_from(Event).join(Account,Account.id==Event.subscriber_id).where(*clauses))
             rows=session.scalars(statement.order_by(Event.occurred_at.desc(),Event.id).offset((page-1)*page_size).limit(page_size)).all()
-            return dict(items=[event_receipt(e) for e in rows],total=total,page=page,page_size=page_size,is_demo=True)
+            from app.services.subscriber_center import event_source
+            return dict(items=[{**event_receipt(e),'source':event_source(e)} for e in rows],total=total,page=page,page_size=page_size,is_demo=True)
 
 operations=SubscriberOperationsService()

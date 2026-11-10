@@ -1,5 +1,49 @@
 # MikroTik Manager V2 — İlerleme
 
+## Operasyon Merkezi / merkezi günlük yönetim — 2026-11-10
+
+- Temiz `office-development/27801e8`; AGENTS, güncel ilerleme ve özellik koruma
+  kabulü okundu. Dashboard/ManagementReport, abonelik uyarıları, router/alarm,
+  filtreli geçişler, kaynak/yetki ve history API birlikte incelendi. Kök neden:
+  günlük yönetim zaten Dashboard raporundaydı; Operasyon Merkezi yalnız alarm
+  gösteriyordu. Yeni işlem sistemi veya servis yerine aynı rapor yeniden kullanıldı.
+- Operasyon Merkezi ilk ekranı günlük rapor; varsayılan kayan son24 saat.
+  Dolmuş/bugün/3/7/30/bilinmeyen bitişler tıklanabilir sayılar; tekil abone
+  sayımı ve iç içe aralık açıklaması var. Kalıcı hesaplar da bitiş kapsamına
+  dahil, eksik kalıcı kaynakta kısmi kapsam açık. Dönem, router, güncel paket,
+  hesap durumu, yetkili kaynak ve bitiş filtreleri mevcut kayıtlar üzerinde.
+- Bitiş satırından mevcut LegacySubscriberActions/QuickActions ve kalıcı
+  SubscriberRenewal/SubscriberDailyActions açılır. Yetki, router/kaynak, önizleme,
+  açık onay, UUID/audit ve çift gönderim kapıları değişmedi. Detay/geçmiş linkleri
+  bounded operations dönüş bağlamını korur; mevcut demo filtreleri listeye taşınır.
+  Kalıcı liste yalnız desteklediği router/hesap filtresini alır; diğerlerinin
+  bu ekranda uygulandığı açık. Kaynak veya protokol tahmini yok.
+- Son24 listesinde aktör/Türkiye saati, eski-yeni, audit sonucu, olay kaynağı,
+  abone/işlem detayı var; boş geçmişten olay üretilmez. Ayrı kusur: rapor kalıcı
+  olay kaynağını bugünkü hesaptan alıyordu. History API'ye geriye uyumlu nullable
+  source alanı eklendi; yalnız mevcut event_source audit kanıtı döner. Kaynak
+  filtresi audit'te tarihsel, bitişte güncel kaynağa uygulanır. Kanıtsız eski
+  olay Bilinmiyor kalır. Operasyonda Hotspot audit de gösterilir; Dashboard'un
+  mevcut PPPoE kapsamı korunur.
+- Router listesi raporda kaynak zamanı/yaşı, nötr kayıtlı durum, WAN/CPU/RAM ve
+  detay bağlantısıyla birleşti; eski tekrarlı kapsam tablosu kaldırıldı. Güncel
+  ONLINE/OFFLINE iddiası yok. AlarmCenter ACK/kanıt ve eski WAN geçmişi açılır
+  bölümlerde korunur; alarm hedefiyle gelince ilgili bölüm açık kalır.
+- PASS: 49 farklı frontend testi (managementReport22, managementReportView8,
+  subscriberQuickWorkflow11, subscriberDailyManagement2, routerSubscriberLinks6);
+  11 backend testi (daily management9 + tarihsel kaynak2); TypeScript, son
+  Vite build ve diff. Başarısız testler hedefli tekrarlandı: eski SSR derleyicisine
+  CSS loader eklendi; eski rapor başlığı assertion'ı güncellendi; Dashboard'un
+  Hotspot dışlama kapsamı korunarak yeni Operations kapsamı ayrı doğrulandı.
+  İlk npm komutu repo kökünde package.json bulamadı; frontend cwd ile düzeltildi.
+- Gerçek browser/mobil kabul BLOCKED: playwright-core kurulu değil; kurulum,
+  HTTP/PG harness veya servis başlatma yok. SSR/hook sonuçları browser PASS değil.
+  Yeni history alanı sonraki normal API başlangıcında etkinleşir; restart yok.
+- PostgreSQL/11 demo abonesi/admin, iki stash ve backup/office-20261109 korundu.
+  Testler yalnız geçici sentetik SQLite/bellek; canlı sağlık URL'si dahil V1,
+  V2.5, VDS, cihaz/RADIUS/IPsec erişimi, migration, silme, push/deploy yok.
+
+
 ## Yetkili kaynak / erişim türü ve hızlı işlemler — 2026-11-10
 
 - Temiz `office-development/057c05f`; AGENTS, güncel ilerleme ve özellik koruma
