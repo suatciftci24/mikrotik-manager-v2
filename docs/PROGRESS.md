@@ -1,5 +1,56 @@
 # MikroTik Manager V2 — İlerleme
 
+## Operasyon Merkezi 007 hatası / salt okunur DB teşhisi — 2026-11-10 — kısmi PASS / DB BLOCKED
+
+- Temiz `office-development/448786c`; AGENTS/güncel ilerleme/özellik koruma
+  kabulü okundu. Migration007/008, ORM modelleri, guard/_verify, bağlantı profili,
+  router/TRUST_PROFILE ve subscriber/audit GET akışı birlikte incelendi.
+- Kanıtlanmış kod kusuru: ortak router_workspace.boundary bütün SQLAlchemyError
+  ve DemoStorageUnavailable hatalarını “migration007 gerekli”ye çeviriyordu.
+  guard yalnız seçili demo schema_state marker'ını doğrular; 007/008 kolon veya
+  tablo kontrolü yapmaz. Böylece bağlantı/yetki/marker/eksik008/kolon hatası da
+  aynı yanlış007 mesajını veriyordu. Bu mesaj migration uygulanmadığını kanıtlamaz.
+- Operasyon raporu accounts, management/history ve router-workspace/routers GET
+  çağrılarını paralel yapar; üçünün servisleri aynı boundary/guard'ı kullanır.
+  TRUST_PROFILE kayıtları da 007.records(kind=TRUST_PROFILE) içindedir; bu okuma
+  gerçek bağlantı, sertifika doğrulama veya cihaz erişimi başlatmaz. Audit/events
+  tablosu 008'indir; 008.subscribers.router_id, 007.records'a FK ile bağlıdır.
+- Mevcut shell ayarı doğrulandı: local-demo, loopback:55432,
+  mikrotik_manager_v2/v2_local; sır/parola basılmadı. dev.sh varsayılanı aynı.
+  postmaster.pid metadata'sı repo-owned data/socket dizini ve55432'yi gösterir;
+  PID bu namespace'te görünmez, bu bilgi DB'nin durmuş olduğunu kanıtlamaz.
+  Çalışan API süreç profili bu oturumdan ayrıca doğrulanamadı.
+- Yerel proje PostgreSQL günlüğünde 2026-11-10 14:13:21.753 zaman damgasıyla
+  v2_router_workspace.records ve v2_subscriber_workspace.events; .783 ile
+  v2_subscriber_workspace.subscribers için “relation does not exist” var.
+  Aynı router/subscribers eksikliği 2026-11-06 kayıtlarında da bulunuyor.
+  Bu, loglanan sorgular anında eksik007/008 nesnelerinin doğrudan kanıtıdır;
+  güncel katalog veya log saatinin bu oturumla eşitliği iddiası değildir.
+- Güncel salt-okunur doğrulama denendi: varsayılan yerel hedefe driver üzerinden
+  default_transaction_read_only=on ve BEGIN READ ONLY, katalog/kolon/izin/marker
+  SELECT'leri hazırlandı. TCP bağlantı kurulamadı; repo-owned Unix socket yolu
+  üzerinden tek alternatif de başarısız. Ayrı syscall kontrolü: AF_INET socket
+  oluşturma errno1 EPERM; AF_UNIX socket oluşturma mümkün fakat connect errno1
+  EPERM. Hiçbir katalog SELECT'i DB'ye ulaşmadı. Bu ajan oturumunun erişim
+  engelidir; DB şifresi/rolü bozuk veya sunucu kapalı sonucu çıkarılmadı.
+- Güvenli düzeltme: SQLSTATE42501 yetki,28xxx kimlik doğrulama,08xxx/connection
+  bağlantı,42703/tür/sözleşme hataları ve depo kimliği ayrı açıklanır. 42P01/
+  3F000 için yalnız sorguda tekil bilinen workspace şeması varsa007/008 kapsamı
+  belirtilir; iki şemalı join eksik tablo tahmin etmez. Ham SQL, payload, parola
+  veya driver mesajı yanıtlanmaz. Mevcut404/409/503 ve kapalı yetki sınırları korunur.
+- PASS: 28 farklı hedefli backend test (hata sınıflandırması6 ve profil/router workspace/
+  migration doğrulama/günlük işlem regresyonları22) ve diff. Toplam test sayısı unittest çıktısıdır;
+  migration testleri mock inspector kullanır, gerçek migration çalıştırmaz.
+- BLOCKED: bugün hangi tablo/kolon/izin eksik, seçili gerçek API hedefi ve tam
+  migration uygunluğu katalog erişimi olmadan kesinleştirilemedi. Loglardaki
+  eksiklik sürüyorsa007 ile bağımlı008 şemaları gerekir; yalnız007 audit'i
+  düzeltmez. Hiçbir migration uygulanmadı; mevcut şema “düzeldi” sayılmaz.
+  Backend hata metinleri sonraki normal başlangıçta etkinleşir; restart yok.
+- PostgreSQL verisi/11 abone/admin, iki stash ve backup/office-20261109 korundu.
+  Gerçek DB'ye yazma, tablo/kolon oluşturma, reset, servis komutu, push/deploy,
+  V1/V2.5/VDS/router/RADIUS/IPsec veya canlı sağlık URL'si erişimi yok.
+
+
 ## Operasyon Merkezi / merkezi günlük yönetim — 2026-11-10
 
 - Temiz `office-development/27801e8`; AGENTS, güncel ilerleme ve özellik koruma

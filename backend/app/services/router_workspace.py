@@ -3,7 +3,7 @@ from datetime import datetime,timezone
 from functools import wraps
 from uuid import uuid4
 from sqlalchemy import select,func
-from sqlalchemy.exc import SQLAlchemyError,IntegrityError
+from sqlalchemy.exc import SQLAlchemyError,IntegrityError,OperationalError,InterfaceError
 from app.core.database import SessionLocal
 from app.adapters.demo_subscriptions import PostgresDemoStore
 from app.services.demo_subscriptions import DemoStorageUnavailable
@@ -19,12 +19,38 @@ def guard(session):
     schema='v26_acceptance' if os.environ.get('V2_DEPLOYMENT_PROFILE')==PROFILE else 'v2_demo'
     PostgresDemoStore(session.get_bind(),schema=schema)._verify(session.connection())
 
+def storage_error_detail(error):
+    """Classify driver evidence, never expose SQL, parameters or server error text."""
+    if isinstance(error,DemoStorageUnavailable):
+        return 'Yerel çalışma alanının bağlantı profili veya sentetik depo kimliği doğrulanamadı. Migration gereksinimi belirlenmedi; veri belleğe kaydedilmedi.'
+    original=getattr(error,'orig',None)
+    state=getattr(original,'sqlstate',None) or getattr(original,'pgcode',None) or ''
+    if state=='42501':
+        return 'Yerel çalışma alanı için veritabanı erişim yetkisi yetersiz. Bağlantı rolü ve şema/tablo izinleri kontrol edilmeli; migration gereksinimi doğrulanmadı.'
+    if state.startswith('28'):
+        return 'Yerel çalışma alanının veritabanı kimlik doğrulaması başarısız. Bağlantı profili kontrol edilmeli; migration gereksinimi doğrulanmadı.'
+    if state in ('42P01','3F000'):
+        # Only our own qualified SQL identifies which migration owns the missing object.
+        statement=(getattr(error,'statement',None) or '').replace('"','')
+        if 'v2_subscriber_workspace.' in statement and 'v2_router_workspace.' in statement:
+            return 'Yerel çalışma alanı sorgusunda şema veya tablo bulunamadı. Sorgu 007 ve 008 kapsamını birlikte kullanıyor; eksik nesne salt okunur katalog kontrolüyle belirlenmeli. Otomatik migration yapılmadı.'
+        if 'v2_subscriber_workspace.' in statement:
+            return 'Yerel abone çalışma alanı tablosu bulunamadı. Hedef veritabanında migration 008 ve bağımlılığı 007 salt okunur doğrulanmalı; otomatik migration yapılmadı.'
+        if 'v2_router_workspace.' in statement:
+            return 'Yerel router çalışma alanı tablosu bulunamadı. Hedef veritabanında V2 migration 007 salt okunur doğrulanmalı; otomatik migration yapılmadı.'
+        return 'Yerel çalışma alanının sorguladığı veritabanı nesnesi bulunamadı. Bağlantı profili ve hedef şema kontrol edilmeli; migration numarası doğrulanmadı.'
+    if state in ('42703','42804','42883','42601'):
+        return 'Yerel çalışma alanının kod ve veritabanı şema/sürüm sözleşmesi uyuşmuyor. Kolon ve veri türleri salt okunur doğrulanmalı; migration gereksinimi belirlenmedi.'
+    if state.startswith('08') or state in ('57P01','57P02','57P03') or isinstance(error,(OperationalError,InterfaceError)):
+        return 'Yerel çalışma alanı veritabanı bağlantısı kurulamadı veya kesildi. Sunucu erişimi ve bağlantı profili kontrol edilmeli; migration gereksinimi doğrulanmadı.'
+    return 'Yerel çalışma alanı veritabanı işlemi tamamlanamadı. Hata türü için güvenli teşhis gerekli; migration gereksinimi doğrulanmadı. Veri belleğe kaydedilmedi.'
+
 def boundary(method):
     @wraps(method)
     def call(*args,**kwargs):
         try:return method(*args,**kwargs)
         except IntegrityError:raise WorkspaceError(409,'Kayıt başka kayıtlarla ilişkili veya aynı kimlik zaten kullanılıyor; işlem uygulanmadı.') from None
-        except (SQLAlchemyError,DemoStorageUnavailable):raise WorkspaceError(503,'Yerel router çalışma alanı hazır değil. V2 migration 007 gerekli; veri belleğe kaydedilmedi.') from None
+        except (SQLAlchemyError,DemoStorageUnavailable) as error:raise WorkspaceError(503,storage_error_detail(error)) from None
     return call
 
 def public(row):
