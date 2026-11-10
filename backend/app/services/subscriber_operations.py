@@ -3,7 +3,7 @@ from datetime import datetime,date,timedelta,timezone
 from zoneinfo import ZoneInfo
 import hashlib,json,re
 from uuid import UUID
-from sqlalchemy import select,func
+from sqlalchemy import select,func,case
 from app.core.database import SessionLocal
 from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as Event
 from app.services.subscriber_center import SubscriberWorkspace,request_audit
@@ -90,11 +90,11 @@ class SubscriberOperationsService:
                 previous.update({key:before.get(key) for key in ('plan','expires_on')})
                 values.update({key:row.fields.get(key) for key in ('plan','expires_on')})
             receipt=dict(item_id=row.id,request_id=str(command.request_id),success=True,recorded=True,operation=command.operation,actor_id=actor,router_id=row.router_id,previous_router_id=previous_router,previous=previous,values=values,occurred_at=stamp,revision=row.revision,error=None)
-            self.audit(session,command,actor,row.revision,{key:{'previous':previous[key],'new':values[key]} for key in values},receipt)
+            self.audit(session,command,actor,row.revision,{key:{'previous':previous[key],'new':values[key]} for key in values},receipt,row.source)
             return receipt
     @staticmethod
-    def audit(session,command,actor,revision,changes,receipt):
-        session.add(Event(id=str(command.request_id),subscriber_id=command.item_id,actor_id=actor,revision=revision,operation=command.operation,occurred_at=receipt['occurred_at'],changes={**changes,'_management':{'fingerprint':fingerprint(command,actor),'receipt':receipt}}))
+    def audit(session,command,actor,revision,changes,receipt,source=None):
+        session.add(Event(id=str(command.request_id),subscriber_id=command.item_id,actor_id=actor,revision=revision,operation=command.operation,occurred_at=receipt['occurred_at'],changes={**changes,'_source':source,'_management':{'fingerprint':fingerprint(command,actor),'receipt':receipt}}))
     @boundary
     def failed(self,command,actor,error):
         with self.sessions.begin() as session:
@@ -104,7 +104,7 @@ class SubscriberOperationsService:
             prior=self.prior(session,command,actor)
             if prior:return prior
             receipt=dict(item_id=command.item_id,request_id=str(command.request_id),success=False,recorded=True,operation=command.operation,actor_id=actor,router_id=row.router_id if row else None,previous_router_id=row.router_id if row else None,previous={},values={},occurred_at=datetime.now(timezone.utc).isoformat(),revision=row.revision if row else 0,error=error.detail)
-            self.audit(session,command,actor,receipt['revision'],{},receipt)
+            self.audit(session,command,actor,receipt['revision'],{},receipt,row.source if row and row.fields.get('source')==row.source else None)
             return receipt
     @boundary
     def lookup(self,command,actor):
@@ -161,7 +161,10 @@ class SubscriberOperationsService:
                 pattern='%'+query+'%'
                 clauses.append((Event.id.ilike(pattern))|(Event.actor_id.ilike(pattern))|(Event.subscriber_id.ilike(pattern))|(Account.fields['customer_name'].as_string().ilike(pattern))|(Account.fields['username'].as_string().ilike(pattern)))
             if result!='ALL':
-                success=Event.changes['_management']['receipt']['success'].as_boolean()
+                # CREATE/UPDATE/RENEWAL audits commit atomically and have no management receipt.
+                # Match event_receipt instead of classifying those successes as unknown.
+                success=case((Event.operation.in_(('CREATE','UPDATE','RENEWAL')),True),
+                             else_=Event.changes['_management']['receipt']['success'].as_boolean())
                 clauses.append(success.is_(False) if result=='FAILED' else success.is_(True) if result=='SUCCESS' else success.is_(None))
             statement=select(Event).join(Account,Account.id==Event.subscriber_id).where(*clauses)
             total=session.scalar(select(func.count()).select_from(Event).join(Account,Account.id==Event.subscriber_id).where(*clauses))

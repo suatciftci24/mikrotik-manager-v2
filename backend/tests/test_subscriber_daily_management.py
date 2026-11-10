@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from pydantic import ValidationError
 from fastapi import HTTPException
 import test_subscriber_center as cases
+from app.models.subscriber_workspace import SyntheticSubscriber as Account
 from app.models.router_workspace import RouterWorkspaceRecord as Router
 from app.services.subscriber_operations import SubscriberOperationsService
 from app.schemas.subscriber_management_center import SubscriberOperation,SubscriberOperations,OperationResults
@@ -77,6 +78,20 @@ class DailyManagement(cases.SubscriberTransactions):
         self.assertEqual(self.workspace.detail(item.id).item.router_id,self.router_id)
         values=self.operation(item,'STATUS','ACTIVE').model_dump(mode='json');values['item_id']='registered-'+str(uuid4())
         with self.assertRaises(ValidationError):SubscriberOperation(**values)
+
+
+    def test_historical_source_survives_current_change_and_failed_source_mismatch(self):
+        item=self.workspace.save(self.command(source='RADIUS'),'actor')
+        command=self.operation(item,'STATUS','ACTIVE',expected_source='LOCAL')
+        result=self.ops.execute(command,'actor');self.assertFalse(result['success'])
+        failed=next(e for e in self.workspace.detail(item.id).history if e.request_id==str(command.request_id))
+        self.assertEqual(failed.source,'RADIUS')  # Actual saved authority, not the rejected expectation.
+        with self.sessions.begin() as session:
+            row=session.get(Account,item.id)
+            row.source='LOCAL';row.fields={**row.fields,'source':'LOCAL'}
+        detail=self.workspace.detail(item.id)
+        self.assertEqual(detail.item.source,'LOCAL')
+        self.assertTrue(all(e.source=='RADIUS' for e in detail.history))
 
 class DailyContracts(TestCase):
     def test_unauthorized_or_unconfirmed_or_oversized_batches_rejected(self):

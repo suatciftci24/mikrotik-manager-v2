@@ -64,3 +64,26 @@ class SubscriberActionProjectionTests(TestCase):
         self.assertEqual(rows,SUBSCRIBERS)
         store.change_expiry.assert_not_called()
         store.save.assert_not_called()
+
+    def test_legacy_current_authority_matches_list_detail_center_and_history_stays_historical(self):
+        from app.api.v1 import subscribers, subscriber_center
+        from app.schemas.details import SubscriberList, SubscriberDetail
+        from unittest.mock import Mock
+        rows=[]
+        for source in ('LOCAL','RADIUS',None,'invalid'):
+            rows.append({**SUBSCRIBERS[1],'id':'demo-sub-'+str(len(rows)),'source':source})
+        before=deepcopy(rows)
+        store=Mock();store.list_items.return_value=rows
+        store.detail.side_effect=lambda key:dict(item=next(r for r in rows if r['id']==key),history=[dict(id='fixture-event',is_demo=True,source='LOCAL',operation='PLAN_CHANGE',occurred_at='2026-11-10T10:00:00Z',actor_id='fixture')],is_demo=True,persistence='local-postgresql-demo')
+        with patch('app.services.demo_subscriptions.store',store):
+            listing=SubscriberList.model_validate(subscribers.list_subscribers(self.user()))
+            for item in listing.items:
+                detail=SubscriberDetail.model_validate(subscribers.get_subscriber(item.id,self.user()))
+                center=subscriber_center.detail(item.id,self.user())
+                self.assertEqual(item.source,detail.item.source)
+                self.assertEqual(item.source,center.item.source)
+                self.assertIsNone(center.item.access_type)  # Old record has no protocol evidence.
+                self.assertEqual(center.history[0].source,'LOCAL')
+                self.assertEqual(item.router_id,center.item.router_id)
+                self.assertEqual(center.item.session_status,'UNKNOWN')
+        self.assertEqual(rows,before);store.save.assert_not_called()

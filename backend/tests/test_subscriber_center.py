@@ -146,3 +146,18 @@ class HistoryMetadataTests(TestCase):
         _items,rows,_total,_groups=store.report_records('start','until','cutoff','','','','',25,0,scope_routers=[])
         self.assertEqual(rows[0]['revision'],3);self.assertEqual(rows[0]['request_id'],'uuid-event');self.assertEqual(rows[0]['audit_result'],'APPLIED')
         self.assertTrue(all(str(call.args[0]).lstrip().startswith(('SELECT','SET TRANSACTION READ ONLY')) for call in connection.execute.call_args_list))
+
+class HistoricalAuthorityContracts(TestCase):
+    def test_event_source_uses_only_same_event_evidence(self):
+        from app.services.subscriber_center import event_source,center_event
+        from types import SimpleNamespace
+        base=dict(id='fixture',subscriber_id='demo-managed-sub-fixture',operation='UPDATE',occurred_at='2026-11-10T10:00:00Z',actor_id='fixture',revision=1)
+        for changes,expected in [({},None),({'_source':'RADIUS'},'RADIUS'),({'source':{'new':'LOCAL'}},'LOCAL'),({'_save':{'response':{'source':'RADIUS'}}},'RADIUS'),({'_renewal_response':{'source':'LOCAL'}},'LOCAL'),({'_source':'RADIUS','source':{'new':'LOCAL'}},None)]:
+            event=SimpleNamespace(**base,changes=changes)
+            self.assertEqual(event_source(event),expected)
+            self.assertEqual(center_event(event)['source'],expected)
+
+    def test_missing_legacy_event_source_never_borrows_current_source(self):
+        item=dict(id='demo-sub-fixture',customer_name='Test',username='radius.user',router_id=None,source='RADIUS',plan='Test',status='ACTIVE')
+        data=legacy_center(dict(item=item,history=[dict(occurred_at='2026-11-10T10:00:00Z',actor_id='fixture')]))
+        self.assertEqual(data.item.source,'RADIUS');self.assertIsNone(data.history[0].source)

@@ -1,5 +1,42 @@
 # MikroTik Manager V2 — İlerleme
 
+## Yetkili kaynak / erişim türü ve hızlı işlemler — 2026-11-10
+
+- Temiz `office-development/057c05f`; AGENTS, güncel ilerleme ve özellik koruma
+  kabulü okundu. Liste/detay API, canonical projeksiyon, router bağı, işlem
+  uygunluğu ve audit birlikte incelendi. Mert Kaya'nın kaynak fixture'ında
+  source=RADIUS var, access_type yok. “Erişim türü bilinmiyor” kaynak alanı
+  değildi; başlığın yalnız protokolü öne çıkarması kavramları belirsizleştiriyordu.
+  DB'ye erişilmedi; çalışan ortamın kalıcı payload'ı hakkında ek iddia yok.
+- Başlık güncel yetkili kaynak ve erişim türünü ayrı gösterir. Detay/bağlantı/
+  işlem yüzeyleri ortak SourceBadge/sourceLabels kullanır. Eksik kaynakta
+  açıklama ve işlem reddi; eksik türde tahmin yapılmadığı açıklaması var.
+  Eski kayıtlarda liste/canonical/detay kaynak eşitliği RADIUS/LOCAL/null/geçersiz
+  kaynak fixture'larıyla doğrulandı; access_type null kalır. Router veya kullanıcı
+  adından otorite/tür çıkarılmaz; veri güncellemesi veya yetki genişletme yok.
+- Ayrı gerçek backend kusuru: workspace geçmişi her olaya bugünkü account.source
+  veriyordu. Artık yalnız aynı olayın _source/source değişimi/kayıtlı save-renewal
+  yanıtı kullanılır; eksik/çelişkili kanıt Bilinmiyor. Yeni audit kaynak anını
+  saklar; başarısız işlemde reddedilen expected_source yerine doğrulanmış kayıt
+  kaynağı saklanır. Eski audit/payload geriye dönük değiştirilmez.
+- Hedefli regresyonda CREATE/UPDATE/RENEWAL'ın management receipt'i olmadığı
+  için SUCCESS filtresinden dışlandığı saptandı. SQL filtre mevcut atomik audit
+  sonucuyla eşitlendi; bulk geçmiş testi düzeltildi. UUID/onay/çift gönderim,
+  LOCAL/RADIUS izinleri, hesap/oturum ayrımı ve router filtreli dönüş korunur.
+- PASS: 36 farklı frontend testi (subscriberCenter 19, subscriberQuickWorkflow
+  11, routerSubscriberLinks 6); 38 backend testi (projection 5, center 15,
+  daily management 9, router center 9); TypeScript, Vite build ve diff.
+  İlk eksik history fixture alanları ve backend/tests PYTHONPATH düzeltildi;
+  değişen tarihsel etiket assertion'ı yeni açık ifadeye güncellendi. Başarısız
+  kapsamlar hedefli tekrarlandı; başarılı kapsamlar gereksiz tekrarlanmadı.
+- Browser/mobil kabul BLOCKED: playwright-core kurulu değil; kurulum döngüsü
+  yok. Gerçek HTTP/PG/browser kabulü iddia edilmez. Backend değişikliği sonraki
+  normal API başlangıcında etkinleşir; servis restartı yapılmadı.
+- Yerel PostgreSQL/11 abone/admin hesabı, iki stash ve backup dalı korundu.
+  Canlı sağlık URL'si dahil V1/V2.5/VDS/router/RADIUS/IPsec erişimi, migration,
+  reset, deploy veya push yok. Test yazımları yalnız geçici sentetik SQLite'ta.
+
+
 ## Ofis Router Merkezi uçtan uca tamamlama — 2026-11-10
 
 - Temiz `office-development/375cb18` başlangıcı; kurallar, güncel ilerleme ve
