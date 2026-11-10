@@ -32,9 +32,9 @@ export function assignedRouter(s:Subscriber,routers:Router[]) {
 export function routerSubscribersHash(routerName:string) {
   return '#'+new URLSearchParams({module:'subscribers',router:routerName,bulk:'1'}).toString();
 }
-export function subscriberTextContext(hash:string,key:string) {
+export function subscriberTextContext(hash:string,key:string,kind:'subscribers'|'routers'='subscribers') {
   const params=new URLSearchParams(hash.replace(/^#/,''));
-  return params.get('module')==='subscribers'?(params.get(key)??'').slice(0,200):'';
+  return params.get('module')===kind?(params.get(key)??'').slice(0,200):'';
 }
 
 export function unknownDetail(value:unknown){const text=detailText(value);return text==='Veri yok'?'Bilinmiyor':text;}

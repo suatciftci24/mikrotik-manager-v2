@@ -1,3 +1,4 @@
+import {observationAge} from '../lib/routerObservation';
 import {percentText} from '../lib/routerReport';
 import {linkedCenterHash} from '../lib/detailLinks';
 import {PppoeObservations} from './PppoeObservations';
@@ -54,7 +55,7 @@ export function RouterDeviceCenterView({data,tab,onTab,actions,legacy,security}:
  return <><div className="panel registry-detail router-device-summary"><div className="page-heading-row"><div><span className="eyebrow">{data.is_demo?'SENTETİK DEMO · CİHAZ BAĞLANTISI YOK':'KAYITLI CİHAZ · CANLI SORGULAMA YOK'}</span><h2>{r.name}</h2><p>{routerCenterStatus(data)}</p></div><div className="heading-actions">{actions}</div></div>
  <Facts items={[
  ['Yönetim IP',r.management_address||'Veri yok'],['Model',r.model||'Veri yok'],['CPU',percentText(r.cpu_percent)],['RAM',percentText(r.memory_percent)],
- ['Son görülme / ölçüm',r.last_seen_at?dateTime(r.last_seen_at):'Veri yok'],['Son başarılı bağlantı',r.last_success_at?dateTime(r.last_success_at):'Veri yok · bağlantı kanıtı yok']
+ ['Son görülme / ölçüm',r.last_seen_at?dateTime(r.last_seen_at):'Veri yok'],['Ölçüm güncelliği',observationAge(r.last_seen_at)],['Son başarılı bağlantı',r.last_success_at?dateTime(r.last_success_at):'Veri yok · bağlantı kanıtı yok']
  ]}/></div>
  <div className="router-device-tabs filter-tabs" role="tablist" aria-label="Router detay bölümleri">{routerCenterTabs.map(([key,label],index)=><button key={key} ref={node=>{buttons.current[index]=node;}} id={'router-tab-'+key} role="tab" aria-selected={selected===key} aria-controls={'router-panel-'+key} tabIndex={selected===key?0:-1} className={selected===key?'selected':''} onClick={()=>onTab(key)} onKeyDown={e=>navigate(e,index)}>{label}</button>)}</div>
  <section className="panel registry-detail router-device-panel" role="tabpanel" id={'router-panel-'+selected} aria-labelledby={'router-tab-'+selected} tabIndex={0}><h2>{routerCenterTabs.find(([key])=>key===selected)?.[1]}</h2>

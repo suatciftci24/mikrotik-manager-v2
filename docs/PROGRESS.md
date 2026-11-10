@@ -1,5 +1,40 @@
 # MikroTik Manager V2 — İlerleme
 
+## Ofis Router Merkezi uçtan uca tamamlama — 2026-11-10
+
+- Temiz `office-development/375cb18` başlangıcı; kurallar, güncel ilerleme ve
+  özellik koruma kabulü okundu. Önceki dört sekme, canonical router eşlemesi,
+  kaynak/yetki, eski hash hedefleri ve raporlar yeniden yazılmadı. Liste/detay,
+  registry, router-center API ve abone geçişleri birlikte incelendi.
+- Kalan kök neden: sentetik durum rozeti/yeşil ikon ve çevrimiçi filtre adı
+  tarihsel örneği güncel bağlantı gibi vurguluyordu; zaman damgası tek başına
+  veri yaşını anlatmıyordu. Liste artık nötr “Örnekte ONLINE/OFFLINE” ve
+  “Canlı durum bilinmiyor” gösterir. Registry son kontrol ile güncel bağlantıyı
+  açıkça ayırır. Liste/detay kaynağın zamanından kayıt yaşını gösterir; eksik,
+  saat dilimsiz, hatalı veya gelecek zaman güncellik kanıtı sayılmaz. Yeni
+  polling veya keyfi stale politikası yok.
+- Arama yönetim/WAN IP'sini kapsar, Türkçe ve trim destekler; mevcut metin
+  filtresi helper'ı kaynak kapsamıyla kullanılarak URL ve geri dönüşte korunur.
+  Bağlı abone tablosunda LOCAL/RADIUS/Bilinmiyor görünür; hesap/oturum ayrımı,
+  canonical ID ve yetki kapıları korunur. Mobil hedefler 44px, tablo odağı ve
+  saran sayfalama mevcut tema içinde iyileştirildi.
+- PASS: doğrudan Node TypeScript çalıştırmasıyla 33 hedefli frontend testi
+  (routerObservation 3, routerCenter 9, routerSubscriberLinks 6, routerReport 5,
+  detailCenter 10); soketsiz backend router_center 9 unittest; TypeScript/Vite
+  build ve diff kontrolü. Node --test çıktısı dosya düzeyinde kaldığından
+  assertion kanıtı doğrudan dosya çalıştırmalarından alındı. İlk yazma/test
+  komutundaki yanlış cwd ürün değişikliği yapmadı; doğru proje kökünde düzeltildi.
+- Gerçek browser/masaüstü/mobil kabulü BLOCKED: mevcut frontend node_modules
+  içinde playwright-core yok; kurulum/servis başlatma döngüsü yapılmadı.
+  SSR/hook testleri gerçek tarayıcı kabulü değildir. Önceki genel HTTP/PG
+  kabul engelleri kapatılmadı.
+- Kullanıcının açık izolasyon sınırı gereği canlı sağlık URL'sine de erişilmedi.
+  DB/11 demo abonesi/suatciftci hesabı okunmadı veya değiştirilmedi. Servis,
+  gerçek cihaz, RADIUS, IPsec, VDS/V1/V2.5, migration, reset, push/deploy yok.
+  İki stash ve backup/office-20261109 korunur. Yalnız bu görev dosyaları tek
+  yerel commit ile kaydedilir.
+
+
 ## Ofis → Ev GitHub senkronizasyonu — 2026-11-09 — BLOCKED
 
 - office-development/30f067c temiz başlangıç. Yerel origin/main-guncel
