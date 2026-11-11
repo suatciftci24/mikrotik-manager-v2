@@ -1,5 +1,22 @@
 # MikroTik Manager V2 — İlerleme
 
+## Ev demo kabulü / AAA sonraki aşama — 2026-11-11 — BLOCKED
+
+- DESKTOP-MT2JS7H; başlangıç office-development/b76f908, çalışma ağacı temiz.
+  AGENTS.md tüm Altın Kuralları ve son AAA kabul kayıtları okundu.
+- API 127.0.0.1:8000/api/ready ve UI 127.0.0.1:5173/ için birer GET,
+  bu ajan oturumunda errno1 EPERM ile engellendi. Tekrar deneme veya restart
+  yok; servis arızası sonucu çıkarılmadı. Sağlık ve çalışan sürüm doğrulanamadı.
+- demo@local.test giriş akışı, 14 abonenin liste görünürlüğü ve AAA API/UI
+  uyumu erişim engeli nedeniyle doğrulanamadı. Kullanıcının bildirdiği 14 sayısı
+  bu oturumda ölçülmedi; kullanıcı/abone/audit kayıtlarına müdahale edilmedi.
+- Önceki AAA 24/24 ve matris20/20 PASS kanıtları tekrar çalıştırılmadı.
+  Yeni kanıtlanmış AAA kod kusuru yok; kod/test değişikliği veya build yok.
+- Gerçek DB erişimi/yazımı, secret okuma, migration/reset, servis restartı,
+  push/pull/deploy ve kapsam dışı sistem erişimi yok. Yalnız bu kabul notu eklendi;
+  commit yapılmadı. Sonraki tek öncelik: yerel HTTP erişimi olan oturumda
+  demo giriş/liste/AAA uyum kabulünü veri değiştirmeden tamamlamak.
+
 ## Operasyon Merkezi 007 hatası / salt okunur DB teşhisi — 2026-11-10 — kısmi PASS / DB BLOCKED
 
 - Temiz `office-development/448786c`; AGENTS/güncel ilerleme/özellik koruma
