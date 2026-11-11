@@ -5873,3 +5873,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   müdahale yok; migration/reset/restart/deploy/live provider/VDS/push yok.
   Tek yerel commit. Sonraki tek öncelik: kanıtla onaylanan uzlaştırma kararını
   ayrı fixture yetkisiyle mevcut CAS/journal/outbox'a atomik bağlamak.
+
+## AAA uzlaştırma yetkisi / atomik karar — 2026-11-11 — izole PASS
+
+- Beklenen office-development/6803f77 doğrulandı. AGENTS, provider evidence,
+  lease/fencing, plan/CAS/journal/outbox birlikte okundu. Başlangıç PROGRESS
+  değişikliği korundu, commit'e alınmadı. Önceki başarılı AAA testleri tekrarlanmadı.
+- Read-only evidence confirmation'dan ayrı, varsayılan kapalı can_issue/can_commit
+  fixture yetkileri eklendi. Tek kullanımlık registry grant'i tenant/subscriber/
+  request/plan/event, owner/operation revision, fence/attempt/worker, kanıt hash,
+  karar türü ve sürüme bağlı; TTL lease'i aşmaz. Gerçek auth mekanizması yok.
+- Commit güncel kanıtı tekrar okur. Yetki tüketimi + owner revision/fence CAS +
+  journal/audit/outbox ve worker lease iptali tek memory publish'te. Kaynak ve
+  owner rezervasyonu korunur; terminal DECISION_RECORDED, kalan intent'leri
+  iptal eder. Yanlışlıkla pending intent olsa bile dispatch guard ilerletmez.
+- PASS:13 yeni hedefli karar testi; ilk11 ve ek2 fencing/terminal guard testi.
+  CAS, partial publish'in5 sınırı, concurrent duplicate, expiry, yanlış kapsam,
+  yeni fence, farklı ama tutarlı evidence ve eksik kanıt fail-closed doğrulandı.
+  Socket/PG/SQLite connect yasak; diff temiz. Eski suite/build/HTTP yok.
+- Provider/demo UI değişmedi; 14 abone/kullanıcı/gerçek audit/PG/config/stash/
+  dal/yedeklere erişim veya müdahale yok. Migration/reset/restart/deploy/live
+  sistem/gerçek yetki/push yok. Tek yerel commit.
+- Sonraki tek öncelik: DECISION_RECORDED rezervasyonundan devam/iptal için ayrı
+  yetkili sürümlü plan sözleşmesi; eski grant veya iptal edilmiş intent'i kullanmamak.

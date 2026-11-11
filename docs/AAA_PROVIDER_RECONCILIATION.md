@@ -87,3 +87,7 @@ Bunlar RAM modelidir; crash durability, PostgreSQL transaction, uzak provider
 fencing, TLS, imza, gerçek credential veya üretim erişimi kanıtlanmaz.
 Sonraki tek teknik öncelik: kanıtla onaylanan uzlaştırma kararının, ayrı açık
 fixture yetkisiyle mevcut CAS/journal/outbox'a atomik işlenmesi; canlı bağlantı yok.
+
+[Karar yetkisi ve atomik kayıt devamı](AAA_RECONCILIATION_DECISION.md), read-only
+assessment'tan ayrı tek kullanımlık fixture authorization tanımlar. Karar
+DECISION_RECORDED bekleme noktasına atomik kaydedilir; provider dispatch başlamaz.
