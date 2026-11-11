@@ -15,6 +15,27 @@ test('shared preview supports 30/60/90, cross-router batches and rejects live/re
  assert.throws(()=>dailyEntries(rows,'PLAN','New Plan',30,'2026-10-29',()=>''));
  assert.throws(()=>dailyEntries([{...item,expires_on:null}],'EXTEND','',30,'2026-10-29',()=>''));
 });
+test('preview rejects unsupported authority, router, revision, dates and unchanged single-record edits before creating commands',()=>{
+ let ids=0;const id=()=>{ids++;return 'synthetic-request';};
+ for(const change of [{source:'UNKNOWN'},{source:'other'},{router_id:'registered-router'},
+  {access_type:'UNKNOWN'},{revision:0},{revision:-1},{revision:1.5},{revision:undefined}]){
+  assert.throws(()=>dailyEntries([{...item,...change}],'STATUS','ACTIVE',30,'2026-10-29',id));
+ }
+ assert.equal(ids,0);
+ for(const [action,value,days] of [['EXTEND','',15],['PLAN',item.plan,30],['STATUS',item.status,30],
+  ['EDIT',item.customer_name,30],['ROUTER',item.router_id,30],['EXPIRE',item.expires_on,30],
+  ['EXPIRE','2026-02-30',30],['EDIT','\u0000bad',30],['DELETE','',30]]){
+  assert.throws(()=>dailyEntries([item],action,value,days,'2026-10-29',id));
+ }
+ assert.equal(ids,0);
+ for(const authority of ['LOCAL','RADIUS']){
+  const command=dailyEntries([{...item,source:authority}],'PLAN','Demo 800',30,'2026-10-29',id)[0];
+  assert.equal(command.expected_source,authority);assert.equal(command.expected_revision,item.revision);
+  assert.equal(command.expected_router_id,item.router_id);assert.equal(command.value,'Demo 800');
+ }
+ // Mixed bulk status remains per-account: unchanged accounts may be recorded failures.
+ assert.equal(dailyEntries(rows,'STATUS','PAUSED',30,'2026-10-29',id).length,2);
+});
 test('bulk preview requires explicit consent and does not resend resolved mixed-result requests',async()=>{
  const require=createRequire(import.meta.url),slots=[];let cursor=0;const calls=[];
  const hooks={...React,useEffect:()=>{},useCallback:fn=>fn,useRef:value=>{const i=cursor++;slots[i]??={current:value};return slots[i];},useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;const value=slots[i];if(value?.path)return [{...value,loading:false,data:{items:[]}},()=>{}];return [value,next=>{slots[i]=typeof next==='function'?next(slots[i]):next;}];}};

@@ -5367,3 +5367,38 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Operasyon Merkezi / Son 24 saat; boş kalıcı geçmiş kaynak hatası üretmemeli.
 - DB/migration/restore/restart/cihaz/RADIUS/IPsec/VDS/canlı erişimi yok.
   İki stash ve backup/office-20261109 korunur. Yerel commit; push/deploy yok.
+
+
+## Ofis Abone Merkezi günlük işlem önizleme koruması — 2026-11-11
+
+- Başlangıç office-development/3c26180 temiz. AGENTS, güncel ilerleme ve
+  V26_FEATURE_PRESERVATION_ACCEPTANCE envanteri okundu. Legacy/workspace
+  oluşturma, düzenleme, QuickActions/yenileme, günlük işlemler, audit/recovery,
+  ortak invalidation, kaynak/router ve mobil satır menüsü incelendi.
+- Kanıtlanan eksik: dailyEntries yalnız truthy source/router kontrol ediyordu;
+  UNKNOWN kaynak, yanlış router kapsamı/tür, geçersiz revision veya 15 gün
+  uzatma önizlemeye taşınabiliyordu. Tekil değişmeyen değer de onaya geçiyordu.
+  Ortak canChangeWorkspaceItem kullanılır; revision>=1, destekli action/süre
+  ve tekil gerçek değişiklik zorunlu. Sunucu onay/yetki/hash/revizyon/UUID ve
+  atomik kayıt+audit kuralları korunur; frontend yetki yerine geçmez.
+- LOCAL/RADIUS sentetik hesaplar ve cross-router toplu STATUS/EXTEND korunur.
+  Toplu kısmi sonuçlar aynı UUID ile salt GET kurtarmaya devam eder. Var olan
+  liste/detay/Operasyon invalidation ve popover/focus/mobile akışları yeniden
+  yazılmadı; bağımsız mobil görsel kabulü iddia edilmez.
+- PASS: 70 hedefli backend testinin 69'u ilk turda geçti. Kalan router testi
+  güncel belgelenmiş canonical tekil legacy isim eşlemesiyle çelişiyordu;
+  explicit ID ve belirsiz çift-isim reddi korunarak test güncellendi, ilgili
+  modül 6/6 geçti. Ürün yetkisi veya kaynak kontrolü gevşetilmedi.
+- PASS: yedi frontend hedef dosyası (daily management, save/renewal recovery,
+  filters, quick workflow, menu position, management report). Yeni negatif
+  önizleme testleri UUID üretilmeden reddi ve LOCAL/RADIUS pozitifini sınar.
+  İlk test aracında extensionless import/cwd sorunu giderildi. TypeScript
+  nullable daraltması açıklaştırıldı; son typecheck/build sonucu doğrulandı.
+- Backend testleri geçici SQLite kullanır; global mevcut PG engine connect ve
+  begin test süresince AssertionError ile yasaklandı. Mevcut 11 abone/admin/
+  audit'e erişim/yazım yok; PG satır eşitliği yeniden doğrulandı iddiası yok.
+  Yedek SHA256 05c3d460e51585e2e57b162be5fe9bfc10d78440f8e28b7651c0ad5cc133d0b4
+  eşleşti; iki stash ve backup/office-20261109 korundu.
+- Gerçek browser/HTTP/PG kabulü BLOCKED: bilinen socket EPERM tekrar denenmedi.
+  Migration/reset/silme/restore/restart/VDS/cihaz/RADIUS/IPsec/canlı işlem yok.
+  Tek yerel commit; push/deploy yok.
