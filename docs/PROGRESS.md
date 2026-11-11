@@ -5481,3 +5481,30 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Mevcut 11 abone/admin/audit/PG kaydına yazma yok. Migration/reset/restart/
   V1/V2.5/VDS/router/RADIUS/IPsec/canlı işlem yok. İki stash ve yedek dal,
   PostgreSQL yedeği korunur. Tek yerel commit; push/deploy yok.
+
+
+## Router Merkezi kompakt mobil görünüm — 2026-11-11
+
+- Başlangıç office-development/aea98d1 temiz. AGENTS ve güncel ilerleme okundu.
+  Kök neden: mobil listeler geniş masaüstü tablosuna bağlı, arama/durum
+  kontrolleri geniş toolbar'da, teknik detaylar sürekli açık kalıyordu.
+- Demo, kalıcı sentetik ve registered listelere ayrı iki satırlı mobil görünüm:
+  ad, kayıtlı durum, WAN veya Veri yok, ölçüm/kontrol yaşı ve detay oku.
+  Yönetim IP'si WAN'a dönüşmez; last_success_at ölçüm zamanı sayılmaz.
+  On dakikayı aşan geçerli ölçüm Güncel değil; eksik/gelecek/timezone-free
+  zamanı güncel göstermez. Sentetik/kayıtlı ve canlı bilinmiyor notu korunur.
+- <=600px: tek arama/filtre satırı, kayıtlı liste durumları açılır filtrede;
+  stats/veri kapsamı ve teknik detay native disclosure ile erişilebilir.
+  5 kayıt mobil sayfalama, arama/filtrede ilk sayfa; server listeleri mevcut
+  page_size5, desktop25. Desktop tablolar ve backend sözleşmeleri korunur.
+- Detayda CPU/RAM/son ölçüm kompakt iki sütun, dört sekme ve 44px hedefler;
+  metin taşmaları için min-width0/wrap. f264bd2 router ID+PPPoE/Hotspot
+  Abone Merkezi aktarımı değişmedi, regresyon geçti. V1Inventory değiştirilmedi.
+- PASS: compactRouters yeni 4 test, routerCenter, routerSubscriberLinks,
+  routerObservation ve routerWorkspace hedef dosyaları; typecheck/build/diff.
+  CSS importları için iki statik esbuild harness'ına loader empty eklendi;
+  bu layout doğrulaması değildir. Gerçek 320/360/393/430px tarayıcı, dokunma
+  ve modal kabulü PENDING; bilinen socket EPERM yeniden denenmedi.
+- DB/API/socket bağlantısı veya mevcut 11 abone/admin/audit'e yazma yok.
+  Yedek, iki stash, backup/office-20261109 korunur. Migration/reset/restart/
+  V1/V2.5/VDS/router/RADIUS/IPsec/üretim işlemi yok. Tek commit; push/deploy yok.

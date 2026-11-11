@@ -1,0 +1,54 @@
+.compact-routers{display:none}
+@media(max-width:600px){
+ .router-center-list,.router-device-center,.router-device-summary,.router-device-panel,.router-mobile-list{min-width:0;max-width:100%;box-sizing:border-box}
+ .router-center-list>.screen-stack>.page-heading-row p,.router-center-list .source-picker>p{display:none}
+ .router-center-list .source-picker select{min-width:0;max-width:100%}
+ .router-center-list .heading-actions{flex-wrap:wrap;gap:6px}
+ .router-center-list .heading-actions button{min-height:44px;white-space:normal}
+ .router-center-list .router-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .router-center-list .router-stats>div{min-width:0;padding:8px}
+ .router-center-list .router-stats strong{font-size:18px}
+ .router-center-list .router-inventory,.router-center-list .router-mobile-list{padding:10px}
+ .router-center-list .router-inventory>.table-scroll,.router-center-list .router-inventory>.table-footer,.router-center-list .router-mobile-list>.table-scroll,.router-center-list .router-mobile-list>.table-footer{display:none}
+ .router-inventory>.inventory-toolbar,.router-mobile-list>.inventory-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;min-width:0}
+ .router-center-list .inventory-toolbar>.table-search,.router-mobile-list .inventory-toolbar>.table-search{min-width:0;width:100%;grid-column:1;grid-row:1;box-sizing:border-box}
+ .router-center-list .inventory-toolbar>.subscriber-disclosure{grid-column:2;grid-row:1}
+ .router-center-list .inventory-toolbar>.subscriber-disclosure[open]{grid-column:1/-1;grid-row:auto}
+ .router-center-list .inventory-toolbar>.subscriber-disclosure summary{padding:10px 6px}
+ .router-center-list .inventory-toolbar>.subscriber-disclosure .filter-tabs{display:flex;flex-wrap:wrap;gap:6px}
+ .router-center-list input,.router-center-list select{min-width:0;max-width:100%;box-sizing:border-box;min-height:44px}
+ .router-center-list .table-search input{width:100%}
+ .router-center-list .registry-section-title p,.router-mobile-list>p{font-size:12px;margin:4px 0 8px}
+ .router-mobile-list>h2{font-size:15px}
+ .router-center-list .inventory-toolbar button{min-height:44px;white-space:normal}
+ .compact-routers{display:block;min-width:0}
+ .compact-routers ul{list-style:none;padding:0;margin:0}
+ .compact-routers li{border-bottom:1px solid var(--line);min-width:0}
+ .compact-routers li>button{display:flex;align-items:center;gap:8px;width:100%;min-height:60px;padding:8px 0;border:0;background:transparent;color:inherit;text-align:left}
+ .compact-router-content{flex:1;min-width:0}
+ .compact-router-first,.compact-router-second{display:flex;justify-content:space-between;gap:8px;min-width:0;align-items:baseline}
+ .compact-router-first strong{font-size:13px;overflow-wrap:anywhere;min-width:0}
+ .compact-router-first>span{font-size:11px;max-width:46%;overflow-wrap:anywhere;color:var(--text-secondary)}
+ .compact-router-second{font-size:11px;line-height:1.5;color:var(--text-secondary)}
+ .compact-router-second>span{min-width:0;overflow-wrap:anywhere}
+ .compact-router-arrow{font-size:22px;flex-shrink:0}
+ .compact-router-pages{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;font-size:12px}
+ .compact-router-pages button{min-height:44px;min-width:44px}
+ .compact-routers button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+ .router-device-center .page-heading p{font-size:12px}
+ .router-device-summary,.router-device-panel{padding:10px}
+ .router-device-summary .detail-facts,.router-device-panel .detail-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .router-device-summary .detail-facts>div,.router-device-panel .detail-facts>div{min-width:0;padding:6px}
+ .router-device-summary dt,.router-device-panel dt{font-size:11px}
+ .router-device-summary dd,.router-device-panel dd{font-size:12px;overflow-wrap:anywhere;margin:0}
+ .router-device-summary .heading-actions{display:flex;flex-wrap:wrap;gap:6px}
+ .router-device-summary button,.router-device-panel button,.router-device-panel a,.router-device-panel summary{min-height:44px;white-space:normal;overflow-wrap:anywhere}
+ .router-device-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;overflow:visible}
+ .router-device-tabs button{min-width:0;min-height:44px;padding:6px 2px;font-size:11px;white-space:normal}
+ .router-device-panel p{font-size:12px;overflow-wrap:anywhere}
+ .router-device-panel .form-label,.router-device-panel select{min-width:0;max-width:100%}
+ .router-device-panel .inventory-toolbar{flex-wrap:wrap;min-width:0}
+ .router-device-panel .inventory-toolbar label{min-width:0;max-width:100%}
+ .router-device-center .detail-back{min-height:44px}
+ .router-center-list~dialog,.router-center-list dialog{max-width:calc(100vw - 24px);box-sizing:border-box}
+}
