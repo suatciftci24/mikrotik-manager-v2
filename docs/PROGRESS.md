@@ -5609,3 +5609,38 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   DB yazımı yok. Gerçek HTTP/tarayıcı ve 393px görsel kabul PENDING; socket
   EPERM tekrar denenmedi. Yedek, 11 abone/admin/audit, iki stash ve yedek dala
   müdahale yok. Tek commit; push/deploy yok.
+
+
+## Merkezi AAA veri modeli ve güvenlik sözleşmeleri — 2026-11-11
+
+- Başlangıç office-development/d8d4881 temiz. AGENTS, ilerleme ve RADIUS
+  tasarım belgesi; mevcut account/customer/plan/router, kaynak, event/audit,
+  adapter Protocol ve entegrasyon Contract sınırları okundu.
+- Eksik: bağımsız merkezi abonelik/realm/NAS/profile alanları mevcut sentetik
+  GET'lerde yok; frontend risk anahtarı authoritative AAA kimliği sayılamaz.
+  aaa_contracts.py yeni ORM/depo değil, strict/frozen/version1 read projection.
+  Mevcut Contract tabanı kullanılır; import IO, endpoint veya adapter yok.
+- Hesap store/id/revision ve isteğe bağlı subscription/tenant; ayrı identity,
+  authority/access, NAS, plan/profile, tarih/policy/UTC ve hesap/session alanları.
+  UNKNOWN korunur, realm parse veya implicit normalize yok. EXACT orijinali
+  değiştiremez; açık tenant/realm/NAS policy olmadan collision key bilinmiyor.
+- Saf kapsam kontrolü tenant/depo/router veya mevcut workspace ADMIN ister;
+  gizli peer risk sayısı sızdırmaz. PreviewProof aktör/store/hesap/revision/
+  hash eşleşmesi; UUID MATCH/CONFLICT/UNRELATED yalnız korelasyon kanıtıdır,
+  yazma/taşıma izni veya kalıcı audit/idempotency ledger değildir.
+- Bitiş: policy verilmeden UTC üretilmez. Açık inclusive Türkiye iş günü
+  için sağlanan UTC yalnız ertesi yerel gün 00:00 sınırıyla eşleşirse geçer;
+  naive/farklı sınır reddedilir. Hesap aktifliği canlı session değildir.
+  Tüm canlı mapping/credential/yazma yetkisi çıktıları UNVERIFIED kalır.
+- docs/CENTRAL_AAA_CONTRACTS.md veri sahipliği, alanlar, future schema,
+  namespace, policy sürümleri, kanıtın sınırı, distributed audit ve rollback
+  kararlarını açıklar. RADIUS_SYNTHETIC_VISIBILITY buraya bağlanır. Mevcut
+  frontend önizlemesi/GET akışı ve kalıcı veri modelleri değiştirilmedi.
+- PASS: 9 backend saf sözleşme testi; radiusTransitionPreview, radiusVisibility,
+  radiusCenter frontend dosyaları; typecheck, build ve diff kontrolü.
+  Tenant sınırı eklenince ilgili saf suite tekrar geçti. Hiçbir DB/socket/
+  secret resolver çağrısı yok. Gerçek PG/HTTP/tarayıcı/canlı AAA PENDING /
+  uygulanmadı; socket EPERM yeniden denenmedi.
+- Mevcut 11 abone/admin/audit/PG/yedek üzerinde işlem yok. İki stash ve
+  backup/office-20261109 korundu. Migration/reset/restart/V1/V2.5/VDS/cihaz/
+  RADIUS/IPsec/üretim işlemi yok. Tek commit; push/deploy yok.

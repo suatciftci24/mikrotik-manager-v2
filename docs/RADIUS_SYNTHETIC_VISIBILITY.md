@@ -2,6 +2,10 @@
 
 2026-11-11 · Ofis `office-development` · yalnız mevcut sentetik V2 verileri.
 
+Sürümlü alanlar, veri sahipliği ve saf backend kontrol sınırı:
+[Merkezi AAA veri modeli ve güvenli tasarım](CENTRAL_AAA_CONTRACTS.md).
+Bu sözleşmeler yeni depo veya canlı uygulama yolu değildir.
+
 RADIUS Merkezi daha önce hazırlık metniydi. Yeni ekran mevcut GET sözleşmelerini
 okur; FreeRADIUS istemcisi, health/probe, sync, seed, scheduler veya migration
 eklemez. `/modules` içindeki RADIUS SCAFFOLD durumu canlı entegrasyonun henüz
