@@ -90,3 +90,8 @@ Socket/PG/SQLite connect yasak. Crash durability/gerçek DB/uzak provider garant
 
 Sonraki tek teknik öncelik: yeni executor UNKNOWN receipt'ini, eski yetkileri
 kullanmadan ayrı kanıt değerlendirme/karar sözleşmesine bağlamak; canlı bağlantı yok.
+
+[Executor UNKNOWN değerlendirme ve yetkili karar devamı](AAA_EXECUTOR_UNKNOWN_DECISION.md)
+pinned sahte provider'dan salt okunur kanıt alır. Executor provider instance'ı ilk
+claim'de bağlar. Yeni ayrı fixture yetkisi olmadan kayıt ilerlemez; original UNKNOWN
+receipt ve gerçek dispatch yasağı korunur.

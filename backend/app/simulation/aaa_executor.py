@@ -85,7 +85,7 @@ class FixtureExecutor:
         self._unit, self._provider, self._outcome = unit, provider, outcome
         with unit._lock, provider._lock:
             for key, empty in (('executor_claims', {}), ('executor_attempts', set()), ('executor_status', {}),
-                               ('executor_accepted', {}), ('executor_audit', [])):
+                               ('executor_accepted', {}), ('executor_audit', []), ('executor_provider_sources', {})):
                 unit._state.setdefault(key, empty)
             provider._state.setdefault('executor_receipts', {})
 
@@ -139,7 +139,8 @@ class FixtureExecutor:
     def _command(self, request, command, context, *, expired=False, coordinator=False):
         unit = self._unit
         stored = unit._state['executor_claims'].get(command.execution_id)
-        if (stored != command or command.request_id != request.request_id or command.tenant_id != request.plan.tenant_id
+        if (unit._state['executor_provider_sources'].get(command.execution_id) != id(self._provider)
+                or stored != command or command.request_id != request.request_id or command.tenant_id != request.plan.tenant_id
                 or command.subscriber_id != request.plan.snapshot.reference.account_id
                 or not coordinator and command.worker_id != context.worker_id
                 or not expired and unit._clock.now() >= command.expires_at):
@@ -174,6 +175,10 @@ class FixtureExecutor:
                 attempt_id=intent.attempt_id, plan_hash=staged.execution_plan_hash, allowed_step=staged.allowed_step,
                 owner_revision=owner.revision, owner_fence=owner.fence, fencing_token=staged.worker_token,
                 worker_id=context.worker_id, expires_at=unit._clock.now() + timedelta(seconds=intent.seconds))
+            source = unit._state['executor_provider_sources'].get(execution_id)
+            if source is not None and source != id(self._provider):
+                raise ExecutorConflict('WRONG_FIXTURE_PROVIDER_SOURCE')
+            unit._state['executor_provider_sources'][execution_id] = id(self._provider)
             unit._state['executor_claims'][execution_id] = command
             unit._state['executor_attempts'].add(attempt_key)
             unit._state['executor_status'][execution_id] = 'CLAIMED'
@@ -208,15 +213,7 @@ class FixtureExecutor:
             candidate = deepcopy(provider._state)
             current = candidate['provider']
             if self._outcome in ('SUCCESS', 'APPLY_THEN_UNKNOWN') and command.allowed_step != 'COMMIT_OWNER_CAS':
-                # The current account fence authorizes this effect; source-fence evidence is separate.
-                source_fence = current.owner_fence if command.allowed_step == 'ENABLE_RADIUS' else command.owner_fence
-                root_command = ProviderCommand(tenant_id=command.tenant_id, account_id=command.subscriber_id,
-                    store=request.plan.snapshot.reference.store, request_id=request.request_id,
-                    correlation_id=request.correlation_id, request_fingerprint=request.fingerprint(),
-                    plan_hash=command.plan_hash, event_id=command.event_id, sequence=plan.step_sequence,
-                    step=command.allowed_step, worker_id=command.worker_id, attempt_id=command.attempt_id,
-                    owner_fence=source_fence, worker_token=command.fencing_token, operation_revision=plan.operation_revision + 1)
-                candidate['provider'] = _transition(root_command, current, 'APPLIED')
+                candidate['provider'] = fixture_effect(request, command, plan.step_sequence, current, operation_revision=plan.operation_revision + 1)
             candidate['highest'] = token
             outcome = 'UNKNOWN' if self._outcome == 'APPLY_THEN_UNKNOWN' else self._outcome
             receipt = ExecutorReceipt(**command.model_dump(), outcome=outcome,
@@ -232,7 +229,8 @@ class FixtureExecutor:
 
     def _accept(self, request, context, command, receipt, *, coordinator=False, fail_at=None):
         unit, provider = self._unit, self._provider
-        if command.request_id != request.request_id or unit._state['executor_claims'].get(command.execution_id) != command:
+        if (unit._state['executor_provider_sources'].get(command.execution_id) != id(provider)
+                or command.request_id != request.request_id or unit._state['executor_claims'].get(command.execution_id) != command):
             raise ExecutorConflict('UNKNOWN_ATTEMPT')
         previous = unit._state['executor_accepted'].get(command.execution_id)
         key, owner_key, op = unit._match(unit._state, request)
@@ -298,3 +296,17 @@ class FixtureExecutor:
                 raise ExecutorConflict('UNKNOWN_RECONCILIATION_REQUIRED')
             return deepcopy({'accepted': accepted, 'provider_receipt': self._provider._state['executor_receipts'].get(execution_id),
                 'provider_state': self._provider._state['provider'], 'unit': self._unit.snapshot()})
+
+
+def fixture_effect(request, command, sequence, current, *, operation_revision):
+    """Shared pure effect check for execution and independent evidence verification."""
+    if command.allowed_step == 'COMMIT_OWNER_CAS':
+        return current
+    source_fence = current.owner_fence if command.allowed_step == 'ENABLE_RADIUS' else command.owner_fence
+    root_command = ProviderCommand(tenant_id=command.tenant_id, account_id=command.subscriber_id,
+        store=request.plan.snapshot.reference.store, request_id=request.request_id,
+        correlation_id=request.correlation_id, request_fingerprint=request.fingerprint(),
+        plan_hash=command.plan_hash, event_id=command.event_id, sequence=sequence,
+        step=command.allowed_step, worker_id=command.worker_id, attempt_id=command.attempt_id,
+        owner_fence=source_fence, worker_token=command.fencing_token, operation_revision=operation_revision)
+    return _transition(root_command, current, 'APPLIED')

@@ -5965,3 +5965,29 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   veya müdahale yok; migration/reset/restart/deploy/push yok. Tek yerel commit.
   Sonraki tek öncelik: executor UNKNOWN receipt'ini eski yetkileri yeniden
   kullanmadan ayrı kanıt değerlendirme/karar sürecine bağlamak.
+
+## Executor UNKNOWN evidence / authorized decision — 2026-11-11 — izole PASS
+
+- Beklenen office-development/f57fffb doğrulandı; AGENTS, executor/UNKNOWN/
+  provider/CAS/journal/audit/outbox/fencing ve eski yetkiler incelendi. Başlangıç
+  PROGRESS değişikliği korundu, commit'e alınmadı. Eski başarılı testler yok.
+- EVIDENCE_EVALUATION_V1_FIXTURE execution/event/attempt/hash/fence/provider
+  evidence/owner revision'a bağlı ve salt okunur. İlk claim provider instance'ını
+  sabitler; kopya farklı provider trusted sayılmaz. Pure fixture effect kuralı
+  executor ile değerlendirmede ortaklaştırıldı; gerçek adaptör eklenmedi.
+- Yalnız tutarlı bağımsız definitive provider kaydı CONFIRMED_SUCCESS/REJECTION
+  verebilir. Missing/malformed/UNKNOWN/stale/çelişkili proof READ_ONLY kalır.
+  Değerlendirme karar veya execution yetkisi vermez; provider hiç değişmez.
+- Ayrı varsayılan kapalı evaluate/issue/apply fixture kapıları ve TTL'li tek
+  kullanımlık AUTHORIZED_DECISION_V1_EXECUTOR_FIXTURE eklendi. Apply güncel kanıtı
+  tekrar okuyup grant tüketimi/CAS/journal/audit/outbox/lease iptalini tek memory
+  commit'te yapar. EXECUTOR_DECISION_RECORDED dispatch'e kapalı; source/reservation
+  ve original UNKNOWN receipt korunur. Yeni otomatik provider intent'i yoktur.
+- PASS:12 yeni hedefli test (ilk10, başarısız malformed source yolu düzeltildikten
+  sonra yalnız o test, ardından2 prefix/source testi; helper metadata bağı korununca
+  yalnız etkilenen yeni prefix testi tekrarlandı). Socket/PG/SQLite connect
+  yasak; diff temiz. Eski suite/build/HTTP yok.
+- 14 demo abone/kullanıcı/gerçek audit/PG/config/stash/dal/yedeklere erişim veya
+  müdahale yok; migration/reset/restart/deploy/real auth/network/push yok.
+  Tek yerel commit. Sonraki tek öncelik: executor karar checkpoint'ini eski
+  grant/intent'leri açmadan sürümlü devam/iptal politikasına bağlamak.
