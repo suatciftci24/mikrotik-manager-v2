@@ -5747,3 +5747,31 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Network'te aynı GET'in URL/status/JSON yanıtını kontrol et.404 sürerse aynı
   oturumda /api/ready kimliği ve Vite hedefi üzerinden runtime farkı ayrılmalı;
   kök404'ten servis arızası çıkarılmaz.
+
+## RADIUS içinde merkezi AAA yönetimi — 2026-11-11 — hedefli PASS
+
+- Başlangıç office-development/7698a8a; AGENTS, güncel ilerleme, RADIUS Merkezi
+  ve ortak AAA demo incelendi. Başlangıçtaki PROGRESS değişikliği korundu ve
+  bu commit'e alınmadı. Önceki plan/telafi/uzlaştırma, masaüstü ve390px kabulü
+  kullanıcının PASS kanıtıdır; aynı kabul ve AAA24/matris20 tekrarlanmadı.
+- RADIUS Merkezi'ne isteğe bağlı merkezi AAA alanı eklendi; mevcut hesap
+  görünürlüğü, kaynak/tür filtreleri ve LOCAL geçiş ön incelemesi korundu.
+  Yeni işlem motoru/API yok: abone detayındaki AaaDemoScenarios ve GET loader
+  aynen paylaşılır. Senaryolar ancak alan açıldığında okunur; sabit fixture'ın
+  depo/arama filtresinden bağımsızlığı ve gerçek hesap geçmişi olmadığı açık.
+- LOCAL/RADIUS/BELİRSİZ filtre/sayaç/mobil satır/rozetleri; Türkçe senaryo
+  açıklaması, başlangıç/hedef/son model durumu, risk, sonuç ve kullanıcı
+  müdahalesi gösterilir. Telafi başarıya çevrilmez; uzlaştırma otomatik tekrar
+  önermez. UUID/fingerprint/korelasyon ve işlem izi kapalı teknik details'ta.
+- Ortak demo sunumu abone detayında da aynı açıklamaları kullanır. Gerçek AAA
+  işlemlerinin bağlı olmadığı açık; kayıt değiştiren kontrol eklenmedi.
+  Mevcut V2 stilleri, dar ekranda tek kolon, kırılan uzun değerler ve44px
+  kontroller kullanıldı. Yeni ekranın gerçek tarayıcı/layout kabulü yapılmadı.
+- PASS: yalnız yeni aaaManagementCenter dosyasındaki3 hedefli sunum/entegrasyon
+  testi (merkez, teknik details, senaryo seçimi ve yükleniyor/hata) ve TypeScript,
+  diff kontrolü. İlk test dosyası yazımında cwd yolu düzeltildi; test başarısızlığı
+  değildi. HTTP/önceki kabul/build/backend regresyonu tekrarlanmadı.
+- PG/14 abone/kullanıcı/audit ve stash/dal/yedeklere erişim veya müdahale yok.
+  Migration/reset/restart/deploy/provider/VDS/secret/push yok. Tek yerel commit.
+  Sonraki tek öncelik: yalnız yeni RADIUS yönetim alanının masaüstü ve mobil
+  görsel/klavye kabulü; önceki demo endpoint kabulünü tekrarlamamak.

@@ -7,9 +7,9 @@ export function StatusBadge({ status }: { status: string }) {
   return <span className={`status-badge ${status.toLowerCase()}`}><i />{labels[status] ?? status}</span>;
 }
 
-export function SourceBadge({ source }: { source: unknown }) {
+export function SourceBadge({ source, unknownLabel = 'Bilinmiyor' }: { source: unknown; unknownLabel?: string }) {
   const known = subscriberSource(source);
-  const label = sourceLabels[known];
+  const label = known === 'UNKNOWN' ? unknownLabel : sourceLabels[known];
   return <span className={`source-badge ${known.toLowerCase()}`} aria-label={`Yetkili kaynak: ${label}`} title={`Yetkili kaynak: ${label}`}>{known === 'LOCAL' ? <RouterIcon size={12}/> : known === 'RADIUS' ? <RadioTower size={12}/> : <CircleHelp size={12}/ >}{label}</span>;
 }
 
