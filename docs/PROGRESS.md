@@ -5508,3 +5508,34 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - DB/API/socket bağlantısı veya mevcut 11 abone/admin/audit'e yazma yok.
   Yedek, iki stash, backup/office-20261109 korunur. Migration/reset/restart/
   V1/V2.5/VDS/router/RADIUS/IPsec/üretim işlemi yok. Tek commit; push/deploy yok.
+
+
+## Operasyon Merkezi kompakt mobil görünüm — 2026-11-11
+
+- Başlangıç office-development/253f408 temiz; AGENTS ve ilerleme okundu.
+  Sorun: günlük merkez beş kolonlu işlem/olay tabloları, açık filtre ve uzun
+  açıklamalarla mobilde geniş/uzun kalıyordu. İş kuralları yeniden yazılmadı.
+- Yalnız operations kapsamına <=600px kompakt görünüm: özet 2 sütun,
+  önce son işlemler, sonra bitişler/router/WAN olayları. Her kaynak iki
+  satırlı detay oklu listede en fazla5 kayıt ve bağımsız sayfalama kullanır.
+  Desktop tabloları ve kaynak/rol/UUID/revizyon işleyişi korunur.
+- Filtreler tek disclosure: dönem/router/kaynak/paket/durum/tür/bitiş ve
+  listelerde arama. Query120 URL'de korunur, key tüm filtrelerde sayfayı
+  sıfırlar. Arama yalnız mobil listeleri daraltır; dönem özeti değiştirmez,
+  bu kapsam formda açıklanır. Kaynak filtresi tarihi/güncel ayrımını korur.
+- İşlem ve olay seçimi mevcut OperationDetails/AlarmEventDetails'i açar;
+  abone/router geçişleri ve bounded return filtreleri aynı helper'ları
+  kullanır. Kaynak/aktör/UUID/revizyon/eski-yeni değerler detayda kalır.
+- Gerçek hata, kaynak eksikliği ve yetki uyarıları disclosure dışında.
+  Geçerli boş kaynak0; eksik kapsamda erişilen kayıt sayısı açıkça etiketli.
+  Teknik açıklamalar açılır; sentetik/kayıtlı ve canlı bilinmiyor ayrımı
+  görünürdür. Yönetim IP'si WAN yapılmaz; bilinmeyen zaman üretilmez.
+- PASS: compactOperations yeni6 test; managementReport ve
+  operationsNavigation dosyaları; TypeScript noEmit, tsc/Vite build, diff.
+  Yeni arama testinde RADIUS/radius Türkçe I farkı yakalandı; mevcut abone
+  aramasındaki gibi normalize edilerek düzeltildi, 6/6 geçti.
+- 320/360/393/430 CSS: minmax0/wrap, 44px hedefler, dar modal ve overflow-y.
+  Gerçek tarayıcı geometri/dokunmatik/modal kabulü PENDING; socket EPERM
+  yeniden denenmedi. Statik test görsel PASS değildir. Backend/DB/audit/
+  yetki değişikliği, mevcut 11 abone/admin'e yazma yok. Yedek, iki stash,
+  backup/office-20261109 korundu. Tek commit; push/deploy yok.

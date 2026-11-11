@@ -15,7 +15,7 @@ export const reportKinds={ALL:'Tüm işlem ve olaylar',OPERATIONS:'Tüm yönetim
 export type ReportOperation=DailyOperation & {router_id:string|null;workspace?:boolean;label?:string};
 export type WorkspaceHistory={accounts:CenterSubscriber[];receipts:OperationReceipt[];routers:{id:string;fields:{name:string}}[]};
 export type ManagementSource={workspace?:WorkspaceHistory|null;workspaceError?:string;read_at?:string;routers:Router[];details:SubscriberDetailData[];events:AlarmEvent[]|null};
-export type ManagementFilter={period:ManagementPeriod;router:string;kind:keyof typeof reportKinds;expiry?:ExpiryFilter;source?:SourceFilter;plan?:string;account_status?:'ALL'|'ACTIVE'|'PAUSED'|'PENDING'};
+export type ManagementFilter={query?:string;period:ManagementPeriod;router:string;kind:keyof typeof reportKinds;expiry?:ExpiryFilter;source?:SourceFilter;plan?:string;account_status?:'ALL'|'ACTIVE'|'PAUSED'|'PENDING'};
 export const managementExpiryFilters=['ALL','EXPIRED','TODAY','WITHIN_3','WITHIN_7','WITHIN_30','VALID','UNKNOWN'] as const;
 export function managementSourceFromHash(hash:string){return new URLSearchParams(hash.replace(/^#/, '')).get('report_source')==='V1_INVENTORY'?'V1_INVENTORY':'DEMO';}
 export function managementRange(period:ManagementPeriod|'LAST_30',now=new Date()){
@@ -130,7 +130,7 @@ export async function loadManagementReport(_path:string,init?:RequestInit):Promi
 export function managementFilterFromHash(hash:string):ManagementFilter{
   const params=new URLSearchParams(hash.replace(/^#/,''));
   const period=params.get('period')??(params.get('module')==='operations'?'LAST_24':'TODAY'),kind=params.get('kind')??'ALL';
-  return {...(params.has('plan')?{plan:(params.get('plan')??'').slice(0,200)}:{}),...(params.has('account_status')?{account_status:(['ALL','ACTIVE','PAUSED','PENDING'].includes(params.get('account_status')??'')?params.get('account_status'):'ALL') as ManagementFilter['account_status']}:{}),...(params.has('source')?{source:(['ALL','LOCAL','RADIUS','UNKNOWN'].includes(params.get('source')??'')?params.get('source'):'ALL') as SourceFilter}:{}),period:Object.hasOwn(reportPeriods,period)?period as ManagementPeriod:'TODAY',router:params.get('router')??'',kind:Object.hasOwn(reportKinds,kind)?kind as keyof typeof reportKinds:'ALL',...(params.has('expiry')?{expiry:managementExpiryFilters.includes(params.get('expiry') as typeof managementExpiryFilters[number])?params.get('expiry') as ExpiryFilter:'TODAY' as const}:{})};
+  return {...(params.has('query')?{query:(params.get('query')??'').slice(0,120)}:{}),...(params.has('plan')?{plan:(params.get('plan')??'').slice(0,200)}:{}),...(params.has('account_status')?{account_status:(['ALL','ACTIVE','PAUSED','PENDING'].includes(params.get('account_status')??'')?params.get('account_status'):'ALL') as ManagementFilter['account_status']}:{}),...(params.has('source')?{source:(['ALL','LOCAL','RADIUS','UNKNOWN'].includes(params.get('source')??'')?params.get('source'):'ALL') as SourceFilter}:{}),period:Object.hasOwn(reportPeriods,period)?period as ManagementPeriod:'TODAY',router:params.get('router')??'',kind:Object.hasOwn(reportKinds,kind)?kind as keyof typeof reportKinds:'ALL',...(params.has('expiry')?{expiry:managementExpiryFilters.includes(params.get('expiry') as typeof managementExpiryFilters[number])?params.get('expiry') as ExpiryFilter:'TODAY' as const}:{})};
 }
 export function managementReportHash(filter:ManagementFilter,center:'dashboard'|'operations'='dashboard'){return '#'+new URLSearchParams({module:center,view:'DAILY_REPORT',...filter}).toString();}
 
