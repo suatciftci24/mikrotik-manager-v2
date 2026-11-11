@@ -119,7 +119,7 @@ export async function loadManagementReport(_path:string,init?:RequestInit):Promi
       const [accounts,receipts,routers]=await Promise.all([
         reportPages<CenterSubscriber>('/subscriber-workspace',init),
         reportPages<OperationReceipt>('/subscriber-workspace/management/history',init),
-        reportPages<{id:string;fields:{name:string}}>('/router-workspace/routers',init),
+        reportPages<{id:string;fields:{name:string}}>('/router-workspace/routers',init,true),
       ]);
       workspace={accounts,receipts,routers};
     }catch(error){if(init?.signal?.aborted)throw error;workspace=null;workspaceError=error instanceof Error?error.message:'Kalıcı geçmiş okunamadı.';}
@@ -135,11 +135,18 @@ export function managementFilterFromHash(hash:string):ManagementFilter{
 export function managementReportHash(filter:ManagementFilter,center:'dashboard'|'operations'='dashboard'){return '#'+new URLSearchParams({module:center,view:'DAILY_REPORT',...filter}).toString();}
 
 /** Read every page; partial or changing totals must never become a complete counter. */
-async function reportPages<T extends {id?:string;request_id?:string}>(path:string,init?:RequestInit):Promise<T[]>{
+async function reportPages<T extends {id?:string;request_id?:string}>(path:string,init?:RequestInit,routerWorkspace=false):Promise<T[]>{
   const rows:T[]=[];const ids=new Set<string>();let expected:number|undefined;
   for(let page=1;page<=1000;page++){
-    const data=await api<{items:T[];total:number;is_demo:true}>(path+'?page_size=100&page='+page,init);
-    if(data.is_demo!==true||!Array.isArray(data.items)||!Number.isInteger(data.total)||data.total<0||expected!==undefined&&expected!==data.total)throw new Error('Kalıcı geçmiş kapsamı değişti; raporu yenileyin.');
+    const data=await api<{items:T[];total:number;is_demo?:boolean}>(path+'?page_size=100&page='+page,init);
+    // WorkspaceList has no envelope is_demo field; synthetic identity is per record.
+    // SubscriberWorkspaceList and OperationHistory require the envelope marker.
+    if(!Array.isArray(data.items)||!Number.isInteger(data.total)||data.total<0||(!routerWorkspace&&data.is_demo!==true))throw new Error(`Kalıcı kaynak yanıtı doğrulanamadı (${path}).`);
+    if(routerWorkspace&&data.items.some(row=>{
+      const record=row as T & {kind?:string;is_demo?:boolean;persistence?:string;device_connected?:boolean};
+      return record.kind!=='DEMO_ROUTER'||record.is_demo!==true||record.persistence!=='local-postgresql-workspace'||record.device_connected!==false;
+    }))throw new Error('Kalıcı router kaynağının sentetik kimliği doğrulanamadı.');
+    if(expected!==undefined&&expected!==data.total)throw new Error('Kalıcı geçmiş kapsamı değişti; raporu yenileyin.');
     expected=data.total;
     for(const row of data.items){const id=row.request_id??row.id;if(!id||ids.has(id))throw new Error('Kalıcı geçmiş sayfaları tekil değil; raporu yenileyin.');ids.add(id);rows.push(row);}
     if(rows.length===expected)return rows;

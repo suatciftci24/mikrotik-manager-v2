@@ -5344,3 +5344,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Önceki görevde hedefli soketsiz Python testleri 19/19 PASS idi. Bu görevde
   yalnız kabul belgeleri güncellendi; diff kontrolü yapılır. Chromium kabulü
   BLOCKED, PASS iddiası yok. Yerel commit oluşturulacak; push yok.
+
+
+## Ofis Operasyon Merkezi kalıcı kaynak sözleşmesi — 2026-11-11
+
+- Başlangıç office-development/96e9858, temiz. Kullanıcı 007/008 ve veri
+  korumasını, gerçek API HTTP200 sonucunu bildirdi; bunlar burada tekrarlanmadı.
+- Kök neden: managementReport reportPages üç kaynakta envelope is_demo=true
+  bekliyordu; gerçek router WorkspaceList yalnız items/total/page/page_size
+  içerir. HTTP200 boş router listesi bile ortak Promise.all hata yoluna düşer;
+  bağımsız Python API kontrolü bu frontend sözleşmesini sınamadığından geçer.
+- Router listesi kendi sözleşmesine göre okunur; dolu kayıtta DEMO_ROUTER,
+  is_demo, persistence ve device_connected doğrulanır. Abone/audit marker,
+  tekillik, tam sayfalama ve değişen toplam reddi korunur. Boş erişilebilir
+  geçmiş 0; erişilemeyen kaynak hata kalır. Yanıt biçimi hatası endpoint içerir,
+  parola/cookie veya ham payload loglanmaz. Auth/cache/DB kodu değiştirilmedi.
+- PASS: managementReport 23 test; workspaceApiErrors ve resourceReconciliation
+  dosyaları; TypeScript noEmit; tsc/Vite build; diff kontrolü. Yeni fixture ilk
+  denemede WAN available alanı eksikti; gerçek sözleşmeye düzeltildi ve geçti.
+- Gerçek tarayıcı kabulü BLOCKED: bilinen sandbox socket EPERM yeniden
+  denenmedi. Son kontrol: Ofis yerel Vite arayüzünde tam yenileme sonrası
+  Operasyon Merkezi / Son 24 saat; boş kalıcı geçmiş kaynak hatası üretmemeli.
+- DB/migration/restore/restart/cihaz/RADIUS/IPsec/VDS/canlı erişimi yok.
+  İki stash ve backup/office-20261109 korunur. Yerel commit; push/deploy yok.
