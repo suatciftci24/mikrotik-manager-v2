@@ -89,3 +89,8 @@ Socket/PG/SQLite connect testlerde yasaktır; eski suite'ler çalıştırılmaz.
 
 Sonraki tek teknik öncelik: CONTINUE_HELD için ayrı execution authorization ve
 adım ön koşullarını sahte adaptörlerle modellemek; gerçek dispatch açmamak.
+
+[Ayrı execution authorization](AAA_EXECUTION_AUTHORIZATION.md) CONTINUE_HELD
+checkpoint fingerprint'ini doğrular ve yalnız sıradaki adımı atomik fixture
+staging'e alır. FollowupRecord bu held fingerprint'i taşır; eski intent veya
+worker lease'i yeniden açılmaz, gerçek provider dispatch kapalı kalır.

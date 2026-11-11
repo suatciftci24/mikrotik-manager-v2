@@ -78,6 +78,7 @@ class FollowupRecord(ReadContract):
     state: Literal['CONTINUE_HELD', 'CANCELLED_HELD']
     previous_owner_revision: int
     owner_revision: int
+    checkpoint_fingerprint: str
     external_effects_reversed: Literal[False] = False
     automatic_dispatch: Literal[False] = False
     external_writes: Literal[False] = False
@@ -212,7 +213,8 @@ class FixtureFollowupService:
             unit._state['leases'][key] = lease
             record = FollowupRecord(authorization_id=grant.authorization_id, plan_hash=plan.plan_hash(),
                 previous_plan_hash=plan.previous_plan_hash, decision_id=plan.decision_id,
-                kind=plan.kind, state=state, previous_owner_revision=plan.owner_revision, owner_revision=owner.revision)
+                kind=plan.kind, state=state, previous_owner_revision=plan.owner_revision, owner_revision=owner.revision,
+                checkpoint_fingerprint=held_checkpoint_hash(owner, op, lease, unit._state['outbox'][key]))
             unit._state['followup_records'][grant.authorization_id] = record
             unit._audit(unit._state, request, op, state)
             unit._record(lease, state)
@@ -220,3 +222,8 @@ class FixtureFollowupService:
             if fail_at == 'AUTHORIZATION':
                 raise FollowupConflict('INJECTED_AUTHORIZATION_FAILURE')
             return record
+
+
+def held_checkpoint_hash(owner, operation, lease, events):
+    return canonical_hash({'owner': owner.model_dump(mode='json'), 'operation': operation.model_dump(mode='json'),
+                           'lease': lease.model_dump(mode='json'), 'events': [e.model_dump(mode='json') for e in events]})

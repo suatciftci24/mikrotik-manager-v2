@@ -5919,3 +5919,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   erişim veya müdahale yok; migration/reset/restart/deploy/live auth/push yok.
   Tek yerel commit. Sonraki tek öncelik: CONTINUE_HELD için ayrı execution
   authorization ve adım ön koşullarını fake adaptörle modellemek; gerçek dispatch yok.
+
+## AAA execution authorization — 2026-11-11 — izole PASS
+
+- Beklenen office-development/2e47e26 doğrulandı; AGENTS ve continue/decision/
+  CAS/journal/outbox/lease/provider sözleşmeleri birlikte okundu. Başlangıç
+  PROGRESS değişikliği korundu, commit'e alınmadı. Eski başarılı testler yok.
+- Ayrı EXECUTION_AUTHORIZATION_V1_FIXTURE, continue hash/decision/evidence,
+  owner revision/fence, izinli tek adım ve CONTINUE_HELD durumuna bağlı.
+  can_issue/can_stage varsayılan kapalı; kayıtlı, TTL'li ve tek kullanımlık.
+  FollowupRecord'a held owner/journal/lease/outbox fingerprint'i eklendi.
+- Kesin APPLIED prefix sonrası yalnız sıradaki FENCE_LOCAL/ENABLE_RADIUS/
+  COMMIT_OWNER_CAS aşaması planlanır. Güncel CAS/fence, provider anchor ve
+  outbox/audit doğrulanır; UNKNOWN veya NOT_APPLIED ileri retry açmaz.
+- Tek atomic memory publish: grant tüketimi, CAS, journal/audit, HELD step kaydı
+  ve worker revocation. FIXTURE_EXECUTION_STAGED dispatch guard'a kapalıdır;
+  provider belleği değişmez, gerçek veya fake provider execute çağrılmaz.
+- PASS:11 yeni execution testi; expiry/reuse/yanlış step/scope/hash, stale CAS/
+  fence/outbox, UNKNOWN,5 fault sınırı ve concurrent tek kazanan. Socket/PG/
+  SQLite connect yasak; diff temiz. Eski suite/build/HTTP tekrarlanmadı.
+- 14 demo abone/kullanıcı/PG/gerçek audit/config/stash/dal/yedeklere erişim veya
+  müdahale yok. Migration/reset/restart/deploy/live auth/provider/push yok.
+  Tek yerel commit. Sonraki tek öncelik: staged adımı kontrollü sahte executor
+  ve receipt/UNKNOWN sonuç sözleşmesiyle tamamlamak; gerçek dispatch yok.
