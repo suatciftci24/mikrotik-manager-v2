@@ -1,0 +1,27 @@
+.radius-center{min-width:0}
+.radius-controls{display:flex;align-items:flex-end;flex-wrap:wrap;gap:12px}
+.radius-controls>.subscriber-disclosure{display:flex;gap:12px}
+.radius-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.radius-counts>div{padding:10px;border:1px solid var(--line);border-radius:8px;min-width:0}
+.radius-counts strong{display:block;font-size:22px}
+.radius-accounts td small{display:block;color:var(--text-secondary);overflow-wrap:anywhere}
+.radius-boundary{font-size:13px;color:var(--text-secondary)}
+@media(max-width:600px){
+ .radius-center{gap:10px}
+ .radius-center .page-heading h1{font-size:23px}
+ .radius-center .source-picker{padding:10px;min-width:0}
+ .radius-center .source-picker p,.radius-notes p,.radius-center>p{font-size:12px;overflow-wrap:anywhere}
+ .radius-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+ .radius-controls>.subscriber-disclosure{display:block}
+ .radius-controls>.subscriber-disclosure[open]{grid-column:1/-1}
+ .radius-controls input,.radius-controls select,.radius-center .source-picker select{min-width:0;max-width:100%;width:100%;box-sizing:border-box;min-height:44px}
+ .radius-controls label{min-width:0}
+ .radius-accounts{padding:10px;min-width:0}
+ .radius-accounts h2{font-size:15px}
+ .radius-accounts>.table-scroll{display:none}
+ .radius-accounts .compact-operation-list{display:block}
+ .radius-counts{gap:6px;font-size:12px}
+ .radius-counts>div{padding:8px}
+ .radius-notes summary,.radius-center button,.radius-center .record-link{min-height:44px}
+ .radius-center [role=alert]{overflow-wrap:anywhere}
+}

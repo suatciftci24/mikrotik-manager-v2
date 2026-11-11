@@ -5539,3 +5539,39 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   yeniden denenmedi. Statik test görsel PASS değildir. Backend/DB/audit/
   yetki değişikliği, mevcut 11 abone/admin'e yazma yok. Yedek, iki stash,
   backup/office-20261109 korundu. Tek commit; push/deploy yok.
+
+
+## RADIUS Merkezi izole salt okunur görünürlük — 2026-11-11
+
+- Başlangıç office-development/3966172 temiz. AGENTS/ilerleme, modül ekranı,
+  adapter_contracts, kaynak/yetki modeli, Abone/Router GET sözleşmeleri ve
+  entegrasyon mimarisi okundu. RADIUS yalnız SCAFFOLD hazırlık metniydi;
+  mevcut hesap görünürlüğü yoktu. FreeRadiusAdapter yalnız Protocol.
+- Yeni lazy RadiusCenter mevcut /subscribers (router can_view kapsamı) ve
+  ADMIN /subscriber-workspace GET'lerini kullanır. Yeni API/DB/model/
+  migration/provider/senkronizasyon yok. Depolar ayrı seçilir; ADMIN yoksa
+  workspace isteği istemcide de durur, sunucu yetkisi değiştirilmedi.
+- Kaynak LOCAL/RADIUS/UNKNOWN ve tür PPPoE/Hotspot/UNKNOWN ayrı filtre/sayım.
+  Kaynak router/paket/türden tahmin edilmez. Başarılı boş kaynak0; başarısız,
+  mükerrer, eksik/değişen sayfalar hata. Güvenli allowlist projeksiyonu sırrı
+  taşımaz. Hesap/paket/bitiş/durum/revizyon/router referansı okunur; audit
+  aynı depodaki mevcut detay/geçmişte, gerçek AAA accounting iddiası yok.
+- Same-app radius görünürlük return context yeni view anahtarıyla sınırlı
+  desteklenir; keyfi radius&id veya harici URL yine reddedilir. Hesap/router
+  linklerinde exact ID ve depo korunur; registered gerçek cihaz hedefi yok.
+- Mobile <=600px mevcut compact list/disclosure: 5 kayıt, arama/depo/kaynak/
+  tür değişince sayfa1. 320/360/393/430 CSS min-width0/wrap/44px. Gerçek
+  tarayıcı/HTTP/geometri kabulü PENDING; socket EPERM tekrar denenmedi.
+- PASS: radiusVisibility4 + radiusCenter2 yeni test; routerSubscriberLinks
+  ve workspaceContext regresyon dosyaları. Mevcut source açıklaması yeni
+  salt-okunur kapsama güncellendi, eski exact-string testi buna uyarlandı.
+  Test esbuild plugin'i async build'e alındı. TypeScript/build/diff geçti.
+  3 backend kapsam/yetki testi mock verilerle; global PG connect/begin yasak.
+- Canlı AAA kararları docs/RADIUS_SYNTHETIC_VISIBILITY.md: identity/realm
+  benzersizliği, profil/attribute, UTC bitiş/oturum ayrımı, NAS/router bağı,
+  tenant/secret/yetki, dağıtık audit/idempotency ve accounting/freshness.
+  Hiçbiri canlı uygulanmış değil; /modules RADIUS SCAFFOLD entegrasyon için
+  doğru kalır, yeni görünürlük RADIUS sunucusunun çalıştığını iddia etmez.
+- Mevcut 11 abone/admin/audit'e erişim/yazım yok. Yedek SHA256 eşleşti;
+  iki stash ve backup/office-20261109 korundu. Migration/reset/restart/
+  V1/V2.5/VDS/router/RADIUS/IPsec/üretim işlemi yok. Tek commit; push/deploy yok.

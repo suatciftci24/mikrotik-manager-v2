@@ -5,8 +5,9 @@ export function detailReturnHash(hash:string){
  const module=params.get('module');
  const detail=['routers','subscribers'].includes(module??'')&&!!params.get('id');
  const report=module==='dashboard'&&['DAILY_REPORT','OPERATIONS_REPORT'].includes(params.get('view')??'');
+ const radiusVisibility=module==='radius'&&params.get('view')==='SYNTHETIC_VISIBILITY';
  const subscriberList=module==='subscribers'&&['LEGACY','PERSISTENT','HISTORY'].includes(params.get('workspace')??'');
- if(!detail&&!report&&!subscriberList&&module!=='operations'&&module!=='mikajani')return null;
+ if(!detail&&!report&&!subscriberList&&!radiusVisibility&&module!=='operations'&&module!=='mikajani')return null;
  params.delete('return_to');return '#'+params.toString();
 }
 export function linkedDetailHash(target:{module:'routers'|'subscribers';id:string;source?:string;workspace?:string},fromHash=''){

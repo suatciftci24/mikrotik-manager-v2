@@ -18,7 +18,8 @@ test('detail identity takes precedence over stale source parameters in environme
 });
 test('RADIUS is reloadable; operations and analysis never claim live measurement or deployment status',()=>{
  assert.equal(screenFromHash('#module=radius'),'radius');
- assert.equal(workspaceContext('radius','#module=radius').access,'Bağlantı yok');
+ assert.equal(workspaceContext('radius','#module=radius').access,'Salt okunur · Bağlantı yok');
+ assert.match(workspaceContext('radius','#module=radius').description,/canlı oturum bağlantısı yok/);
  assert.equal(workspaceContext('mikajani','#module=mikajani').access,'Salt okunur');
  for(const screen of ['radius','operations','mikajani','routers','subscribers']){
   const text=JSON.stringify(workspaceContext(screen,'#module='+screen));
