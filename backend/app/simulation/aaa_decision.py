@@ -62,6 +62,7 @@ class DecisionRecord(ReadContract):
     event_id: UUID
     decision: Decision
     evidence_fingerprint: str
+    provider_evidence_fingerprint: str
     previous_owner_revision: int
     owner_revision: int
     operation_revision: int
@@ -155,6 +156,7 @@ class FixtureDecisionService:
                     or current.worker_id != stored.worker_id or digest != stored.evidence_fingerprint):
                 raise DecisionConflict('CAS_FENCE_OR_EVIDENCE_CHANGED')
             self._decision_matches(stored.decision, assessment)
+            provider_digest = canonical_hash(self._provider.observe(unit, request, scope, worker, current, permission=permission).model_dump(mode='json'))
             owner_key = (stored.tenant_id, stored.store, stored.subscriber_id)
             # Hold the reservation: confirming a provider step is not a completed source transition.
             owner = owner.model_copy(update={'revision': owner.revision + 1, 'fence': owner.fence + 1})
@@ -178,6 +180,7 @@ class FixtureDecisionService:
             record = DecisionRecord(authorization_id=stored.authorization_id, tenant_id=stored.tenant_id,
                 subscriber_id=stored.subscriber_id, request_id=stored.request_id, plan_hash=stored.plan_hash,
                 event_id=stored.event_id, decision=stored.decision, evidence_fingerprint=digest,
+                provider_evidence_fingerprint=provider_digest,
                 previous_owner_revision=stored.owner_revision, owner_revision=owner.revision,
                 operation_revision=op.revision)
             unit._state['decision_records'][stored.authorization_id] = record

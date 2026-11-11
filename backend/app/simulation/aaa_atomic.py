@@ -78,7 +78,7 @@ class OperationFixture(ReadContract):
     plan_hash: str
     fingerprint: str
     revision: int = 1
-    state: Literal['RESERVED', 'PLANNED', 'MODELED', 'RECONCILIATION', 'COMPENSATED', 'DECISION_RECORDED'] = 'RESERVED'
+    state: Literal['RESERVED', 'PLANNED', 'MODELED', 'RECONCILIATION', 'COMPENSATED', 'DECISION_RECORDED', 'CONTINUE_HELD', 'CANCELLED_HELD'] = 'RESERVED'
     owner_revision: int
     fence: int
 
@@ -92,7 +92,7 @@ class OutboxFixture(ReadContract):
     at: datetime
     sequence: int
     step: str
-    status: Literal['PENDING', 'ACKED', 'UNKNOWN', 'CANCELLED'] = 'PENDING'
+    status: Literal['PENDING', 'ACKED', 'UNKNOWN', 'CANCELLED', 'HELD'] = 'PENDING'
     result: Literal['APPLIED', 'NOT_APPLIED', 'UNKNOWN'] | None = None
 
 
@@ -187,6 +187,8 @@ class MemoryAtomicUnit:
                     or owner.revision != op.owner_revision or owner.fence != op.fence
                     or owner.authority != request.plan.source):
                 raise AtomicConflict('OWNER_CAS_RECONCILIATION_REQUIRED')
+            if op.state in ('CONTINUE_HELD', 'CANCELLED_HELD'):
+                raise AtomicConflict('CHECKPOINT_NO_AUTOMATIC_DISPATCH')
             if op.state == 'DECISION_RECORDED':
                 raise AtomicConflict('DECISION_RECORDED_NO_AUTOMATIC_DISPATCH')
             if op.state == 'RECONCILIATION':

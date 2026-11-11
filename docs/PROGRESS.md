@@ -5896,3 +5896,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   sistem/gerçek yetki/push yok. Tek yerel commit.
 - Sonraki tek öncelik: DECISION_RECORDED rezervasyonundan devam/iptal için ayrı
   yetkili sürümlü plan sözleşmesi; eski grant veya iptal edilmiş intent'i kullanmamak.
+
+## AAA yetkili CONTINUE/CANCEL — 2026-11-11 — izole PASS
+
+- Beklenen office-development/c969fa6 doğrulandı; AGENTS ve decision/grant/
+  CAS/journal/audit/outbox/fencing incelendi. Başlangıç PROGRESS değişikliği
+  korundu, commit'e alınmadı. Önceki başarılı AAA testleri tekrarlanmadı.
+- Ayrı AAA_CONTINUE_PLAN_V1_FIXTURE ve AAA_CANCEL_PLAN_V1_FIXTURE kanonik hash'i
+  tenant/subscriber, parent hash, decision ID, evidence anchor, owner revision,
+  checkpoint state ve fence'e bağlı. DecisionRecord'a provider evidence anchor
+  eklendi; plan issue/commit'te güncel provider ile karşılaştırılır.
+- Varsayılan kapalı can_continue/can_cancel birbirinden ayrı; kayıtlı, TTL'li,
+  tek kullanımlık fixture authorization issue ve commit'te tekrar doğrulanır.
+- Tek atomic memory publish: grant tüketimi, owner/journal CAS, audit, HELD
+  outbox kontrol olayı ve lease revocation. CONTINUE_HELD ayrı yürütme kapısı
+  bekler; CANCELLED_HELD planı kapatır, dış etkileri geri alınmış saymaz.
+  İki state'te owner rezervasyonu korunur ve dispatch guard kapalıdır.
+- PASS:11 yeni hedefli test; ayrık plan/izin/scope, expiry, duplicate, CONTINUE/
+  CANCEL yarışı,5 fault sınırı, stale revision/fence ve evidence değişimi.
+  Socket/PG/SQLite connect yasak; diff temiz. Eski suite/build/HTTP yok.
+- Provider/demo UI/14 abone/kullanıcı/gerçek audit/PG/config/stash/dal/yedeklere
+  erişim veya müdahale yok; migration/reset/restart/deploy/live auth/push yok.
+  Tek yerel commit. Sonraki tek öncelik: CONTINUE_HELD için ayrı execution
+  authorization ve adım ön koşullarını fake adaptörle modellemek; gerçek dispatch yok.

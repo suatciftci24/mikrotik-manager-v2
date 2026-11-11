@@ -81,3 +81,7 @@ Socket/PG/SQLite connect yasak; önceki başarılı AAA suite'leri tekrarlanmad�
 Sonraki tek teknik öncelik: DECISION_RECORDED rezervasyonundan devam/iptal için
 ayrı yetkili, sürümlü plan sözleşmesi; önceki yetkiyi veya iptal edilmiş intent'i
 yeniden kullanmamak. Gerçek bağlantı ve gerçek yetkilendirme yine kapalıdır.
+
+[Yetkili devam/iptal planları](AAA_FOLLOWUP_PLANS.md) bekleme noktasından ayrı
+CONTINUE_HELD/CANCELLED_HELD kararlarını modeller. Provider kanıt anchor'ı karar
+kaydına eklenir; eski intent/lease diriltilmez, otomatik dispatch kapalı kalır.
