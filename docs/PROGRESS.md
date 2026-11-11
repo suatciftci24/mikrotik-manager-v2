@@ -5799,3 +5799,29 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Migration/reset/restart/deploy/push/V1/V2.5/VDS/RADIUS/IPsec müdahalesi yok.
   Tek yerel commit. Sonraki tek öncelik: bağlantı açmadan hazırlık plan hash'i,
   mevcut journal ve account-owner CAS/outbox sınırının sürümlü atomiklik tasarımı.
+
+## AAA plan hash / atomik işlem sözleşmesi — 2026-11-11 — izole PASS
+
+- Başlangıç office-development/a0fa835. AGENTS, plan hazırlığı, journal v1 ve
+  CAS/outbox açık kararları incelendi. Başlangıç PROGRESS değişikliği korundu;
+  bu commit'e alınmadı. Önceki başarılı AAA/demo/UI testleri tekrarlanmadı.
+- AAA_ATOMIC_PLAN_V1 tenant/account/snapshot, LOCAL→RADIUS, beklenen owner ve
+  provider revizyonları, sıralı adımlar, hazırlık hash'i ve policy sürümlerini
+  kanonik JSON SHA-256'ya bağlar. Preparation bridge yalnız uygun fixture
+  kararından plan oluşturur; hash izin tokenı değildir.
+- Ayrı AAA_JOURNAL_V2_FIXTURE memory UoW: tek owner CAS/aktif request/fence,
+  journal plan hash/idempotency, audit ve sıralı outbox atomik yayınlanır.
+  V1/demo koduna, gerçek account deposuna veya DB şemasına bağlanmadı.
+- Tekrarlı teslim/ACK no-op; sıra ve operation CAS zorunlu. UNKNOWN/kısmi hata
+  teslimi durdurur ve rezervasyonu korur. Telafi ayrı izin/kanıt/revizyon ister;
+  eski intent'leri iptal eder, owner revizyonunu artırır ve bildirim ekler.
+- PASS: 11 yeni hedefli test;4 fault sınıfı, iki thread tek CAS kazananı,
+  canonical hash, preparation bridge, sıra/replay/conflict, owner commit/drift,
+  belirsizlik ve telafi. UTC/envelope alanları tamamlandıktan sonra yalnız yeni
+  suite tekrar doğrulandı. Socket/PG/SQLite connect testlerde yasak; diff temiz.
+- PostgreSQL dayanıklılığı/provider exactly-once veya gerçek çift kaynak
+  güvenliği kanıtlanmış sayılmaz. RADIUS canlı bağlantı yok bilgisi korundu.
+  14 abone/kullanıcı/PG/audit/config/stash/dal/yedeklere erişim veya müdahale yok;
+  migration/reset/restart/deploy/provider/push yok. Tek yerel commit.
+- Sonraki tek öncelik: gerçek bağlantı olmadan outbox worker lease/fencing ve
+  stale teslim reddi sözleşmesini sahte adaptörlerle sınamak.

@@ -97,3 +97,9 @@ Detaydaki İşlemler bölümünde isteğe bağlı açılır; güncel hesap kayna
 örnek geçmiş ve korelasyon ayrı gösterilir. Sabit örnek aktör/tarih kullanıcı
 veya güncel olay olarak sunulmaz. GET sonucu kalıcı receipt, canlı hazırlık veya
 yazma yetkisi değildir; `live_ready=false`, `external_writes=false` korunur.
+
+## Plan hash ve account CAS devamı
+
+[Atomik plan/journal v2 tasarımı](AAA_ATOMIC_PLAN.md) v1'e veri veya migration
+uygulamadan kanonik hash, account rezervasyon CAS'i, audit/outbox atomikliği ve
+sıralı teslimi yalnız bellek UoW'de modeller. V1 kayıtları yeni sürüm sayılmaz.
