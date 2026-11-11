@@ -5942,3 +5942,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   müdahale yok. Migration/reset/restart/deploy/live auth/provider/push yok.
   Tek yerel commit. Sonraki tek öncelik: staged adımı kontrollü sahte executor
   ve receipt/UNKNOWN sonuç sözleşmesiyle tamamlamak; gerçek dispatch yok.
+
+## AAA fixture executor / receipt / UNKNOWN — 2026-11-11 — izole PASS
+
+- Beklenen office-development/907af6a doğrulandı. AGENTS ve stage/auth/plan/
+  owner CAS/journal/outbox/lease/provider sözleşmeleri incelendi. Başlangıç
+  PROGRESS değişikliği korundu, commit'e alınmadı. Eski başarılı testler yok.
+- Kontrollü memory executor staged checkpoint, tüketilmiş yetki, tek attempt,
+  event/step/plan hash, owner revision/fence ve güncel token doğrular. Stage
+  kaydına checkpoint fingerprint eklendi. Sahte etki yalnız provider RAM'indedir.
+- AAA_EXECUTOR_RECEIPT_V1_FIXTURE SUCCESS/REJECTED/UNKNOWN sonuçlarını ayırır.
+  Exact duplicate tarihsel no-op; farklı içerik/stale token/CAS/expiry reddedilir.
+  Receipt kabulü owner/journal/audit/outbox/accepted kaydını atomic günceller;
+  provider etkisi ayrı sınırdır, commit fault'unda geri alınmış sayılmaz.
+- Dispatch/effect sonrası crash IN_FLIGHT kalır; ayrı timeout capability UNKNOWN
+  kaydedebilir. Geç SUCCESS UNKNOWN'ı değiştiremez. Terminal state'ler claim'e
+  kapalı; retry/telafi/sonraki step otomatik yok. Read-only unknown_evidence eklendi.
+- PASS:15 yeni hedefli test (11+1 checkpoint/audit+2 UNKNOWN/enable+1 concurrent receipt). İlk unittest
+  helper.run isim çakışması execute olarak düzeltildi; ürün hatası değildi.
+  Socket/PG/SQLite connect yasak; diff temiz. Eski suite/build/HTTP yok.
+- Gerçek ağ/provider/PG/14 abone/kullanıcı/audit/config/stash/dal/yedeklere erişim
+  veya müdahale yok; migration/reset/restart/deploy/push yok. Tek yerel commit.
+  Sonraki tek öncelik: executor UNKNOWN receipt'ini eski yetkileri yeniden
+  kullanmadan ayrı kanıt değerlendirme/karar sürecine bağlamak.

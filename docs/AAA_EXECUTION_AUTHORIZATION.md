@@ -83,3 +83,8 @@ Socket/PG/SQLite connect yasak; önceki başarılı AAA suite'leri tekrarlanmad�
 
 Sonraki tek teknik öncelik: staged tek adımı ayrı kontrollü sahte executor ve
 receipt/UNKNOWN sonuç sözleşmesiyle tamamlamak; gerçek dispatch açmamak.
+
+[Kontrollü fixture executor devamı](AAA_FIXTURE_EXECUTOR.md) staged checkpoint
+fingerprint'i, tek attempt, sahte etki ve ayrı atomic receipt kabulünü modeller.
+Stage kaydı bu checkpoint'i taşır. Gerçek provider/ağ dispatch'i yine kapalıdır;
+UNKNOWN otomatik başarı, telafi veya sonraki adım üretmez.

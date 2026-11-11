@@ -76,6 +76,7 @@ class ExecutionRecord(ReadContract):
     owner_revision: int
     owner_fence: int
     worker_token: int
+    checkpoint_fingerprint: str
     provider_dispatch: Literal[False] = False
     external_writes: Literal[False] = False
     live_ready: Literal[False] = False
@@ -207,7 +208,8 @@ class FixtureExecutionService:
                 step='FIXTURE_STAGE:' + plan.allowed_step, status='HELD'),)
             record = ExecutionRecord(authorization_id=grant.authorization_id, execution_plan_hash=plan.plan_hash(),
                 continue_plan_hash=plan.continue_plan_hash, decision_id=plan.decision_id, allowed_step=plan.allowed_step,
-                owner_revision=owner.revision, owner_fence=owner.fence, worker_token=lease.token)
+                owner_revision=owner.revision, owner_fence=owner.fence, worker_token=lease.token,
+                checkpoint_fingerprint=held_checkpoint_hash(owner, op, lease, unit._state['outbox'][key]))
             unit._state['execution_records'][grant.authorization_id] = record
             unit._audit(unit._state, request, op, 'FIXTURE_EXECUTION_STAGED')
             unit._record(lease, 'FIXTURE_EXECUTION_STAGED')
