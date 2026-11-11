@@ -64,8 +64,34 @@ class ExecutorReceipt(ExecutorCommand):
     outcome: Literal['SUCCESS', 'REJECTED', 'UNKNOWN']
 
 
+class NextStepReconciliationReference(ReadContract):
+    version: Literal['NEXT_STEP_UNKNOWN_REFERENCE_V1_FIXTURE'] = 'NEXT_STEP_UNKNOWN_REFERENCE_V1_FIXTURE'
+    execution_id: UUID
+    previous_execution_id: UUID
+    decision_id: UUID
+    next_step_id: UUID
+    tenant_id: str
+    subscriber_id: str
+    event_id: UUID
+    attempt_id: UUID
+    plan_hash: str
+    continue_plan_hash: str
+    prior_evidence_fingerprint: str
+    provider_evidence_fingerprint: str
+    receipt_fingerprint: str
+    owner_revision: int
+    fencing_token: int
+    request_id: UUID
+    owner_fence: int
+    execution_plan_contract: Literal['NEXT_STEP_EXECUTION_PLAN_V1_FIXTURE'] = 'NEXT_STEP_EXECUTION_PLAN_V1_FIXTURE'
+    evaluation_contract: Literal['EVIDENCE_EVALUATION_V1_FIXTURE'] = 'EVIDENCE_EVALUATION_V1_FIXTURE'
+    state: Literal['READ_ONLY_RECONCILIATION_REQUIRED'] = 'READ_ONLY_RECONCILIATION_REQUIRED'
+    decision_authorized: Literal[False] = False
+
+
 class ReceiptAcceptance(ReadContract):
     receipt: ExecutorReceipt
+    reconciliation_reference: NextStepReconciliationReference | None = None
     owner_revision: int
     operation_revision: int
     state: Literal['FIXTURE_STEP_SUCCEEDED', 'FIXTURE_STEP_REJECTED', 'FIXTURE_STEP_UNKNOWN']
@@ -103,7 +129,15 @@ class FixtureExecutor:
         staged = unit._state.get('execution_records', {}).get(execution_id)
         grant = unit._state.get('execution_authorizations', {}).get(execution_id)
         owner, lease, events = unit._state['owners'][owner_key], unit._state['leases'][key], unit._state['outbox'][key]
-        if (staged is None or grant is None or op.state != 'FIXTURE_EXECUTION_STAGED'
+        from app.simulation.aaa_execution import ExecutionRecord, ExecutionAuthorization, ExecutionStepPlan
+        from app.simulation.aaa_next_step import NextStepExecutionRecord, NextStepExecutionAuthorization, NextStepPlan
+        is_next = type(grant) is NextStepExecutionAuthorization
+        stage_state = 'NEXT_STEP_EXECUTION_STAGED' if is_next else 'FIXTURE_EXECUTION_STAGED'
+        prefix = 'NEXT_STEP_STAGE:' if is_next else 'FIXTURE_STAGE:'
+        if (type(staged) is not (NextStepExecutionRecord if is_next else ExecutionRecord)
+                or type(grant) is not (NextStepExecutionAuthorization if is_next else ExecutionAuthorization)
+                or type(grant.plan) is not (NextStepPlan if is_next else ExecutionStepPlan)
+                or staged.state != stage_state or op.state != stage_state
                 or staged.execution_plan_hash != grant.plan.plan_hash() or staged.allowed_step != grant.plan.allowed_step
                 or staged.owner_revision != owner.revision or owner.revision != op.owner_revision
                 or owner.revision != grant.plan.owner_revision + 1 or owner.fence != staged.owner_fence
@@ -111,17 +145,20 @@ class FixtureExecutor:
                 or owner.active_request != request.request_id or owner.authority != request.plan.source
                 or lease.status != 'DONE' or lease.token != staged.worker_token or lease.operation_revision != op.revision
                 or held_checkpoint_hash(owner, op, lease, events) != staged.checkpoint_fingerprint
-                or events[-1].event_id != uuid5(execution_id, staged.execution_plan_hash)
-                or events[-1].step != 'FIXTURE_STAGE:' + staged.allowed_step or events[-1].status != 'HELD'
+                or not events or events[-1].event_id != uuid5(execution_id, staged.execution_plan_hash)
+                or events[-1].step != prefix + staged.allowed_step or events[-1].status != 'HELD'
                 or events[-1].plan_hash != staged.execution_plan_hash or self._provider._account != owner_key):
             raise ExecutorConflict('STAGED_OWNER_FENCE_EVENT_OR_PLAN_CONFLICT')
         audit = [r for r in unit._state['audit'] if r[:2] == key]
         if (staged.continue_plan_hash != grant.plan.continue_plan_hash or staged.decision_id != grant.plan.decision_id
                 or op.revision != grant.plan.operation_revision + 1 or lease.token != grant.plan.worker_token + 1
                 or not audit or audit[-1][2:7] != (request.correlation_id, request.actor_id, op.plan_hash,
-                                                 op.revision, 'FIXTURE_EXECUTION_STAGED')
+                                                 op.revision, stage_state)
                 or sum(r[0] == execution_id and r[3] == 'CONSUMED' for r in unit._state['execution_audit']) != 1):
             raise ExecutorConflict('STAGED_AUTHORIZATION_OR_AUDIT_CONFLICT')
+        if is_next and (staged.previous_execution_id != grant.plan.previous_execution_id
+                or staged.next_step_id != grant.plan.next_step_id):
+            raise ExecutorConflict('NEXT_STEP_LINEAGE_CONFLICT')
         return key, owner_key, op, owner, staged, grant.plan, events[-1]
 
     def _evidence(self, request):
@@ -132,6 +169,32 @@ class FixtureExecutor:
             plan_hash=request.plan.plan_hash(), complete=bool(receipts) and all(r.outcome == 'APPLIED' for r in receipts),
             receipts=receipts, current=provider._state['provider'])
 
+    def _provider_precondition(self, request, scope, plan):
+        from app.simulation.aaa_next_step import NextStepPlan, NextStepExecutionService
+        if type(plan) is not NextStepPlan:
+            proof = self._evidence(request)
+            if not proof.complete or canonical_hash(proof.model_dump(mode='json')) != plan.provider_evidence_fingerprint:
+                raise ExecutorConflict('READ_ONLY_RECONCILIATION_REQUIRED')
+            return
+        # Validate the entire authorized predecessor against the current fake provider.
+        # Only a private snapshot is rewound; the staged UoW and its history never are.
+        unit = self._unit
+        prior = deepcopy(unit._state)
+        key, owner_key, op = unit._match(prior, request)
+        prior['owners'][owner_key] = prior['owners'][owner_key].model_copy(update={
+            'revision': plan.owner_revision, 'fence': plan.owner_fence})
+        prior['journal'][key] = op.model_copy(update={'state': plan.expected_state,
+            'revision': plan.operation_revision, 'owner_revision': plan.owner_revision, 'fence': plan.owner_fence})
+        prior['leases'][key] = prior['leases'][key].model_copy(update={
+            'token': plan.worker_token, 'operation_revision': plan.operation_revision})
+        prior['outbox'][key] = prior['outbox'][key][:-1]
+        last = next(i for i in range(len(prior['audit']) - 1, -1, -1) if prior['audit'][i][:2] == key)
+        del prior['audit'][last]
+        fresh = NextStepExecutionService(unit, self._provider)._plan(
+            request, scope, plan.followup_id, plan.allowed_step, True, checkpoint=prior)
+        if fresh != plan:
+            raise ExecutorConflict('READ_ONLY_RECONCILIATION_REQUIRED')
+
     def _receipt_hash(self, command):
         return canonical_hash({'command': command.model_dump(mode='json'),
                                'provider': self._provider._state['provider'].model_dump(mode='json')})
@@ -139,7 +202,8 @@ class FixtureExecutor:
     def _command(self, request, command, context, *, expired=False, coordinator=False):
         unit = self._unit
         stored = unit._state['executor_claims'].get(command.execution_id)
-        if (unit._state['executor_provider_sources'].get(command.execution_id) != id(self._provider)
+        if (self._provider._state['highest'] > (command.owner_fence, command.fencing_token)
+                or unit._state['executor_provider_sources'].get(command.execution_id) != id(self._provider)
                 or stored != command or command.request_id != request.request_id or command.tenant_id != request.plan.tenant_id
                 or command.subscriber_id != request.plan.snapshot.reference.account_id
                 or not coordinator and command.worker_id != context.worker_id
@@ -164,9 +228,7 @@ class FixtureExecutor:
                 self._command(request, existing, context)
                 return existing
             _, _, _, owner, staged, plan, event = self._staged(request, execution_id)
-            proof = self._evidence(request)
-            if not proof.complete or canonical_hash(proof.model_dump(mode='json')) != plan.provider_evidence_fingerprint:
-                raise ExecutorConflict('READ_ONLY_RECONCILIATION_REQUIRED')
+            self._provider_precondition(request, scope, plan)
             attempt_key = (request.plan.tenant_id, intent.attempt_id)
             if attempt_key in unit._state['executor_attempts']:
                 raise ExecutorConflict('ATTEMPT_UUID_REUSED')
@@ -199,9 +261,7 @@ class FixtureExecutor:
                 return known
             if status != 'CLAIMED':
                 raise ExecutorConflict('READ_ONLY_RECONCILIATION_REQUIRED')
-            proof = self._evidence(request)
-            if not proof.complete or canonical_hash(proof.model_dump(mode='json')) != plan.provider_evidence_fingerprint:
-                raise ExecutorConflict('READ_ONLY_RECONCILIATION_REQUIRED')
+            self._provider_precondition(request, scope, plan)
             token = (command.owner_fence, command.fencing_token)
             if token <= provider._state['highest']:
                 raise ExecutorConflict('STALE_PROVIDER_FENCE')
@@ -229,7 +289,9 @@ class FixtureExecutor:
 
     def _accept(self, request, context, command, receipt, *, coordinator=False, fail_at=None):
         unit, provider = self._unit, self._provider
-        if (unit._state['executor_provider_sources'].get(command.execution_id) != id(provider)
+        if (not coordinator and provider._state['highest'] != (command.owner_fence, command.fencing_token)
+                or provider._state['highest'] > (command.owner_fence, command.fencing_token)
+                or unit._state['executor_provider_sources'].get(command.execution_id) != id(provider)
                 or command.request_id != request.request_id or unit._state['executor_claims'].get(command.execution_id) != command):
             raise ExecutorConflict('UNKNOWN_ATTEMPT')
         previous = unit._state['executor_accepted'].get(command.execution_id)
@@ -243,14 +305,14 @@ class FixtureExecutor:
                     or not coordinator and (context.worker_id != command.worker_id or unit._clock.now() >= command.expires_at)):
                 raise ExecutorConflict('DUPLICATE_RECEIPT_CONTENT_OR_STALE_FENCE')
             return previous
-        _, _, op, owner, _, _, _ = self._command(request, command, context, expired=coordinator, coordinator=coordinator)
+        _, _, op, owner, _, plan, _ = self._command(request, command, context, expired=coordinator, coordinator=coordinator)
         if unit._state['executor_status'][command.execution_id] not in ('IN_FLIGHT', 'RESPONDED'):
             raise ExecutorConflict('RECEIPT_WITHOUT_EXECUTION')
         if (not coordinator and provider._state['executor_receipts'].get(command.execution_id) != receipt
                 or receipt.provider_evidence_fingerprint != self._receipt_hash(command)):
             raise ExecutorConflict('UNTRUSTED_OR_STALE_PROVIDER_RECEIPT')
         state = {'SUCCESS': 'FIXTURE_STEP_SUCCEEDED', 'REJECTED': 'FIXTURE_STEP_REJECTED', 'UNKNOWN': 'FIXTURE_STEP_UNKNOWN'}[receipt.outcome]
-        with unit._transaction(fail_at):
+        with unit._transaction(None if fail_at == 'AUTHORIZATION' else fail_at):
             final_owner = command.allowed_step == 'COMMIT_OWNER_CAS' and receipt.outcome == 'SUCCESS'
             owner = owner.model_copy(update={'revision': owner.revision + 1,
                 'authority': request.plan.target if final_owner else owner.authority,
@@ -263,13 +325,27 @@ class FixtureExecutor:
                 'result': {'SUCCESS': 'APPLIED', 'REJECTED': 'NOT_APPLIED', 'UNKNOWN': 'UNKNOWN'}[receipt.outcome]})
                 if e.event_id == command.event_id else e for e in unit._state['outbox'][key])
             unit._state['outbox'][key] = events
-            accepted = ReceiptAcceptance(receipt=receipt, owner_revision=owner.revision, operation_revision=op.revision,
+            reference = None
+            from app.simulation.aaa_next_step import NextStepPlan
+            if type(plan) is NextStepPlan and receipt.outcome == 'UNKNOWN':
+                reference = NextStepReconciliationReference(execution_id=command.execution_id,
+                    previous_execution_id=plan.previous_execution_id, decision_id=plan.decision_id,
+                    next_step_id=plan.next_step_id, tenant_id=command.tenant_id, subscriber_id=command.subscriber_id,
+                    event_id=command.event_id, attempt_id=command.attempt_id, plan_hash=command.plan_hash,
+                    continue_plan_hash=plan.continue_plan_hash, prior_evidence_fingerprint=plan.evidence_fingerprint,
+                    provider_evidence_fingerprint=receipt.provider_evidence_fingerprint,
+                    receipt_fingerprint=canonical_hash(receipt.model_dump(mode='json')),
+                    owner_revision=owner.revision, fencing_token=command.fencing_token,
+                    request_id=command.request_id, owner_fence=command.owner_fence)
+            accepted = ReceiptAcceptance(receipt=receipt, reconciliation_reference=reference, owner_revision=owner.revision, operation_revision=op.revision,
                                           state=state, reconciliation_required=receipt.outcome == 'UNKNOWN',
                 checkpoint_fingerprint=held_checkpoint_hash(owner, op, unit._state['leases'][key], events))
             unit._state['executor_accepted'][command.execution_id] = accepted
             unit._state['executor_status'][command.execution_id] = 'ACCEPTED'
             unit._audit(unit._state, request, op, state)
             unit._state['executor_audit'].append((command.execution_id, command.attempt_id, state, unit._clock.now()))
+            if fail_at == 'AUTHORIZATION':
+                raise ExecutorConflict('INJECTED_AUTHORIZATION_FAILURE')
             return accepted
 
     def accept(self, request, scope, context, receipt: ExecutorReceipt, *, permission=False, fail_at=None):

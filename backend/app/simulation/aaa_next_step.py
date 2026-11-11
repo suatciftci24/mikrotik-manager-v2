@@ -46,13 +46,14 @@ class NextStepExecutionService(FixtureExecutionService):
     def _record_kwargs(self, plan):
         return {'previous_execution_id': plan.previous_execution_id, 'next_step_id': plan.next_step_id}
 
-    def _plan(self, request, scope, followup_id, allowed_step, permission):
+    def _plan(self, request, scope, followup_id, allowed_step, permission, *, checkpoint=None):
         unit = self._unit
+        state = unit._state if checkpoint is None else checkpoint
         unit._authorized(request, scope, permission)
-        key, owner_key, op = unit._match(unit._state, request)
-        record = unit._state.get('executor_policy_records', {}).get(followup_id)
-        grant = unit._state.get('executor_policy_authorizations', {}).get(followup_id)
-        owner, lease, events = unit._state['owners'][owner_key], unit._state['leases'][key], unit._state['outbox'][key]
+        key, owner_key, op = unit._match(state, request)
+        record = state.get('executor_policy_records', {}).get(followup_id)
+        grant = state.get('executor_policy_authorizations', {}).get(followup_id)
+        owner, lease, events = state['owners'][owner_key], state['leases'][key], state['outbox'][key]
         if (record is None or grant is None or type(grant.plan) is not ExecutorContinuePlan
                 or record.kind != 'CONTINUE' or record.state != 'EXECUTOR_CONTINUE_HELD' or op.state != record.state
                 or record.plan_hash != grant.plan.plan_hash() or record.execution_id != grant.plan.execution_id
@@ -67,12 +68,12 @@ class NextStepExecutionService(FixtureExecutionService):
         if (not events or events[-1].event_id != uuid5(followup_id, record.plan_hash)
                 or events[-1].step != 'EXECUTOR_CONTINUE_REVIEW' or events[-1].status != 'HELD'):
             raise ExecutionConflict('POLICY_OUTBOX_CONFLICT')
-        audit = [r for r in unit._state['audit'] if r[:2] == key]
+        audit = [r for r in state['audit'] if r[:2] == key]
         if (not audit or audit[-1][2:7] != (request.correlation_id, request.actor_id, op.plan_hash, op.revision, 'EXECUTOR_CONTINUE_HELD')
-                or sum(r[0] == followup_id and r[3] == 'CONSUMED' for r in unit._state['executor_policy_audit']) != 1):
+                or sum(r[0] == followup_id and r[3] == 'CONSUMED' for r in state['executor_policy_audit']) != 1):
             raise ExecutionConflict('POLICY_AUDIT_CONFLICT')
         # Reuse the policy's complete decision/provider validator on an authenticated private predecessor image.
-        prior = deepcopy(unit._state)
+        prior = deepcopy(state)
         prior['owners'][owner_key] = owner.model_copy(update={'revision': grant.plan.owner_revision, 'fence': grant.plan.owner_fence})
         prior['journal'][key] = op.model_copy(update={'state': 'EXECUTOR_DECISION_RECORDED',
             'revision': grant.plan.operation_revision, 'owner_revision': grant.plan.owner_revision, 'fence': grant.plan.owner_fence})
@@ -83,8 +84,8 @@ class NextStepExecutionService(FixtureExecutionService):
         data = self._policy._checkpoint(request, scope, record.decision_id, permission, checkpoint=prior)
         if ExecutorContinuePlan(**data) != grant.plan:
             raise ExecutionConflict('READ_ONLY_RECONCILIATION_REQUIRED')
-        decision = unit._state['executor_decision_records'][record.decision_id]
-        previous = unit._state['execution_authorizations'][record.execution_id].plan
+        decision = state['executor_decision_records'][record.decision_id]
+        previous = state['execution_authorizations'][record.execution_id].plan
         known = self._provider._state['executor_receipts'].get(record.execution_id)
         if decision.decision != 'CONFIRM_SUCCESS' or known is None or known.outcome != 'SUCCESS':
             raise ExecutionConflict('READ_ONLY_RECONCILIATION_REQUIRED')
