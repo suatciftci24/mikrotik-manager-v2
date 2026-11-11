@@ -148,3 +148,8 @@ tekrarlanmaz. Mevcut 11 abone/admin/audit ve yedek üzerinde işlem yoktur.
 idempotency, atomik operation/event ve CAS modelini geçici SQLite testlerinde
 sınar. Yukarıdaki geçici proof tek başına kalıcılık sağlamaz. Bu ek prototip
 PostgreSQL'e bağlı değildir; uygulanan migration veya gerçek AAA yürütücüsü yoktur.
+
+[Entegrasyon hazırlığı](AAA_INTEGRATION_PREPARATION.md) yeni canlı yetki veya
+executor eklemeden sahte adaptör gözlemi, kapalı hedef/source fence sırası ve
+revizyon/telafi kararlarını tanımlar. Mevcut demo UI ve canlı UNVERIFIED kapıları
+korunur; hazırlık çıktısını kalıcı journal'a bağlamak ayrı sürümlü tasarım ister.

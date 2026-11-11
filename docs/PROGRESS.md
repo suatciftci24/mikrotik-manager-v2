@@ -5775,3 +5775,27 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Migration/reset/restart/deploy/provider/VDS/secret/push yok. Tek yerel commit.
   Sonraki tek öncelik: yalnız yeni RADIUS yönetim alanının masaüstü ve mobil
   görsel/klavye kabulü; önceki demo endpoint kabulünü tekrarlamamak.
+
+## Merkezi AAA entegrasyon hazırlığı — 2026-11-11 — izole PASS
+
+- Başlangıç office-development/f42e2a1; AGENTS, mevcut sözleşmeler/journal ve
+  RADIUS entegrasyonu incelendi. Mevcut PROGRESS değişikliği korundu, commit'e
+  alınmadı. Backend/masaüstü390px/klavye demo PASS kullanıcı kanıtıdır; tekrar yok.
+- AAA_INTEGRATION_PREPARATION kimlik/yetki/NAS/profil/credential sahipliği,
+  source fencing, audit ve gelecekteki CAS/outbox koşullarını tanımlar. Yeni
+  fixture-only hazırlayıcı mevcut snapshot/proof/simülasyon ön kontrolünü kullanır;
+  yalnız immutable FakeAaaReadAdapter gözlemiyle tek güvenli adım önerir.
+- Hedef kapalı hazırlanmadan ve LOCAL'in aynı isteğe bağlı fence ile kapalı
+  olduğu doğrulanmadan RADIUS etkinleştirme önerilmez. İki etkin kaynak,
+  UNKNOWN, hesap/provider/namespace drift ve güvensiz telafi uzlaştırmaya gider.
+  İzin/kanıt eksikliği fail-closed NONE; gerçek değişiklik veya canlı hazır iddiası yok.
+- Request+kanıt+gözlem fingerprint, korelasyon/event UUID ve operation revision
+  bağlanır. Kalıcı idempotency/exactly-once iddiası yok; mevcut journal'ın yeni
+  plan hash'ini henüz saklamadığı ve owner CAS bağının canlı öncesi eksikliği açık.
+- PASS: yalnız8 yeni hazırlık testi; socket/PG/SQLite connect testlerde yasak.
+  Önceki AAA24/matris20/demo/browser/frontend build/test tekrarlanmadı.
+  RADIUS Merkezi'nin gerçek bağlantı yok bilgisi ve GET akışı değişmedi.
+- Gerçek veri/14 abone/kullanıcı/PG/audit/config/secret veya cihaz erişimi yok.
+  Migration/reset/restart/deploy/push/V1/V2.5/VDS/RADIUS/IPsec müdahalesi yok.
+  Tek yerel commit. Sonraki tek öncelik: bağlantı açmadan hazırlık plan hash'i,
+  mevcut journal ve account-owner CAS/outbox sınırının sürümlü atomiklik tasarımı.
