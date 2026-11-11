@@ -84,3 +84,28 @@ class AaaDemoPanelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['account_id'], 'demo-sub-aaa-memory')
         with self.assertRaises(ValueError):
             fixture_preview('LIVE')
+
+
+class AaaDemoApplicationRoutingTests(unittest.IsolatedAsyncioTestCase):
+    request = AaaDemoPanelTests.request
+    get = AaaDemoPanelTests.get
+    async def asyncSetUp(self):
+        await AaaDemoPanelTests.asyncSetUp(self)
+        from app.main import app
+        self.app = app
+        previous = dict(app.dependency_overrides)
+        self.addCleanup(lambda: (app.dependency_overrides.clear(), app.dependency_overrides.update(previous)))
+        app.dependency_overrides[current_demo_user] = lambda: {'id': 'viewer'}
+
+    async def test_main_application_prefix_and_openapi_match_frontend_url(self):
+        with patch('psycopg.connect', side_effect=AssertionError('PostgreSQL forbidden')):
+            spec = (await self.get('/openapi.json')).json()
+            path = '/api/v1/aaa-demo/preview'
+            self.assertIn('get', spec['paths'][path])
+            self.assertNotIn('post', spec['paths'][path])
+            for scenario in ('PLAN', 'COMPENSATION', 'RECONCILIATION'):
+                response = await self.get(path, params={'scenario': scenario})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json()['scenario'], scenario)
+            # The root 404 is expected and does not imply the AAA GET is absent.
+            self.assertEqual((await self.get('/')).status_code, 404)

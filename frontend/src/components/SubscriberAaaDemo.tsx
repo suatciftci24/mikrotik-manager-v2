@@ -1,3 +1,4 @@
+import {api} from '../lib/api';
 import {useState} from 'react';
 import {useResource} from '../lib/useResource';
 import {Facts,ResourceState,dateTime} from './Resource';
@@ -16,9 +17,12 @@ export function SubscriberAaaDemo({source}:{source:unknown}){
  <button type="button" className="button-secondary" aria-expanded={open} onClick={()=>setOpen(!open)}>{open?'AAA demo önizlemesini kapat':'AAA demo önizlemesini aç'}</button>
  {open&&<AaaDemoScenarios/>}</section>;
 }
+export function loadAaaDemoPreview(path:string,init?:RequestInit){
+ return api<AaaDemoPreview>(path,{...init,method:'GET'});
+}
 function AaaDemoScenarios(){
  const [scenario,setScenario]=useState<Scenario>('PLAN');
- const resource=useResource<AaaDemoPreview>('/aaa-demo/preview?scenario='+scenario);
+ const resource=useResource<AaaDemoPreview>('/aaa-demo/preview?scenario='+scenario,loadAaaDemoPreview);
  return <><label className="form-label">Örnek senaryo<select value={scenario} onChange={e=>setScenario(e.target.value as Scenario)}>{Object.entries(labels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label><ResourceState {...resource}/>{!resource.loading&&!resource.error&&resource.data&&<AaaDemoResult data={resource.data} scenario={scenario}/>}</>;
 }
 export function AaaDemoResult({data,scenario}:{data:AaaDemoPreview;scenario:Scenario}){

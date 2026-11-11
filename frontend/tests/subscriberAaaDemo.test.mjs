@@ -30,3 +30,34 @@ test('live claims, wrong fixture or stale scenario fail closed; blockers are vis
  assert.match(renderResult(data,'COMPENSATION'),/sözleşmesi doğrulanamadı/);
  assert.match(renderResult({...data,result:{...data.result,blockers:['READ_ONLY_RECONCILIATION_REQUIRED']}}),/READ_ONLY_RECONCILIATION_REQUIRED/);
 });
+test('AAA transport sends exact versioned GET for each scenario without a body and parses JSON',async()=>{
+ const original=globalThis.fetch,calls=[];
+ globalThis.fetch=async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>data};};
+ try{
+  const controller=new AbortController();
+  for(const scenario of ['PLAN','COMPENSATION','RECONCILIATION']){
+   assert.deepEqual(await module.exports.loadAaaDemoPreview('/aaa-demo/preview?scenario='+scenario,{signal:controller.signal}),data);
+   const call=calls.at(-1);assert.equal(call.url,'/api/v1/aaa-demo/preview?scenario='+scenario);
+   assert.equal(call.init.method,'GET');assert.equal(call.init.body,undefined);assert.equal(call.init.credentials,'include');assert.equal(call.init.signal,controller.signal);
+  }
+ }finally{globalThis.fetch=original;}
+});
+test('AAA Not Found explains unavailable endpoint without asserting stale backend or fabricating success',async()=>{
+ const original=globalThis.fetch;
+ globalThis.fetch=async()=>({ok:false,status:404,json:async()=>({detail:'Not Found'})});
+ try{
+  await assert.rejects(module.exports.loadAaaDemoPreview('/aaa-demo/preview?scenario=PLAN'),error=>{
+   assert.equal(error.status,404);assert.match(error.message,/GET \/api\/v1\/aaa-demo\/preview/);
+   assert.match(error.message,/checkout ve Vite proxy/);assert.match(error.message,/tek başına eski backend kanıtı değildir/);assert.match(error.message,/Önizleme çalıştırılmadı/);return true;
+  });
+ }finally{globalThis.fetch=original;}
+});
+test('AAA auth errors and server errors retain their status and are not reclassified as missing endpoints',async()=>{
+ const original=globalThis.fetch;
+ try{
+  for(const status of [401,403,500]){
+   globalThis.fetch=async()=>({ok:false,status,json:async()=>({detail:'Original failure'})});
+   await assert.rejects(module.exports.loadAaaDemoPreview('/aaa-demo/preview?scenario=PLAN'),error=>error.status===status&&error.message==='Original failure');
+  }
+ }finally{globalThis.fetch=original;}
+});

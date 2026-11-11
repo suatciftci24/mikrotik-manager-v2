@@ -5718,3 +5718,32 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   migration/reset/secret/provider/VDS/deploy/push yok. Tek yerel commit.
   Sonraki tek öncelik: HTTP erişimi olan oturumda demo panelinin gerçek tarayıcı
   kabulünü mevcut veri ve servisleri değiştirmeden tamamlamak.
+
+## AAA önizleme Not Found — 2026-11-11 — sözleşme PASS / çalışma zamanı BLOCKED
+
+- Başlangıç office-development/7e24988; AGENTS ve son kabul okundu.
+  Başlangıçtaki PROGRESS ev kabul notu korundu, bu commit'e alınmadı.
+- Kesin istek: credentials include, gövdesiz GET
+  /api/v1/aaa-demo/preview?scenario=PLAN. api.ts /api/v1 ekler;
+  preferredPath AAA yolunu değiştirmez. Vite /api yolunu rewrite olmadan
+  varsayılan127.0.0.1:8000'e iletir (V2_API_PORT ile değişebilir).
+  aaa_demo /aaa-demo + /preview, app_router kaydı ve main /api/v1 uyumludur.
+- Gerçek main uygulamasının ASGI/OpenAPI testi üç AAA senaryosunda200,
+  kök GET'te404 doğruladı; kaynak checkout'unda eksik route/yanlış prefix yok.
+  Çalışan8000 /api/ready için tek GET EPERM; başka HTTP denemesi yapılmadı.
+  Çalışan build_id/repo_id/proxy hedefi karşılaştırılamadı. Eski backend,
+  farklı checkout veya runtime proxy farkı kesin kök neden olarak sunulamaz.
+- Kanıtlanan UI eksikliği: api.ts bu AAA404'ü ham Not Found gösteriyordu.
+  Yalnız bu endpoint'in standart404 yanıtına URL, sürüm/checkout/proxy
+  doğrulaması ve önizlemenin çalışmadığı açıklaması eklendi;404 hata kalır.
+  Loader GET'i açık belirtir; başarı fixture'ıyla sessiz fallback/restart yok.
+- PASS: 1 yeni gerçek uygulama route/OpenAPI testi (3 senaryo), 3 yeni frontend
+  method/URL/gövde/JSON/404/401/403/500 testi, TypeScript ve diff kontrolü.
+  Eski AAA24/matris20 ve önceki sunum testleri tekrarlanmadı; build yok.
+- Not Found'un çalışan ortamdaki nedeni ve giderildiği BLOCKED. DB/14 abone/
+  kullanıcı/audit, stash/dal/yedeklere müdahale yok; migration/reset/restart,
+  deploy/secret/provider/VDS/push yok. Tek yerel commit.
+- Tek tarayıcı doğrulaması: Ayşe Demir → İşlemler → AAA demo → yalnız plan;
+  Network'te aynı GET'in URL/status/JSON yanıtını kontrol et.404 sürerse aynı
+  oturumda /api/ready kimliği ve Vite hedefi üzerinden runtime farkı ayrılmalı;
+  kök404'ten servis arızası çıkarılmaz.
