@@ -2,6 +2,9 @@
 
 2026-11-11 · Tasarım ve izole, salt okunur sözleşmeler. Canlı entegrasyon yok.
 
+Bu sözleşmeleri kullanan [bellek içi simülasyon ve 20 senaryolu kabul matrisi](AAA_MEMORY_SIMULATION.md)
+ayrı, deterministik bir iz üretir; gerçek hesap veya audit kaydı değiştirmez.
+
 ## Mimari ve veri sahipliği
 
 Tek FastAPI modüler monolit ve mevcut hesap sahibi korunur. Yeni bağımsız

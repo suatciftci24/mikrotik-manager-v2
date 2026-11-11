@@ -5644,3 +5644,28 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Mevcut 11 abone/admin/audit/PG/yedek üzerinde işlem yok. İki stash ve
   backup/office-20261109 korundu. Migration/reset/restart/V1/V2.5/VDS/cihaz/
   RADIUS/IPsec/üretim işlemi yok. Tek commit; push/deploy yok.
+
+## Merkezi AAA izole bellek içi simülasyon — 2026-11-11
+
+- Başlangıç office-development/8f22f66 temiz. Mevcut AAA sözleşmeleri ve
+  RADIUS önizleme sınırları yeniden kullanıldı; ikinci abone deposu yok.
+- Saf, deterministik simülasyon immutable sentetik snapshot/kapsam/proof alır;
+  yalnız eski→yeni plan, kanıt, blokaj ve beklenen audit olayları üretir.
+  CLI yalnız yerleşik fixture matrisini çalıştırır; yapılandırma, sır, mevcut
+  kayıt, DB, HTTP veya adapter okumaz/çağırmaz. Yeni endpoint/UI yok.
+- 20 senaryoda 4 sentetik PASS, 16 beklenen BLOCKED; tüm matris kabulü PASS.
+  Tenant/router sınırı, eksik realm/NAS/profil, UNKNOWN, duplicate/profil
+  çakışması, bitiş, stale revision, UUID replay/içerik çatışması ve kısmi
+  başarısızlık/telafi kapsandı. Replay ek audit üretmez; başarılı telafi
+  revizyonu geri sarmaz. Çatışan telafi salt okunur uzlaştırma ister.
+- PASS: sözleşme+simülasyon 16 backend testi; saat ilerlemiş replay kontrolü
+  eklendikten sonra yalnız değişen 7 simülasyon testi tekrar geçti.
+  radiusTransitionPreview/radiusVisibility iki frontend regresyon dosyası
+  geçti. Frontend değişmedi: TypeScript/build tekrarı yapılmadı.
+- docs/AAA_MEMORY_SIMULATION.md senaryo matrisi, korelasyon, geçici receipt,
+  geri dönüş ve canlı entegrasyon öncesi kararları açıklar. Sonuç daima
+  live_ready=false/external_writes=false; gerçek AAA doğrulaması değildir.
+- DB/socket erişimi veya EPERM tekrarı yok. Mevcut 11 abone/admin/audit,
+  PostgreSQL/yedek, iki stash ve yedek dal üzerinde işlem yok. Migration,
+  restart, gerçek router/RADIUS/IPsec, push/deploy yok. Gerçek HTTP/tarayıcı
+  ve canlı AAA kabulü uygulanmadı; canlı entegrasyon ayrı açık onay gerektirir.
