@@ -81,3 +81,8 @@ komutu engelleyen eşdeğer mekanizma sağlaması gerekir; yoksa canlı geçiş 
 
 Sonraki tek teknik öncelik: gerçek bağlantı açmadan sahte provider tarafında
 fencing reddi ve UNKNOWN sonuçların kanıta dayalı uzlaştırılmasını sınamak.
+
+[Provider fencing ve kanıt uzlaştırma devamı](AAA_PROVIDER_RECONCILIATION.md)
+aynı fake lease'i etki öncesinde tekrar doğrular, provider receipt'ini journal/
+owner/outbox geçmişiyle karşılaştırır. Tam kanıt bile otomatik resume veya gerçek
+operation başarısı üretmez; mevcut gerçek bağlantı sınırı korunur.

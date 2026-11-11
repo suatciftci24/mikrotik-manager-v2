@@ -5848,3 +5848,28 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   gerçek veri erişimi, migration/reset/restart/deploy/provider/VDS/push yok.
   Tek yerel commit. Sonraki tek öncelik: sahte provider tarafında fencing reddi
   ve UNKNOWN sonucun kanıta dayalı uzlaştırılması; gerçek bağlantı açmamak.
+
+## AAA provider fencing / kanıt uzlaştırma — 2026-11-11 — izole PASS
+
+- Beklenen office-development/794e1be doğrulandı; AGENTS ve plan/CAS/journal/
+  outbox/lease sözleşmeleri okundu. Başlangıç PROGRESS değişikliği korundu,
+  commit'e alınmadı. Önceki başarılı AAA/demo testleri tekrarlanmadı.
+- AAA_FAKE_PROVIDER_V1 komutları account/tenant, plan/envelope hash, event,
+  attempt, worker ve (owner fence,worker token) çiftine bağlı. Güncel lease
+  etki öncesi tekrar doğrulanır; provider high-water ve attempt ledger ayrıca
+  kontrol edilir. Exact replay tek etki; uyuşmayan tekrar/ownership reddedilir.
+- Provider-owned receipt eşleşmesi olmadan ACK/NACK kabul edilmez. Geç ACK ve
+  stale worker journal'ı ilerletmez. Kapalı hedef→LOCAL fence→RADIUS etkinleştirme
+  provider state modeliyle doğrulanır; gerçek cihaz işlemi yoktur.
+- Read-only uzlaştırma provider receipt/state zinciri, journal/audit, owner
+  reservation revision/fence ve tüm outbox/dispatch prefix'ini karşılaştırır.
+  Eksik/çelişkili/stale/UNKNOWN kanıt READ_ONLY_RECONCILIATION_REQUIRED kalır.
+  Tam kanıt yalnız ilgili adımı sınıflandırır; owner/journal/rezervasyon değişmez,
+  automatic_resume=false. Kanıt yokluğu NOT_APPLIED sayılmaz.
+- PASS:11 yeni provider hedefli testi; önce10, ardından eklenen source-fence/
+  RADIUS activation testi çalıştı. Eski suite'ler/build/HTTP tekrarlanmadı.
+  Socket/PG/SQLite connect testlerde yasak; diff temiz. RADIUS UI değişmedi.
+- 14 abone/kullanıcı/gerçek audit/PG/config/stash/dal/yedeklere erişim veya
+  müdahale yok; migration/reset/restart/deploy/live provider/VDS/push yok.
+  Tek yerel commit. Sonraki tek öncelik: kanıtla onaylanan uzlaştırma kararını
+  ayrı fixture yetkisiyle mevcut CAS/journal/outbox'a atomik bağlamak.
