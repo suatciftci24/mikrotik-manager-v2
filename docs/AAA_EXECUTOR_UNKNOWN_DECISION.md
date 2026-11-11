@@ -87,3 +87,8 @@ Socket/PG/SQLite connect testlerde yasak; önceki başarılı suite'ler tekrarla
 
 Sonraki tek teknik öncelik: EXECUTOR_DECISION_RECORDED noktasını, eski yetki veya
 intent'leri açmadan sürümlü devam/iptal politikasına bağlamak; canlı bağlantı yok.
+
+[Executor kararının devam/iptal politikası](AAA_EXECUTOR_DECISION_POLICY.md), karar
+sonrası checkpoint fingerprint'ini taşır ve mevcut kanıt doğrulayıcısını private
+snapshot kopyasında yeniden kullanır. İki yetkili geçiş de held ve dispatch'e kapalıdır;
+UNKNOWN receipt ile dış etkiler korunur.

@@ -5991,3 +5991,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   müdahale yok; migration/reset/restart/deploy/real auth/network/push yok.
   Tek yerel commit. Sonraki tek öncelik: executor karar checkpoint'ini eski
   grant/intent'leri açmadan sürümlü devam/iptal politikasına bağlamak.
+
+## Executor decision CONTINUE/CANCEL policy — 2026-11-11 — izole PASS
+
+- Beklenen office-development/ff2cda1 doğrulandı; AGENTS ve executor decision/
+  UNKNOWN/evidence/auth/plan/CAS/journal/outbox/fencing birlikte okundu. Başlangıç
+  PROGRESS değişikliği korundu, commit'e alınmadı. Eski başarılı testler yok.
+- Ayrı EXECUTOR_CONTINUE_POLICY_V1_FIXTURE / EXECUTOR_CANCEL_POLICY_V1_FIXTURE
+  kanonik planları execution/decision/hash/evidence/owner revision/state'e bağlı.
+  Ayrı varsayılan kapalı continue/cancel, TTL'li tek kullanımlık registry yetkileri.
+- DecisionRecord'a post-decision checkpoint hash eklendi. Gerçek state'i
+  değiştirmeyen private pre-decision kopya aynı UNKNOWN doğrulayıcısıyla güncel
+  provider'a karşı kontrol edilir; eksik/çelişkili/stale kanıt READ_ONLY kalır.
+- Grant tüketimi, CAS, journal/audit/outbox HELD control ve lease revocation tek
+  memory commit. CONTINUE→EXECUTOR_CONTINUE_HELD, CANCEL→EXECUTOR_CANCELLED_HELD;
+  original UNKNOWN receipt/source/reservation korunur, dış etki rollback varsayılmaz.
+  İki state dispatch guard'a kapalı; provider veya sonraki adım çalıştırılmaz.
+- PASS:11 yeni policy testi (ilk10+kesin ret held testi); race/reuse/expiry,
+  wrong scope/plan, stale CAS/fence, changed evidence ve5 fault sınırı. Socket/
+  PG/SQLite connect yasak; diff temiz. Eski suite/build/HTTP tekrarlanmadı.
+- 14 demo abone/kullanıcı/PG/gerçek audit/config/stash/dal/yedeklere erişim veya
+  müdahale yok; migration/reset/restart/deploy/live auth/provider/network/push yok.
+  Tek yerel commit. Sonraki tek öncelik: EXECUTOR_CONTINUE_HELD için yeni adımın
+  ayrı execution authorization bağlantısı; otomatik veya gerçek dispatch yok.

@@ -71,6 +71,7 @@ class ExecutorDecisionRecord(ReadContract):
     decision: Literal['CONFIRM_SUCCESS', 'CONFIRM_REJECTION']
     owner_revision: int
     operation_revision: int
+    checkpoint_fingerprint: str
     state: Literal['EXECUTOR_DECISION_RECORDED'] = 'EXECUTOR_DECISION_RECORDED'
     automatic_dispatch: Literal[False] = False
     external_writes: Literal[False] = False
@@ -94,14 +95,15 @@ class ExecutorReconciliationService:
                 or not getattr(context, capability)):
             raise PermissionError('SEPARATE_EXECUTOR_EVIDENCE_OR_DECISION_PERMISSION_REQUIRED')
 
-    def _evaluate(self, request, execution_id):
+    def _evaluate(self, request, execution_id, *, checkpoint=None):
         unit, provider = self._unit, self._provider
-        key, owner_key, op = unit._match(unit._state, request)
-        accepted = unit._state.get('executor_accepted', {}).get(execution_id)
-        staged = unit._state.get('execution_records', {}).get(execution_id)
-        grant = unit._state.get('execution_authorizations', {}).get(execution_id)
-        command = unit._state.get('executor_claims', {}).get(execution_id)
-        owner, lease, events = unit._state['owners'][owner_key], unit._state['leases'][key], unit._state['outbox'][key]
+        state = unit._state if checkpoint is None else checkpoint
+        key, owner_key, op = unit._match(state, request)
+        accepted = state.get('executor_accepted', {}).get(execution_id)
+        staged = state.get('execution_records', {}).get(execution_id)
+        grant = state.get('execution_authorizations', {}).get(execution_id)
+        command = state.get('executor_claims', {}).get(execution_id)
+        owner, lease, events = state['owners'][owner_key], state['leases'][key], state['outbox'][key]
         known = provider._state.get('executor_receipts', {}).get(execution_id)
         current = provider._state['provider']
         def dump(value):
@@ -109,7 +111,7 @@ class ExecutorReconciliationService:
         fingerprint = canonical_hash({'version': 'EVIDENCE_EVALUATION_V1_FIXTURE', 'accepted': dump(accepted),
             'command': dump(command), 'staged': dump(staged), 'grant': dump(grant), 'provider_receipt': dump(known),
             'provider': dump(current), 'provider_fence': provider._state['highest'],
-            'provider_source': unit._state.get('executor_provider_sources', {}).get(execution_id),
+            'provider_source': state.get('executor_provider_sources', {}).get(execution_id),
             'reader_source': id(provider), 'owner': dump(owner),
             'journal': dump(op), 'lease': dump(lease), 'outbox': [dump(e) for e in events]})
         safe_command = command if type(command) is ExecutorCommand else None
@@ -126,7 +128,7 @@ class ExecutorReconciliationService:
         if (type(accepted) is not ReceiptAcceptance or type(command) is not ExecutorCommand
                 or type(staged) is not ExecutionRecord or type(grant) is not ExecutionAuthorization
                 or type(known) is not ExecutorReceipt or type(current) is not ProviderState or provider._account != owner_key
-                or unit._state.get('executor_provider_sources', {}).get(execution_id) != id(provider)):
+                or state.get('executor_provider_sources', {}).get(execution_id) != id(provider)):
             return blocked('MISSING_OR_UNVERIFIABLE_PROVIDER_SOURCE')
         unknown = accepted.receipt
         if (unknown.outcome != 'UNKNOWN' or accepted.state != 'FIXTURE_STEP_UNKNOWN'
@@ -146,7 +148,7 @@ class ExecutorReconciliationService:
                 or command.plan_hash != staged.execution_plan_hash or command.plan_hash != grant.plan.plan_hash()
                 or command.allowed_step != staged.allowed_step or command.allowed_step != grant.plan.allowed_step
                 or command.event_id != uuid5(execution_id, command.plan_hash)
-                or unit._state['executor_status'].get(execution_id) != 'ACCEPTED'):
+                or state['executor_status'].get(execution_id) != 'ACCEPTED'):
             return blocked('EXECUTION_EVENT_ATTEMPT_PLAN_OR_RECEIPT_CONFLICT')
         if (known.outcome not in ('SUCCESS', 'REJECTED')
                 or provider._state['highest'] != (command.owner_fence, command.fencing_token)
@@ -170,13 +172,13 @@ class ExecutorReconciliationService:
         if expected != current:
             return blocked('CONTRADICTORY_PROVIDER_EFFECT')
         head = [e for e in events if e.event_id == command.event_id]
-        audit = [r for r in unit._state['audit'] if r[:2] == key]
+        audit = [r for r in state['audit'] if r[:2] == key]
         if (len(head) != 1 or head[0].status != 'UNKNOWN' or head[0].result != 'UNKNOWN'
                 or head[0].step != 'FIXTURE_STAGE:' + command.allowed_step or head[0].plan_hash != command.plan_hash
                 or any(e.status == 'PENDING' for e in events)
                 or not audit or audit[-1][2:7] != (request.correlation_id, request.actor_id, op.plan_hash, op.revision, 'FIXTURE_STEP_UNKNOWN')
-                or sum(r[:3] == (execution_id, command.attempt_id, 'STARTED') for r in unit._state['executor_audit']) != 1
-                or sum(r[:3] == (execution_id, command.attempt_id, 'FIXTURE_STEP_UNKNOWN') for r in unit._state['executor_audit']) != 1):
+                or sum(r[:3] == (execution_id, command.attempt_id, 'STARTED') for r in state['executor_audit']) != 1
+                or sum(r[:3] == (execution_id, command.attempt_id, 'FIXTURE_STEP_UNKNOWN') for r in state['executor_audit']) != 1):
             return blocked('JOURNAL_OUTBOX_OR_EXECUTOR_AUDIT_CONFLICT')
         return result('CONFIRMED_SUCCESS' if known.outcome == 'SUCCESS' else 'CONFIRMED_REJECTION',
                       'INDEPENDENT_PROVIDER_EVIDENCE_CONSISTENT_NO_DECISION_GRANTED')
@@ -241,7 +243,8 @@ class ExecutorReconciliationService:
                                                                 'operation_revision': op.revision})
             unit._state['leases'][key] = lease
             record = ExecutorDecisionRecord(authorization_id=grant.authorization_id, evaluation=fresh,
-                decision=grant.decision, owner_revision=owner.revision, operation_revision=op.revision)
+                decision=grant.decision, owner_revision=owner.revision, operation_revision=op.revision,
+                checkpoint_fingerprint=held_checkpoint_hash(owner, op, lease, unit._state['outbox'][key]))
             unit._state['executor_decision_records'][grant.authorization_id] = record
             unit._audit(unit._state, request, op, 'EXECUTOR_DECISION_RECORDED')
             unit._record(lease, 'EXECUTOR_DECISION_RECORDED')
