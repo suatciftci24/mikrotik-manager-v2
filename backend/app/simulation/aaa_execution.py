@@ -83,6 +83,14 @@ class ExecutionRecord(ReadContract):
 
 
 class FixtureExecutionService:
+    authorization_type = ExecutionAuthorization
+    record_type = ExecutionRecord
+    stage_state = 'FIXTURE_EXECUTION_STAGED'
+    stage_prefix = 'FIXTURE_STAGE:'
+
+    def _record_kwargs(self, plan):
+        return {}
+
     def __init__(self, unit, provider):
         if type(unit) is not LeasedMemoryOutbox or type(provider) is not FakeFencedProvider:
             raise TypeError('Explicit memory fixtures required')
@@ -173,7 +181,7 @@ class FixtureExecutionService:
             if self._plan(request, scope, plan.followup_id, plan.allowed_step, permission) != plan:
                 raise ExecutionConflict('STALE_OR_MISMATCHED_EXECUTION_PLAN')
             now = unit._clock.now()
-            grant = ExecutionAuthorization(authorization_id=intent.authorization_id, actor_id=authority.actor_id,
+            grant = self.authorization_type(authorization_id=intent.authorization_id, actor_id=authority.actor_id,
                 plan=plan, issued_at=now, expires_at=now + timedelta(seconds=intent.lifetime_seconds))
             unit._state['execution_authorizations'][intent.authorization_id] = grant
             unit._state['execution_audit'].append((intent.authorization_id, plan.plan_hash(), authority.actor_id, 'ISSUED', now))
@@ -196,7 +204,7 @@ class FixtureExecutionService:
             key, owner_key, op = unit._match(unit._state, request)
             owner = unit._state['owners'][owner_key].model_copy(update={
                 'revision': plan.owner_revision + 1, 'fence': plan.owner_fence + 1})
-            op = op.model_copy(update={'state': 'FIXTURE_EXECUTION_STAGED', 'revision': op.revision + 1,
+            op = op.model_copy(update={'state': self.stage_state, 'revision': op.revision + 1,
                                       'owner_revision': owner.revision, 'fence': owner.fence})
             unit._state['owners'][owner_key], unit._state['journal'][key] = owner, op
             lease = unit._state['leases'][key].model_copy(update={'token': plan.worker_token + 1,
@@ -205,14 +213,14 @@ class FixtureExecutionService:
             unit._state['outbox'][key] += (OutboxFixture(event_id=uuid5(grant.authorization_id, plan.plan_hash()),
                 tenant_id=plan.tenant_id, request_id=request.request_id, correlation_id=request.correlation_id,
                 plan_hash=plan.plan_hash(), at=now, sequence=len(unit._state['outbox'][key]) + 1,
-                step='FIXTURE_STAGE:' + plan.allowed_step, status='HELD'),)
-            record = ExecutionRecord(authorization_id=grant.authorization_id, execution_plan_hash=plan.plan_hash(),
+                step=self.stage_prefix + plan.allowed_step, status='HELD'),)
+            record = self.record_type(authorization_id=grant.authorization_id, execution_plan_hash=plan.plan_hash(),
                 continue_plan_hash=plan.continue_plan_hash, decision_id=plan.decision_id, allowed_step=plan.allowed_step,
                 owner_revision=owner.revision, owner_fence=owner.fence, worker_token=lease.token,
-                checkpoint_fingerprint=held_checkpoint_hash(owner, op, lease, unit._state['outbox'][key]))
+                checkpoint_fingerprint=held_checkpoint_hash(owner, op, lease, unit._state['outbox'][key]), **self._record_kwargs(plan))
             unit._state['execution_records'][grant.authorization_id] = record
-            unit._audit(unit._state, request, op, 'FIXTURE_EXECUTION_STAGED')
-            unit._record(lease, 'FIXTURE_EXECUTION_STAGED')
+            unit._audit(unit._state, request, op, self.stage_state)
+            unit._record(lease, self.stage_state)
             unit._state['execution_audit'].append((grant.authorization_id, plan.plan_hash(), authority.actor_id, 'CONSUMED', now))
             if fail_at == 'AUTHORIZATION':
                 raise ExecutionConflict('INJECTED_AUTHORIZATION_FAILURE')

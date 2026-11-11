@@ -89,13 +89,14 @@ class ExecutorPolicyService:
                 or not (authority.can_continue if plan.kind == 'CONTINUE' else authority.can_cancel)):
             raise PermissionError('SEPARATE_EXECUTOR_CONTINUE_OR_CANCEL_PERMISSION_REQUIRED')
 
-    def _checkpoint(self, request, scope, decision_id, permission):
+    def _checkpoint(self, request, scope, decision_id, permission, *, checkpoint=None):
         unit = self._unit
+        state = unit._state if checkpoint is None else checkpoint
         unit._authorized(request, scope, permission)
-        key, owner_key, op = unit._match(unit._state, request)
-        record = unit._state.get('executor_decision_records', {}).get(decision_id)
-        grant = unit._state.get('executor_decision_authorizations', {}).get(decision_id)
-        owner, lease, events = unit._state['owners'][owner_key], unit._state['leases'][key], unit._state['outbox'][key]
+        key, owner_key, op = unit._match(state, request)
+        record = state.get('executor_decision_records', {}).get(decision_id)
+        grant = state.get('executor_decision_authorizations', {}).get(decision_id)
+        owner, lease, events = state['owners'][owner_key], state['leases'][key], state['outbox'][key]
         if record is None or grant is None:
             raise ExecutorPolicyConflict('READ_ONLY_RECONCILIATION_REQUIRED')
         evaluation = record.evaluation
@@ -114,12 +115,12 @@ class ExecutorPolicyService:
         if (not events or events[-1].event_id != trace_id or events[-1].status != 'HELD'
                 or events[-1].step != 'EXECUTOR_RECONCILIATION_DECISION'):
             raise ExecutorPolicyConflict('READ_ONLY_RECONCILIATION_REQUIRED')
-        audit = [r for r in unit._state['audit'] if r[:2] == key]
+        audit = [r for r in state['audit'] if r[:2] == key]
         if (not audit or audit[-1][2:7] != (request.correlation_id, request.actor_id, op.plan_hash, op.revision, 'EXECUTOR_DECISION_RECORDED')
-                or sum(r[0] == decision_id and r[2] == 'CONSUMED' for r in unit._state['executor_decision_audit']) != 1):
+                or sum(r[0] == decision_id and r[2] == 'CONSUMED' for r in state['executor_decision_audit']) != 1):
             raise ExecutorPolicyConflict('READ_ONLY_RECONCILIATION_REQUIRED')
         # Reconstruct the pre-decision checkpoint in a private copy; never rewind the real UoW.
-        prior = deepcopy(unit._state)
+        prior = deepcopy(state)
         prior['owners'][owner_key] = owner.model_copy(update={'revision': evaluation.owner_revision, 'fence': evaluation.owner_fence})
         prior['journal'][key] = op.model_copy(update={'state': 'FIXTURE_STEP_UNKNOWN', 'revision': evaluation.operation_revision,
             'owner_revision': evaluation.owner_revision, 'fence': evaluation.owner_fence})
@@ -132,7 +133,7 @@ class ExecutorPolicyService:
         if (fresh.status == 'READ_ONLY_RECONCILIATION_REQUIRED'
                 or fresh.model_dump(exclude={'observed_at'}) != evaluation.model_dump(exclude={'observed_at'})):
             raise ExecutorPolicyConflict('READ_ONLY_RECONCILIATION_REQUIRED')
-        accepted = unit._state['executor_accepted'][evaluation.execution_id]
+        accepted = state['executor_accepted'][evaluation.execution_id]
         digest = canonical_hash({'record': record.model_dump(mode='json'), 'grant': grant.model_dump(mode='json'),
             'held': record.checkpoint_fingerprint, 'unknown': accepted.model_dump(mode='json'),
             'fresh_evidence': fresh.model_dump(mode='json', exclude={'observed_at'})})
