@@ -3,7 +3,7 @@ import { matchesExpiry, type ExpiryFilter } from './expiry.ts';
 import { matchesSource, type SourceFilter } from './source.ts';
 
 export type SubscriberFilters = {
-  query:string; router:string;router_id?:string; plan:string; source:SourceFilter;
+  query:string; router:string;router_id?:string; plan:string; source:SourceFilter; access?:'ALL'|'PPPOE'|'HOTSPOT'|'UNKNOWN';
   status:'ALL'|'ACTIVE'|'PAUSED'|'PENDING'; expiry:ExpiryFilter;
 };
 export const EMPTY_SUBSCRIBER_FILTERS:SubscriberFilters={query:'',router:'',plan:'',source:'ALL',status:'ALL',expiry:'ALL'};
@@ -19,6 +19,7 @@ export function filterSubscribers(rows:Subscriber[],filters:SubscriberFilters,to
       && (!filters.router_id||row.router_id===filters.router_id)
       && (!filters.plan||row.plan===filters.plan)
       && matchesSource(row.source,filters.source)
+      && (!filters.access||filters.access==='ALL'||(filters.access==='UNKNOWN'?!['PPPOE','HOTSPOT'].includes(row.access_type??''):row.access_type===filters.access))
       && (filters.status==='ALL'||row.status===filters.status)
       && matchesExpiry(row.expires_on,filters.expiry,today);
   });

@@ -33,3 +33,12 @@ test('options come from real saved values and retain a no-longer-matching select
  assert.deepEqual(subscriberFilterOptions([],'router_name'),[]);
  assert.deepEqual(filter({plan:'Eski paket'}),[]);
 });
+
+test('access type filter intersects authority and status without hiding unknown types by default',()=>{
+ const typed=[{...base,id:'ppp',access_type:'PPPOE'},{...base,id:'hotspot',access_type:'HOTSPOT',source:'RADIUS',status:'PAUSED'},{...base,id:'unknown',access_type:null}];
+ const apply=changes=>filterSubscribers(typed,{...EMPTY_SUBSCRIBER_FILTERS,...changes},today).map(row=>row.id);
+ assert.deepEqual(apply({access:'ALL'}),['ppp','hotspot','unknown']);
+ assert.deepEqual(apply({access:'HOTSPOT',source:'RADIUS',status:'PAUSED'}),['hotspot']);
+ assert.deepEqual(apply({access:'PPPOE',source:'RADIUS'}),[]);
+ assert.deepEqual(apply({access:'UNKNOWN'}),['unknown']);
+});

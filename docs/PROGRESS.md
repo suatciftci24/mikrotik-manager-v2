@@ -5452,3 +5452,32 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   denenmedi. Statik render tarayıcı kabulü değildir. Yerel PG/11 abone/admin/
   audit'e erişim-yazım/migration/reset/restart yok. İki stash/yedek dal ve
   PostgreSQL yedeğine müdahale yok. Tek commit, push/deploy yok.
+
+
+## Kompakt mobil Abone Merkezi — 2026-11-11
+
+- Başlangıç office-development/a390bfd temiz; AGENTS ve ilerleme okundu.
+  Büyük mobil kartlar temel alınmadı. Backend/API/audit/yetki/depo değişmedi.
+- <=600px için masaüstü tablodan bağımsız kompakt liste: ad+Türkçe hesap
+  durumu, paket+bitiş ve detay oku. Satır mevcut detayı açar; paket/durum/
+  uzatma/geçmiş aynı detay akışlarında. Seçim kutuları aynı seçili kayıt
+  state'ini kullanır; mevcut toplu işlem kontrolleri filtre bölümünde korunur.
+- Legacy listede 5/5/1 client sayfalama; arama veya herhangi bir filtre
+  değişimi keyed listeyi sıfırlar. Kalıcı listede mevcut backend'in page_size
+  parametresi mobilde5, desktop25; router/tür/durum/arama ve seçim korunur.
+  Desktop tablo satırları ve işlem butonları değiştirilmedi.
+- Arama tek alan; mevcut kontroller tek native details filtre panelinde.
+  Desktop açık, mobil kapalı başlar. Legacy tür filtresi eklendi; router,
+  kaynak, paket, durum, bitiş kesişimi ve uyarı kapsamı korunur. Uzun açıklama
+  yerine mobil sentetik/canlı ayrımı tek kısa not; istatistik/uyarı ayrıntısı
+  açılır bölümde erişilebilir. Kalıcı liste mevcut filtre sözleşmesini korur.
+- 320/360/393/430 için ortak <=600px CSS: minmax/min-width0, uzun isimlerde
+  wrap, yatay tablo gizli, doğal buton/checkbox ve >=44px dokunma hedefleri.
+  Gerçek piksel/geometri ve mobil etkileşim kabulü PENDING; socket EPERM
+  tekrarlanmadı, statik React çıktısı tarayıcı PASS sayılmadı.
+- PASS: yeni compactSubscribers 5 test; mevcut subscriberFilters ve
+  operationsNavigation hedef dosyaları; ek tür/kaynak/durum kesişim testi;
+  TypeScript noEmit, tsc/Vite build, diff kontrolü. DB/HTTP/socket testi yok.
+- Mevcut 11 abone/admin/audit/PG kaydına yazma yok. Migration/reset/restart/
+  V1/V2.5/VDS/router/RADIUS/IPsec/canlı işlem yok. İki stash ve yedek dal,
+  PostgreSQL yedeği korunur. Tek yerel commit; push/deploy yok.
