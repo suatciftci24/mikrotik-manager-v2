@@ -141,3 +141,10 @@ UUID conflict, sır/yazma alanlarının reddi ve frozen JSON roundtrip'i kapsar.
 Mevcut RADIUS/önizleme frontend regresyonları korunur. Gerçek PostgreSQL,
 HTTP/tarayıcı ve canlı AAA kabulü **PENDING / uygulanmadı**; socket EPERM
 tekrarlanmaz. Mevcut 11 abone/admin/audit ve yedek üzerinde işlem yoktur.
+
+## İzole kalıcılık tasarımının devamı
+
+[AAA işlem günlüğü prototipi](AAA_OPERATION_JOURNAL.md) tenant kapsamlı
+idempotency, atomik operation/event ve CAS modelini geçici SQLite testlerinde
+sınar. Yukarıdaki geçici proof tek başına kalıcılık sağlamaz. Bu ek prototip
+PostgreSQL'e bağlı değildir; uygulanan migration veya gerçek AAA yürütücüsü yoktur.

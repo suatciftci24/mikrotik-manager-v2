@@ -5669,3 +5669,27 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   PostgreSQL/yedek, iki stash ve yedek dal üzerinde işlem yok. Migration,
   restart, gerçek router/RADIUS/IPsec, push/deploy yok. Gerçek HTTP/tarayıcı
   ve canlı AAA kabulü uygulanmadı; canlı entegrasyon ayrı açık onay gerektirir.
+
+## Merkezi AAA kalıcı işlem güvenliği — 2026-11-11
+
+- Başlangıç office-development/1900803 temiz; origin GitHub V2 reposu,
+  upstream origin/main-guncel. Kullanıcı yalnız origin/office-development
+  push onayı verdi; diğer dallara push veya geçmiş değiştirme yok.
+- Geçici receipt'in restart/concurrency açığı için mevcut AAA strict snapshot
+  ve subscriber operation transaction yaklaşımıyla izole SQLite journal
+  prototipi eklendi. Yeni abone deposu, API, provider veya canlı yazma yolu yok.
+- Tenant/UUID PK, fingerprint, account-revision rezervasyonu, operation CAS,
+  korelasyonlu event ve transaction rollback; timeout/failed tekrarları ve
+  telafi/uzlaştırma durum makinesi hazırlandı. Kaynak account CAS ve gerçek
+  PostgreSQL davranışı doğrulanmış değildir; şema taslağı belgede, migration yok.
+- PASS: 8 yeni journal testi ve 16 mevcut sözleşme/simülasyon testi. İlk yeni
+  suite insert placeholder hatasını yakaladı; düzeltme sonrası yalnız 8 yeni
+  test tekrar geçti. Dosya yeniden açma, iki bağlantı CAS yarışı ve audit fault
+  rollback sınandı. Frontend değişmedi, TypeScript/build tekrarlanmadı.
+- Git fetch origin DNS: Could not resolve host github.com. Güncel uzak dal
+  geçmişi/HEAD doğrulanamadı; güvenli push kapısı BLOCKED, push yapılmayacak.
+  Yerel commit tamamlanır; uzak eşitlik veya GitHub başarısı iddia edilmez.
+- Gerçek PG/socket/HTTP, secret veya router/RADIUS erişimi yok; EPERM tekrarı
+  yok. 11 abone/admin/audit/yedek, iki stash ve backup dalına müdahale yok.
+  Reset/migration/restart/deploy yok. Canlı entegrasyon ayrı onay ve katalog,
+  yetki/tenant, source CAS, outbox/fencing/uzlaştırma kabulü gerektirir.
