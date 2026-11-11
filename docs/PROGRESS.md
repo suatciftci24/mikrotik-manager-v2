@@ -5693,3 +5693,28 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   yok. 11 abone/admin/audit/yedek, iki stash ve backup dalına müdahale yok.
   Reset/migration/restart/deploy yok. Canlı entegrasyon ayrı onay ve katalog,
   yetki/tenant, source CAS, outbox/fencing/uzlaştırma kabulü gerektirir.
+
+## Merkezi AAA demo panel entegrasyonu — 2026-11-11 — izole PASS / çalışan ortam BLOCKED
+
+- Başlangıç office-development/b76f908. AGENTS, son AAA kabulü, sözleşmeler,
+  journal, mevcut API ve özellik koruma envanteri incelendi. Başlangıçtaki
+  PROGRESS ev kabul notu korundu; bu commit'in kapsamına alınmadı.
+- Abone detay özeti LOCAL/RADIUS/BELİRSİZ gösterir. İşlemler altında isteğe
+  bağlı AAA demo paneli: plan, telafi ve telafi çatışması; model kaynak/hesap
+  revizyonu, işlem revizyonları, fingerprint, aktör, Türkiye saati ve korelasyon.
+- Yeni oturum korumalı GET /api/v1/aaa-demo/preview yalnız sabit fixture ve
+  çağrı sonunda kapanan bellek SQLite journal kullanır. Seçili abonenin geçmişi
+  olmadığı açık; kalıcı audit'e olay eklenmez. Mevcut işlemler/geçmiş korunur.
+  Mobil tek kolon, kırılabilen UUID/hash ve en az44px kontroller eklendi.
+- PASS: 3 yeni backend GET/sözleşme testi, 3 yeni frontend sunum testi,
+  doğrudan etkilenen19 abone merkezi testi ve TypeScript. Eski AAA24/matris20
+  tekrarlanmadı; frontend build yapılmadı. İlk backend harness'te httpx eksikti;
+  paket kurulmadan ASGI kullanıldı. Sandbox AnyIO worker engeli test harness'inde
+  inline yürütmeyle aşıldı; ürün thread/permission davranışı değiştirilmedi.
+  BELİRSİZ başlığına uygun eski assertion güncellendi; koruma gevşetilmedi.
+- Gerçek browser/mobil ve çalışan API/UI kabulü önceki EPERM nedeniyle BLOCKED;
+  erişim tekrarlanmadı, restart yok. Yeni GET çalışan API'ye yüklenmiş sayılmaz.
+- Demo giriş/14 abone/PG/audit, stash/dallar/yedekler korunur. DB erişimi/yazımı,
+  migration/reset/secret/provider/VDS/deploy/push yok. Tek yerel commit.
+  Sonraki tek öncelik: HTTP erişimi olan oturumda demo panelinin gerçek tarayıcı
+  kabulünü mevcut veri ve servisleri değiştirmeden tamamlamak.

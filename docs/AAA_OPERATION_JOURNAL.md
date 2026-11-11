@@ -86,3 +86,14 @@ Dış işlem için ayrı outbox/lease/fencing/provider-idempotency tasarımı,
 kanıtlı uzlaştırma ve audit saklama politikası gerekir; distributed exactly-once
 garantisi yok. Okuma scope'u AAA yazma izni değildir. Canlı AAA, migration,
 PostgreSQL yazımı ve telafi için ayrı açık hedefe özgü onay gerekir.
+
+## Demo panel okuma sınırı — 2026-11-11
+
+`GET /api/v1/aaa-demo/preview?scenario=PLAN|COMPENSATION|RECONCILIATION`
+mevcut oturum doğrulamasını kullanır. Yalnız sabit `demo-sub-aaa-memory`
+fixture'ını ve her çağrıda kapatılan `:memory:` journal'ı sunar. Seçili abone
+kimliği, tenant veya proof almaz; mevcut PostgreSQL/audit/credential okumaz.
+Detaydaki İşlemler bölümünde isteğe bağlı açılır; güncel hesap kaynağı ayrı,
+örnek geçmiş ve korelasyon ayrı gösterilir. Sabit örnek aktör/tarih kullanıcı
+veya güncel olay olarak sunulmaz. GET sonucu kalıcı receipt, canlı hazırlık veya
+yazma yetkisi değildir; `live_ready=false`, `external_writes=false` korunur.

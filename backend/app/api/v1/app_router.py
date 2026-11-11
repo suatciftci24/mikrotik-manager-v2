@@ -6,3 +6,6 @@ api_router = APIRouter()
 api_router.include_router(v1_inventory.router)
 for feature in (auth.router, dashboard.router, routers.router, subscribers.router, modules.router, router_events.router, mikajani.router, reports.router, alarms.router, users.router, system.router, router_registry.router, router_workspace.router, router_center.router, subscriber_center.router):
     api_router.include_router(feature)
+
+from app.api.v1 import aaa_demo
+api_router.include_router(aaa_demo.router)

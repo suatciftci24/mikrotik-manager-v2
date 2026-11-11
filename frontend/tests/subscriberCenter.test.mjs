@@ -198,7 +198,7 @@ test('legacy missing protocol stays separate from current authority and historic
   const current={...data,source:'LEGACY_DEMO',item:{...data.item,id:'demo-sub-fixture',access_type:null,source},history:[{operation:'PLAN',source:'LOCAL',occurred_at:'2026-11-10T10:00:00Z',actor_id:'fixture',result:'APPLIED'}]};
   for(const tab of ['overview','actions','history','connections']){
    const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:current,tab,onTab(){}}));
-   assert.ok(html.includes('Güncel yetkili kaynak: '+(source??'Bilinmiyor')));
+   assert.ok(html.includes('Güncel yetkili kaynak: '+(source??'BELİRSİZ')));
    assert.match(html,/Erişim türü: Bilinmiyor/);
    assert.match(html,/türü yetkili kaynaktan veya router atamasından tahmin edilmez/);
    if(tab==='history')assert.match(html,/İşlem anındaki yetkili kaynak: LOCAL/);
