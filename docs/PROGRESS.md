@@ -5402,3 +5402,28 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Gerçek browser/HTTP/PG kabulü BLOCKED: bilinen socket EPERM tekrar denenmedi.
   Migration/reset/silme/restore/restart/VDS/cihaz/RADIUS/IPsec/canlı işlem yok.
   Tek yerel commit; push/deploy yok.
+
+
+## Ofis Router Merkezi erişim türü navigasyonu — 2026-11-11
+
+- Başlangıç office-development/bde8139 temiz. AGENTS/güncel ilerleme okundu.
+  Kullanıcının Abone Merkezi PASS_HTTP_ONLY sonucu kabul kanıtıdır; yeniden
+  çalıştırılmadı. Gerçek tarayıcı etkileşim/mobil kabulü açık: bilinen socket
+  EPERM tekrarlanmadı; statik React render tarayıcı kabulü sayılmadı.
+- Router liste/detay ve kaynak projeksiyonu incelendi: sentetik status canlı
+  ONLINE sayılmaz, kayıtlı ölçüm zamanı API okuma zamanına dönüştürülmez;
+  WAN yerine yönetim IP'si gösterilmez. CPU/RAM yokluğu ve registered stale/
+  pending açıklamaları korunur; yeni canlı okuma veya cihaz bağlantısı yok.
+- Kanıtlanan eksik: kalıcı router Hotspot seçiliyken Abone Merkezi linki
+  yalnız workspace_router taşıyor, workspace_access taşımıyordu. Hedef liste
+  ALL türüne açılıyordu. Link şimdi seçili PPPoE/HOTSPOT türünü ve exact ID'yi
+  birlikte taşır. Legacy kapsamı, bounded return ve dört sekme korunur.
+- PASS: routerCenter/routerSubscriberLinks hedef dosyaları; yeni link+React
+  render testi iki türü doğrular. routerObservation dosyası PASS. 11 backend
+  router merkez/projeksiyon testi izole koştu; global PG connect/begin yasak.
+  TypeScript/build ve diff kontrolleri tamamlandı. İlk düzenleme komutunda
+  frontend cwd nedeniyle dosya yolu bulunmadı; o komut dosya değiştirmedi,
+  absolute repo yoluyla uygulandı ve değişiklik sonrası testler geçti.
+- Mevcut 11 abone/admin/audit'e DB erişimi/yazımı yok. İki stash, yedek dal
+  ve PostgreSQL yedeğine müdahale yok. Migration/reset/restart/canlı/VDS/
+  router/RADIUS/IPsec işlemi yapılmadı. Tek yerel commit; push/deploy yok.

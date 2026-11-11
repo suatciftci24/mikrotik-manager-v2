@@ -95,3 +95,18 @@ test('subscriber access selection reuses one scoped list and preserves legacy Ho
  select.props.onChange({target:{value:'HOTSPOT'}});assert.equal(selected,'hotspot');
  const html=renderToStaticMarkup(view('hotspot'));assert.match(html,/Hotspot hesap kayıtları/);assert.doesNotMatch(html,/PPPoE hesap kayıtları/);
 });
+
+
+test('persistent router navigation retains PPPoE or Hotspot subscriber scope',()=>{
+ for(const access of ['PPPOE','HOTSPOT']){
+  const params=new URLSearchParams(routerSubscriberListHash(data.item.id,access).slice(1));
+  assert.equal(params.get('workspace'),'PERSISTENT');
+  assert.equal(params.get('workspace_router'),data.item.id);
+  assert.equal(params.get('workspace_access'),access);
+  const html=renderToStaticMarkup(view(access==='HOTSPOT'?'hotspot':'subscribers'));
+  assert.match(html,new RegExp('workspace_access='+access));
+ }
+ const legacy=new URLSearchParams(routerSubscriberListHash('demo-router-001').slice(1));
+ assert.equal(legacy.get('workspace'),'LEGACY');assert.equal(legacy.get('router_id'),'demo-router-001');
+ assert.equal(legacy.has('workspace_access'),false);
+});
