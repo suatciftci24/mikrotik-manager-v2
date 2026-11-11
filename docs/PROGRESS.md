@@ -5427,3 +5427,28 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Mevcut 11 abone/admin/audit'e DB erişimi/yazımı yok. İki stash, yedek dal
   ve PostgreSQL yedeğine müdahale yok. Migration/reset/restart/canlı/VDS/
   router/RADIUS/IPsec işlemi yapılmadı. Tek yerel commit; push/deploy yok.
+
+
+## Abone Merkezi paket/durum/geçmiş kalan kabulü — 2026-11-11
+
+- Başlangıç office-development/f264bd2 temiz. AGENTS/ilerleme okundu.
+  Kullanıcının 2026-12-23/revizyon11/PAUSED tek uzatma audit+UUID DB/API
+  kabulü tekrar edilmedi. Paket/durum preview, kaynak/router/revizyon,
+  kayıt+audit, receipt/idempotency ve ortak invalidation sözleşmeleri okundu.
+- Kanıtlanan sunum eksikleri: OperationDetails HOTSPOT'u Veri yok gösteriyor,
+  CREATE için PPPoE etiketi kullanıyordu. Merkezi geçmiş eski/yeni STATUS'u
+  ham ACTIVE/PAUSED gösteriyor, UUID/revizyon/kaynak kanıtını sunmuyordu.
+- Hotspot tür/oluşturma etiketi düzeltildi. Geçmiş mevcut valuesText ile
+  Türkçe durum/tarih/alanları gösterir; UUID/revizyon ve yalnız audit'teki
+  kaynak eklenir. Kaynak yoksa güncel hesaptan tahmin yok. Başarısız kaydın
+  yeni değeri Uygulanmadı; aktör/Türkiye saati ve kayıtlı hata korunur.
+- PASS: 12 operationsNavigation testi; 3 izole backend plan/durum/source/
+  stale/noop/yetki testi, mevcut PG engine connect/begin yasak. TypeScript,
+  build, diff kontrolü geçti. Hook mock'u yeni nullable modal slotları/tab
+  sırasına uyarlandı; üretim state ve auth/yazma/UUID kodu değiştirilmedi.
+- İlk düzenleme komutunda frontend cwd ile yanlış dosya yolu kullanıldı;
+  dosya değişmedi. Absolute yol ile düzeltildi, ilgili testler 12/12 geçti.
+- Tarayıcı menü/önizleme/mobil kabulü PENDING: bilinen socket EPERM tekrar
+  denenmedi. Statik render tarayıcı kabulü değildir. Yerel PG/11 abone/admin/
+  audit'e erişim-yazım/migration/reset/restart yok. İki stash/yedek dal ve
+  PostgreSQL yedeğine müdahale yok. Tek commit, push/deploy yok.

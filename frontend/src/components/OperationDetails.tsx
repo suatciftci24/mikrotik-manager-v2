@@ -19,9 +19,9 @@ export function OperationDetails({event,onClose,onSubscriber,onRouter,onHistory,
     {event.workspace&&<p>Kalıcı sentetik çalışma alanı kaydıdır. İşlem geçmişi bu abonenin kendi kaynağında açılır; eski demo audit raporuyla birleştirilmez.</p>}
     <Facts items={[
       ['İşlem UUID / audit kimliği',detailText(event.request_id??(event.workspace?null:event.id))],['İşlem revizyonu',event.revision??'Bu kayıtta belirtilmemiş'],['Audit sonucu',event.audit_result==='APPLIED'?'Uygulandı · Kaydedilmiş audit':event.audit_result==='FAILED'?'Başarısız · Kayıt değiştirilmedi':'Bu kayıtta belirtilmemiş; başarı varsayılmaz'],['İlgili router ID',detailText(event.router_id)],
-      ['İşlem',operationLabel(event.operation)],['Abone',detailText(event.customer_name)],
+      ['İşlem',event.operation==='CREATE'&&event.access_type==='HOTSPOT'?'Hotspot abonesi oluşturma (demo)':operationLabel(event.operation)],['Abone',detailText(event.customer_name)],
       ['Kullanıcı adı',detailText(event.username)],['Router',detailText(event.router_name)],
-      ['Erişim türü',event.access_type==='PPPOE'?'PPPoE (sentetik)':'Veri yok'],
+      ['Erişim türü',event.access_type==='PPPOE'?'PPPoE (sentetik)':event.access_type==='HOTSPOT'?'Hotspot (sentetik)':'Veri yok'],
       ['Yetkili kaynak',<SourceBadge source={event.source}/>],['İşlemi yapan',detailText(event.actor_id)],
       ['Zaman (Türkiye)',dateTime(event.occurred_at)],['Önceki değerler',previous],['Yeni değerler',next],
     ]}/>
