@@ -3,14 +3,14 @@ import {subscriberSource,type SubscriberSource} from './source.ts';
 import {linkedDetailHash} from './detailLinks.ts';
 
 export type RadiusScope='LEGACY'|'PERSISTENT';
-export type RadiusFilters={scope:RadiusScope;authority:'ALL'|SubscriberSource;access:'ALL'|'PPPOE'|'HOTSPOT'|'UNKNOWN';query:string};
+export type RadiusFilters={preview?:true;scope:RadiusScope;authority:'ALL'|SubscriberSource;access:'ALL'|'PPPOE'|'HOTSPOT'|'UNKNOWN';query:string};
 export type RadiusRecord={id:string;name:string;username:string;authority:SubscriberSource;access:'PPPOE'|'HOTSPOT'|'UNKNOWN';routerId:string|null;routerName:string|null;plan:string;expiresOn:string|null;status:string;revision:number};
 export function radiusFiltersFromHash(hash:string):RadiusFilters{
  const p=new URLSearchParams(hash.replace(/^#/,''));
  if(p.get('module')!=='radius')return {scope:'LEGACY',authority:'ALL',access:'ALL',query:''};
- return {scope:p.get('scope')==='PERSISTENT'?'PERSISTENT':'LEGACY',authority:(['LOCAL','RADIUS','UNKNOWN'].includes(p.get('authority')??'')?p.get('authority'):'ALL') as RadiusFilters['authority'],access:(['PPPOE','HOTSPOT','UNKNOWN'].includes(p.get('access')??'')?p.get('access'):'ALL') as RadiusFilters['access'],query:(p.get('q')??'').slice(0,120)};
+ return {...(p.get('preview')==='1'?{preview:true as const}:{}),scope:p.get('scope')==='PERSISTENT'?'PERSISTENT':'LEGACY',authority:(['LOCAL','RADIUS','UNKNOWN'].includes(p.get('authority')??'')?p.get('authority'):'ALL') as RadiusFilters['authority'],access:(['PPPOE','HOTSPOT','UNKNOWN'].includes(p.get('access')??'')?p.get('access'):'ALL') as RadiusFilters['access'],query:(p.get('q')??'').slice(0,120)};
 }
-export function radiusHash(filters:RadiusFilters){return '#'+new URLSearchParams({module:'radius',view:'SYNTHETIC_VISIBILITY',scope:filters.scope,authority:filters.authority,access:filters.access,q:filters.query});}
+export function radiusHash(filters:RadiusFilters){return '#'+new URLSearchParams({module:'radius',view:'SYNTHETIC_VISIBILITY',scope:filters.scope,authority:filters.authority,access:filters.access,q:filters.query,...(filters.preview?{preview:'1'}:{})});}
 export function radiusDetailLink(row:RadiusRecord,filters:RadiusFilters,router=false){
  if(router&&(!row.routerId||!row.routerId.startsWith(filters.scope==='PERSISTENT'?'demo-managed-router-':'demo-router-')))return null;
  return linkedDetailHash(router?{module:'routers',id:row.routerId!,source:filters.scope==='PERSISTENT'?'MANAGED_DEMO':'DEMO'}:{module:'subscribers',id:row.id,workspace:filters.scope},radiusHash(filters));

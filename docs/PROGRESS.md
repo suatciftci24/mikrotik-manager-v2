@@ -5575,3 +5575,37 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Mevcut 11 abone/admin/audit'e erişim/yazım yok. Yedek SHA256 eşleşti;
   iki stash ve backup/office-20261109 korundu. Migration/reset/restart/
   V1/V2.5/VDS/router/RADIUS/IPsec/üretim işlemi yok. Tek commit; push/deploy yok.
+
+
+## Merkezi AAA LOCAL → RADIUS ön inceleme — 2026-11-11
+
+- Başlangıç office-development/b37ab08 temiz. AGENTS ve
+  RADIUS_SYNTHETIC_VISIBILITY okundu. Yeni görünürlük vardı; yerel aday
+  yeterliliği/çakışma ile canlı doğrulanamayan AAA kapılarını ayıran önizleme
+  yoktu. Mevcut yetkili GET yükleyici/iki ayrı depo sınırı yeniden kullanıldı.
+- Ayrı Geçiş önizlemesi — işlem yapılmaz görünümü yalnız LOCAL aday gösterir.
+  RADIUS/UNKNOWN aday olmaz, erişim türü kaynaktan türetilmez. Kimlik/revizyon,
+  router referansı, paket, tarih, durum ve kullanıcı alanları değerlendirilir.
+  Legacy revision0 sözleşmesi korunur; workspace revision>=1 bekler.
+- Deterministik saf model: adaylar tek ana sınıfta sayılır; çakışma → eksik
+  bilgi → ilave canlı karar → yerel ön incelemeye uygun önceliği. Aynı ID tek
+  aday; kullanıcı/realm risk anahtarı NFKC/trim/lowercase yalnız hipotezdir,
+  kimlik değiştirmez. Görünür RADIUS/UNKNOWN kayıtları risk karşılaştırmasına
+  katılabilir ama adaylaşmaz; diğer depolar ve gerçek sunucu taranmaz.
+- Her sınıfta merkezi abonelik ID, canlı realm/namespace, NAS, profil/süre ve
+  gerçek geçiş yetkisi/audit Doğrulanamadı. Yerel uygunluk taşıma onayı veya
+  canlı hazır garantisi değildir. Mevcut kaynak/grant/audit verileri değişmez.
+- Mobil iki satırlı5 aday, sınıf/tür/arama, tüm LOCAL aday özeti ve açıklamalı
+  native detay dialog'u. Scope/değişen veriyle eski detay kapanır; filtre/
+  preview dönüş bağlamı URL'de korunur. Desktop hesap listesi aynı kalır.
+- PASS: radiusTransitionPreview8 yeni saf test + 1 preview UI testi;
+  radiusVisibility/radiusCenter mevcut regresyonları; 2 backend okuma kapsam/
+  ADMIN sınırı testi (global PG connect/begin yasak); TypeScript/build/diff.
+  UNKNOWN/sıfır, eksik alan, realm/Unicode, duplicate ID, durum/tarih, iki depo
+  ve sayımların toplamı sınandı; sır girdisi veya uygulama butonu yok.
+- Teknik plana sınıfların sınırı, eksik kanıt, atomik snapshot iddiası yokluğu,
+  güncel revizyon yeniden kontrolü, tek otorite/geri dönüş, audit/idempotency
+  ve ayrı canlı onay gereksinimi eklendi. Yeni backend/endpoint/adapter veya
+  DB yazımı yok. Gerçek HTTP/tarayıcı ve 393px görsel kabul PENDING; socket
+  EPERM tekrar denenmedi. Yedek, 11 abone/admin/audit, iki stash ve yedek dala
+  müdahale yok. Tek commit; push/deploy yok.

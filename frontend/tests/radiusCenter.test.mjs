@@ -5,10 +5,10 @@ import {createRequire} from 'node:module';
 import * as React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 const require=createRequire(import.meta.url);
-const hooks={...React,useEffect:()=>{},useCallback:fn=>fn,useContext:()=>globalThis.__radiusUser,useState:initial=>[typeof initial==='function'?initial():initial,()=>{}]};
+const hooks={...React,useEffect:()=>{},useCallback:fn=>fn,useContext:()=>globalThis.__radiusUser,useState:initial=>[initial===null&&globalThis.__radiusSelected?globalThis.__radiusSelected:typeof initial==='function'?initial():initial,()=>{}]};
 const code=(await build({entryPoints:['src/screens/RadiusCenter.tsx'],bundle:true,write:false,loader:{'.css':'empty'},platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'resource',setup(b){b.onResolve({filter:/lib\/useResource$/},()=>({path:'resource',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function useResource(){return globalThis.__radiusResource}',loader:'js'}));}}]})).outputFiles[0].text;
 const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
-function render(resource,admin=false){globalThis.__radiusResource={retry(){},...resource};globalThis.__radiusUser=admin?{role_code:'ADMIN',can_manage_users:true}:{role_code:'VIEWER'};globalThis.window={location:{hash:'#module=radius'}};return renderToStaticMarkup(module.exports.RadiusCenter());}
+function render(resource,admin=false,hash='#module=radius'){globalThis.__radiusResource={retry(){},...resource};globalThis.__radiusUser=admin?{role_code:'ADMIN',can_manage_users:true}:{role_code:'VIEWER'};globalThis.window={location:{hash}};return renderToStaticMarkup(module.exports.RadiusCenter());}
 test('loading and error remain explicit; successful empty source has zero counts only after a verified read',()=>{
  const before=globalThis.window;
  try{
@@ -26,4 +26,20 @@ test('visible records stay readonly, show unknown authority separately from Hots
   assert.doesNotMatch(html,/value="PERSISTENT"|<form|type="submit"/);
   const admin=render({loading:false,data:[row]},true);assert.match(admin,/value="PERSISTENT"/);
  }finally{globalThis.window=before;delete globalThis.__radiusUser;delete globalThis.__radiusResource;}
+});
+
+
+test('preview admits only LOCAL, exposes unresolved gates and offers no execution action',()=>{
+ const before=globalThis.window;
+ const local={id:'demo-sub-preview',name:'Local Candidate',username:'preview@example.test',authority:'LOCAL',access:'PPPOE',routerId:'demo-router-001',routerName:'Demo',plan:'Demo 100',expiresOn:'2099-12-23',status:'PAUSED',revision:1};
+ try{
+  globalThis.__radiusSelected=local.id;
+  const html=render({loading:false,data:[local,{...local,id:'demo-sub-r',name:'RADIUS_ONLY_ACCOUNT',authority:'RADIUS'},{...local,id:'demo-sub-u',name:'UNKNOWN_ONLY_ACCOUNT',authority:'UNKNOWN'}]},true,'#module=radius&preview=1');
+  for(const expected of [/Geçiş önizlemesi — işlem yapılmaz/,/Local Candidate/,/Aday detayı/,/NAS \/ router eşlemesi/,/Doğrulanamadı/,/preview@example.test/,/Revizyon/,/Hesap kaydı kimliği/])assert.match(html,expected);
+  assert.doesNotMatch(html,/RADIUS_ONLY_ACCOUNT|UNKNOWN_ONLY_ACCOUNT|<form|type="submit"/);
+  const buttons=html.match(/<button\b[\s\S]*?<\/button>/g)??[];
+  assert.ok(buttons.every(button=>!/>\s*(Taşı|Uygula|Senkronize)/.test(button)));
+  globalThis.__radiusSelected=null;
+  const empty=render({loading:false,data:[]},true,'#module=radius&preview=1');assert.match(empty,/0 \/ 0 aday/);
+ }finally{globalThis.window=before;delete globalThis.__radiusSelected;delete globalThis.__radiusUser;delete globalThis.__radiusResource;}
 });
