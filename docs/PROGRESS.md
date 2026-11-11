@@ -5825,3 +5825,26 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   migration/reset/restart/deploy/provider/push yok. Tek yerel commit.
 - Sonraki tek öncelik: gerçek bağlantı olmadan outbox worker lease/fencing ve
   stale teslim reddi sözleşmesini sahte adaptörlerle sınamak.
+
+## AAA outbox worker lease/fencing — 2026-11-11 — izole PASS
+
+- Başlangıç office-development/58ee81b; AGENTS ve canonical plan/journal/owner
+  CAS/outbox incelendi. Başlangıç PROGRESS değişikliği korundu, commit'e alınmadı.
+- AAA_WORKER_LEASE_V1_FIXTURE mevcut memory UoW'yi genişletir: worker/tenant,
+  attempt UUID,1–300s lease, monoton worker token ve operation revision kontrolü.
+  Account fence ayrıdır. Fake UTC clock geriye gidemez; expiry eşitliği reddedilir.
+- ACK/NACK/retry/yenileme/dispatch/telafi current lease doğrulamasından geçer;
+  expired/foreign/stale token ilerleyemez. Unfenced settle/next_event kapalı.
+  Dispatch öncesi çökmede yeni attempt/token; sonrası UNKNOWN+journal
+  RECONCILIATION ve yalnız read-only recovery lease. Kör provider retry yoktur.
+- Lease/audit/base owner-journal-outbox değişiklikleri tek memory publish'te.
+  Telafi ayrı izin ve mevcut revision/fence kanıtını ister; eski worker reddedilir.
+  Gerçek DB veya provider fencing/crash durability garantisi verilmez.
+- PASS:13 yeni worker testi; eşzamanlı claim ve eski/yeni teslim, exact expiry,
+  late ACK, renewal/retry, bilinmeyen sonuç, telafi, sıra/CAS ve rollback.
+  Önce11 yeni test, sonra eklenen2 concurrency/recovery testi çalıştı; eski AAA
+  suite'leri tekrarlanmadı. Socket/PG/SQLite connect testlerde yasak; diff temiz.
+- RADIUS demo ve14 abone/kullanıcı/PG/audit/config/stash/dal/yedekler korunur;
+  gerçek veri erişimi, migration/reset/restart/deploy/provider/VDS/push yok.
+  Tek yerel commit. Sonraki tek öncelik: sahte provider tarafında fencing reddi
+  ve UNKNOWN sonucun kanıta dayalı uzlaştırılması; gerçek bağlantı açmamak.

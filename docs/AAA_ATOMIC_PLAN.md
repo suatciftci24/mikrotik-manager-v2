@@ -105,3 +105,8 @@ Socket/PostgreSQL/SQLite connect testlerde yasaktır. Eski AAA/demo testleri yok
 Gerçek journal v2/migration, PostgreSQL row lock/RLS, crash recovery/retention ve
 worker/provider garantileri uygulanmadı. Sonraki tek öncelik: bağlantı açmadan
 outbox worker lease/fencing ve stale teslim reddi sözleşmesini sahte adaptörle sınamak.
+
+[Worker lease/fencing devamı](AAA_WORKER_LEASE.md) aynı memory transaction
+modeline sahiplik, süre, monoton worker token ve attempt UUID ekler. Dispatch
+sonrası lease kaybı otomatik tekrar yerine UNKNOWN/read-only uzlaştırmaya gider;
+production worker veya DB kalıcılığı eklenmez.
