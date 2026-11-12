@@ -6305,3 +6305,29 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   gerçek dispatch/push işlemi yok. Kalan sınır: fixture kabulü canlı entegrasyon
   veya sonraki işlem izni değildir. Sonraki tek öncelik: sonuç değerlendirmesi
   ardından ayrı güvenli Git senkronizasyonu.
+
+## AAA uçtan uca fixture kabulü — 2026-11-12 — PASS
+
+- office-development/76fd55d doğrulandı; AGENTS/güncel ilerleme ve canonical
+  plan/hash, authorization, CAS/fencing/journal/audit/outbox/lease, fake executor,
+  receipt, evaluator, decision/policy, prepared/authorized-held birlikte okundu.
+  BASH, echo, pg_isready, stash ve backup dalları korundu.
+- Yeni AaaE2eAcceptance mevcut builder/gerçek memory servis çağrılarını kullanır;
+  mock başarı veya doğrudan başarılı state eklemez. Aynı request/unit/provider
+  plan→UNKNOWN→evidence→decision→CONTINUE→next execution→UNKNOWN→decision→
+  CONTINUE→PREPARED_HELD→AUTHORIZED_HELD→fake execution→receipt boyunca ilerler.
+  CANCEL alternatif kolu hazırlığı engeller. Son UNKNOWN için ayrı kesin
+  evidence/atomik karar bağlantısı da uçtan uca doğrulandı.
+- PASS: 6 yeni test metodu. Son SUCCESS/REJECTED/UNKNOWN; duplicate/replay ve
+  claim/run/accept yarışı; expired authorization; stale CAS/fencing; yanlış
+  tenant/subscriber/execution/hash/step/receipt; provider sonrası AUDIT fault;
+  CANCEL engeli; UNKNOWN no-retry; eksik/çelişkili/bağımsız olmayan kanıt ve
+  geçmiş/audit koruma kapsandı. Kopuk bağlantı veya ürün hatası bulunmadı;
+  backend düzeltmesi gerekmedi. Önceki başarılı test paketleri tekrarlanmadı.
+- docs/AAA-E2E-ACCEPTANCE.md PASS/BLOCKED matrisini ve üretim sınırlarını
+  belgeler. Yalnız deterministik memory fixture/fake provider; dış socket/
+  SQLite/psycopg girişleri mevcut fixture'da yasak. Gerçek PG/abone/kullanıcı/
+  audit/secret/canlı V1/V2.5/VDS/cihaz/RADIUS/IPsec, migration/restart/deploy/
+  veri silme/push yok. Gerçek DB/provider entegrasyonu bu kabul değildir.
+- Sonraki tek öncelik: sonuç değerlendirmesi ardından ayrı güvenli Git
+  senkronizasyonu; canlı entegrasyon için ayrı tasarım/kabul/onay gerekir.
