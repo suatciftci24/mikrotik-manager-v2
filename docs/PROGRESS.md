@@ -5232,3 +5232,27 @@ Her iki ilerleme kaydi korunmustur:
   DB oluşturma/migration/silme/restore/deploy/restart veya gerçek AAA etkisi yok.
 - İlgili güvenli değişiklikler normal commit/push kapsamındadır; gereken sonraki
   girdi hazır ve kimliği kanıtlı izole AAA kabul ortamı ve sözleşme ön koşullarıdır.
+
+## V2.6 AAA PostgreSQL salt okunur ortam envanteri — 2026-11-12 — BLOCKED
+
+- main-guncel/64432d5 temiz ve GitHub SHA aynı. Kurallar/son kabul okundu.
+  Önceki 64432d5 push/SHA doğrulandı. Bu görev yalnız iki belge değiştirir;
+  test/build veya AAA kabulü çalıştırılmadı.
+- Host envanteri: PG16/main online, postgresql@16-main active/running,
+  127.0.0.1:5432 ve Unix PG5432 socket'i mevcut. Sandbox down/nobody çıktısı
+  host kanıtıyla ayrıştırıldı; ürün arızası sayılmadı. Loaded mikrotik* unit yok.
+- Repo demo PG16/UID1000 dizini mevcut; pg_ctl status no server running.
+  Eski ready PID dosyası korunur.55432/55433/55442 dinleyicisi yok; belgeli
+  AAA /tmp/mikrotik-v26-acceptance kökü yok. Hazır izole hedef doğrulanamadı.
+- Sistem DB kataloğu SQL öncesinde role suat yok hatasıyla reddedildi; sudo -n
+  parola istedi. Rol/parola/grant değiştirilmedi, sorgu çalışmadı; tüm DB adları
+  ve sistem cluster'ının ürün kimliği UNKNOWN/BLOCKED.5432 V1/V2.5 sayılmadı.
+- Cebeci/Fresh profilleri yalnız kaynakta ayrıştırıldı; aynı DB/port tek başına
+  ortam eşitliği değildir. V1/V2.5/uzak VDS sorgulanmadı veya değiştirilmedi.
+  Sır/env/yedek içeriği rapora alınmadı; mevcut veriler ve servisler korundu.
+- Kabul raporu docs/AAA-POSTGRESQL-ISOLATED-ACCEPTANCE.md envanter bölümü:
+  kimlik/kullanılabilirlik matrisi, yetki sınırı ve gereken private owned cluster,
+  exact DB/rol/marker/AAA şema/rol-RLS ve membership/writer ön koşulları kayıtlı.
+- Önce/sonra HTTPS200 ve API readiness doğrulanır; DB kontrolü değildir.
+  DB/rol/şema/servis oluşturma, migration/DML/restore/restart/deploy yok.
+  Yalnız belge/diff kontrolü ve normal commit/push; force push yok.
