@@ -287,7 +287,7 @@ class FixtureExecutor:
             unit._state['executor_status'][execution_id] = 'CLAIMED'
             return command
 
-    def run(self, request, scope, context, command, *, permission=False, crash=None):
+    def run(self, request, scope, context, command, *, permission=False, crash=None, dispatch_checkpoint=None):
         self._scope(request, scope, context, permission, 'can_execute')
         if crash not in (None, 'AFTER_DISPATCH', 'AFTER_EFFECT'):
             raise ValueError('Unknown fixture crash')
@@ -309,6 +309,10 @@ class FixtureExecutor:
             with unit._transaction():
                 unit._state['executor_status'][command.execution_id] = 'IN_FLIGHT'
                 unit._state['executor_audit'].append((command.execution_id, command.attempt_id, 'STARTED', unit._clock.now()))
+            # An explicit PG fixture bridge durably records IN_FLIGHT before the
+            # fake effect. No DB lock/transaction is held during that effect.
+            if dispatch_checkpoint is not None:
+                dispatch_checkpoint()
             if crash == 'AFTER_DISPATCH':
                 raise FixtureCrash('Fixture dispatch outcome unknown')
             candidate = deepcopy(provider._state)

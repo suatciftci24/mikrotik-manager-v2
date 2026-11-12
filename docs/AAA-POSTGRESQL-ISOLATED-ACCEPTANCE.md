@@ -195,3 +195,76 @@ Sonraki teknik iş, ürün resolver ve sürümlü metadata bağlayıcısını bu
 hedefe güvenli bağlamaktır. Canlı deployment veya mevcut DB migration izni yoktur.
 Önce/sonra HTTPS200 ve API readiness başarılı; database_checked=false. Mevcut
 servis restartı, canlı DB/VDS/router/RADIUS işlemi yapılmadı.
+
+## Mevcut AAA kümesinde sürümlü PostgreSQL bağlayıcı kabulü — 2026-11-12
+
+Başlangıç `main-guncel/d32e290`; GitHub SHA aynı ve ağaç temizdi. Çalışan
+`7707358750625226262` / `127.0.0.1:55433` / `mikrotik_v26_acceptance` kimliği,
+gerçek PGDATA, loopback listen adresi ve kayıtlı inode/device sahipliği salt
+okunur doğrulandı. Yeni cluster oluşturulmadı, cluster başlatılmadı/durdurulmadı.
+
+**PASS: yalnız izole, sentetik DI bağlayıcı ve aşağıdaki gerçek PG kabulü.**
+**BLOCKED/kapsam dışı: normal panel/canlı günlük writer entegrasyonu ve dağıtım.**
+
+| Bileşen | Gerçekleştirilen bağ |
+| --- | --- |
+| SessionMembershipResolver | Aynı session'da actor→membership kilit sırası; LOCAL origin, deployment stamp, aktiflik/rol/kapsam/capability ve ayrı actor/membership/policy revizyonları; bootstrap/login/env fallback yok |
+| Typed checkpoint codec | Açık model allowlist'i, strict sürümlü JSON roundtrip, UUID/aware UTC/tuple/set desteği; pickle veya dinamik import yok |
+| PostgresFixtureBridge | Mevcut domain servislerini private LeasedMemoryOutbox üstünde yeniden kullanır; varsayılan engine veya HTTP wiring yok. Yeni state machine oluşturulmadı |
+| Prepared authorization | Gerçek PREPARED_EXECUTION_AUTH_V1_FIXTURE/plan/record; issue ve consume ayrı PG transaction'larında. Scope, TTL, single-use, generation ve owner CAS korunur; grant freshness proof'a bağlıdır |
+| Owner/audit/outbox | Tek mevcut subscribers/events ve AAA operations/actions/attempts/outbox projeksiyonları kullanılır. Checkpoint ikinci owner/audit kopyası taşımaz; rehydration kanonik SQL kayıtlarından yapılır |
+| Executor | Claim ve IN_FLIGHT checkpoint'i kalıcıdır. Dispatch öncesi DB clock lock sonrası yeniden okunur. Fake effect SQL transaction'ı dışında; response commit kaybında kalıcı IN_FLIGHT resend izni vermez |
+| Receipt/decision | Gerçek sürümlü receipt atomik owner/journal/audit/outbox/attempt kabulüne bağlandı. UNKNOWN receipt immutable; bağımsız fake evidence ve ayrı yetkili karar aynı domain doğrulayıcılarından geçer |
+| Günlük owner sözleşmesi | daily_touch yalnız fixture metadata revision/fence+audit işlemi; aktif AAA sırasında ret, kesin final receipt sonrası boş reservation üzerinde CAS. Normal panel save/renew/status akışları değiştirilmedi |
+
+### Kabul kanıtı
+
+`backend.tests.test_aaa_pg_bridge` içinde **11 farklı gerçek PostgreSQL testi PASS**:
+prepared consume→claim→fake run→SUCCESS receipt, yeni unit/bridge ile yeniden
+yükleme ve idempotent receipt; gerçek sunucu saatiyle authorization expiry;
+concurrent consume tek kazanan/unused kaybeden; durable IN_FLIGHT ve kayıp cevap
+sonrası UNKNOWN→evidence→yetkili decision; actor/membership/capability iptali;
+scope/version/counter regression reddi; actor/policy epoch değişiminde eski grant
+reddi; SQLSTATE23514 audit fault'unda owner/receipt/registry rollback ve fake
+evidence'ın korunması; detached load sonrası süresi dolan attempt'in dispatch
+edilmemesi; REJECTED ve UNKNOWN terminal kollarında LOCAL/reservation korunması.
+UNKNOWN'dan otomatik başarı veya retry üretilmedi.
+
+3 yeni soketsiz resolver/codec testi ve dispatch callback'ten doğrudan etkilenen
+1 mevcut executor crash/timeout testi PASS. Toplam **15 farklı test** doğrulandı;
+kod değiştikçe yalnız etkilenen kapsam tekrarlandı. Önceki57/21 suite, frontend
+build, HTTP/browser kabulü çalıştırılmadı. Opt-in olmadan PG testleri skip olur;
+skip sonucu PG PASS sayılmadı. Açık opt-in komutunda gerçek SQL çalıştırıldı.
+
+Uçtan uca kabul başlangıcındaki predecessor chain sentetik mevcut servis
+kurucularıyla memory'de üretilip explicit AAA_SEED yetkisiyle bir kez bootstrap
+edilir. Bu önceki adımların tümünü PostgreSQL'de işletme kanıtı değildir.
+Bootstrap sonrası yeni prepared issue/consume, claim/run/receipt ve decision
+ayrı gerçek PG transaction'larında ve yeniden yüklenen typed state ile yürür.
+
+### İzolasyon ve yetki sınırı
+
+Test harness her transaction başında bootstrap bağlantısıyla exact cluster
+kimliğini doğrular, sonra `SET LOCAL ROLE v26_aaa_fixture` uygular. Mevcut test
+rolünün parolası/hesap ayarı değiştirilmedi; bu role parola ile login kabulü
+iddia edilmez. Actor/membership için yalnız fixed, schema-qualified, dar SECURITY
+DEFINER okuma fonksiyonları kullanılır; PUBLIC execute kapalıdır. Gerçek ürün
+kullanıcı tablosu yerine yalnız izinli `v2_aaa` içindeki sentetik actor/membership
+kayıtları vardır. Eski fixture kayıtları silinmedi; ek kolonların NULL değerleri
+fail-closed reddedilir. Actor kaynağı normal panel kimliğiyle eşitlenmez.
+
+Yalnız kimliği doğrulanmış AAA şemalarında sentetik DDL/DML yapıldı; audit fault
+constraint'i sadece kendi fixture tenant'ına uygulandı ve finally kaldırıldı.
+Gerçek router/RADIUS yerine yalnız exact FakeFencedProvider kullanılır. Fake
+provider process-local kaynak kimliğine bağlıdır; process restartı veya gerçek
+provider durability/remote fencing/dağıtık exactly-once kabulü değildir.
+Runtime RLS/FK/immutable DB grant sertleştirmesi, tüm gerçek günlük writer'lar,
+gerçek authenticated identity adapter'i ve crash/restore kabulü hâlâ ayrı kapıdır.
+
+Mevcut panel başlangıçta ve sonda `127.0.0.1:5173`, aynı PID4363, HTTP200 doğrulandı;
+dev.sh veya panel/API süreçlerine sinyal/restart gönderilmedi. Demo DB'ye bağlantı
+yapılmadı. Mevcut5432, V1/V2.5/VDS/canlı V2.6/gerçek cihazlar korunur.
+AAA55433 pg_isready accepting connections; önce/sonra HTTPS200 ve API readiness
+başarılı. HTTPS readiness DB health kanıtı değildir.
+Sıradaki iş gerçek runtime wiring'i için ayrı şema/identity/writer ve rol-RLS
+kabulüdür; bu izole PASS normal panelde AAA dispatch açmaz.

@@ -5295,3 +5295,31 @@ Her iki ilerleme kaydi korunmustur:
 - Önce/sonra HTTPS200 ve API readiness başarılı. Yeni cluster/veri/migration/
   silme/firewall/deploy yok; V1/V2.5/demo/diğer PG/VDS servislerine dokunulmadı.
   Bu işlem AAA entegrasyon BLOCKED kayıtlarını kapatmaz; kabul testi tekrarlanmadı.
+
+## V2.6 AAA mevcut izole PG sürümlü bağlayıcı — 2026-11-12 — izole PASS
+
+- Başlangıç main-guncel/d32e290; temiz ağaç, GitHub aynı. Kurallar ve AAA kabul
+  kayıtları okundu. Çalışan cluster7707358750625226262/127.0.0.1:55433 ve gerçek
+  PGDATA/manifest sahipliği doğrulandı. Yeni cluster veya restart yok.
+- DI SessionMembershipResolver ve typed JSON codec; mevcut domain geçişlerini
+  yeniden kullanan PostgresFixtureBridge eklendi. Prepared grant/consumption,
+  actor-membership-policy freshness, owner/generation CAS, receipt/decision ve
+  kanonik SQL audit/outbox bağlandı. İkinci owner/audit deposu yok.
+- IN_FLIGHT PG commit fake effect'ten önce; effect sırasında SQL transaction'ı
+  tutulmaz. Lock sonrası DB time kontrolü, response loss/UNKNOWN no-resend ve
+  immutable receipt korunur. Gerçek provider/worker daemon veya API wiring yok.
+- PASS:11 farklı gerçek PG testi +3 yeni resolver/codec +1 doğrudan executor
+  regresyonu=15 farklı test. Son değişikliklerde yalnız etkilenen kapsam tekrarlandı;
+  önceki57/21, frontend/build/browser testleri tekrarlanmadı. Diff kontrolü temiz.
+- Kabul docs/AAA-POSTGRESQL-ISOLATED-ACCEPTANCE.md son bölümünde. Sentetik
+  predecessor bootstrap memory'den; sonraki prepared/execution/receipt/decision
+  ayrı PG transaction'larında. Yeni unit/bridge reload process restartı değildir.
+- Yalnız AAA test şeması/sentetik actor-membership-owner kullanıldı. Gerçek
+  kullanıcı/abone/demo DB,5173 dev.sh süreçleri,5432/V1/V2.5/VDS/router/RADIUS
+  değiştirilmedi. Panel başlangıç/son aynı PID4363/HTTP200;AAA55433 pg_isready
+  accepting connections. HTTPS200/readiness ön/son kontrolü başarılı.
+- Runtime actor adapter'i, normal paneldeki bütün günlük writer'lar, şema FK/RLS/
+  rol hardening ve gerçek provider crash/restore kabulü BLOCKED/kapsam dışı.
+  daily_touch yalnız fixture metadata writer kabulüdür; canlı entegrasyon iddiası yok.
+- Güvenli kod/test/belgeler commit/normal push kapsamındadır. Sıradaki somut iş,
+  ayrı runtime şema/identity/writer kabulü; varsayılan panelde dispatch açılmaz.
