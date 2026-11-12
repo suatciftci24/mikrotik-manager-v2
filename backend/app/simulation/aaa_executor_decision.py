@@ -114,6 +114,8 @@ class ExecutorReconciliationService:
         current = provider_state['provider']
         from app.simulation.aaa_next_step import NextStepExecutionRecord, NextStepExecutionAuthorization, NextStepPlan
         is_next = type(grant) is NextStepExecutionAuthorization
+        from app.simulation.aaa_prepared_authorization import PreparedExecutionAuthorization
+        is_prepared = type(grant) is PreparedExecutionAuthorization
         reference = accepted.reconciliation_reference if type(accepted) is ReceiptAcceptance else None
         def dump(value):
             return value.model_dump(mode='json') if isinstance(value, ReadContract) else None
@@ -131,11 +133,13 @@ class ExecutorReconciliationService:
                 plan_hash=safe_command.plan_hash if safe_command else None, fencing_token=safe_command.fencing_token if safe_command else None,
                 owner_fence=owner.fence, owner_revision=owner.revision, operation_revision=op.revision,
                 provider_evidence_fingerprint=known.provider_evidence_fingerprint if type(known) is ExecutorReceipt else None,
-                receipt_fingerprint=canonical_hash(accepted.receipt.model_dump(mode='json')) if is_next and type(accepted) is ReceiptAcceptance else None,
-                reference_version='NEXT_STEP_UNKNOWN_REFERENCE_V1_FIXTURE' if is_next else None,
+                receipt_fingerprint=canonical_hash(accepted.receipt.model_dump(mode='json')) if (is_next or is_prepared) and type(accepted) is ReceiptAcceptance else None,
+                reference_version='NEXT_STEP_UNKNOWN_REFERENCE_V1_FIXTURE' if (is_next or is_prepared) else None,
                 evidence_fingerprint=fingerprint, status=status, reason=reason, observed_at=unit._clock.now())
         def blocked(reason):
             return result('READ_ONLY_RECONCILIATION_REQUIRED', reason)
+        if is_prepared:
+            return blocked('PREPARED_EXECUTION_REQUIRES_READ_ONLY_EVIDENCE_REVIEW')
         if (type(accepted) is not ReceiptAcceptance or type(command) is not ExecutorCommand
                 or type(staged) is not (NextStepExecutionRecord if is_next else ExecutionRecord)
                 or type(grant) is not (NextStepExecutionAuthorization if is_next else ExecutionAuthorization)

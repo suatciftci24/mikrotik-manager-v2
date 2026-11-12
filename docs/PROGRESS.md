@@ -6217,3 +6217,34 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   secret/canlı V1/V2.5/VDS/cihaz/RADIUS/IPsec işlemi, migration/restart/deploy/
   veri silme/push yok. Sonraki tek öncelik: sonucu değerlendirdikten sonra
   ayrı güvenli Git senkronizasyonu; execution/dispatch bu görevde açılmadı.
+
+## Authorized-held kontrollü fake execution — 2026-11-12 — izole PASS
+
+- office-development/0b9da0c doğrulandı; AGENTS/ilerleme ve executor/fake provider/
+  receipt/authorization/CAS/fencing/journal/audit/outbox birlikte okundu.
+  BASH, echo, pg_isready ve stash/yedek dallar korundu.
+- Mevcut FixtureExecutor claim/run/accept/timeout yolu exact-type prepared
+  authorization/record/plan için genişletildi. PREPARED_HELD izin değildir;
+  explicit can_execute/scope/TTL/claim ve private predecessor'da mevcut
+  PreparedExecutionService kanıt/sıra doğrulaması zorunlu. Paralel motor yok.
+- Claim TTL authorization TTL ile sınırlı; execution/attempt/event/hash/step/
+  owner revision/fencing/sürüm eşleşir. Aynı attempt eşzamanlı çağrılarda bir
+  STARTED; RESPONDED replay yalnız cache receipt. IN_FLIGHT/UNKNOWN dispatch yok.
+- Mevcut receipt sözleşmesi SUCCESS/REJECTED/UNKNOWN sonuçlarını atomik owner/
+  journal/audit/outbox yoluna taşır. SUCCESS yalnız fixture COMMIT_OWNER_CAS;
+  ret/belirsizlik LOCAL kalır, sonraki adım/retry/telafi yok. Önceki UNKNOWN,
+  evaluation/decision/CONTINUE/preparation/authorized kayıtları korunur.
+- CAS/kayıt hatasında provider receipt ve in-flight/responded kanıtı korunur;
+  kör tekrar yok. Crash/kayıp cevap timeout UNKNOWN olur; eski UNKNOWN otomatik
+  kesin receipt ile değiştirilmez. Sürümlü UNKNOWN referansı prepared planı
+  tanır; existing evaluator bu kaynak için yalnız read-only reconciliation
+  gereğini bildirir. Kesin bağımsız değerlendirme/karar entegrasyonu açık kalır.
+- PASS: 8 yeni executor testi + yeni explicit claim iznine uyarlanan 1 test.
+  İlk çalıştırmada test yardımcısı unittest.run adını gölgeledi; run_fake olarak
+  düzeltildi, 7 yeni test geçti. Ek TTL/fence/version/history/UNKNOWN testi ve
+  uyarlanan permission testi geçti. Önceki başarılı AAA suite tekrarlanmadı.
+  Yarış/receipt mismatch, beş atomik fault ve post-effect CAS sınandı.
+- Yalnız in-memory fixture/deterministik fake provider, dış IO fixture'da yasak.
+  Gerçek PG/demo/kullanıcı/audit/secret/V1/V2.5/VDS/router/RADIUS/IPsec,
+  migration/restart/deploy/veri silme/push yok. Sonraki tek öncelik: bu yeni
+  UNKNOWN checkpoint'inin mevcut evaluator'da kesin bağımsız kanıt doğrulaması.

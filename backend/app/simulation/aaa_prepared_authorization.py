@@ -1,4 +1,4 @@
-"""Separate prepared-step authorization metadata; no dispatch or provider execution."""
+"""Separate prepared-step authorization metadata; creation/consumption never dispatches."""
 from copy import copy, deepcopy
 from typing import Literal
 from uuid import UUID, uuid5
@@ -24,7 +24,7 @@ class PreparedExecutionAuthorization(ExecutionAuthorization):
 class PreparedExecutionRecord(NextStepPreparationRecord):
     state: Literal['EXECUTION_AUTHORIZED_HELD'] = 'EXECUTION_AUTHORIZED_HELD'
     preparation_id: UUID
-    # This checkpoint is not a dispatch capability accepted by FixtureExecutor.
+    # Explicit fixture claim is separate; creating this checkpoint never dispatches.
 
 
 class PreparedExecutionService(FixtureExecutionService):

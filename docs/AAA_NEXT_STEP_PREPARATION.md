@@ -88,3 +88,47 @@ TTL/permission; beş atomik fault; concurrent CAS/duplicate/replay; UNKNOWN/
 CANCELLED/eksik kanıt/preparation. Testte yeni akış boyunca fake execute/run
 metotları yasak; provider snapshot değişmez. Önceki başarılı testler tekrarlanmadı.
 Gerçek DB/kullanıcı/audit/AAA veya ağ işlemi yapılmadı; push yok.
+
+## Kontrollü authorized-held fixture execution — 2026-11-12
+
+Önceki bölümde kapalı olan **explicit fixture claim** kapısı bu sürümde yalnız
+PreparedExecutionAuthorization + PreparedExecutionRecord + PreparedExecutionPlan
+exact-type üçlüsü ve EXECUTION_AUTHORIZED_HELD için açılmıştır. PREPARED_HELD
+hâlâ yeterli değildir. Issue/consume otomatik dispatch başlatmaz; planın geçmiş
+execution_authorized=false alanı tek başına izin taşımaz. Ayrı ExecutorContext
+can_execute, permission, kayıt, TTL, claim ve güncel kanıt kontrolleri gerekir.
+
+Mevcut FixtureExecutor kullanılır; ikinci executor/provider/receipt sistemi yok.
+Claim ve run öncesinde PreparedExecutionService mevcut hazırlık/evidence/sıra
+zincirini private predecessor image üzerinde tekrar doğrular. Owner/journal,
+HELD event, consumed audit, next-step/preparation kimlikleri ve plan sürümü
+bağlanır. Attempt TTL'si kalan authorization TTL'si ile sınırlıdır; süresi dolmuş
+yetkiyle claim/run yapılamaz. Timeout coordinator yalnız UNKNOWN kaydı oluşturmak
+üzere süresi dolmuş claim'i okuyabilir; yeni dispatch yapamaz.
+
+Aynı execution/attempt eşzamanlı claim ve run mevcut kilit/status/fencing yolu
+ile bir STARTED üretir. RESPONDED tekrarında yalnız saklanan receipt döner;
+IN_FLIGHT veya UNKNOWN yeniden dispatch edilmez. Mevcut
+AAA_EXECUTOR_RECEIPT_V1_FIXTURE komut/receipt sürümü, execution/event/attempt,
+step/plan hash, owner revision/fence/token eşleşmesiyle atomik kabul edilir.
+SUCCESS bu kanonik son adımda yalnız fixture owner CAS'ını RADIUS yapar;
+REJECTED ve UNKNOWN owner LOCAL/active_request'i korur. Sonraki adım başlatılmaz.
+COMMIT_OWNER_CAS fake provider durumunu değiştiren bir router/AAA komutu değildir;
+yalnız fake receipt ve sonuç kabulünde in-memory owner CAS söz konusudur.
+
+Beş atomik kayıt hata sınırında receipt tüketimi geri alınır; fake receipt ve
+RESPONDED/IN_FLIGHT kanıtı korunur. CAS/fence drift'te kör retry yoktur. Kaybolan
+cevap veya crash timeout ile UNKNOWN olarak tutulur. Kaydedilmiş geç UNKNOWN,
+sonradan gelen kesin receipt ile otomatik değiştirilemez.
+NEXT_STEP_UNKNOWN_REFERENCE_V1_FIXTURE execution_plan_contract alanı artık
+PREPARED_EXECUTION_PLAN_V1_FIXTURE değerini de taşır. unknown_evidence mevcut
+salt okunur paketi sağlar. Mevcut EVIDENCE_EVALUATION evaluator bu checkpoint'i
+correlation/receipt fingerprint ile READ_ONLY_RECONCILIATION_REQUIRED olarak
+raporlar; kesin bağımsız değerlendirme/karar yetkisi henüz açılmamıştır. Böylece
+bu görevde yeni reconciliation motoru veya sahte kesin başarı üretilmez.
+
+8 yeni executor testi ve yeni explicit claim davranışına uyarlanan 1 authorization
+izni testi geçti. SUCCESS/REJECTED/UNKNOWN, crash/lost-response, claim/run/accept
+race, replay, TTL/scope/version/content, stale fencing/history, post-effect CAS
+ve beş atomik fault kapsandı. Eski başarılı suite tekrarlanmadı. PostgreSQL/ağ/
+gerçek provider/secret kullanılmadı; test fixture dış IO girişlerini yasaklar.

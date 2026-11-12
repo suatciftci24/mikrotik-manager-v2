@@ -70,8 +70,8 @@ class PreparedAuthorizationTests(TestCase):
         self.assertEqual(state['outbox'][key][-1].status,'HELD')
         self.assertEqual(f.provider.snapshot(),before[1])
         snapshot=self.snapshot()
-        with self.assertRaises(AtomicConflict):
-            f.executor.claim(f.request,f.scope,f.runner,grant.authorization_id,AttemptIntent(attempt_id=UUID(int=10099)),permission=True)
+        with self.assertRaises(PermissionError):
+            f.executor.claim(f.request,f.scope,f.runner.model_copy(update={'can_execute':False}),grant.authorization_id,AttemptIntent(attempt_id=UUID(int=10099)),permission=True)
         with self.assertRaises(AtomicConflict):
             f.unit.claim(f.request,f.scope,f.worker,Claim(attempt_id=UUID(int=10099)),permission=True)
         self.assertEqual(snapshot,self.snapshot())
