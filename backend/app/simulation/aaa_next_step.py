@@ -39,14 +39,14 @@ class NextStepExecutionService(FixtureExecutionService):
     stage_state = 'NEXT_STEP_EXECUTION_STAGED'
     stage_prefix = 'NEXT_STEP_STAGE:'
 
-    def __init__(self, unit, provider):
-        super().__init__(unit, provider)
-        self._policy = ExecutorPolicyService(unit, provider)
+    def __init__(self, unit, provider, *, initialize=True):
+        super().__init__(unit, provider, initialize=initialize)
+        self._policy = ExecutorPolicyService(unit, provider, initialize=initialize)
 
     def _record_kwargs(self, plan):
         return {'previous_execution_id': plan.previous_execution_id, 'next_step_id': plan.next_step_id}
 
-    def _plan(self, request, scope, followup_id, allowed_step, permission, *, checkpoint=None):
+    def _plan(self, request, scope, followup_id, allowed_step, permission, *, checkpoint=None, provider_checkpoint=None):
         unit = self._unit
         state = unit._state if checkpoint is None else checkpoint
         unit._authorized(request, scope, permission)
@@ -81,12 +81,13 @@ class NextStepExecutionService(FixtureExecutionService):
         prior['outbox'][key] = events[:-1]
         last = next(i for i in range(len(prior['audit']) - 1, -1, -1) if prior['audit'][i][:2] == key)
         del prior['audit'][last]
-        data = self._policy._checkpoint(request, scope, record.decision_id, permission, checkpoint=prior)
+        data = self._policy._checkpoint(request, scope, record.decision_id, permission, checkpoint=prior, provider_checkpoint=provider_checkpoint)
         if ExecutorContinuePlan(**data) != grant.plan:
             raise ExecutionConflict('READ_ONLY_RECONCILIATION_REQUIRED')
         decision = state['executor_decision_records'][record.decision_id]
         previous = state['execution_authorizations'][record.execution_id].plan
-        known = self._provider._state['executor_receipts'].get(record.execution_id)
+        provider_state = self._provider._state if provider_checkpoint is None else provider_checkpoint
+        known = provider_state['executor_receipts'].get(record.execution_id)
         if decision.decision != 'CONFIRM_SUCCESS' or known is None or known.outcome != 'SUCCESS':
             raise ExecutionConflict('READ_ONLY_RECONCILIATION_REQUIRED')
         sequence = previous.step_sequence + 1
@@ -95,7 +96,7 @@ class NextStepExecutionService(FixtureExecutionService):
         head = [e for e in events if e.event_id == known.event_id]
         if len(head) != 1 or (head[0].status, head[0].result) != ('ACKED', 'APPLIED') or any(e.status == 'PENDING' for e in events):
             raise ExecutionConflict('PREVIOUS_UNKNOWN_NOT_AUTHORIZED_RESOLVED')
-        current = self._provider._state['provider']
+        current = provider_state['provider']
         if (allowed_step == 'ENABLE_RADIUS' and not (not current.local_enabled and current.radius_state == 'DISABLED'
                     and current.fenced_request == request.request_id and current.owner_fence == known.owner_fence)
                 or allowed_step == 'COMMIT_OWNER_CAS' and not (not current.local_enabled and current.radius_state == 'ENABLED'

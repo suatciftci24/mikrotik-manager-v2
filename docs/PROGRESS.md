@@ -6068,3 +6068,38 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   Önceki AAA suite/build/HTTP yok. Gerçek DB/demo veri/audit/servis/ağ işlemi yok.
 - Sonraki tek öncelik: next-step UNKNOWN lineage'ını mevcut salt okunur evidence
   evaluator'a bağımsız provider kanıtı doğrulamasıyla bağlamak; karar yetkisi açmamak.
+
+## Next-step UNKNOWN salt okunur kanıt entegrasyonu — 2026-11-12 — izole PASS
+
+- office-development/38a0876 ve devir notu doğrulandı. Mevcut BASH, echo,
+  pg_isready izlenmeyen dosyaları korundu; başka çalışma değişikliği yoktu.
+- Kök eksiklik: mevcut evaluator yalnız ExecutionRecord/Authorization ve
+  FIXTURE_STAGE zincirini kabul ediyordu. Aynı EVIDENCE_EVALUATION_V1_FIXTURE
+  next-step kayıtları ve NEXT_STEP_UNKNOWN_REFERENCE_V1_FIXTURE için genişletildi;
+  paralel değerlendirme motoru, endpoint veya provider yolu oluşturulmadı.
+- Tenant/subscriber/request/execution/event/attempt, plan hash, owner revizyonu,
+  fencing, UNKNOWN receipt fingerprint ve sözleşme sürümleri eşleştirilir.
+  Yeni evaluation receipt fingerprint/reference version alanları isteğe bağlıdır;
+  ilk adımın mevcut sözleşme sürümü ve davranışı korunur.
+- Önceki bağımsız fake receipt'ten pre-step provider durumu saf fixture_effect
+  ile türetilir; mevcut next-step/policy/evaluator doğrulayıcıları özel checkpoint
+  kopyalarında önceki UNKNOWN/karar/CONTINUE zincirini yeniden doğrular. Gerçek
+  unit/provider rewind edilmez. initialize=False bağımlılık bağlama yolu eksik
+  registry'leri dahi oluşturmaz; kanıt okuma sırasında setdefault çalışmaz.
+- Güncel fake provider sonucu kesin değilse/missing/stale/contradictory ise
+  READ_ONLY_RECONCILIATION_REQUIRED. Kesin kanıt yalnız CONFIRMED_* değerlendirmesi
+  verir; UNKNOWN receipt/journal/owner/audit/outbox değişmez. Mevcut issue/apply
+  kapısı next-step evaluation için ayrıca kapatıldı: NEXT_STEP_READ_ONLY_EVALUATION_ONLY.
+  SUCCESS state, retry, telafi, karar veya sonraki dispatch otomatik oluşmaz.
+- 9 yeni hedefli test PASS: iki next-step/tam SUCCESS-ret kanıtı, referans alanları
+  ve sürümler, eksik/belirsiz/yanlış adım receipt, stale CAS/fence/provider,
+  geçmiş/staging/audit bozulması, tenant/yetki/pinned reader, eski execution,
+  tekrar değerlendirme ve eksik registry'de değişmezlik. Testler bütün state
+  snapshot'larını karşılaştırır; eski UNKNOWN ve yetkili geçmişin korunduğu sınanır.
+- Son yeni test authorization sürümü kontrol eksikliğini yakaladı; açık sürüm
+  kontrolü eklendi, yalnız başarısız test yeniden PASS. Önceki başarılı AAA
+  suite/build/HTTP testleri tekrarlanmadı. Yalnız in-memory/fake provider;
+  socket/SQLite/psycopg girişleri testte yasak. PG/demo/kullanıcı/gerçek audit,
+  sır, canlı AAA/V1/V2.5/VDS/cihaz/IPsec, migration/restart/deploy/push yok.
+- Sonraki tek öncelik: bu salt okunur kanıt entegrasyonunun değerlendirilmesi
+  ardından ayrı görevde güvenli Git senkronizasyonu; karar/dispatch açılmadı.

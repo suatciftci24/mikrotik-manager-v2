@@ -72,11 +72,13 @@ class ExecutorPolicyRecord(ReadContract):
 
 
 class ExecutorPolicyService:
-    def __init__(self, unit, provider):
+    def __init__(self, unit, provider, *, initialize=True):
         if type(unit) is not LeasedMemoryOutbox or type(provider) is not FakeFencedProvider:
             raise TypeError('Explicit memory fixtures required')
         self._unit, self._provider = unit, provider
-        self._reviewer = ExecutorReconciliationService(unit, provider)
+        self._reviewer = ExecutorReconciliationService(unit, provider, initialize=initialize)
+        if not initialize:
+            return
         with unit._lock:
             for key, empty in (('executor_policy_authorizations', {}), ('executor_policy_records', {}), ('executor_policy_audit', [])):
                 unit._state.setdefault(key, empty)
@@ -89,7 +91,7 @@ class ExecutorPolicyService:
                 or not (authority.can_continue if plan.kind == 'CONTINUE' else authority.can_cancel)):
             raise PermissionError('SEPARATE_EXECUTOR_CONTINUE_OR_CANCEL_PERMISSION_REQUIRED')
 
-    def _checkpoint(self, request, scope, decision_id, permission, *, checkpoint=None):
+    def _checkpoint(self, request, scope, decision_id, permission, *, checkpoint=None, provider_checkpoint=None):
         unit = self._unit
         state = unit._state if checkpoint is None else checkpoint
         unit._authorized(request, scope, permission)
@@ -129,7 +131,7 @@ class ExecutorPolicyService:
             if e.event_id == evaluation.event_id else e for e in events[:-1])
         last = next(i for i in range(len(prior['audit']) - 1, -1, -1) if prior['audit'][i][:2] == key)
         del prior['audit'][last]
-        fresh = self._reviewer._evaluate(request, evaluation.execution_id, checkpoint=prior)
+        fresh = self._reviewer._evaluate(request, evaluation.execution_id, checkpoint=prior, provider_checkpoint=provider_checkpoint)
         if (fresh.status == 'READ_ONLY_RECONCILIATION_REQUIRED'
                 or fresh.model_dump(exclude={'observed_at'}) != evaluation.model_dump(exclude={'observed_at'})):
             raise ExecutorPolicyConflict('READ_ONLY_RECONCILIATION_REQUIRED')

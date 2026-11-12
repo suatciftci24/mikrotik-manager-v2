@@ -91,10 +91,12 @@ class FixtureExecutionService:
     def _record_kwargs(self, plan):
         return {}
 
-    def __init__(self, unit, provider):
+    def __init__(self, unit, provider, *, initialize=True):
         if type(unit) is not LeasedMemoryOutbox or type(provider) is not FakeFencedProvider:
             raise TypeError('Explicit memory fixtures required')
         self._unit, self._provider = unit, provider
+        if not initialize:
+            return
         with unit._lock:
             for key, empty in (('execution_authorizations', {}), ('execution_records', {}), ('execution_audit', [])):
                 unit._state.setdefault(key, empty)

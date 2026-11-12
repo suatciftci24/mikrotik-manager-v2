@@ -1,4 +1,5 @@
 """Read-only executor UNKNOWN evidence and separately authorized memory decision."""
+from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import Literal
 from uuid import UUID, uuid5
@@ -9,7 +10,7 @@ from app.simulation.aaa_atomic import AtomicConflict, OutboxFixture, canonical_h
 from app.simulation.aaa_worker import LeasedMemoryOutbox
 from app.simulation.aaa_provider import FakeFencedProvider, ProviderEvidence, ProviderState, ProviderReceipt
 from app.simulation.aaa_followup import held_checkpoint_hash
-from app.simulation.aaa_executor import ExecutorCommand, ExecutorReceipt, ReceiptAcceptance, fixture_effect
+from app.simulation.aaa_executor import ExecutorCommand, ExecutorReceipt, ReceiptAcceptance, NextStepReconciliationReference, fixture_effect
 from app.simulation.aaa_execution import ExecutionRecord, ExecutionAuthorization
 
 
@@ -41,6 +42,8 @@ class EvidenceEvaluation(ReadContract):
     owner_revision: int | None = None
     operation_revision: int | None = None
     provider_evidence_fingerprint: str | None = None
+    receipt_fingerprint: str | None = None
+    reference_version: Literal['NEXT_STEP_UNKNOWN_REFERENCE_V1_FIXTURE'] | None = None
     evidence_fingerprint: str
     status: Literal['CONFIRMED_SUCCESS', 'CONFIRMED_REJECTION', 'READ_ONLY_RECONCILIATION_REQUIRED']
     reason: str
@@ -78,10 +81,12 @@ class ExecutorDecisionRecord(ReadContract):
 
 
 class ExecutorReconciliationService:
-    def __init__(self, unit, provider):
+    def __init__(self, unit, provider, *, initialize=True):
         if type(unit) is not LeasedMemoryOutbox or type(provider) is not FakeFencedProvider:
             raise TypeError('Explicit memory fixtures required')
         self._unit, self._provider = unit, provider
+        if not initialize:
+            return
         with unit._lock:
             for key, empty in (('executor_decision_authorizations', {}), ('executor_decision_records', {}),
                                ('executor_decision_audit', [])):
@@ -95,7 +100,7 @@ class ExecutorReconciliationService:
                 or not getattr(context, capability)):
             raise PermissionError('SEPARATE_EXECUTOR_EVIDENCE_OR_DECISION_PERMISSION_REQUIRED')
 
-    def _evaluate(self, request, execution_id, *, checkpoint=None):
+    def _evaluate(self, request, execution_id, *, checkpoint=None, provider_checkpoint=None, scope=None):
         unit, provider = self._unit, self._provider
         state = unit._state if checkpoint is None else checkpoint
         key, owner_key, op = unit._match(state, request)
@@ -104,13 +109,17 @@ class ExecutorReconciliationService:
         grant = state.get('execution_authorizations', {}).get(execution_id)
         command = state.get('executor_claims', {}).get(execution_id)
         owner, lease, events = state['owners'][owner_key], state['leases'][key], state['outbox'][key]
-        known = provider._state.get('executor_receipts', {}).get(execution_id)
-        current = provider._state['provider']
+        provider_state = provider._state if provider_checkpoint is None else provider_checkpoint
+        known = provider_state.get('executor_receipts', {}).get(execution_id)
+        current = provider_state['provider']
+        from app.simulation.aaa_next_step import NextStepExecutionRecord, NextStepExecutionAuthorization, NextStepPlan
+        is_next = type(grant) is NextStepExecutionAuthorization
+        reference = accepted.reconciliation_reference if type(accepted) is ReceiptAcceptance else None
         def dump(value):
             return value.model_dump(mode='json') if isinstance(value, ReadContract) else None
         fingerprint = canonical_hash({'version': 'EVIDENCE_EVALUATION_V1_FIXTURE', 'accepted': dump(accepted),
             'command': dump(command), 'staged': dump(staged), 'grant': dump(grant), 'provider_receipt': dump(known),
-            'provider': dump(current), 'provider_fence': provider._state['highest'],
+            'provider': dump(current), 'provider_fence': provider_state['highest'],
             'provider_source': state.get('executor_provider_sources', {}).get(execution_id),
             'reader_source': id(provider), 'owner': dump(owner),
             'journal': dump(op), 'lease': dump(lease), 'outbox': [dump(e) for e in events]})
@@ -122,14 +131,59 @@ class ExecutorReconciliationService:
                 plan_hash=safe_command.plan_hash if safe_command else None, fencing_token=safe_command.fencing_token if safe_command else None,
                 owner_fence=owner.fence, owner_revision=owner.revision, operation_revision=op.revision,
                 provider_evidence_fingerprint=known.provider_evidence_fingerprint if type(known) is ExecutorReceipt else None,
+                receipt_fingerprint=canonical_hash(accepted.receipt.model_dump(mode='json')) if is_next and type(accepted) is ReceiptAcceptance else None,
+                reference_version='NEXT_STEP_UNKNOWN_REFERENCE_V1_FIXTURE' if is_next else None,
                 evidence_fingerprint=fingerprint, status=status, reason=reason, observed_at=unit._clock.now())
         def blocked(reason):
             return result('READ_ONLY_RECONCILIATION_REQUIRED', reason)
         if (type(accepted) is not ReceiptAcceptance or type(command) is not ExecutorCommand
-                or type(staged) is not ExecutionRecord or type(grant) is not ExecutionAuthorization
+                or type(staged) is not (NextStepExecutionRecord if is_next else ExecutionRecord)
+                or type(grant) is not (NextStepExecutionAuthorization if is_next else ExecutionAuthorization)
                 or type(known) is not ExecutorReceipt or type(current) is not ProviderState or provider._account != owner_key
                 or state.get('executor_provider_sources', {}).get(execution_id) != id(provider)):
             return blocked('MISSING_OR_UNVERIFIABLE_PROVIDER_SOURCE')
+        if is_next:
+            plan = grant.plan
+            if (type(plan) is not NextStepPlan or type(reference) is not NextStepReconciliationReference
+                    or grant.version != 'NEXT_STEP_EXECUTION_AUTHORIZATION_V1_FIXTURE'
+                    or plan.contract_version != 'NEXT_STEP_EXECUTION_PLAN_V1_FIXTURE'):
+                return blocked('MISSING_NEXT_STEP_REFERENCE_OR_VERSION')
+            expected_reference = NextStepReconciliationReference(execution_id=execution_id,
+                previous_execution_id=plan.previous_execution_id, decision_id=plan.decision_id,
+                next_step_id=plan.next_step_id, tenant_id=command.tenant_id, subscriber_id=command.subscriber_id,
+                event_id=command.event_id, attempt_id=command.attempt_id, plan_hash=command.plan_hash,
+                continue_plan_hash=plan.continue_plan_hash, prior_evidence_fingerprint=plan.evidence_fingerprint,
+                provider_evidence_fingerprint=accepted.receipt.provider_evidence_fingerprint,
+                receipt_fingerprint=canonical_hash(accepted.receipt.model_dump(mode='json')),
+                owner_revision=accepted.owner_revision, fencing_token=command.fencing_token,
+                request_id=command.request_id, owner_fence=command.owner_fence)
+            if (reference != expected_reference or staged.previous_execution_id != plan.previous_execution_id
+                    or staged.next_step_id != plan.next_step_id or staged.state != 'NEXT_STEP_EXECUTION_STAGED'):
+                return blocked('NEXT_STEP_REFERENCE_LINEAGE_OR_VERSION_CONFLICT')
+        elif reference is not None:
+            return blocked('UNEXPECTED_NEXT_STEP_REFERENCE')
+        if is_next:
+            stage_owner = owner.model_copy(update={'revision': owner.revision - 1})
+            stage_op = op.model_copy(update={'state': 'NEXT_STEP_EXECUTION_STAGED',
+                'revision': op.revision - 1, 'owner_revision': owner.revision - 1})
+            stage_lease = lease.model_copy(update={'operation_revision': op.revision - 1})
+            stage_events = tuple(e.model_copy(update={'status': 'HELD', 'result': None})
+                                 if e.event_id == command.event_id else e for e in events)
+            audits = [r for r in state['audit'] if r[:2] == key]
+            if (staged.authorization_id != execution_id or grant.authorization_id != execution_id
+                    or staged.owner_revision != command.owner_revision or staged.owner_fence != command.owner_fence
+                    or staged.worker_token != command.fencing_token
+                    or staged.continue_plan_hash != grant.plan.continue_plan_hash or staged.decision_id != grant.plan.decision_id
+                    or command.owner_revision != grant.plan.owner_revision + 1
+                    or command.owner_fence != grant.plan.owner_fence + 1
+                    or command.fencing_token != grant.plan.worker_token + 1
+                    or op.revision != grant.plan.operation_revision + 2
+                    or not events or events[-1].event_id != command.event_id
+                    or held_checkpoint_hash(stage_owner, stage_op, stage_lease, stage_events) != staged.checkpoint_fingerprint
+                    or len(audits) < 2 or audits[-2][2:7] != (request.correlation_id, request.actor_id,
+                        op.plan_hash, op.revision - 1, 'NEXT_STEP_EXECUTION_STAGED')
+                    or sum(r[0] == execution_id and r[3] == 'CONSUMED' for r in state['execution_audit']) != 1):
+                return blocked('NEXT_STEP_STAGING_OR_AUDIT_CONFLICT')
         unknown = accepted.receipt
         if (unknown.outcome != 'UNKNOWN' or accepted.state != 'FIXTURE_STEP_UNKNOWN'
                 or not accepted.reconciliation_required or op.state != 'FIXTURE_STEP_UNKNOWN'
@@ -147,24 +201,62 @@ class ExecutorReconciliationService:
                 or command.subscriber_id != owner_key[2] or command.execution_id != execution_id
                 or command.plan_hash != staged.execution_plan_hash or command.plan_hash != grant.plan.plan_hash()
                 or command.allowed_step != staged.allowed_step or command.allowed_step != grant.plan.allowed_step
+                or command.contract_version != 'AAA_FIXTURE_EXECUTOR_V1'
+                or unknown.receipt_version != 'AAA_EXECUTOR_RECEIPT_V1_FIXTURE'
+                or known.receipt_version != 'AAA_EXECUTOR_RECEIPT_V1_FIXTURE'
                 or command.event_id != uuid5(execution_id, command.plan_hash)
                 or state['executor_status'].get(execution_id) != 'ACCEPTED'):
             return blocked('EXECUTION_EVENT_ATTEMPT_PLAN_OR_RECEIPT_CONFLICT')
         if (known.outcome not in ('SUCCESS', 'REJECTED')
-                or provider._state['highest'] != (command.owner_fence, command.fencing_token)
+                or provider_state['highest'] != (command.owner_fence, command.fencing_token)
                 or known.provider_evidence_fingerprint != canonical_hash({'command': dump(command), 'provider': dump(current)})):
             return blocked('UNKNOWN_OR_STALE_PROVIDER_RESULT')
-        prefix = [r for (tenant, req, _), r in provider._state['receipts'].items() if (tenant, req) == key]
+        prefix = [r for (tenant, req, _), r in provider_state['receipts'].items() if (tenant, req) == key]
         if any(type(r) is not ProviderReceipt for r in prefix):
             return blocked('UNVERIFIABLE_PROVIDER_PREFIX')
         receipts = tuple(sorted(prefix, key=lambda r: r.command.sequence))
-        if not receipts or len(receipts) != grant.plan.step_sequence - 1 or any(r.outcome != 'APPLIED' for r in receipts):
+        if not receipts or len(receipts) != grant.plan.step_sequence - (2 if is_next else 1) or any(r.outcome != 'APPLIED' for r in receipts):
             return blocked('INCOMPLETE_INDEPENDENT_PROVIDER_PREFIX')
         before = receipts[-1].after
-        pre_evidence = ProviderEvidence(tenant_id=request.plan.tenant_id, account_id=owner_key[2], plan_hash=op.plan_hash,
-                                        complete=True, receipts=receipts, current=before)
-        if canonical_hash(pre_evidence.model_dump(mode='json')) != grant.plan.provider_evidence_fingerprint:
-            return blocked('PRIOR_PROVIDER_EVIDENCE_CHANGED')
+        if is_next:
+            previous = provider_state.get('executor_receipts', {}).get(grant.plan.previous_execution_id)
+            prior_grant = state.get('execution_authorizations', {}).get(grant.plan.previous_execution_id)
+            if type(previous) is not ExecutorReceipt or previous.outcome != 'SUCCESS' or type(prior_grant) is not ExecutionAuthorization:
+                return blocked('MISSING_INDEPENDENT_PREVIOUS_EXECUTION')
+            try:
+                previous_command = receipt_command(previous)
+                before = fixture_effect(request, previous_command, prior_grant.plan.step_sequence, before,
+                                        operation_revision=prior_grant.plan.operation_revision + 1)
+                if previous.provider_evidence_fingerprint != canonical_hash({'command': dump(previous_command), 'provider': dump(before)}):
+                    return blocked('PRIOR_PROVIDER_EVIDENCE_CHANGED')
+                # Reuse the complete predecessor validator with private historical images only.
+                prior = deepcopy(state)
+                plan = grant.plan
+                prior['owners'][owner_key] = owner.model_copy(update={'revision': plan.owner_revision, 'fence': plan.owner_fence})
+                prior['journal'][key] = op.model_copy(update={'state': plan.expected_state, 'revision': plan.operation_revision,
+                    'owner_revision': plan.owner_revision, 'fence': plan.owner_fence})
+                prior['leases'][key] = lease.model_copy(update={'token': plan.worker_token, 'operation_revision': plan.operation_revision})
+                prior['outbox'][key] = events[:-1]
+                # Remove the next-step STAGED and UNKNOWN audits from the private image.
+                for _ in range(2):
+                    last = next(i for i in range(len(prior['audit']) - 1, -1, -1) if prior['audit'][i][:2] == key)
+                    del prior['audit'][last]
+                historical_provider = deepcopy(provider_state)
+                historical_provider['provider'] = before
+                historical_provider['highest'] = (previous.owner_fence, previous.fencing_token)
+                from app.simulation.aaa_next_step import NextStepExecutionService
+                fresh = NextStepExecutionService(unit, provider, initialize=False)._plan(
+                    request, scope, plan.followup_id, plan.allowed_step, True,
+                    checkpoint=prior, provider_checkpoint=historical_provider)
+                if fresh != plan:
+                    return blocked('PRIOR_AUTHORIZED_HISTORY_CHANGED')
+            except (AtomicConflict, KeyError, StopIteration, ValueError, TypeError):
+                return blocked('PRIOR_AUTHORIZED_HISTORY_CHANGED')
+        else:
+            pre_evidence = ProviderEvidence(tenant_id=request.plan.tenant_id, account_id=owner_key[2], plan_hash=op.plan_hash,
+                                            complete=True, receipts=receipts, current=before)
+            if canonical_hash(pre_evidence.model_dump(mode='json')) != grant.plan.provider_evidence_fingerprint:
+                return blocked('PRIOR_PROVIDER_EVIDENCE_CHANGED')
         try:
             expected = fixture_effect(request, command, grant.plan.step_sequence, before, operation_revision=grant.plan.operation_revision + 1) if known.outcome == 'SUCCESS' else before
         except AtomicConflict:
@@ -174,7 +266,7 @@ class ExecutorReconciliationService:
         head = [e for e in events if e.event_id == command.event_id]
         audit = [r for r in state['audit'] if r[:2] == key]
         if (len(head) != 1 or head[0].status != 'UNKNOWN' or head[0].result != 'UNKNOWN'
-                or head[0].step != 'FIXTURE_STAGE:' + command.allowed_step or head[0].plan_hash != command.plan_hash
+                or head[0].step != ('NEXT_STEP_STAGE:' if is_next else 'FIXTURE_STAGE:') + command.allowed_step or head[0].plan_hash != command.plan_hash
                 or any(e.status == 'PENDING' for e in events)
                 or not audit or audit[-1][2:7] != (request.correlation_id, request.actor_id, op.plan_hash, op.revision, 'FIXTURE_STEP_UNKNOWN')
                 or sum(r[:3] == (execution_id, command.attempt_id, 'STARTED') for r in state['executor_audit']) != 1
@@ -186,9 +278,11 @@ class ExecutorReconciliationService:
     def evaluate(self, request, scope, context, execution_id, *, permission=False):
         self._guard(request, scope, context, permission, 'can_evaluate')
         with self._unit._lock, self._provider._lock:
-            return self._evaluate(request, execution_id)
+            return self._evaluate(request, execution_id, scope=scope)
 
     def _supported(self, decision, evaluation):
+        if evaluation.reference_version is not None:
+            raise ExecutorDecisionConflict('NEXT_STEP_READ_ONLY_EVALUATION_ONLY')
         expected = 'CONFIRMED_SUCCESS' if decision == 'CONFIRM_SUCCESS' else 'CONFIRMED_REJECTION'
         if evaluation.status != expected:
             raise ExecutorDecisionConflict('READ_ONLY_RECONCILIATION_REQUIRED')
@@ -200,7 +294,7 @@ class ExecutorReconciliationService:
         with unit._lock, self._provider._lock, unit._transaction():
             if intent.authorization_id in unit._state['executor_decision_authorizations']:
                 raise ExecutorDecisionConflict('AUTHORIZATION_ID_REUSED')
-            fresh = self._evaluate(request, evaluation.execution_id)
+            fresh = self._evaluate(request, evaluation.execution_id, scope=scope)
             if fresh.model_dump(exclude={'observed_at'}) != evaluation.model_dump(exclude={'observed_at'}):
                 raise ExecutorDecisionConflict('EVALUATION_SCOPE_OR_EVIDENCE_CHANGED')
             self._supported(intent.decision, fresh)
@@ -223,7 +317,7 @@ class ExecutorReconciliationService:
             now = unit._clock.now()
             if context.actor_id != grant.actor_id or now < grant.issued_at or now >= grant.expires_at:
                 raise ExecutorDecisionConflict('AUTHORIZATION_EXPIRED_OR_FOREIGN')
-            fresh = self._evaluate(request, grant.evaluation.execution_id)
+            fresh = self._evaluate(request, grant.evaluation.execution_id, scope=scope)
             if fresh.model_dump(exclude={'observed_at'}) != grant.evaluation.model_dump(exclude={'observed_at'}):
                 raise ExecutorDecisionConflict('CAS_FENCE_SCOPE_OR_EVIDENCE_CHANGED')
             self._supported(grant.decision, fresh)
