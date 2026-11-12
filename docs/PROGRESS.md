@@ -6132,3 +6132,32 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   IPsec erişimi veya yazımı, migration/restart/deploy/push yok.
 - Sonraki tek öncelik: sonucu değerlendirdikten sonra ayrı güvenli Git
   senkronizasyonu. Next-step devam/dispatch politikası bu görevin dışındadır.
+
+## Next-step CONTINUE / CANCEL — 2026-11-12 — izole PASS
+
+- office-development/2626f31 doğrulandı; AGENTS, son ilerleme ve mevcut
+  decision/evidence/policy/owner CAS/journal/audit/outbox/fencing incelendi.
+  BASH, echo, pg_isready izlenmeyen dosyaları ve stash/yedek dallar korundu.
+- Kök eksiklik: policy checkpoint yalnız EXECUTOR_DECISION_RECORDED kabul
+  ediyordu. Aynı policy planı, sürümlü authorization, registry/TTL/tek kullanım
+  ve transaction motoru NEXT_STEP_DECISION_RECORDED için yeniden kullanıldı.
+- Atomik kaydedilmiş karar, tür/evidence uyumu, aktör/scope/sürüm, consumed audit,
+  current CAS/fence ve HELD checkpoint doğrulanır. Mevcut evaluator private
+  kopyada next-step UNKNOWN ve önceki yetkili geçmişi yeniden doğrular;
+  tenant/subscriber/execution/event/attempt/plan/evidence/receipt bağları korunur.
+- CONTINUE/CANCEL sonucu NEXT_STEP_CONTINUE_HELD / NEXT_STEP_CANCELLED_HELD.
+  Ayrı durumlar gerekli: mevcut EXECUTOR_CONTINUE_HELD staging girdisidir;
+  bu görev o kapıyı açmaz. Yeni checkpoint'lerde otomatik worker claim de kapalı.
+  Owner/journal/audit/outbox/lease ve yetki tüketimi aynı atomik memory işlemde.
+  Önceki UNKNOWN/evaluation/karar/audit/outbox/CONTINUE geçmişi değişmez; provider,
+  source authority korunur. SUCCESS/retry/telafi/dispatch/staging yok.
+- PASS: 9 yeni hedefli test. İlk 8 geçti; son incelemede karar/evidence uyumu
+  ayrıca güçlendirildi ve yeni 9. test ile ilgili başarı matrisi geçti.
+  İki tür/iki karar/iki adım, bağ/sürüm bozulması, stale CAS/fence/provider,
+  TTL/kapsam/izin, duplicate/race ve beş atomik sınır iki türde kapsandı.
+  Önceki başarılı AAA suite/frontend/build/HTTP tekrarı yok. Yalnız in-memory
+  fixture ve fake provider; socket/SQLite/psycopg girişleri fixture'da yasak.
+- docs/AAA_EXECUTOR_DECISION_POLICY.md güncellendi. PostgreSQL/demo/kullanıcı/
+  gerçek audit/secret/canlı V1/V2.5/VDS/router/FreeRADIUS/IPsec işlemi yok.
+  Migration/restart/deploy/push yok. Sonraki tek öncelik: sonuç değerlendirmesi
+  ardından ayrı güvenli Git senkronizasyonu; ileri staging ayrıca tasarlanmalı.

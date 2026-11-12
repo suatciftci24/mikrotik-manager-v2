@@ -10,7 +10,7 @@ from app.simulation.aaa_atomic import AtomicConflict, OutboxFixture, canonical_h
 from app.simulation.aaa_worker import LeasedMemoryOutbox
 from app.simulation.aaa_provider import FakeFencedProvider
 from app.simulation.aaa_followup import CheckpointPlan, held_checkpoint_hash
-from app.simulation.aaa_executor_decision import ExecutorReconciliationService
+from app.simulation.aaa_executor_decision import (ExecutorReconciliationService, ExecutorDecisionRecord, AuthorizedExecutorDecision)
 
 
 class ExecutorPolicyConflict(AtomicConflict):
@@ -20,7 +20,7 @@ class ExecutorPolicyConflict(AtomicConflict):
 class ExecutorPolicyPlan(CheckpointPlan):
     execution_id: UUID
     unknown_receipt_fingerprint: str
-    expected_state: Literal['EXECUTOR_DECISION_RECORDED'] = 'EXECUTOR_DECISION_RECORDED'
+    expected_state: Literal['EXECUTOR_DECISION_RECORDED', 'NEXT_STEP_DECISION_RECORDED'] = 'EXECUTOR_DECISION_RECORDED'
 
 
 class ExecutorContinuePlan(ExecutorPolicyPlan):
@@ -63,7 +63,7 @@ class ExecutorPolicyRecord(ReadContract):
     decision_id: UUID
     execution_id: UUID
     kind: Literal['CONTINUE', 'CANCEL']
-    state: Literal['EXECUTOR_CONTINUE_HELD', 'EXECUTOR_CANCELLED_HELD']
+    state: Literal['EXECUTOR_CONTINUE_HELD', 'EXECUTOR_CANCELLED_HELD', 'NEXT_STEP_CONTINUE_HELD', 'NEXT_STEP_CANCELLED_HELD']
     owner_revision: int
     checkpoint_fingerprint: str
     automatic_dispatch: Literal[False] = False
@@ -99,10 +99,14 @@ class ExecutorPolicyService:
         record = state.get('executor_decision_records', {}).get(decision_id)
         grant = state.get('executor_decision_authorizations', {}).get(decision_id)
         owner, lease, events = state['owners'][owner_key], state['leases'][key], state['outbox'][key]
-        if record is None or grant is None:
+        if (type(record) is not ExecutorDecisionRecord or type(grant) is not AuthorizedExecutorDecision
+                or grant.version != 'AUTHORIZED_DECISION_V1_EXECUTOR_FIXTURE' or record.authorization_id != decision_id
+                or grant.authorization_id != decision_id or grant.actor_id != request.actor_id):
             raise ExecutorPolicyConflict('READ_ONLY_RECONCILIATION_REQUIRED')
         evaluation = record.evaluation
-        if (op.state != 'EXECUTOR_DECISION_RECORDED' or record.decision != grant.decision
+        self._reviewer._supported(record.decision, evaluation)
+        decision_state = 'NEXT_STEP_DECISION_RECORDED' if evaluation.reference_version is not None else 'EXECUTOR_DECISION_RECORDED'
+        if (op.state != decision_state or record.state != decision_state or record.decision != grant.decision
                 or evaluation.model_dump(exclude={'observed_at'}) != grant.evaluation.model_dump(exclude={'observed_at'})
                 or evaluation.tenant_id != request.plan.tenant_id or evaluation.request_id != request.request_id
                 or evaluation.subscriber_id != owner_key[2] or record.owner_revision != owner.revision
@@ -118,7 +122,7 @@ class ExecutorPolicyService:
                 or events[-1].step != 'EXECUTOR_RECONCILIATION_DECISION'):
             raise ExecutorPolicyConflict('READ_ONLY_RECONCILIATION_REQUIRED')
         audit = [r for r in state['audit'] if r[:2] == key]
-        if (not audit or audit[-1][2:7] != (request.correlation_id, request.actor_id, op.plan_hash, op.revision, 'EXECUTOR_DECISION_RECORDED')
+        if (not audit or audit[-1][2:7] != (request.correlation_id, request.actor_id, op.plan_hash, op.revision, decision_state)
                 or sum(r[0] == decision_id and r[2] == 'CONSUMED' for r in state['executor_decision_audit']) != 1):
             raise ExecutorPolicyConflict('READ_ONLY_RECONCILIATION_REQUIRED')
         # Reconstruct the pre-decision checkpoint in a private copy; never rewind the real UoW.
@@ -131,7 +135,7 @@ class ExecutorPolicyService:
             if e.event_id == evaluation.event_id else e for e in events[:-1])
         last = next(i for i in range(len(prior['audit']) - 1, -1, -1) if prior['audit'][i][:2] == key)
         del prior['audit'][last]
-        fresh = self._reviewer._evaluate(request, evaluation.execution_id, checkpoint=prior, provider_checkpoint=provider_checkpoint)
+        fresh = self._reviewer._evaluate(request, evaluation.execution_id, checkpoint=prior, provider_checkpoint=provider_checkpoint, scope=scope)
         if (fresh.status == 'READ_ONLY_RECONCILIATION_REQUIRED'
                 or fresh.model_dump(exclude={'observed_at'}) != evaluation.model_dump(exclude={'observed_at'})):
             raise ExecutorPolicyConflict('READ_ONLY_RECONCILIATION_REQUIRED')
@@ -144,7 +148,7 @@ class ExecutorPolicyService:
             evidence_fingerprint=evaluation.evidence_fingerprint, provider_evidence_fingerprint=evaluation.provider_evidence_fingerprint,
             owner_revision=owner.revision, operation_revision=op.revision, owner_fence=owner.fence,
             worker_token=lease.token, checkpoint_fingerprint=digest,
-            unknown_receipt_fingerprint=canonical_hash(accepted.receipt.model_dump(mode='json')))
+            unknown_receipt_fingerprint=canonical_hash(accepted.receipt.model_dump(mode='json')), expected_state=decision_state)
 
     def plan(self, request, scope, decision_id, kind, *, permission=False):
         if kind not in ('CONTINUE', 'CANCEL'):
@@ -155,6 +159,7 @@ class ExecutorPolicyService:
 
     def issue(self, request, scope, authority, plan, intent: ExecutorPolicyIntent, *, permission=False):
         self._guard(request, scope, authority, plan, permission)
+        intent = ExecutorPolicyIntent.model_validate_json(intent.model_dump_json())
         unit = self._unit
         with unit._lock, self._provider._lock, unit._transaction():
             if intent.authorization_id in unit._state['executor_policy_authorizations']:
@@ -169,6 +174,8 @@ class ExecutorPolicyService:
             return grant
 
     def apply(self, request, scope, authority, grant: ExecutorPolicyAuthorization, *, permission=False, fail_at=None):
+        if type(grant) is not ExecutorPolicyAuthorization or grant.version != 'EXECUTOR_POLICY_AUTH_V1_FIXTURE':
+            raise ExecutorPolicyConflict('POLICY_AUTHORIZATION_VERSION_CONFLICT')
         self._guard(request, scope, authority, grant.plan, permission)
         unit = self._unit
         with unit._lock, self._provider._lock, unit._transaction(None if fail_at == 'AUTHORIZATION' else fail_at):
@@ -184,13 +191,14 @@ class ExecutorPolicyService:
                 raise ExecutorPolicyConflict('STALE_CAS_FENCING_OR_EVIDENCE')
             key, owner_key, op = unit._match(unit._state, request)
             owner = unit._state['owners'][owner_key].model_copy(update={'revision': plan.owner_revision + 1, 'fence': plan.owner_fence + 1})
-            state = 'EXECUTOR_CONTINUE_HELD' if plan.kind == 'CONTINUE' else 'EXECUTOR_CANCELLED_HELD'
+            prefix = 'NEXT_STEP' if plan.expected_state == 'NEXT_STEP_DECISION_RECORDED' else 'EXECUTOR'
+            state = prefix + ('_CONTINUE_HELD' if plan.kind == 'CONTINUE' else '_CANCELLED_HELD')
             op = op.model_copy(update={'state': state, 'revision': op.revision + 1, 'owner_revision': owner.revision, 'fence': owner.fence})
             unit._state['owners'][owner_key], unit._state['journal'][key] = owner, op
             unit._state['outbox'][key] += (OutboxFixture(event_id=uuid5(grant.authorization_id, plan.plan_hash()),
                 tenant_id=plan.tenant_id, request_id=request.request_id, correlation_id=request.correlation_id,
                 plan_hash=plan.plan_hash(), at=now, sequence=len(unit._state['outbox'][key]) + 1,
-                step='EXECUTOR_' + plan.kind + '_REVIEW', status='HELD'),)
+                step=prefix + '_' + plan.kind + '_REVIEW', status='HELD'),)
             lease = unit._state['leases'][key].model_copy(update={'status': 'DONE', 'token': plan.worker_token + 1,
                                                                 'operation_revision': op.revision})
             unit._state['leases'][key] = lease

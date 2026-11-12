@@ -82,3 +82,41 @@ Socket/PG/SQLite connect yasak; önceki başarılı testler tekrarlanmadı.
 
 Sonraki tek teknik öncelik: EXECUTOR_CONTINUE_HELD için ayrı yeni-adım execution
 authorization bağlantısını modellemek; otomatik veya gerçek dispatch açmamak.
+
+## Next-step kararları için CONTINUE / CANCEL — 2026-11-12
+
+Mevcut ExecutorPolicyService ve EXECUTOR_POLICY_AUTH_V1_FIXTURE registry/TTL/
+tek kullanım/atomik apply yeniden kullanılır. Aynı sürümlü CONTINUE/CANCEL planı
+expected_state=NEXT_STEP_DECISION_RECORDED değerini de kabul eder; bu değer
+canonical plan hash'ine dahildir. Ayrı politika deposu, provider yolu veya UI yoktur.
+
+Checkpoint yalnız mevcut atomik ExecutorDecisionRecord ve server registry'deki
+AUTHORIZED_DECISION_V1_EXECUTOR_FIXTURE eşleşince kabul edilir. Kararın türü
+kesin evaluation sonucuyla uyumlu olmalıdır. Yetkili kararın consumed audit'i,
+owner/journal/lease revizyon/fence, HELD outbox ve checkpoint hash'i doğrulanır.
+Mevcut evidence evaluator özel pre-decision snapshot üzerinde yeniden çalışır;
+next-step sıra/önceki UNKNOWN/karar/CONTINUE zincirini ve bağımsız fake provider
+kanıtını doğrular. Tenant/subscriber/execution/event/attempt/plan/evidence/receipt
+hash/sürüm bağları canonical checkpoint içinde tutulur; eksik veya değişmiş bağ
+plan üretimini veya yetki tüketimini engeller. Tarihsel kararın yetki süresinin
+sonradan dolması kararı silmez; yeni policy yetkisi kendi güncel TTL'sine bağlıdır.
+
+CONTINUE yalnız NEXT_STEP_CONTINUE_HELD, CANCEL yalnız NEXT_STEP_CANCELLED_HELD
+üretir. Ayrı adlar gereklidir: mevcut EXECUTOR_CONTINUE_HELD, next-step staging
+mekanizmasının girdisidir; onu yeniden kullanmak bu görevin staging açmama sınırını
+zayıflatırdı. İki yeni checkpoint otomatik worker claim kapısında da engellenir.
+CONTINUE ret kanıtı sonrası da yalnız insan incelemesi checkpoint'idir; başarı
+veya sonraki işlemin uygunluğu anlamına gelmez. CANCEL dış etkileri geri almaz.
+
+Apply mevcut transaction içinde owner revision/fence+1, journal revision+1,
+lease token+1, audit, HELD outbox ve yetki consumed kaydını birlikte yayımlar.
+Önceki audit/outbox tuple'ları değişmez; yalnız yeni olay eklenir. UNKNOWN receipt,
+evaluation ve karar/CONTINUE geçmişi korunur. Provider ve owner authority değişmez;
+SUCCESS/retry/telafi/dispatch/execution staging veya sonraki adım başlatılmaz.
+
+9 yeni hedefli test: iki tür × iki kesin karar × iki next-step başarı matrisi;
+plan/contract/scope/hash bağları; event/attempt/receipt/karar geçmişi bozulması;
+CAS/fence/provider drift; TTL/izin/değişmiş grant; CONTINUE-CANCEL yarışı ve
+duplicate; iki türde beş atomik fault rollback; reused UUID/eksik karar ve
+kanıtla çelişen kaydedilmiş karar. Eski başarılı AAA suite çalıştırılmadı.
+Yalnız memory fixture/fake provider; gerçek DB, kullanıcı/audit veya AAA işlemi yok.
