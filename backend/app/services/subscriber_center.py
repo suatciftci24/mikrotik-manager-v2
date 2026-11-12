@@ -62,7 +62,7 @@ class SubscriberWorkspace:
             router=session.get(Router,account.router_id)
             if router and router.kind!='DEMO_ROUTER':router=None
             events=session.scalars(select(Event).where(Event.subscriber_id==id).order_by(Event.occurred_at.desc(),Event.id).limit(50)).all()
-            return SubscriberCenterData(item=account_view(account,router),source='PERSISTENT_WORKSPACE',persistence='local-postgresql-workspace',history=[center_event(e,account.source) for e in events])
+            return SubscriberCenterData(item=account_view(account,router),source='PERSISTENT_WORKSPACE',persistence='local-postgresql-workspace',history=[center_event(e) for e in events])
     @boundary
     def save(self,command,actor,id=None):
         values=command.fields.model_dump(mode='json');target=id or 'demo-managed-sub-'+str(command.request_id)
@@ -176,6 +176,7 @@ class SubscriberWorkspace:
             for key in ('plan','expires_on'):
                 changes[key]={'previous':before.get(key),'new':row.fields.get(key)}
         changes['_router_id']=row.router_id
+        changes['_source']=row.source if row.fields.get('source')==row.source else None
         if renewal is not None:changes['_renewal']=renewal
         session.add(Event(id=request_id,subscriber_id=row.id,actor_id=actor,revision=row.revision,operation=operation or ('UPDATE' if before else 'CREATE'),occurred_at=datetime.now(timezone.utc).isoformat(),changes=changes))
 
@@ -223,7 +224,16 @@ def legacy_event(event):
                 new_values=audit_values(values), previous_expires_on=old, expires_on=new,
                 date_changed=has_date and old!=new, result='APPLIED')
 
-def center_event(event,source=None):
+def event_source(event):
+    # Only evidence saved with this event; never borrow today's account authority.
+    changes=event.changes
+    candidates=[changes.get('_source'),changes.get('source',{}).get('new'),
+                changes.get('_save',{}).get('response',{}).get('source'),
+                changes.get('_renewal_response',{}).get('source')]
+    known={value for value in candidates if isinstance(value,str) and value in ('LOCAL','RADIUS')}
+    return next(iter(known)) if len(known)==1 else None
+
+def center_event(event):
     from app.services.subscriber_operations import event_receipt
     receipt=event_receipt(event)
-    return dict(request_id=event.id,source=source,operation=event.operation,occurred_at=event.occurred_at,actor_id=event.actor_id,revision=event.revision,subscriber_id=event.subscriber_id,router_id=receipt['router_id'],previous_values=receipt['previous'],new_values=receipt['values'],result='APPLIED' if receipt['success'] else 'FAILED',error=receipt['error'],previous_expires_on=event.changes.get('expires_on',{}).get('previous'),expires_on=event.changes.get('expires_on',{}).get('new'),date_changed='expires_on' in event.changes and event.changes['expires_on'].get('previous')!=event.changes['expires_on'].get('new'))
+    return dict(request_id=event.id,source=event_source(event),operation=event.operation,occurred_at=event.occurred_at,actor_id=event.actor_id,revision=event.revision,subscriber_id=event.subscriber_id,router_id=receipt['router_id'],previous_values=receipt['previous'],new_values=receipt['values'],result='APPLIED' if receipt['success'] else 'FAILED',error=receipt['error'],previous_expires_on=event.changes.get('expires_on',{}).get('previous'),expires_on=event.changes.get('expires_on',{}).get('new'),date_changed='expires_on' in event.changes and event.changes['expires_on'].get('previous')!=event.changes['expires_on'].get('new'))

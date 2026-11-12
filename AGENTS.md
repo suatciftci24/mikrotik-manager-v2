@@ -133,3 +133,14 @@ regresyonda doğrula. Sunucu yetkilerini veya kaynak güvenliğini gevşetme.
 - Push basarisizsa is tamamlandi olarak bildirilmez.
 - Yerel degisiklikler incelenmeden silinmez.
 - Gizli bilgiler, veritabani dosyalari ve gecici dosyalar GitHub'a gonderilmez.
+
+## ALTIN KURAL: EV-OFIS TAM SENKRONIZASYON
+
+- Git kodunun eslesmesi tam sistem senkronizasyonu degildir.
+- Ev ve ofis kullanicilari, roller, PostgreSQL verileri, aboneler, audit kayitlari ve gerekli yapilandirmalar birlikte ele alinir.
+- Her iki ortamin yedegi ve fark analizi olmadan veri silme, uzerine yazma, restore, merge veya parola sifirlama yapilmaz.
+- Gizli bilgiler GitHub'a veya raporlara aktarilmaz.
+- Tum bilesenler dogrulanmadan tam senkronizasyon basarili denmez.
+- Uzun terminal yapistirmalari yerine kisa ve guvenli islemler tercih edilir.
+- Canli V1, V2.5, router, RADIUS, IPsec ve VDS degisiklikleri icin acik onay gerekir.
+- AAA kabulunde daha once PASS olan testler gereksiz yere tekrarlanmaz.

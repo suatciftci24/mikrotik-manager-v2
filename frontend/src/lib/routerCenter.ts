@@ -5,7 +5,10 @@ export const routerCenterTabs=[['overview','Genel Durum'],['wan','WAN/Bağlantı
 export type RouterCenterTab=typeof routerSectionTabs[number][0]|'subscribers';
 export const routerCenterTabKeys=[...routerCenterTabs.map(([key])=>key),'interfaces','pppoe','hotspot','security'] as const;
 export function primaryRouterTab(tab:RouterCenterTab){return tab==='pppoe'||tab==='hotspot'?'subscribers':tab==='interfaces'?'wan':tab==='security'?'overview':tab;}
-export function routerSubscriberListHash(id:string){return '#'+new URLSearchParams({module:'subscribers',workspace:id.startsWith('demo-managed-router-')?'PERSISTENT':'LEGACY',[id.startsWith('demo-managed-router-')?'workspace_router':'router_id']:id});}
+export function routerSubscriberListHash(id:string,access:'PPPOE'|'HOTSPOT'='PPPOE'){
+ const persistent=id.startsWith('demo-managed-router-');
+ return '#'+new URLSearchParams({module:'subscribers',workspace:persistent?'PERSISTENT':'LEGACY',[persistent?'workspace_router':'router_id']:id,...(persistent?{workspace_access:access}:{})});
+}
 export type RouterCenterData={source:'PERSISTENT_DEMO'|'STATIC_DEMO'|'REGISTERED';is_demo:boolean;device_connection_started:false;
  item:{id:string;name:string;identity:string|null;model:string|null;routeros_version:string|null;management_address:string;site:string|null;inventory_description?:string|null;status:string;last_success_at:string|null;last_seen_at:string|null;cpu_percent:number|null;memory_percent:number|null;uptime:string|null};
  sections:Record<typeof routerSectionTabs[number][0],'AVAILABLE'|'UNMEASURED'|'PREPARING'>;

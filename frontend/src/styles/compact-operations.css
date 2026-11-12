@@ -1,0 +1,56 @@
+.compact-operation-list,.operations-mobile-only{display:none}
+@media(max-width:600px){
+ .compact-operations,.compact-operations>section,.compact-operations .panel{min-width:0;max-width:100%;box-sizing:border-box}
+ .compact-operations{display:flex;flex-direction:column;gap:10px}
+ .compact-operations>.management-metrics{order:1}
+ .compact-operations>.management-pppoe{order:2}
+ .compact-operations>.management-expiries{order:3}
+ .compact-operations>.router-inventory{order:4}
+ .compact-operations>.management-connections{order:5}
+ .compact-operations>.management-notes{order:6}
+ .compact-operations .page-heading{gap:8px}
+ .compact-operations .heading-actions{flex-wrap:wrap}
+ .compact-operations .management-filters{padding:8px}
+ .compact-operations .management-filters .router-report-controls{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+ .compact-operations .management-filters label,.compact-operations .management-filters input,.compact-operations .management-filters select{min-width:0;width:100%;max-width:100%;box-sizing:border-box;min-height:44px}
+ .compact-operations .operations-mobile-only{display:block}
+ .compact-operations .management-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .compact-operations .metric-card{min-width:0;padding:10px;min-height:0}
+ .compact-operations .metric-card-top{font-size:12px;gap:0;min-width:0}
+ .compact-operations .metric-card-top>span:first-child{overflow-wrap:anywhere}
+ .compact-operations .metric-icon,.compact-operations .metric-foot svg{display:none}
+ .compact-operations .metric-value-row{margin:5px 0;min-height:0}
+ .compact-operations .metric-value-row strong{font-size:23px}
+ .compact-operations .metric-foot{font-size:10px;white-space:normal;overflow-wrap:anywhere}
+ .compact-operations .central-events,.compact-operations>.router-inventory{padding:10px}
+ .compact-operations .central-events h2,.compact-operations>.router-inventory h2{font-size:15px}
+ .compact-operations .panel-title{align-items:center;gap:6px;flex-wrap:wrap}
+ .compact-operations .panel-title a,.compact-operations .panel-title button{font-size:12px;min-height:44px;white-space:normal}
+ .compact-operations .central-events>.table-scroll,.compact-operations>.router-inventory>.table-scroll,.compact-operations .management-expiry-filters,.compact-operations .operations-desktop-empty{display:none}
+ .compact-operations .management-outcomes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .compact-operations .management-outcomes>div{min-width:0;padding:6px}
+ .compact-operations .management-outcomes small{font-size:11px;overflow-wrap:anywhere}
+ .compact-operations [role=alert],.compact-operations .missing-data{white-space:normal;overflow-wrap:anywhere;font-size:12px}
+ .compact-operations .subscriber-disclosure summary{font-size:12px;min-height:44px;cursor:pointer}
+ .compact-operations .subscriber-disclosure p,.compact-operations .management-notes p{font-size:12px;overflow-wrap:anywhere}
+ .compact-operations .daily-links{display:flex;flex-wrap:wrap;gap:8px}
+ .compact-operations .daily-links a{min-height:44px;overflow-wrap:anywhere}
+ .compact-operations .compact-operation-list{display:block;min-width:0}
+ .compact-operation-list ul{list-style:none;padding:0;margin:0}
+ .compact-operation-list li{border-bottom:1px solid var(--line);min-width:0}
+ .compact-operation-list li>button{display:flex;align-items:center;width:100%;min-height:60px;gap:6px;padding:8px 0;border:0;background:transparent;color:inherit;text-align:left}
+ .compact-operation-content{min-width:0;flex:1}
+ .compact-operation-first,.compact-operation-second{display:flex;align-items:baseline;justify-content:space-between;gap:6px;min-width:0}
+ .compact-operation-first strong{font-size:12px;min-width:0;overflow-wrap:anywhere}
+ .compact-operation-first>span{font-size:11px;flex-shrink:0;color:var(--text-secondary)}
+ .compact-operation-second{font-size:11px;line-height:1.5;color:var(--text-secondary)}
+ .compact-operation-second>span{min-width:0;overflow-wrap:anywhere}
+ .compact-operation-arrow{font-size:22px;flex-shrink:0}
+ .compact-operation-pages{display:flex;align-items:center;justify-content:space-between;font-size:12px;gap:8px;padding-top:8px}
+ .compact-operation-pages button{min-height:44px;min-width:44px}
+ .compact-operation-list button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+ .compact-operations .operation-dialog{max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);min-width:0;box-sizing:border-box;overflow-y:auto;padding:12px}
+ .compact-operations .operation-dialog .detail-facts{grid-template-columns:minmax(0,1fr)}
+ .compact-operations .operation-dialog dd{overflow-wrap:anywhere;min-width:0}
+ .compact-operations .operation-dialog button{min-height:44px;white-space:normal}
+}

@@ -5,8 +5,8 @@ import {build} from 'esbuild';
 import * as React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 const require=createRequire(import.meta.url);
-let effects=[],calls=[],states=[],initialStates=[],selectedEvent=null,identity=null;
-const hooks={...React,useCallback:fn=>fn,useContext:()=>identity,useEffect:fn=>effects.push(fn),useRef:()=>({current:{scrollIntoView:()=>calls.push('scroll'),focus:()=>calls.push('focus')}}),useState:value=>{const initial=value===null&&selectedEvent?selectedEvent:typeof value==='function'?value():value;initialStates.push(initial);return [initial,next=>states.push(next)];}};
+let effects=[],calls=[],states=[],initialStates=[],selectedEvent=null,identity=null,selectedNullAt=0,nullCursor=0;
+const hooks={...React,useCallback:fn=>fn,useContext:()=>identity,useEffect:fn=>effects.push(fn),useRef:()=>({current:{scrollIntoView:()=>calls.push('scroll'),focus:()=>calls.push('focus')}}),useState:value=>{const initial=value===null&&selectedEvent&&nullCursor++===selectedNullAt?selectedEvent:typeof value==='function'?value():value;initialStates.push(initial);return [initial,next=>states.push(next)];}};
 const result=await build({stdin:{contents:"export {ResourceState} from './src/components/Resource';export {SyntheticSubscriberList} from './src/components/SyntheticSubscribers';export {SubscriberOperationHistory} from './src/components/SubscriberDailyActions';export {OperationReport} from './src/screens/OperationReport';export {ManagementReport} from './src/screens/ManagementReport';export {OperationDetails} from './src/components/OperationDetails';export {SubscriberDeviceCenter} from './src/components/SubscriberDeviceCenter';",resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,loader:{'.css':'empty'},platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'resource',setup(b){b.onResolve({filter:/lib\/useResource$/},()=>({path:'resource',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function useResource(path){globalThis.__navigationQueries?.push(path);return globalThis.__navigationResources?.[path.split("?")[0]]??globalThis.__navigationResource}',loader:'js'}));}}]});
 const module={exports:{}};new Function('require','module','exports',result.outputFiles[0].text)(name=>name==='react'?hooks:require(name),module,module.exports);
 function draw(hash,state){
@@ -50,7 +50,7 @@ test('subscriber history deep link selects existing tab and rejects unknown tabs
    globalThis.window={location:{hash:'#module=subscribers&id=s&tab='+value},scrollTo(){},addEventListener(){},removeEventListener(){}};
    globalThis.__navigationResource={loading:true};effects=[];states=[];initialStates=[];
    module.exports.SubscriberDeviceCenter({id:'s',onBack(){}});
-   assert.equal(initialStates[0],expected);
+   assert.equal(initialStates[2],expected);
   }
  }finally{globalThis.window=before;delete globalThis.__navigationResource;}
 });
@@ -142,19 +142,19 @@ test('daily operation context links keep router permission boundaries and record
  const item={id:'demo-sub-test',customer_name:'Sentetik',username:'sentetik.test',router_id:'demo-router-test',router_name:'Sentetik router',access_type:'PPPOE',source:'LOCAL',status:'ACTIVE',expires_on:null,is_demo:true};
  const event={id:'op',operation:'CREATE',occurred_at:stamp,actor_id:'sentetik',source:'LOCAL',is_demo:true};
  const resource={loading:false,data:{routers:[{id:item.router_id,name:item.router_name,is_demo:true,status:'ONLINE'}],details:[{item,is_demo:true,history:[event]}],events:[]}};
- const cleanup=fixture(hash,resource);selectedEvent={kind:'operation',id:'op'};
+ const cleanup=fixture(hash,resource);selectedEvent={kind:'operation',id:'op'};selectedNullAt=2;
  try{
   for(const reportPermission of [false,true]){
    identity={permissions:{[item.router_id]:{can_view:true,can_view_reports:reportPermission}}};window.location.hash=hash;
    const root=module.exports.ManagementReport({onBack(){}}),report=root.props.children[1];
-   const tree=report.type(report.props);const dialog=nodes(tree).find(node=>node.props.event?.id==='op');
+   nullCursor=0;const tree=report.type(report.props);const dialog=nodes(tree).find(node=>node.props.event?.id==='op');
    assert.equal(typeof dialog.props.onAlarms,'function');assert.equal(typeof dialog.props.onReport,reportPermission?'function':'undefined');
    dialog.props.onAlarms();const alarm=new URLSearchParams(window.location.hash.slice(1));assert.equal(alarm.get('alarm_router'),item.router_id);assert.equal(alarm.get('return_to'),hash);
   }
   identity={permissions:{[item.router_id]:{can_view:false,can_view_reports:true}}};window.location.hash=hash;
   const root=module.exports.ManagementReport({onBack(){}}),report=root.props.children[1];
-  const dialog=nodes(report.type(report.props)).find(node=>node.props.event?.id==='op');assert.equal(dialog.props.onAlarms,undefined);assert.equal(dialog.props.onReport,undefined);
- }finally{cleanup();identity=null;selectedEvent=null;}
+  nullCursor=0;const dialog=nodes(report.type(report.props)).find(node=>node.props.event?.id==='op');assert.equal(dialog.props.onAlarms,undefined);assert.equal(dialog.props.onReport,undefined);
+ }finally{cleanup();identity=null;selectedEvent=null;selectedNullAt=0;nullCursor=0;}
 });
 
 test('operation detail exposes exact UUID, historical revision, router and explicit audit outcome without guessing success',()=>{
@@ -163,4 +163,23 @@ test('operation detail exposes exact UUID, historical revision, router and expli
   assert.match(html,/12345678-1234-4234-8234-123456789abc/);assert.doesNotMatch(html,/workspace:12345678/);assert.match(html,/İşlem revizyonu/);assert.match(html,/>3</);assert.match(html,/demo-managed-router-test/);assert.match(html,/RADIUS/);
   if(outcome==='APPLIED')assert.match(html,/Uygulandı · Kaydedilmiş audit/);else{assert.match(html,/başarı varsayılmaz/);assert.doesNotMatch(html,/Uygulandı · Kaydedilmiş audit/);}
  }
+});
+
+test('Hotspot operation detail preserves access type and create label',()=>{
+ const html=renderToStaticMarkup(module.exports.OperationDetails({event:{id:'test',subscriber_id:'demo-managed-sub-test',operation:'CREATE',access_type:'HOTSPOT',source:'RADIUS',occurred_at:'2026-11-11T12:00:00Z',is_demo:true},onClose(){},onSubscriber(){}}));
+ assert.match(html,/Hotspot \(sentetik\)/);assert.match(html,/Hotspot abonesi oluşturma/);assert.doesNotMatch(html,/PPPoE abonesi oluşturma/);
+});
+test('central history renders authority, UUID, revision, localized status and recorded failure without claiming application',()=>{
+ const before=globalThis.window,previous=globalThis.__navigationResource;
+ globalThis.window={location:{hash:'#module=subscribers&history_source=workspace'}};
+ const receipt={request_id:'audit-test',item_id:'demo-managed-sub-test',operation:'STATUS',success:true,recorded:true,source:'RADIUS',revision:7,router_id:'demo-managed-router-test',previous:{status:'PAUSED'},values:{status:'ACTIVE'},occurred_at:'2026-11-11T12:00:00Z',actor_id:'synthetic.actor',error:null};
+ try{
+  for(const success of [true,false]){
+   globalThis.__navigationResource={loading:false,data:{items:[{...receipt,success,error:success?null:'Revizyon çakışması'}],total:1,is_demo:true}};
+   const html=renderToStaticMarkup(module.exports.SubscriberOperationHistory());
+   for(const expected of [/RADIUS/,/UUID: audit-test/,/Revizyon: 7/,/synthetic.actor/,/15:00/,/Devre dışı \(duraklatıldı\)/])assert.match(html,expected);
+   if(success)assert.match(html,/Durum: Etkin/);
+   else{assert.match(html,/Uygulanmadı/);assert.match(html,/Revizyon çakışması/);assert.doesNotMatch(html,/Durum: Etkin/);}
+  }
+ }finally{globalThis.window=before;globalThis.__navigationResource=previous;}
 });

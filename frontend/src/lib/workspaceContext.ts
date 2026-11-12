@@ -28,7 +28,7 @@ export function workspaceContext(screen:ScreenKey,hash:string):WorkspaceContext 
   const option=subscriberSources.find(x=>x.value===source)??subscriberSources[0];
   return local(option.label,option.description,option.access);
  }
- if(screen==='radius')return local('RADIUS · Hazırlık','Entegrasyon kapsamı gösterilir. Bağlı RADIUS verisi veya canlı yönetim akışı yoktur.','Bağlantı yok');
+ if(screen==='radius')return local('LOCAL / RADIUS · Sentetik görünürlük','Yetkili V2 kayıtları ayrı depolarda okunur. RADIUS sunucusu, NAS veya canlı oturum bağlantısı yoktur.','Salt okunur · Bağlantı yok');
  if(screen==='operations')return local('Sentetik operasyon kayıtları','Kayıtlı demo alarmları ve olayları. ACK ve okundu işlemleri mevcut sunucu yetkilerine bağlıdır.','Yetkiye bağlı alarm işlemleri');
  if(screen==='mikajani')return local('Sentetik analiz','Kayıtlı demo verisi veya seçilen ayrı senaryo. Öneriler otomatik uygulanmaz.','Salt okunur');
  if(screen==='dashboard'&&p.get('dashboard_source')==='V1_INVENTORY'&&(!p.get('view')||p.get('view')==='OVERVIEW'))return local('V1 aktarılmış envanter','Son kayıtlı envanter ve sağlık verileri; canlı bağlantı kanıtı değildir.','Salt okunur');

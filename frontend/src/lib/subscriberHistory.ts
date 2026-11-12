@@ -15,7 +15,7 @@ export function valuesText(values: Record<string,string|number|null> | undefined
     return `${fields[key]??key}: ${text}`;
   }).join(' · ');
 }
-export function historyValues(event: SubscriberHistoryEvent) {
+export function historyValues(event: Pick<SubscriberHistoryEvent,'operation'|'previous_expires_on'|'expires_on'|'previous_values'|'new_values'>) {
   return event.operation==='RENEWAL'||event.operation==='DATE_EDIT'
     ? [expiryDate(event.previous_expires_on??null), expiryDate(event.expires_on??null)]
     : [valuesText(event.previous_values), valuesText(event.new_values)];

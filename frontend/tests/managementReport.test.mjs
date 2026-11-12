@@ -139,7 +139,7 @@ test('V2.3 admin loader reads all audit pages; incomplete workspace is unavailab
   calls.push(url);let value;
   if(url.includes('/management/history'))value=broken?{items:[],total:2,is_demo:true}:{items:[receipt(url.includes('page=2')&&!duplicate?'second':'first')],total:2,is_demo:true};
   else if(url.includes('/subscriber-workspace'))value={items:[managedAccount],total:1,is_demo:true};
-  else if(url.includes('/router-workspace'))value={items:[],total:0,is_demo:true};
+  else if(url.includes('/router-workspace'))value={items:[],total:0,page:1,page_size:100};
   else if(url.endsWith('/reports/inventory'))value={routers,items:[]};
   else value={items:[],available:true,is_demo:true};
   return new Response(JSON.stringify(value));
@@ -148,6 +148,43 @@ test('V2.3 admin loader reads all audit pages; incomplete workspace is unavailab
  broken=true;const missing=await loadManagementReport('/management/report?workspace=1');assert.equal(missing.workspace,null);assert.match(missing.workspaceError,/tamamı doğrulanamadı/);
  broken=false;duplicate=true;const repeated=await loadManagementReport('/management/report?workspace=1');assert.equal(repeated.workspace,null);assert.match(repeated.workspaceError,/tekil değil/);
  calls.length=0;await loadManagementReport('/management/report');assert.ok(calls.every(url=>!url.includes('workspace')));
+ }finally{globalThis.fetch=original;}
+});
+
+test('real WorkspaceList envelope accepts empty history and preserves endpoint, credentials and abort signal',async()=>{
+ const original=globalThis.fetch,calls=[],controller=new AbortController();
+ let routerItems=[],historyMarker=true,routerStatus=200;
+ try{
+  globalThis.fetch=async(url,init)=>{
+   calls.push({url,init});
+   let value={items:[],total:0,is_demo:true,available:true};
+   if(url.endsWith('/reports/inventory'))value={routers,items:[]};
+   else if(url.includes('/router-workspace/routers')){
+    if(routerStatus!==200)return new Response(JSON.stringify({detail:'Kaynak erişilemiyor'}),{status:routerStatus});
+    value={items:routerItems,total:routerItems.length,page:1,page_size:100};
+   }else if(url.includes('/management/history')&&!historyMarker)value={items:[],total:0};
+   return new Response(JSON.stringify(value));
+  };
+  const load=()=>loadManagementReport('/management/report?workspace=1',{signal:controller.signal});
+  const empty=await load();
+  assert.deepEqual(empty.workspace,{accounts:[],receipts:[],routers:[]});
+  assert.equal(empty.workspaceError,undefined);
+  const report=buildManagementReport(empty,{period:'LAST_24',router:'',kind:'ALL'},now,true);
+  assert.equal(report.historyAvailable,true);assert.equal(report.counts.operations,0);
+  assert.deepEqual(report.outcomes,{applied:0,failed:0,unknown:null});
+  const request=calls.find(call=>call.url.includes('/router-workspace/routers'));
+  assert.equal(request.url,'/api/v1/router-workspace/routers?page_size=100&page=1');
+  assert.equal(request.init.credentials,'include');assert.equal(request.init.signal,controller.signal);
+  const valid={id:'demo-managed-router-a',kind:'DEMO_ROUTER',is_demo:true,persistence:'local-postgresql-workspace',device_connected:false,fields:{name:'Test'}};
+  routerItems=[valid];assert.equal((await load()).workspace.routers.length,1);
+  for(const invalid of [{...valid,is_demo:false},{...valid,kind:'TRUST_PROFILE'},{...valid,device_connected:true}]){
+   routerItems=[invalid];const failed=await load();assert.equal(failed.workspace,null);assert.match(failed.workspaceError,/sentetik kimliği/);
+  }
+  routerItems=[];historyMarker=false;const invalidHistory=await load();
+  assert.equal(invalidHistory.workspace,null);assert.match(invalidHistory.workspaceError,/management\/history/);
+  historyMarker=true;routerStatus=503;const unavailable=await load();
+  assert.equal(unavailable.workspace,null);assert.match(unavailable.workspaceError,/Kaynak erişilemiyor/);
+  routerStatus=200;assert.equal((await load()).workspaceError,undefined);
  }finally{globalThis.fetch=original;}
 });
 
@@ -200,4 +237,36 @@ test('UUID replay collapses, recorded failure stays separate and unknown request
 test('failed result stays unknown when only the successful legacy history source is available',()=>{
  const report=buildManagementReport(source([detail('legacy','r1',[operation('saved',now.toISOString())])]),filter,now);
  assert.deepEqual(report.outcomes,{applied:1,failed:null,unknown:null});
+});
+
+test('operations context defaults to rolling day and preserves current filters in bounded center links',()=>{
+ const selected={period:'LAST_24',router:'r1',kind:'OPERATIONS',expiry:'EXPIRED',source:'RADIUS',plan:'Demo',account_status:'ACTIVE'};
+ assert.equal(managementFilterFromHash('#module=operations').period,'LAST_24');
+ assert.deepEqual(managementFilterFromHash(managementReportHash(selected,'operations')),selected);
+ const params=new URLSearchParams(managementSubscribersHash(selected).slice(1));
+ for(const [key,value] of [['router_id','r1'],['plan','Demo'],['status','ACTIVE'],['source','RADIUS'],['expiry','EXPIRED']])assert.equal(params.get(key),value);
+ const managed=new URLSearchParams(managementSubscribersHash({...selected,router:'demo-managed-router-a'}).slice(1));
+ assert.equal(managed.get('workspace'),'PERSISTENT');assert.equal(managed.get('workspace_router'),'demo-managed-router-a');assert.equal(managed.get('workspace_status'),'ACTIVE');assert.equal(managed.has('router_id'),false);
+});
+test('historical authority filters never borrow the current legacy or workspace authority',()=>{
+ const legacy=detail('historical','r1',[operation('old','2026-10-27T08:00:00Z')]);
+ legacy.item.source='RADIUS';
+ const input={...source([legacy]),workspace:workspace([receipt('saved',{source:'LOCAL'}),receipt('no-proof')])};
+ const local=buildManagementReport(input,{...filter,source:'LOCAL'},now);
+ assert.ok(local.operations.some(row=>row.id==='old'));assert.equal(local.operations.find(row=>row.workspace).source,'LOCAL');
+ const unknown=buildManagementReport(input,{...filter,source:'UNKNOWN'},now);
+ assert.equal(unknown.operations.length,1);assert.equal(unknown.operations[0].source,null);
+ assert.equal(buildManagementReport(input,{...filter,source:'RADIUS'},now).operations.length,0);
+});
+test('operational expiry counts include unique workspace accounts independently of overlapping periods',()=>{
+ const account={...managedAccount,expires_on:'2026-10-27',plan:'Demo',status:'ACTIVE'};
+ const input={...source([]),workspace:{...workspace([]),accounts:[account,account]}};
+ const result=buildManagementReport(input,{...filter,expiry:'ALL',plan:'Demo',account_status:'ACTIVE'},now,true);
+ assert.equal(result.expirySummary.total,1);assert.equal(result.expirySummary.today,1);assert.equal(result.expirySummary.within_3,1);assert.equal(result.expirySummary.within_30,1);
+ assert.equal(result.expiryRows.length,1);
+ assert.equal(buildManagementReport(input,{...filter,plan:'absent'},now,true).expiryRows.length,0);
+ const hotspot={...managedAccount,id:'demo-managed-sub-hotspot',access_type:'HOTSPOT'};
+ const withHotspot={...source([]),workspace:{...workspace([receipt('hotspot',{item_id:hotspot.id,source:'RADIUS'})]),accounts:[hotspot]}};
+ assert.equal(buildManagementReport(withHotspot,filter,now).operations.length,0);
+ assert.equal(buildManagementReport(withHotspot,filter,now,true).operations[0].access_type,'HOTSPOT');
 });

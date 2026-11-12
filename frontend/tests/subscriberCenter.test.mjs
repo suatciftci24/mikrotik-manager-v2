@@ -150,7 +150,7 @@ test('history shows UUID and historical/current revisions separately and retains
  try{
   const event={request_id:'12345678-1234-4234-8234-123456789abc',source:'LOCAL',operation:'PLAN',occurred_at:'2026-11-08T10:00:00Z',actor_id:'synthetic',revision:2,result:'FAILED',error:'Revizyon değişti.',router_id:data.item.router_id,date_changed:false};
   const tree=module.exports.SubscriberDeviceCenterView({data:{...data,item:{...data.item,revision:7},history:[event]},tab:'history',onTab(){}}),html=renderToStaticMarkup(tree);
-  assert.match(html,/İşlem UUID: 12345678/);assert.match(html,/İşlem revizyonu: 2/);assert.match(html,/Güncel abonelik revizyonu: 7/);assert.match(html,/Başarısız · Kayıt değiştirilmedi/);assert.match(html,/Yetkili kaynak: LOCAL/);
+  assert.match(html,/İşlem UUID: 12345678/);assert.match(html,/İşlem revizyonu: 2/);assert.match(html,/Güncel abonelik revizyonu: 7/);assert.match(html,/Başarısız · Kayıt değiştirilmedi/);assert.match(html,/İşlem anındaki yetkili kaynak: LOCAL/);
   const links=nodes(tree).filter(node=>node.type==='a'&&node.props.href?.includes('return_to='));
   assert.ok(links.some(node=>new URLSearchParams(node.props.href.slice(1)).get('module')==='routers'));
   for(const link of links)assert.equal(new URLSearchParams(link.props.href.slice(1)).get('return_to'),hash);
@@ -191,4 +191,18 @@ test('supplement is routed by active section and cannot introduce a duplicate au
   assert.equal(html.includes('extra details'),tab!=='history');
  }
  assert.deepEqual(seen,['overview','actions','history','connections']);
+});
+
+test('legacy missing protocol stays separate from current authority and historical authority',()=>{
+ for(const source of ['LOCAL','RADIUS',null]){
+  const current={...data,source:'LEGACY_DEMO',item:{...data.item,id:'demo-sub-fixture',access_type:null,source},history:[{operation:'PLAN',source:'LOCAL',occurred_at:'2026-11-10T10:00:00Z',actor_id:'fixture',result:'APPLIED'}]};
+  for(const tab of ['overview','actions','history','connections']){
+   const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:current,tab,onTab(){}}));
+   assert.ok(html.includes('Güncel yetkili kaynak: '+(source??'BELİRSİZ')));
+   assert.match(html,/Erişim türü: Bilinmiyor/);
+   assert.match(html,/türü yetkili kaynaktan veya router atamasından tahmin edilmez/);
+   if(tab==='history')assert.match(html,/İşlem anındaki yetkili kaynak: LOCAL/);
+   if(source===null)assert.match(html,/Kaynak doğrulanmadan değişiklik yapılamaz/);
+  }
+ }
 });

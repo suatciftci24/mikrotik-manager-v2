@@ -1,0 +1,13 @@
+.aaa-demo { margin-block: 1.5rem; padding-block: 1rem; border-top: 1px solid var(--border, #dbe1ea); min-width: 0; }
+.aaa-demo p, .aaa-demo dd, .aaa-demo li { overflow-wrap: anywhere; }
+.aaa-demo .form-label { display: grid; gap: .5rem; margin-block: 1rem; max-width: 32rem; }
+.aaa-demo select { width: 100%; min-width: 0; min-height: 44px; }
+.aaa-demo button { min-height: 44px; white-space: normal; }
+.aaa-demo-result { min-width: 0; }
+@media (max-width: 640px) { .aaa-demo .detail-facts { grid-template-columns: minmax(0, 1fr); } }
+.aaa-management.aaa-demo { margin-block: 0; padding: 20px; border: 1px solid var(--line); }
+.aaa-operation-boundary { padding: 12px; margin-block: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-secondary, transparent); }
+.aaa-demo .detail-facts > div { min-width: 0; }
+.aaa-demo .aaa-technical { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 8px; }
+.aaa-demo .aaa-technical summary { cursor: pointer; padding-block: 10px; min-height: 44px; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .aaa-management.aaa-demo { padding: 12px; } .aaa-demo .detail-facts dd { margin-inline: 0; } }

@@ -29,6 +29,7 @@ class SubscriberOperations(BaseModel):
         return self
 
 class OperationReceipt(BaseModel):
+    source:Literal['LOCAL','RADIUS']|None=None
     item_id:str
     request_id:str
     success:bool

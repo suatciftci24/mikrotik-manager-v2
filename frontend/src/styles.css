@@ -342,3 +342,15 @@ input::placeholder{color:var(--muted);opacity:1}
 .subscriber-row-popover button{width:100%;white-space:normal;text-align:left;justify-content:flex-start;min-height:44px}
 .subscriber-action-reason{margin:4px 0 8px;font-size:var(--font-small);line-height:1.5;color:var(--text-secondary);overflow-wrap:anywhere}
 @media(max-width:600px){.subscriber-quick-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.subscriber-quick-buttons button{height:auto;white-space:normal;min-height:44px}.renewal-shortcuts button{flex:1;min-height:44px}}
+
+/* Saved router evidence stays neutral; reachability is not monitored here. */
+.saved-router-status{font-weight:600;color:var(--text-secondary)}
+.router-inventory .seen-cell small{display:block;color:var(--text-secondary);white-space:normal}
+.router-inventory .record-link,.router-inventory .filter-tabs button,.router-device-panel .table-footer button{min-height:44px}
+.router-device-panel .table-footer{flex-wrap:wrap;gap:8px}
+
+.management-expiries .panel-title{flex-wrap:wrap;gap:12px}
+.management-report .management-filters select{max-width:100%}
+.management-report .record-link,.management-report .filter-tabs button{min-height:44px}
+.management-report td small{display:block;overflow-wrap:anywhere}
+@media(max-width:600px){.management-report .router-report-controls{display:grid;grid-template-columns:1fr}.management-report .management-filters .form-label{min-width:0}.management-report .subscriber-actions-menu{min-width:180px}}

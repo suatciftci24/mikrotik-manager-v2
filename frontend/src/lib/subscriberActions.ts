@@ -1,7 +1,7 @@
 import type {Subscriber} from './api';
 import type {CenterSubscriber} from './subscriberCenter';
 import type {SubscriberDetailData} from './api';
-import {safeSubscriberCenter,type SubscriberCenterData} from './subscriberCenter';
+import {safeSubscriberCenter,type SubscriberCenterData} from './subscriberCenter.ts';
 
 // Source routing and eligibility are shared by detail surfaces; server authorization remains authoritative.
 export function canChangeLegacy(detail:SubscriberDetailData,id=detail.item.id){

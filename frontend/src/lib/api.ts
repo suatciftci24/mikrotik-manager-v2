@@ -15,6 +15,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     const body = await response.json().catch(() => ({}));
     if(response.status===404&&(path.startsWith('/subscriber-center/')||path.startsWith('/subscriber-workspace'))&&body.detail==='Not Found')throw new Error('Abone modülü çalışan backend sürümünde bulunamadı. Yerel V2 servislerini yenileyin; kayıtlar korunur.');
     if(response.status===404&&path.startsWith('/router-workspace/')&&body.detail==='Not Found')throw new Error('Sentetik router API modülü çalışan backend sürümünde bulunamadı. Bu projenin yerel V2 servislerini yenileyin; mevcut kayıtlar silinmez.');
+    if(response.status===404&&path.split('?')[0]==='/aaa-demo/preview'&&body.detail==='Not Found')throw new ApiError('AAA demo önizleme ucu bulunamadı (GET /api/v1/aaa-demo/preview). Çalışan API sürümü, checkout ve Vite proxy hedefi doğrulanmalı; bu yanıt tek başına eski backend kanıtı değildir. Önizleme çalıştırılmadı.',404);
     throw new ApiError(typeof body.detail === 'string' ? body.detail : `API yanıtı: ${response.status}`,response.status);
   }
   return response.json() as Promise<T>;

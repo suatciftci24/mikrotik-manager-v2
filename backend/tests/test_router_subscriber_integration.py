@@ -57,14 +57,22 @@ class RouterSubscriberBoundaryTests(TestCase):
             from app.schemas.subscriber_center import RouterSubscriberList
             RouterSubscriberList.model_validate(result)
             self.assertIsNone(result['total']);self.assertEqual(result['availability'],'PREPARING');self.assertFalse(result['is_demo']);demo.assert_not_called()
-    def test_static_id_join_excludes_same_name_and_other_router(self):
+    def test_static_join_uses_canonical_legacy_binding_without_overriding_explicit_ids(self):
         from app.services.demo_data import ROUTERS,SUBSCRIBERS
         router=ROUTERS[0];user={'id':'viewer','role_code':'VIEWER','permissions':{router['id']:{'can_view':True}}}
         base={**SUBSCRIBERS[0],'router_id':router['id'],'router_name':router['name'],'access_type':'PPPOE'}
         rows=[base,{**base,'id':'demo-sub-noid','router_id':None},{**base,'id':'demo-sub-other','router_id':ROUTERS[1]['id']},{**base,'id':'demo-sub-real','is_demo':False}]
         with patch('app.services.demo_subscriptions.store') as store:
             store.list_items.return_value=rows;result=routes.subscribers(router['id'],'PPPOE','','ALL',1,25,user)
-            self.assertEqual(result['total'],1);self.assertEqual(result['items'][0].router_model,router['model']);store.list_items.assert_called_once()
+            self.assertEqual(result['total'],2)
+            self.assertEqual({item.id for item in result['items']},{base['id'],'demo-sub-noid'})
+            self.assertTrue(all(item.router_id==router['id'] and item.router_model==router['model'] for item in result['items']))
+            store.list_items.assert_called_once()
+            # Name-only legacy binding is permitted only for one canonical router.
+            with patch('app.core.authorization.ROUTERS',ROUTERS+[{**router,'id':'demo-router-same-name'}]):
+                ambiguous=routes.subscribers(router['id'],'PPPOE','','ALL',1,25,user)
+            self.assertEqual(ambiguous['total'],1)
+            self.assertEqual(ambiguous['items'][0].id,base['id'])
 
     def test_legacy_orphan_admin_view_preserves_id_and_viewer_cannot_bypass_scope(self):
         from app.api.v1 import subscriber_center as subscribers

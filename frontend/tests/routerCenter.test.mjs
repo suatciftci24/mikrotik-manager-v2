@@ -10,7 +10,7 @@ import {routerAlarmPath,routerAlarmTarget} from '../src/lib/alarms.ts';
 const data={source:'PERSISTENT_DEMO',is_demo:true,device_connection_started:false,item:{id:'demo-managed-router-fixture',name:'TEST-EV-V2',identity:null,model:'Sentetik model',routeros_version:null,management_address:'192.0.2.10',site:'Ev',status:'UNMEASURED',last_success_at:null,last_seen_at:null,cpu_percent:null,memory_percent:null,uptime:null},sections:Object.fromEntries(routerCenterTabs.map(([key])=>[key,['overview','events','security'].includes(key)?'AVAILABLE':'UNMEASURED'])),events:[{action:'CREATED',actor_id:'demo-user',occurred_at:'2026-10-29T12:00:00Z',revision:1}]};
 const require=createRequire(import.meta.url);
 const react={...React,useEffect:()=>{},useCallback:fn=>fn,useRef:value=>({current:value}),useState:initial=>[typeof initial==='function'?initial():initial,()=>{}]};
-const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/RouterDeviceCenter.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/RouterDeviceCenter.tsx',import.meta.url))],bundle:true,write:false,loader:{'.css':'empty'},platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
 const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?react:require(name),module,module.exports);
 const view=(tab,overrides={},onTab=()=>{})=>module.exports.RouterDeviceCenterView({data:{...data,...overrides},tab,onTab});
 const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.children).flatMap(nodes)]:[];
@@ -67,7 +67,7 @@ test('managed router list name opens the ID-based center without writing or conn
   const value=typeof initial==='function'?initial():initial;
   return value?.path?[{...value,loading:false,data:{items:[{id:data.item.id,kind:'DEMO_ROUTER',is_demo:true,device_connected:false,revision:1,fields:{name:'TEST-EV-V2',management_address:'192.0.2.10',model:'Test',site:'Ev'}}],total:1}},()=>{}]:[value,()=>{}];
  }};
- const built=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/DemoRouterWorkspace.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+ const built=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/DemoRouterWorkspace.tsx',import.meta.url))],bundle:true,write:false,loader:{'.css':'empty'},platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
  const module={exports:{}};new Function('require','module','exports',built)(name=>name==='react'?hooks:require(name),module,module.exports);
  const tree=module.exports.DemoRouterWorkspace({onOpen:id=>{opened=id;}});
  nodes(tree).find(n=>n.type==='button'&&n.props.children==='TEST-EV-V2').props.onClick();
@@ -94,4 +94,19 @@ test('subscriber access selection reuses one scoped list and preserves legacy Ho
  const select=nodes(tree).find(node=>node.type==='select');assert.equal(select.props.value,'PPPOE');
  select.props.onChange({target:{value:'HOTSPOT'}});assert.equal(selected,'hotspot');
  const html=renderToStaticMarkup(view('hotspot'));assert.match(html,/Hotspot hesap kayıtları/);assert.doesNotMatch(html,/PPPoE hesap kayıtları/);
+});
+
+
+test('persistent router navigation retains PPPoE or Hotspot subscriber scope',()=>{
+ for(const access of ['PPPOE','HOTSPOT']){
+  const params=new URLSearchParams(routerSubscriberListHash(data.item.id,access).slice(1));
+  assert.equal(params.get('workspace'),'PERSISTENT');
+  assert.equal(params.get('workspace_router'),data.item.id);
+  assert.equal(params.get('workspace_access'),access);
+  const html=renderToStaticMarkup(view(access==='HOTSPOT'?'hotspot':'subscribers'));
+  assert.match(html,new RegExp('workspace_access='+access));
+ }
+ const legacy=new URLSearchParams(routerSubscriberListHash('demo-router-001').slice(1));
+ assert.equal(legacy.get('workspace'),'LEGACY');assert.equal(legacy.get('router_id'),'demo-router-001');
+ assert.equal(legacy.has('workspace_access'),false);
 });

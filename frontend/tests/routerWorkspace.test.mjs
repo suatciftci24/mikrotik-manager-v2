@@ -27,7 +27,7 @@ test('synthetic form saves only workspace fields with explicit CSRF; delete requ
   if(value?.path)return [{...value,loading:false,data:{items:[],total:0}},()=>{}];
   return [value,next=>{slots[index]=typeof next==='function'?next(slots[index]):next;}];
  }};
- const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/DemoRouterWorkspace.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+ const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/DemoRouterWorkspace.tsx',import.meta.url))],bundle:true,write:false,loader:{'.css':'empty'},platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
  const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?react:require(name),module,module.exports);
  const originalWindow=globalThis.window,originalFetch=globalThis.fetch;
  const calls=[];globalThis.window={dispatchEvent:()=>{}};
