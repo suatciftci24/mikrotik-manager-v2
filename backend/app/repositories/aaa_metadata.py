@@ -14,6 +14,8 @@ from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from app.integrations.aaa_contracts import ReadContract
 from app.simulation.aaa_atomic import AtomicRequest, OperationFixture, OwnerFixture, OutboxFixture, canonical_hash
 
+from app.repositories.aaa_owner_contract import (OwnerScope, require_ownership, locked_owner, owner_cas_predicates, require_metadata_transition)
+
 metadata = MetaData()
 # Projection of existing owner/event tables, with UNAPPLIED proposed owner metadata.
 owner = Table('subscribers', metadata, Column('id', String, primary_key=True),
@@ -42,10 +44,7 @@ class MetadataConflict(ValueError):
     pass
 
 
-class Scope(ReadContract):
-    tenant_id: UUID
-    actor_id: str = Field(min_length=1)
-    subscriber_id: str = Field(min_length=1)
+Scope = OwnerScope
 
 
 class ActionMetadata(ReadContract):
@@ -83,8 +82,7 @@ class PostgresMetadataRepository:
             raise MetadataConflict('UNIT_OF_WORK_CLOSED')
         if self.failed:
             raise MetadataConflict('TRANSACTION_POISONED')
-        if self.authorize(self.session, self.scope) is not True:
-            raise PermissionError('TENANT_ACTOR_OWNER_SCOPE_REQUIRED')
+        require_ownership(self.scope, self.authorize(self.session, self.scope))
 
     def _key(self, table, identity):
         return (table.c.tenant_id == self.scope.tenant_id, table.c[list(table.primary_key.columns)[1].name] == identity)
@@ -106,8 +104,7 @@ class PostgresMetadataRepository:
         # All callers lock owner first. Unique constraints remain required in eventual DDL.
         locked = self._execute(select(owner).where(owner.c.tenant_id == self.scope.tenant_id,
             owner.c.id == self.scope.subscriber_id).with_for_update()).mappings().one_or_none()
-        if locked is None:
-            raise MetadataConflict('OWNER_REQUIRED')
+        locked_owner(locked, self.scope, operation_id=request.request_id)
         row = self._execute(select(operations).where(*self._key(operations, request.request_id)).with_for_update()).mappings().one_or_none()
         if row:
             if (row['fingerprint'], row['actor_id'], row['subscriber_id']) != (request.fingerprint(), self.scope.actor_id, self.scope.subscriber_id):
@@ -129,8 +126,9 @@ class PostgresMetadataRepository:
             raise MetadataConflict('INVALID_AUTHORIZATION_TTL')
         if self.validate_contract(action.payload, self.scope, operation_id) is not True:
             raise MetadataConflict('VERSIONED_CONTRACT_REQUIRED')
-        self._execute(select(owner).where(owner.c.tenant_id == self.scope.tenant_id,
-            owner.c.id == self.scope.subscriber_id).with_for_update())
+        locked = self._execute(select(owner).where(owner.c.tenant_id == self.scope.tenant_id,
+            owner.c.id == self.scope.subscriber_id).with_for_update()).mappings().one_or_none()
+        locked_owner(locked, self.scope, operation_id=operation_id)
         op = self._execute(select(operations).where(*self._key(operations, operation_id)).with_for_update()).mappings().one_or_none()
         now = self._execute(select(func.clock_timestamp())).scalar_one()
         if (op is None or op['subscriber_id'] != self.scope.subscriber_id or op['actor_id'] != self.scope.actor_id
@@ -145,8 +143,8 @@ class PostgresMetadataRepository:
                 new_owner: OwnerFixture, expected_revision: int, checkpoint: OperationFixture,
                 event: OutboxFixture, audit_id: UUID, attempt: AttemptMetadata | None = None, *, lease_token: int):
         self._check()
+        require_metadata_transition(expected_owner, new_owner, operation_id=operation_id)
         if (type(lease_token) is not int or lease_token < 1 or checkpoint.revision != expected_revision+1
-                or new_owner.revision != expected_owner.revision+1 or new_owner.fence != expected_owner.fence+1
                 or checkpoint.owner_revision != new_owner.revision or checkpoint.fence != new_owner.fence
                 or event.request_id != operation_id or event.tenant_id != str(self.scope.tenant_id)
                 or checkpoint.plan_hash != event.plan_hash or event.status != 'HELD'
@@ -158,6 +156,7 @@ class PostgresMetadataRepository:
         try:
             row = self._execute(select(owner).where(owner.c.tenant_id == self.scope.tenant_id,
                 owner.c.id == self.scope.subscriber_id).with_for_update()).mappings().one_or_none()
+            locked_owner(row, self.scope, operation_id=operation_id, expected=expected_owner)
             op = self._execute(select(operations).where(*self._key(operations, operation_id)).with_for_update()).mappings().one_or_none()
             grant = self._execute(select(actions).where(*self._key(actions, action_id)).with_for_update()).mappings().one_or_none()
             # Clock must be read by the injected transaction AFTER locks, never a client clock.
@@ -169,9 +168,7 @@ class PostgresMetadataRepository:
                     or grant['fingerprint'] != canonical_hash(payload) or grant['consumed_at'] is not None
                     or not grant['issued_at'] <= now < grant['expires_at']):
                 raise MetadataConflict('AUTHORIZATION_CAS_SCOPE_OR_EXPIRY_CONFLICT')
-            predicates = (owner.c.tenant_id == self.scope.tenant_id, owner.c.id == self.scope.subscriber_id,
-                owner.c.revision == expected_owner.revision, owner.c.aaa_fence == expected_owner.fence,
-                owner.c.source == expected_owner.authority, owner.c.aaa_active_operation == operation_id)
+            predicates = owner_cas_predicates(owner, self.scope, expected_owner, operation_id=operation_id)
             if self._execute(update(owner).where(*predicates).values(revision=new_owner.revision,
                 aaa_fence=new_owner.fence)).rowcount != 1:
                 raise MetadataConflict('OWNER_CAS_OR_FENCE_CONFLICT')

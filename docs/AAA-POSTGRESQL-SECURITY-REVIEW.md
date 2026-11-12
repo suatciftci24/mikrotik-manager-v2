@@ -144,3 +144,19 @@ belirlenemiyorsa evaluator yalnız READ_ONLY_RECONCILIATION_REQUIRED döner.
 **Sıradaki tek uygulama önceliği:** onaylı sözleşmeye bağlı, dış provider dispatch'i
 kapalı PostgreSQL metadata repository/UoW adapter'i için izole kabul hazırlığı.
 Bu görevin belge onayı DB erişimi/migration veya canlı provider izni değildir.
+
+## Ortak owner sözleşmesi prototipi — 2026-11-12
+
+[Owner-writer matrisi](AAA-OWNER-WRITER-CONTRACT.md) gerçek kaynak yazıcılarını ve
+uyumsuzlukları listeler. DI metadata repository artık boolean authorize sonucunu
+kabul etmez: sürümlü tenant/aktif actor/subscriber/capability OwnershipGrant gerekir.
+Reserve/issue/consume missing owner metadata ve active_operation kapsamını kontrol
+eder; consume ortak monoton metadata transition ve tenant+revision+fence+source+
+active_operation SQL CAS predicate'lerini kullanır. Günlük yazıcıların aynı sözleşmeye
+katılma sınırı tanımlandı; çalışan servislerin davranışı değiştirilmedi.
+
+**BLOCKED devam eder:** runtime daily writers, seed/repair ve şema hâlâ AAA fence/
+active lock taşımaz; güvenilir membership resolver, FK/RLS/rol ve gerçek PostgreSQL
+concurrency kabulü yok. Grant modelini oluşturabilmek veya callback'te sabit grant
+döndürmek yetki kanıtı değildir. Python sözleşmesi raw SQL/DBA bypass'ını tek başına
+engellemez. Fake test sonuçları yalnız DI/prototip mantığını doğrular.

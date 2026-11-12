@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy.sql import operators
 from sqlalchemy.sql.elements import BooleanClauseList, Null
 from app.repositories.aaa_metadata import *
+from app.repositories.aaa_owner_contract import OwnershipGrant, OwnerContractConflict
 from app.simulation.aaa_transition import synthetic_request
 from app.simulation.aaa_atomic import AtomicPlan
 
@@ -93,7 +94,8 @@ class MetadataRepositoryTests(TestCase):
         self.db=FakeDatabase(self.now)
         self.db.state['subscribers'].append(dict(id=self.scope.subscriber_id,tenant_id=self.tenant,revision=3,source='LOCAL',aaa_fence=5,aaa_active_operation=self.request.request_id))
         self.payload={'version':'FIXTURE_TEST_ONLY','execution_id':str(UUID(int=806))}
-        def authorize(session,scope): return scope==self.scope
+        def authorize(session,scope):
+            return OwnershipGrant(**self.scope.model_dump(), actor_active=True, membership_revision=1,capabilities=('AAA_METADATA',))
         self.uow=PostgresMetadataUow(self.db.session,lambda s:True,authorize,lambda payload,scope,op:payload in (self.payload,{'outcome':'UNKNOWN'}))
         self.action=ActionMetadata(action_id=UUID(int=807),issued_at=self.now,expires_at=self.now+timedelta(seconds=60),payload=self.payload)
         with self.uow.transaction(self.scope) as repo:
@@ -109,7 +111,7 @@ class MetadataRepositoryTests(TestCase):
         self.assertEqual(self.db.state['operations'][0]['state'],'NEXT_STEP_DECISION_RECORDED')
         self.assertEqual(len(self.db.state['events']),1);self.assertEqual(len(self.db.state['outbox']),1)
         before=deepcopy(self.db.state)
-        with self.assertRaises(MetadataConflict):self.consume()
+        with self.assertRaises((MetadataConflict,OwnerContractConflict)):self.consume()
         self.assertEqual(before,self.db.state)
 
     def test_atomic_failures_and_caught_exception_poison_uow(self):
@@ -128,7 +130,7 @@ class MetadataRepositoryTests(TestCase):
     def test_concurrent_cas_one_commit(self):
         def compete(_):
             try:self.consume();return 'WIN'
-            except MetadataConflict:return 'CONFLICT'
+            except (MetadataConflict,OwnerContractConflict):return 'CONFLICT'
         with ThreadPoolExecutor(max_workers=2) as pool:self.assertCountEqual(list(pool.map(compete,range(2))),['WIN','CONFLICT'])
         self.assertEqual(len(self.db.state['events']),1)
 
@@ -137,11 +139,11 @@ class MetadataRepositoryTests(TestCase):
             with self.assertRaises(PermissionError):
                 with self.uow.transaction(scope) as repo:repo.reserve(self.request,self.op)
         before=deepcopy(self.db.state);self.db.clock=self.action.expires_at
-        with self.assertRaises(MetadataConflict):self.consume()
+        with self.assertRaises((MetadataConflict,OwnerContractConflict)):self.consume()
         self.assertEqual(before,self.db.state)
         self.db.clock=self.now;self.db.state['subscribers'][0]['aaa_fence']=99
         before=deepcopy(self.db.state)
-        with self.assertRaises(MetadataConflict):self.consume()
+        with self.assertRaises((MetadataConflict,OwnerContractConflict)):self.consume()
         self.assertEqual(before,self.db.state)
 
     def test_idempotency_and_conflicting_payload(self):
@@ -160,7 +162,7 @@ class MetadataRepositoryTests(TestCase):
         self.db.fail=None;self.consume(attempt)
         self.assertEqual(self.db.state['attempts'][0]['receipt'],{'outcome':'UNKNOWN'})
         before=deepcopy(self.db.state)
-        with self.assertRaises(MetadataConflict):self.consume(attempt)
+        with self.assertRaises((MetadataConflict,OwnerContractConflict)):self.consume(attempt)
         self.assertEqual(before,self.db.state)
 
     def test_target_and_contract_gates_fail_closed(self):

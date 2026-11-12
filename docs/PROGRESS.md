@@ -6384,3 +6384,33 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   demo veri/audit veya canlı V1/V2.5/VDS/router/RADIUS/IPsec işlemi ve push yok.
 - Sonraki tek öncelik: tenant/actor+owner-writer kilit entegrasyon kapsamını
   kesinleştirmek; sonra ayrı onaylı disposable PostgreSQL kabulü planlanabilir.
+
+## AAA tenant/aktör ve ortak owner CAS/kilit — 2026-11-12 — PARTIAL
+
+- office-development/5055e06 doğrulandı; AGENTS, PG tasarım/güvenlik/E2E/adapter
+  ve son ilerleme okundu. Backend owner/event model/SQL/revision yazıcıları
+  tarandı; BASH, echo, pg_isready ve stash/yedek dallar korundu.
+- aaa_owner_contract saf DI sözleşmesi: OwnerScope/OwnershipGrant v1, güvenilir
+  tenant/aktif aktör/owner/capability bağı; missing metadata/stale revision/fence,
+  AAA active-operation ve DAILY unlocked ayrımı, ortak SQL CAS predicate ve
+  monoton +1 revision/fence metadata transition. Yeni state machine yok.
+- Metadata prototype authorize bool kabulü kapatıldı. Reserve/issue/consume
+  ortak owner kontrolüne alındı; issue'da okunup atılan owner sonucu doğrulanır.
+  Atomic journal/audit/outbox ve poison rollback korunur. Varsayılan API/günlük
+  writer/in-memory zincir değişmedi; yalnız DI prototype bağlandı.
+- PASS: 7 yeni ortak sözleşme testi ve 8 doğrudan etkilenen repository testi.
+  Error tipi değişimi bir beklentiyi yakaladı; yalnız etkilenen test düzeltildi.
+  Son transition helper eklenince yeni test ve ilgili consume testi geçti.
+  Fake global lock gerçek PostgreSQL MVCC/locking/durability kanıtı değildir.
+- AAA-OWNER-WRITER-CONTRACT.md kaynak matrisi ve BLOCKED entegrasyon planını;
+  security review yeni güven sınırını açıklar. Workspace create/edit/renew/daily,
+  legacy demo adapter, seed/repair, memory worker/recovery/executor/decision/
+  authorization ve metadata DI yazıcıları ayrıştırıldı; readonly/photo/router/
+  identity yollarının subscriber owner yazmadığı sınırı açıklandı.
+- Runtime BLOCKED: tenant/resolver/owner metadata ve bütün writer koordinasyonu,
+  parent/owner lock sırası, bootstrap/repair/audit scope, DB rol/RLS/constraint
+  ve PG crash/concurrency kabulü yok. İlk reservation/source flip/release bu
+  metadata prototipinin dışında. Gerçek DB/abone/kullanıcı/audit/secret/provider/
+  canlı V1/V2.5/VDS/router/RADIUS/IPsec, migration/restart/deploy/push yok.
+- Sonraki tek öncelik: güvenilir resolver ve tüm günlük owner writer'ları için
+  kapsamı sınırlandırılmış entegrasyon planını onaya hazır hale getirmek.
