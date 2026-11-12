@@ -175,3 +175,19 @@ rollback ve güncel PG/HTTP bütünleşme kabul engelleri bu görevle kapanmaz.
   `Could not resolve host: github.com`. Uzak okuma başarılı olsa da push
   DNS aşamasında durdu. Yerel tek commit korunur; ağ erişiminde normal
   push gerekir. Force push yapılmadı.
+
+
+## Ofis Router Merkezi güncellemesi — 2026-11-09
+
+Başlangıç office-development/b06d1fa. Dört ana router sekmesi, eski sekme
+hash uyumluluğu, tek erişim türü seçimi, abone detay dönüş bağlamı ve kaynaklara
+uygun ID filtreli Abone Merkezi geçişi hedefli testlerde PASS. Registered
+kaynağına demo abone işlemi açılmaz. Backend router subscriber okuması ortak
+canonical bağ çözümlemesini kullanır; explicit foreign ID ve belirsiz isim
+reddedilir, kayıtlı satırlar değiştirilmez. Arayüz/safety ayrıntıları kapalıyken
+mount edilmez; mevcut güvenli kaynak sınırları korunur.
+
+20 farklı frontend testi, 9 backend testi, TypeScript ve Vite build PASS.
+Gerçek browser/mobil kabulü BLOCKED (önceden saptanan eksik playwright-core);
+SSR doğrulaması browser kabulü değildir. DB ve canlı sistemlere erişilmedi,
+çalışan servisler yeniden başlatılmadı. Yerel commit dışında push/deploy yok.

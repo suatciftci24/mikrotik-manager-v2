@@ -48,3 +48,34 @@ class RouterCenterTests(TestCase):
         schema=app.openapi();path=schema['paths']['/api/v1/router-center/{id}']
         self.assertEqual(set(path),{'get'})
         self.assertEqual(path['get']['responses']['200']['content']['application/json']['schema']['$ref'],'#/components/schemas/RouterCenterData')
+
+class RouterSubscriberBindingTests(TestCase):
+    def test_legacy_binding_uses_canonical_identity_without_mutating_saved_rows(self):
+        from app.services import demo_subscriptions
+        from copy import deepcopy
+        target=ROUTERS[0]
+        row=dict(id='demo-sub-fixture',customer_name='Test',username='test',router_name=target['name'],is_demo=True,
+                 source='LOCAL',access_type='PPPOE',plan='Demo',status='ACTIVE',revision=1)
+        foreign={**row,'id':'demo-sub-foreign','router_id':ROUTERS[1]['id']}
+        unknown={**row,'id':'demo-sub-unknown','router_name':'missing'}
+        rows=[row,foreign,unknown];before=deepcopy(rows)
+        user={**ADMIN,'permissions':{target['id']:{'can_view':True}}}
+        with patch.object(demo_subscriptions.store,'list_items',return_value=rows):
+            result=routes.subscribers(target['id'],'PPPOE','','ALL',1,25,user)
+            self.assertEqual(result['total'],1)
+            self.assertEqual(result['items'][0].router_id,target['id'])
+            self.assertEqual(result['items'][0].session_status,'UNKNOWN')
+            self.assertEqual(rows,before)
+            with self.assertRaises(HTTPException):routes.subscribers(ROUTERS[1]['id'],'PPPOE','','ALL',1,25,user)
+
+    def test_ambiguous_name_does_not_join_any_router_and_filters_remain_scoped(self):
+        from app.services import demo_subscriptions
+        from app.core import authorization
+        row=dict(id='demo-sub-fixture',customer_name='Test',username='test',router_name=ROUTERS[0]['name'],is_demo=True,
+                 source='LOCAL',access_type='PPPOE',plan='Demo',status='PAUSED',revision=1)
+        user={**ADMIN,'permissions':{ROUTERS[0]['id']:{'can_view':True}}}
+        with patch.object(demo_subscriptions.store,'list_items',return_value=[row]):
+            with patch.object(authorization,'ROUTERS',[ROUTERS[0],{**ROUTERS[1],'name':ROUTERS[0]['name']}]):
+                self.assertEqual(routes.subscribers(ROUTERS[0]['id'],'PPPOE','','ALL',1,25,user)['total'],0)
+            for access,query,status in [('HOTSPOT','','ALL'),('PPPOE','absent','ALL'),('PPPOE','','ACTIVE')]:
+                self.assertEqual(routes.subscribers(ROUTERS[0]['id'],access,query,status,1,25,user)['total'],0)

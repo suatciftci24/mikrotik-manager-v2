@@ -56,3 +56,18 @@ test('daily and operation reports and selected alarm preserve bounded return fil
  }
  for(const value of ['#module=dashboard&view=OVERVIEW','#module=dashboard&view=SYSTEM','#module=radius&id=x','#module=routers','#module=subscribers','#module=operations&x='+('a'.repeat(4000))])assert.equal(detailReturnHash(value),null);
 });
+
+test('router subscriber loading, empty, denied and wrong-router responses do not leak stale rows',()=>{
+ const require=createRequire(import.meta.url);
+ const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/RouterSubscribers.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+ for(const [state,expected] of [
+  [{loading:true,data:listing},/Veriler yükleniyor/],
+  [{loading:false,data:{...listing,items:[],total:0}},/bağlı abone bulunamadı/],
+  [{loading:false,error:'API yanıtı: 403',data:listing},/yetkiniz yok/],
+  [{loading:false,data:{...listing,items:[{...account,router_id:'foreign'}]}},/kaynağı doğrulanamadı/],
+ ]){
+  const hooks={...React,useEffect:()=>{},useRef:value=>({current:value}),useCallback:fn=>fn,useState:initial=>{const value=typeof initial==='function'?initial():initial;return value?.path?[{...value,...state},()=>{}]:[value,()=>{}];}};
+  const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
+  const html=renderToStaticMarkup(module.exports.RouterSubscribers({id:router,access:'PPPOE'}));assert.match(html,expected);assert.doesNotMatch(html,/Test Abone/);
+ }
+});

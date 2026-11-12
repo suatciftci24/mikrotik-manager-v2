@@ -1,83 +1,228 @@
 # MikroTik Manager V2 — İlerleme
 
-## V2.6 import aşaması / eksik Pillow teşhisi — 2026-11-09
+## Ofis → Ev GitHub senkronizasyonu — 2026-11-09 — BLOCKED
 
-- `4cc4f4b` tabanı ve iki stash korundu. Kullanıcı normal Ofis WSL kabulünde
-  `ISOLATED_ENGINE_AND_APP_IMPORT` BLOCKED bildirdi. Aynı repo `.venv` ile
-  socket/DB/süreç oluşturmayı engelleyen import denemesi gerçek hatayı üretti:
-  `app.main → app.api.v1.subscriber_center → app.services.subscriber_photos:16`,
-  `ModuleNotFoundError: PIL`. Pillow mevcut requirements içinde zaten tanımlı;
-  eksik olan yerel bağımlılık kurulumu. Önceki preflight Pillow'u kapsamıyordu.
-- Preflight artık Pillow ve `PIL.Image` dahil bağımlılıkları PG/dizin/socket
-  hazırlığından önce import eder. Import hatasında yalnız allowlist dağıtım,
-  hata sınıfı ve repo içi kaynak/satır raporlanır; mesaj/DSN/parola/ham traceback
-  yazılmaz. Shared diagnostic modülü `-m`/fixture import farkında da çalışır.
-- `--import-only` modu aynı fixture/app import grafiğini socket, Engine.connect,
-  psycopg.connect ve subprocess.Popen engelleriyle çalıştırır; PG/HTTP açmaz.
-  Teşhis artık açıkça `dependency=Pillow ... missing_dependency=Pillow` verdi.
-- PASS: 36 hedefli import/HTTP safety/cleanup unittest ve diff check. Gerçek
-  PG/HTTP/browser kabulü çalıştırılmadı. Offline Pillow kurulumunda uygun paket
-  bulunamadı; ortam bağımlılık engeli açık. İnternet kurulumu denenmedi.
-- DNS/push/canlı bağlantı/deploy/restart/migration yok. Sonraki tek Ofis WSL
-  komutu kabul raporunda: önce mevcut requirements aralığındaki Pillow'u kurar;
-  yalnız kurulum başarılıysa izole gerçek kabulü çalıştırır.
+- office-development/30f067c temiz başlangıç. Yerel origin/main-guncel
+  f386811'e göre 0 geri / 6 ileri; aktarılacak altı ofis commitinde eski yerel
+  main-guncel üzerindeki 7ff20cc, 976fc64, 4cc4f4b ve 77d5a0a yok.
+- Tek fetch denemesi github.com DNS çözümlemesinde başarısız oldu. Güncel uzak
+  SHA ve gerçek fast-forward uygunluğu doğrulanamadı; push denenmedi. Bu kayıt
+  yalnız yerel belgelemedir, senkronizasyon başarısı değildir.
+- İki stash ve backup/office-20261109 (77d5a0a) korunur; DB, abone/admin verisi,
+  servis, deploy, reset/rebase veya force-push işlemi yok. Ağ erişimi sağlanınca
+  fetch ve ancestry kontrolü yeniden yapılmadan push edilmemeli.
 
-## V2.6 izole harness cleanup güvenliği — 2026-11-09
 
-- `976fc64` tabanında yalnız test harness'i değişti; iki stash korundu.
-  SIGINT/SIGTERM handler'ları ve dış `finally`, yarım class setup dahil yalnız
-  kayıtlı instance/class cleanup işlemlerini tamamlar; handler'lar geri yüklenir.
-- Yeni `v26_owned_resources.py`, atomik oluşturulan sabit `/tmp` kökünün
-  inode/sahiplik/izin/symlink kimliğini ve data dizinini denetler. Silme,
-  sabit parent fd üzerinden symlink güvenli rmtree ile yapılır; şüphede kök
-  korunur. HTTP thread kapanmazsa veya PG durumu belirsizse silinmez.
-- PG kapanışı PID dosyasına tek başına dayanmaz: data kimliği, sürüm,
-  süreç UID/executable/cwd/argv/start ticks ve PID dosyası hedefi doğrulanır.
-  Doğrulama sonrası pidfd ile yalnız aynı postmaster'a fast-shutdown SIGINT
-  gönderilir; çıkışı beklenir. Genel kill/pkill veya pg_ctl stop kullanılmaz.
-- Kritik kaynak edinimi ve cleanup sırasında kesintiler ertelenir. PG araçları
-  bloke sinyal maskesini miras almaz; araç timeout'unda belirsiz kök korunur.
-  SIGKILL/host kaybında cleanup garantisi yok; sonraki çalıştırma mevcut kökü
-  reddeder ve otomatik silmez.
-- PASS: 42 hedefli offline unittest ve diff kontrolü. Normal/hatalı bitiş,
-  SIGINT/SIGTERM, yarım setup, PID değişimi, symlink/inode/UID/port reddi,
-  timeout ve cleanup hatası test edildi. Gerçek PG/HTTP/browser kabulü sandbox
-  sınırı nedeniyle çalıştırılmadı; gerçek kabul PASS olarak bildirilmez.
-- DNS/push/canlı sağlık kontrolü/deploy/migration/restart/üretim erişimi yok.
-  Ofis WSL komutu ve sınırlar: `docs/V26_OFFICE_ISOLATED_ACCEPTANCE.md`.
+## Ofis Router Merkezi — 2026-11-09
 
-## V2.6 sandbox izin karşılaştırması — 2026-11-09
+- Başlangıç `office-development` / `b06d1fa`, temiz ağaç. Yedi parçalı detay
+  dört ana sekmede toplandı: Genel Durum, WAN/Bağlantı, Aboneler, Geçmiş.
+  Kompakt özet kayıtlı CPU/RAM, yönetim adresi ve ayrı ölçüm/başarılı bağlantı
+  zamanlarını gösterir. Eksik değerler Veri yok; sıfır yüzdeler korunur.
+  Listeye açık sentetik veri kaynağı eklendi; WAN eksikliği Veri yok olur.
+- Eski interfaces/security/pppoe/hotspot hash hedefleri korunur. Arayüz ve
+  güvenlik ayrıntıları açılınca yüklenir; mevcut demo düzenleme, rapor ve alarm
+  erişimi korunur. PPPoE/Hotspot tek seçim ve tek bağlı abone listesi kullanır.
+  Kayıtlı cihazdaki mevcut PPPoE gözlemi kapalı ayrıntıdan otomatik yüklenmez.
+  Tab ok/Home/End odağı, mobil kırılım ve 44px hedefler korunur/iyileştirilir.
+- Gerçek kök neden: router-center subscribers yolu yalnız ham router_id'ye
+  bakıyordu. Eski demo kayıtlarında yalnız router_name olabilir; önceki commit
+  ana abone listesinde canonical bağı döndürse de bu yol aynı çözümlemeyi
+  kullanmıyordu. Ortak authorization.router_id/public_item kullanıldı. Açık
+  yabancı ID veya belirsiz isim eşleşmez; kalıcı payload değiştirilmez.
+- Abone detayına mevcut bounded dönüş bağlamıyla geçilir. Abone Merkezi linki
+  legacy için router_id, kalıcı kaynak için workspace_router kullanır; isim
+  filtresi ve farklı veri kaynağına geçiş yok. Kayıtlı gerçek cihaz için
+  desteklenmeyen demo işlem/link gösterilmez; mevcut kaynak yetkileri değişmedi.
+- PASS: 20 farklı hedefli frontend testi (routerCenter 9, routerSubscriberLinks
+  6, routerReport 5); 9 backend unittest (router_center), TypeScript ve son
+  Vite build. Başlangıçtaki backend komutu PYTHONPATH eksikliği nedeniyle
+  import edemedi; doğru PYTHONPATH=backend ile testlerin tamamı geçti.
+  Son erişim türü/boş-hata testleri eklenince yalnız etkilenen iki frontend
+  dosyası ve değişen ürünün build'i tekrarlandı; rapor testleri tekrarlanmadı.
+- Gerçek browser/mobil layout kabulü BLOCKED: önceki görevde doğrulanan eksik
+  playwright-core nedeniyle browser çalıştırılmadı/kurulmadı. SSR/hook testleri
+  gerçek tarayıcı kabulü sayılmaz. DB/HTTP harness veya socket testi yok.
+- API/UI restart, DB erişimi/yazma, migration, veri silme, canlı/VDS/router/
+  RADIUS/IPsec erişimi ve push yapılmadı. 11 demo abonesi, suatciftci hesabı,
+  iki stash ve backup/office-20261109 korunur. Backend okuma düzeltmesi çalışan
+  süreç yeniden başlatılmadığından sonraki normal API başlangıcında devreye girer.
 
-- **BLOCKED**: `7ff20cc` ve iki stash korundu. Kullanıcı normal ofis WSL
-  IPv4/IPv6 bind PASS bildirdi; Codex içindeki tek `127.0.0.1:0` kontrolü
-  socket oluştururken yine `PermissionError errno=1` verdi. Codex yürütme
-  kısıtlaması olası kök neden; kesin uygulama katmanı doğrulanmadı.
-- Komuta özel socket testi yükseltme isteği araç tarafından
-  `sandbox_approval=false` nedeniyle reddedildi; kullanıcı onayı sorulamadı,
-  sandbox dışı komut çalışmadı ve izin ayarı değiştirilmedi.
-- Disposable harness önkoşulları PASS, `/tmp` kabul kökü yok. Harness socket
-  rezervasyonundan önce DB/dosya hazırlamadığı için gereksiz ortam oluşturulmadı;
-  gerçek kabul/PG başlatma bu engelden sonra denenmedi.
-- Tek GitHub DNS kontrolü `gaierror errno=-3`: fetch/push yapılmadı.
-  Yalnız rapor güncellendi; canlı/üretim/stash/veri işlemi yok. Ayrıntılar:
-  `docs/V26_OFFICE_ISOLATED_ACCEPTANCE.md`.
 
-## V2.6 ofis izole kabul incelemesi — 2026-11-09
+## Ofis hızlı işlem menüsü / legacy router bağı — 2026-11-09
 
-- **BLOCKED**: `main-guncel` / `f386811` temiz başlangıç; iki stash korundu.
-  Betik mevcut: `deploy/v1-inventory/v26-isolated-run.sh`; beklediği
-  `/tmp/mikrotik-v26-acceptance` runtime ortamı bu oturumda yok.
-- Profil/DB hedefleri ve önceki kabul kayıtları incelendi. Yerel disposable
-  harness önkoşulları PASS; ev WSL wrapper ofis yolunu reddediyor.
-  Tek socket kontrolü `127.0.0.1:18996` için socket oluştururken
-  `PermissionError errno=1` verdi; bind/DB/uygulama başlatmaya geçilmedi.
-  Ürün hatası kanıtlanmadı; güvenlik kapıları değiştirilmedi.
-- PASS: mevcut betik Bash syntax kontrolü. Gerçek PG/HTTP/browser kabulü bu
-  ortamda doğrulanmadı. Uzak dal kontrolü GitHub DNS hatasıyla BLOCKED;
-  push yapılmadı. Canlı sağlık bağlantısı kullanıcı yasağı gereği yapılmadı.
-- Ayrıntı: `docs/V26_OFFICE_ISOLATED_ACCEPTANCE.md`. Sonraki önkoşul izole
-  loopback socket izni olan yürütme ortamı ve push öncesi uzak dal doğrulaması.
-  V1/V2.5/canlı/DB/migration/restart/deploy/veri işlemi yok.
+- Başlangıç `office-development` / `c783493`, temiz ağaç; iki stash korundu.
+  Gerçek DB'ye bağlanmadan eski demo fixture'ları ve authorization yolu birlikte
+  incelendi. Eski ACTIVE LOCAL/RADIUS kayıtlarında yalnız router_name var;
+  frontend işlem politikası router_id istiyor. Backend mevcut router_id()
+  çözümleyicisi aynı kayıtları zaten tekil isim bağıyla yetkilendiriyordu ama
+  public_item bu bağı yanıta taşımıyordu. Sorun ACTIVE/ONLINE yasağı değil,
+  API okuma projeksiyonu ile frontend kimlik kapısı arasındaki uyumsuzluk.
+- public_item artık mevcut backend yetki çözümlemesinin ID sonucunu liste ve
+  canonical detaya taşır. Kaydedilmiş payload değiştirilmez; explicit ID varsa
+  isim fallback'i yapılmaz, eksik/çift isim bağı None ve yetkisiz kalır. Rol,
+  router izni ve LOCAL/RADIUS tek kaynak kuralları değişmedi. İzinli RADIUS demo
+  işlemleri açık; yetkisiz RADIUS ve bilinmeyen kaynakta neden açıklanır.
+- Eski details menüsü tablo akışını büyütüyor; yatay scroll/mobile overflow ve
+  sticky stacking altında sorun oluşturuyor, outside-click kapanışı yoktu.
+  Ortak menü native auto-popover üst katmanına taşındı. Sabit viewport/visual
+  viewport konumu kenarlara sıkıştırılır, gerekirse yukarı açılır ve içerik kendi
+  içinde kayar; satır boyutunu değiştirmez. Native outside/Escape light-dismiss,
+  aria-expanded, ok/Home/End, trigger focus dönüşü ve scroll/resize yeniden
+  konumlama var. Açıklamalar yetki kazandırmaz; durum yalnız Aç/Kapat etiketini
+  belirler, ONLINE/OFFLINE menüyü engellemez.
+- PASS: 31 farklı hedefli frontend testi (subscriberCenter,
+  subscriberQuickWorkflow, subscriberMenuPosition) ve 4 backend projection testi;
+  TypeScript, frontend build, browser-script syntax ve diff kontrolü. Liste/
+  canonical ID eşitliği, eski ACTIVE/PAUSED LOCAL, yetkili/yetkisiz RADIUS,
+  unknown, ambiguous/foreign router, viewport/keyboard/focus ve mevcut doğru
+  abone/modal/işlem/history/çift gönderim/refresh davranışları doğrulandı.
+- Gerçek desktop/mobile browser testi BLOCKED: projede zaten tanımlı
+  playwright-core node_modules altında yok; tek offline kurulum ENOTCACHED ile
+  başarısız. Manifest/lock değiştirilmedi, yeni bağımlılık veya browser kurulmadı.
+  Yeni test yalnız sentetik HTML ile, serversiz ve dış istekler kapalı çalışmak
+  üzere `frontend/tests/subscriberRowMenu.browser.mjs` içinde hazır; bu oturumda
+  tarayıcı açılmadı. Unit sonuçları gerçek pointer/layout kabulü sayılmadı.
+- Çalışan yerel API/UI restart edilmedi; backend okuma projeksiyonu sonraki API
+  başlangıcında devreye girer. 11 demo abonesi/PG/suatciftci hesabı üzerinde DB
+  erişimi/yazma, migration/silme, canlı/VDS/router/RADIUS/IPsec erişimi, eski
+  harness, reset/rebase/stash değişikliği veya push yok.
+
+## Ofis hızlı abone işlemleri — 2026-11-09
+
+- `office-development` / `9040743` temiz başlangıç, iki stash korundu. Mevcut
+  dört sekme, canonical kaynak/yetki politikası ve üç işlem modalı incelendi;
+  backend, veri modeli veya yeni bağımlılık gerekmedi.
+- İşlemler sekmesinde Abonelik Uzat / Paket Değiştir / duruma uygun Hesabı
+  Aç-Kapat / İşlem Geçmişi doğrudan görünür. Legacy QuickActions ilgili işlemle,
+  workspace uzatma SubscriberRenewal ile, PLAN/STATUS SubscriberDailyActions
+  ön seçimiyle açılır. Düzenleme ve modal içindeki diğer mevcut işlemler korunur.
+- İki abone listesinde detay bağlantısının yanında ortak kompakt satır menüsü
+  var. İşlem seçmek detaya yönlendirmez veya yazma yapmaz. Legacy modal açılmadan
+  önce güncel canonical detaydan kaynak/depo/yetki yeniden doğrulanır; satır
+  başına gereksiz detay isteği yok. Geçmiş seçimi ilgili detayın history sekmesini
+  açar; mevcut filtre parametreleri korunur. Menü tıklaması satır navigasyonuna
+  yayılmaz; Escape/focus dönüşü ve mobil dokunma alanları desteklenir.
+- Legacy/workspace yenilemede 30/90 gün ve özel tarih kısayolları mevcut takvim
+  formülünü kullanır; diğer mevcut süreler korunur. Yeni durum kayıtlı durumun
+  karşıtıyla başlar. Workspace PLAN alanında mevcut ve yazılan yeni paket birlikte
+  görünür; legacy paket/fiyat karşılaştırması korunur.
+- Önizleme, açık onay, UUID/revizyon/rol/router/kaynak doğrulaması ve receipt
+  kurtarma değiştirilmedi. Çift gönderim korumaları mevcut modallerde kalır.
+  subscriberSaveDependencies detay/liste/Dashboard/geçmişi yeniden okutur;
+  başarı kullanıcıyı başka sayfaya götürmez. Legacy seçimi güncel canonical
+  snapshot'ını sabitler; detay modalı resource yenileme sınırının üzerinde
+  barındırılır, background yüklemede unmount olup sonucunu/UUID korumasını
+  sıfırlamaz. Gereksiz ikinci kapat düğmesi kaldırıldı.
+- PASS: 45 farklı hedefli frontend testi (subscriberCenter,
+  subscriberQuickWorkflow, subscriptionActions, subscriberDailyManagement,
+  subscriberRenewal, subscriberFilters, resourceInvalidation); TypeScript,
+  TypeScript/Vite build ve diff kontrolü. Yeni kapsam: preset/erişim reddi,
+  30/90/özel tarih, mevcut-yeni paket, çift tıklamada tek POST ve bağlı kaynak
+  invalidation, modal korunumu, filtre/konum ve klavye/focus davranışı.
+- Gerçek HTTP/PG/browser kabulü veya eski harness testleri çalıştırılmadı.
+  11 demo abonesi, PostgreSQL, suatciftci hesabı/giriş sistemi üzerinde işlem
+  yok; API/UI süreçleri yeniden başlatılmadı. Migration/silme/reset/rebase,
+  VDS/canlı/router/RADIUS/IPsec erişimi, stash değişikliği ve push yok.
+
+## Ofis Abone Merkezi sadeleştirme — 2026-11-09
+
+- `office-development` / `668aa11` temiz başlangıç; iki stash korundu. Altın
+  Kurallar, özellik koruma kabulü ve iki kaynak için mevcut işlem/audit akışları
+  okundu. Backend veya veri modeli değişikliği gerekmedi.
+- Kompakt özet: abone adı, PPPoE/Hotspot kullanıcı adı, paket, hesap durumu,
+  bitiş ve Türkiye takvim gününe göre kalan süre. Dört ana sekme: Abonelik,
+  İşlemler, Geçmiş, Bağlantı. Eski package/expiry linkleri Abonelik'e gider;
+  photos linki aynı sekmedeki yetkili fotoğraf açılır bölümünü korur.
+- İşlemler yalnız bir sekmede; mevcut LegacySubscriberActions/QuickActions,
+  SubscriberRenewal ve SubscriberDailyActions kullanılıyor. Kaynak/depo/router/
+  yetki, revizyon, UUID, önizleme ve açık onay kontrolleri değişmedi. Mevcut
+  subscriberSaveDependencies ile liste/detay/Dashboard/geçmiş yenileniyor.
+- İç içe eski tam detay görünümü yerine ek legacy bilgiler ilgili sekmeye
+  taşındı: katılım/aylık tutar, uyarılar, raporlar ve operasyon raporu bağlantısı;
+  işlemlerde router/toplu işlem bağlantıları; bağlantıda kaynak açıklaması ve
+  mevcut demo PPPoE gözlem bileşeni. Yinelenen başlık/geri butonu ve audit yok.
+- Geçmişte işlem/UUID/önceki-yeni değer/aktör/revizyon/sonuç ve İstanbul saati
+  korunur. Eksik alanlar Veri yok; başarısız/eksik sonuç başarı sayılmaz.
+  Bağlantı sekmesi router ID, LOCAL/RADIUS, sentetik IP/örnek zamanını gösterir;
+  canlı oturum/son bağlantı kanıtı yoksa Bilinmiyor/Ölçülmedi. Hesap ACTIVE veya
+  last_seen bağlantı kanıtına dönüştürülmez. Tema/beyaz çerçeveler korunur;
+  özet masaüstünde dört, dar ekranda iki sütundur; sekmeler klavyeyle gezilir.
+- PASS: 9 hedefli frontend test dosyası (subscriberCenter, detailCenter,
+  subscriberManagement, subscriptionActions, subscriberDailyManagement,
+  subscriberFilters, subscriberObservation, managementReportView,
+  resourceInvalidation), typecheck, TypeScript/Vite build ve diff kontrolü.
+  Node24 doğrudan TypeScript importlarında --experimental-transform-types
+  kullanıldı. Eski beş-sekme test beklentileri dört sekme + iç fotoğraf
+  sözleşmesine güncellendi; yetki/işlem kontrolleri gevşetilmedi.
+- Gerçek browser/HTTP/PG kabulü yapılmadı; sandbox sınırı tekrar denenmedi.
+  API/UI/DB süreçlerine müdahale, 11 mevcut abone/audit/veri üzerinde yazma,
+  yönetici/login değişikliği, migration, seed, VDS/canlı erişim veya push yok.
+  Yeni bağımlılık eklenmedi. Bu frontend testleri gerçek DB kabulü değildir.
+
+## Ofis kalıcı LOCAL ADMIN / migration çalıştırmayan kurulum — 2026-11-09
+
+- `office-development` / `91cbf85` temiz başlangıç; iki stash korundu.
+  Kullanıcı PG/API/UI READY ve 11 mevcut abone bildirdi. Frontend boş kullanıcı
+  adı/parolayı aynen gönderiyor, credentials=include kullanıyor. Auth DB'den
+  hesap/aktiflik/kaynak/mühür ve salted scrypt doğruluyor; cookie HttpOnly,
+  SameSite=strict, /api. LOCAL hash zaten DB'de kalıcı; dev.sh hesap/parola
+  yeniden oluşturmuyor. Restart yalnız process içi oturumları düşürür, ilk
+  POST login401'i tek başına açıklamaz. Kullanıcı adı tam eşitlikle aranır;
+  LOCAL hesap için e-posta alias'ı yok.
+- Gerçek DB kimlik durumu tek salt okunur, sabit yerel hedef denemesinde
+  DemoStorageUnavailable ile BLOCKED kaldı. Bu nedenle kullanıcının gerçek
+  401 nedeni (hesap yok/yanlış ad/parola/pasif/kaynak) kanıtlanmadı; parola
+  veya hesap durumu tahminle değiştirilmedi. Canlı/VDS erişimi yapılmadı.
+- Mevcut first-admin.sh gerektiğinde migration yapıyordu. Yeni local-admin.sh
+  yalnız mevcut yerel 55432/mikrotik_manager_v2/v2_local hedefine gider;
+  inherited DSN/profil temizlenir, repo/PGDATA/UID/marker/mühür doğrulanır.
+  ExistingSchemaAdminStore DDL/upgrade yapmaz; şema eksikse parola istemeden
+  BLOCKED. Hazır şemada gizli TTY, iki parola girişi ve açık OLUSTUR onayıyla
+  ayrı LOCAL ADMIN + audit + mühür atomik yazılır. Mühür kapalıysa exit0,
+  prompt/hash/hesap değişikliği yok. Çakışan kullanıcı adı veya tutarsız mühür
+  otomatik onarılmaz. Varsayılan parola veya parola sıfırlama eklenmedi.
+- PASS: önce 31 hedefli mevcut/yeni ilk-admin testleri; ek rollback/mühür ve
+  shell izolasyon senaryolarıyla yeni paketin 10 testi PASS. Toplam 34 farklı
+  test; Bash syntax ve diff kontrolü PASS. Gerçek scrypt kullanıldı. Ayrı
+  Python sürecinde sentetik SQL modeliyle aynı LOCAL parola/hash/login ve
+  yeni oturum doğrulandı; eski token geçersiz. Bu gerçek PostgreSQL veya
+  tarayıcı/restart kabulü değildir; onlar sandbox nedeniyle BLOCKED.
+- Gerçek DB'ye yazma/migration/seed/silme ve servis restartı yok; 11 abone ve
+  geçmiş yeniden sayılmadı/değiştirilmedi. Push yok. Normal Ofis WSL tek kurulum
+  komutu: `cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && ./local-admin.sh`.
+  Eksik kimlik şeması varsa komut güvenli BLOCKED verir; bu görev migration
+  yetkisi vermediği için şema hazırlığı veya yetkisiz kurtarma yapmaz.
+
+## Ofis dev.sh API başlangıcında eksik Pillow — 2026-11-09
+
+- Başlangıç `office-development` / `f386811`, temiz çalışma ağacı; iki stash
+  korundu. İlk olarak `.local/runtime/accept-api-tzil9cde/api.log` okundu:
+  `app.main → subscriber_center → subscriber_photos:16` import zinciri
+  `ModuleNotFoundError: No module named 'PIL'` ile sonlanıyor. Logdaki kapanış
+  bir port çakışması değil, uygulama import hatasıdır.
+- Pillow `backend/requirements.txt` içinde mevcut (`>=11,<13`), fakat `.venv`
+  içinde yok. `dev.sh` yalnız fastapi/sqlalchemy/psycopg/uvicorn kontrol ettiği
+  için eksik Pillow'da requirements kurulumunu atlıyordu. En küçük düzeltme:
+  mevcut bağımlılık probuna `from PIL import Image, ImageOps` eklendi.
+  Başarısız kurulum `set -e` sayesinde DB/API/UI adımlarından önce durur.
+- Yerel PG16 hedefi yalnız repo altındaki `.local/postgres-v2-demo`, loopback
+  55432 ve standart demo DB/rol; mevcut marker/data_directory/yetki kontrolü
+  korunuyor. Normal başlangıç initdb/seed/migration çalıştırmıyor. API/UI
+  yönetimi dolu/yabancı portları reddediyor; yalnız kendi açtığı çocukları
+  kapatıyor. Bu işte bu kodlara veya port ayarlarına değişiklik yapılmadı.
+- PASS: 3 yeni dev.sh bootstrap testi + mevcut 6 local-demo DB güvenlik testi
+  (toplam 9, fake araç/mock; gerçek DB/socket yok), `bash -n dev.sh` ve diff
+  kontrolü. Eksik Pillow, tam ortam ve kurulum hatasında doğru sıralama test
+  edildi. Eski kabul harness testleri çalıştırılmadı.
+- Gerçek UI/API hazır kontrolü BLOCKED/doğrulanmadı: tek Pillow kurulum
+  denemesi uygun dağıtım bulamadı; kurulum tamamlanmadı. Bilinen sandbox socket
+  kısıtı tekrar denenmedi; dev.sh gerçek başlangıcı çalıştırılmadı. Normal Ofis
+  WSL doğrulaması: `cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && ./dev.sh`.
+  Bu komut eksik Pillow varsa mevcut requirements kurulumunu artık tetikler.
+- Kullanıcının bildirdiği 11 mevcut abone yeniden sayılmadı; PostgreSQL'e
+  erişim/yazma, migration, seed veya veri silme yapılmadı. Canlı/VDS/router/
+  RADIUS/IPsec, reset/rebase/stash değişikliği ve push yok.
 
 ## V2.6 Chromium callback TypeError ve browser acceptance — 2026-11-08
 
@@ -5032,3 +5177,7 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Önceki görevde hedefli soketsiz Python testleri 19/19 PASS idi. Bu görevde
   yalnız kabul belgeleri güncellendi; diff kontrolü yapılır. Chromium kabulü
   BLOCKED, PASS iddiası yok. Yerel commit oluşturulacak; push yok.
+
+## Birlesme arsivi
+Ofis ve GitHub ilerleme kayitlarinin iki surumu
+`docs/merge-history/` klasorunde korunmustur.

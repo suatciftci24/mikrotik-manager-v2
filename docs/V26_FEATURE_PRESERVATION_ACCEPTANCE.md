@@ -12,8 +12,8 @@ geçmişi incelendi. Önceki ADMIN HTTP kabulü kullanıcı kanıtıdır; burada
 | LEGACY demo abone | Liste, arama, birleşik router/paket/kaynak/durum/EXPIRE filtreleri, uyarılar, seçim, aynı routerda toplu uzatma, oluşturma, düzenleme, raporlar ve detay korundu. |
 | LEGACY işlemler | QuickActions: 7/15/30/60/90 gün veya özel tarih, paket/fiyat ve aktif/pasif; önizleme, onay, revizyon, router ve kaynak doğrulaması, aynı UUID davranışı korundu. Yeni detayda üç doğrudan giriş var. |
 | Kalıcı sentetik abone | PPPoE/Hotspot liste, oluşturma/düzenleme, kilitli kimlik/kaynak, SubscriberRenewal ve SubscriberDailyActions korundu. Günlük işlemler: uzatma, durum, ad, paket, EXPIRE ve router; toplu işlem sınırları aynı. |
-| Detay ve audit | Beş sekme, router ID bağı, bilinmeyen oturum ayrımı, önceki/yeni değerler, başarısız sonuç, aktör ve İstanbul saati; eski demo işlemleri/raporları açılır bölümü korundu. |
-| Kurulum / iş fotoğrafları | Yalnız V2.6 izole kabul runtime'ında ek sekme; JPEG/PNG yeniden kodlama, EXIF temizliği, boyut/piksel sınırı ve her abone için ayrı özel dosya alanı. LOCAL/RADIUS, PPPoE/Hotspot, router ve işlem yetkisi sunucuda yeniden doğrulanır. |
+| Detay ve audit | Dört ana sekme: Abonelik / İşlemler / Geçmiş / Bağlantı; kompakt hesap özeti, router ID bağı, bilinmeyen oturum ayrımı, önceki/yeni değerler, başarısız sonuç, aktör ve İstanbul saati. Legacy ek bilgiler/raporlar ilgili sekmede korunur; audit yinelenmez. |
+| Kurulum / iş fotoğrafları | Yalnız V2.6 izole kabul runtime'ında Abonelik içinde açılır bölüm; eski photos linki korunur. JPEG/PNG yeniden kodlama, EXIF temizliği, boyut/piksel sınırı ve her abone için ayrı özel dosya alanı. LOCAL/RADIUS, PPPoE/Hotspot, router ve işlem yetkisi sunucuda yeniden doğrulanır. |
 | Belirsiz sonuçlar | Tekil kayıt/yenileme, toplu receipt sorgusu, aktöre bağlı pending UUID ve GET ile kurtarma korundu. |
 | Router | Demo envanter, kalıcı sentetik yönetim, registry/onboarding, pilot girişleri ve V1 aktarım snapshot görünümü değiştirilmedi. |
 | Diğer merkezler | Dashboard, RADIUS hazırlık, Operasyon alarm/WAN, MikAjanı analiz/senaryo/kanıt, sistem/yetki ekranları değiştirilmedi. |
@@ -37,6 +37,62 @@ Dashboard ve raporları yeniler. İşlem geçmişi her iki kaynakta mevcut sekme
 okunur; depolar birleştirilmez.
 
 ## Doğrulama ve engeller
+
+### Ofis satır menüsü düzeltmesi — 2026-11-09
+
+`office-development`, taban `c783493`: eski router_name-only demo kayıtları
+backend'in mevcut tekil authorization çözümlemesiyle router_id okuma alanını
+alır; depodaki kayıtlar değiştirilmez. Explicit ID için isim fallback'i ve
+çift isim için tahmin yoktur. LOCAL/RADIUS işlem yetkisi rol ve ilgili router
+izninden gelir; hesap ACTIVE/PAUSED veya ONLINE/OFFLINE gözlemi menü kapısı
+değildir. Yetkisiz/unknown kayıtlar yalnız geçmiş ve anlaşılır neden görür.
+
+Satır menüsü akış içindeki details yerine viewport'a sınırlandırılan native
+auto-popover üst katmanını kullanır. Outside/Escape, klavye gezinimi, focus,
+scroll/resize konumlaması vardır; eski modal/ön seçim/UUID/onay/audit akışları
+değişmedi. 31 frontend + 4 backend hedefli test, TypeScript ve build PASS.
+Gerçek browser kabulü BLOCKED: mevcut Playwright paketi kurulu değil; tek
+offline kurulum ENOTCACHED, yeni dependency/lock değişikliği yok. Sentetik,
+serversiz browser testi hazırlandı; gerçek layout/pointer PASS iddiası yok.
+Yerel servis restartı yapılmadı; backend projeksiyonu sonraki API başlangıcında
+etkinleşir. Gerçek DB/veri/hesap veya canlı sistem işlemi ve push yok.
+
+### Ofis doğrudan hızlı işlemler — 2026-11-09
+
+`office-development`, başlangıç `9040743`: Hızlı İşlemler tek düğmesi yerine
+doğrudan uzatma/paket/hesap aç-kapat ve geçmiş girişleri var. Aynı ortak butonlar
+iki liste kaynağında kompakt, klavye erişimli satır menüsü olarak kullanılır;
+detay bağlantıları ve filtreler korunur. Legacy listeden işlem seçildiğinde
+canonical detay okunup mevcut politika doğrulanmadan modal açılmaz.
+
+QuickActions/SubscriberRenewal/SubscriberDailyActions mevcut POST ve receipt
+akışlarını korur; yalnız başlangıç işlemi/durum ön seçimi ve 30/90/özel tarih
+kısayolları eklendi. Workspace paket karşılaştırması formda da görünür.
+Önizleme/onay, revizyon/UUID/rol/kaynak/router ve audit kuralları değişmedi.
+Legacy modal seçimi canonical snapshot'ını saklar; detay yenilenirken üst
+seviyedeki modal/sonuç kaybolmaz. Başarılı işlem sonrası yönlendirme yok.
+
+PASS: yedi ilgili frontend dosyasında 45 farklı hedefli test, TypeScript ve
+frontend build; çift gönderim, receipt koruma, invalidation, kaynak/yetki reddi,
+preset, filtre/konum ve focus davranışı doğrulandı. Gerçek browser/HTTP/PG
+kabulü çalıştırılmadı. DB/hesap/servis/canlı erişim veya push yok.
+
+### Ofis detay sadeleştirmesi — 2026-11-09
+
+`office-development`, başlangıç `668aa11`: mevcut işlem diyalogları ve
+sunucu sözleşmeleri değiştirilmeden dört sekmeli görünüm uygulandı. Paket/
+expiry linkleri Abonelik'e taşınır; fotoğraflar runtime ve kaynak/yetki
+kontrolleriyle aynı sekmede açılır. Ek legacy alanlar, uyarılar, raporlar,
+router bağlantıları ve PPPoE demo gözlemleri korunur. Liste/filtre ve auth
+akışları değiştirilmedi. Eksik audit alanları Veri yok; sentetik IP/zaman
+canlı ölçüm olarak sunulmaz.
+
+PASS: dokuz ilgili frontend test dosyası, typecheck ve TypeScript/Vite build.
+Detay sekmeleri/klavye, doğru callback, kaynak/yetki reddi, rapor koruma,
+eksik/başarısız audit, Türkiye saati ve bağlı resource yenilenmesi ağsız
+sentetik testlerle doğrulandı. Gerçek browser/HTTP/PG kabulü çalıştırılmadı;
+servis restartı, DB yazımı veya canlı erişim yok. Aşağıdaki daha eski
+beş-sekme kayıtları tarihsel kabul kanıtlarıdır.
 
 - Frontend hedefli regresyon: 53 test PASS (ilk seçimin 42 testi, doğru frontend
   cwd/TypeScript transform seçeneğiyle kalan 10 test ve yeni toolbar testi).

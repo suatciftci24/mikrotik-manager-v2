@@ -23,7 +23,7 @@ fi
 if [[ ! -x .venv/bin/python ]]; then
   python3 -m venv .venv
 fi
-if ! .venv/bin/python -c 'import fastapi, sqlalchemy, psycopg, uvicorn' >/dev/null 2>&1; then
+if ! .venv/bin/python -c 'import fastapi, sqlalchemy, psycopg, uvicorn; from PIL import Image, ImageOps' >/dev/null 2>&1; then
   .venv/bin/python -m pip install -r backend/requirements.txt
 fi
 if [[ ! -x frontend/node_modules/.bin/vite ]]; then

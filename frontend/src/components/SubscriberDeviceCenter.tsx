@@ -1,58 +1,79 @@
+import {QuickActions,type QuickAction} from './QuickActions';
+import type {SubscriberDetailData} from '../lib/api';
 import {linkedDetailHash} from '../lib/detailLinks';
+import {SubscriberQuickButtons} from './SubscriberQuickButtons';
 import {canChangeWorkspace} from '../lib/subscriberActions';
 import {LegacySubscriberActions} from './LegacySubscriberActions';
 import {dailyLabels} from '../lib/subscriberManagementCenter';
-import {expiryDate} from '../lib/expiry';
+import {expiryDate,expiryInfo,remainingDays} from '../lib/expiry';
+import {detailText,observationTime} from '../lib/subscriberObservation';
+import {valuesText} from '../lib/subscriberHistory';
 import {useEffect,useRef,useState,type KeyboardEvent,type ReactNode} from 'react';
 import {useListFilter} from '../lib/useListFilter';
 import {useResource} from '../lib/useResource';
-import {subscriberCenterTabs,subscriberPhotoTab,safeSubscriberCenter,subscriberRouterHash,accountStatus,type SubscriberCenterData,type SubscriberTab,type CenterSubscriber} from '../lib/subscriberCenter';
+import {subscriberCenterTabs,subscriberPhotoTab,subscriberTab,safeSubscriberCenter,subscriberRouterHash,accountStatus,type SubscriberCenterData,type SubscriberTab,type CenterSubscriber} from '../lib/subscriberCenter';
 import {ResourceState,Facts,dateTime} from './Resource';
 import {PageHeading} from './PageHeading';
-import {ExpirySummary} from './Expiry';
 import {useTurkeyToday} from '../lib/useTurkeyToday';
 import {can,useIdentity} from '../lib/permissions';
 import {SubscriberPhotos} from './SubscriberPhotos';
 const dependencies=['/subscribers','/subscriber-workspace'] as const;
-export function SubscriberDeviceCenter({id,onBack,onEdit,onRenew,onManage,legacy,photosEnabled=false}:{id:string;onBack:()=>void;onEdit?:(item:CenterSubscriber)=>void;onRenew?:(item:CenterSubscriber)=>void;onManage?:(item:CenterSubscriber)=>void;legacy?:ReactNode;photosEnabled?:boolean}){
+export function SubscriberDeviceCenter({id,onBack,onEdit,onRenew,onManage,legacy,photosEnabled=false}:{id:string;onBack:()=>void;onEdit?:(item:CenterSubscriber)=>void;onRenew?:(item:CenterSubscriber)=>void;onManage?:(item:CenterSubscriber,action?:'PLAN'|'STATUS')=>void;legacy?:ReactNode|((tab:SubscriberTab)=>ReactNode);photosEnabled?:boolean}){
+ const [legacyAction,setLegacyAction]=useState<{detail:SubscriberDetailData;action:QuickAction}|null>(null);
+ const today=useTurkeyToday();
  const resource=useResource<SubscriberCenterData>('/subscriber-center/'+encodeURIComponent(id),undefined,dependencies);
- const tabKeys=[...subscriberCenterTabs.map(([key])=>key),...(photosEnabled?['photos' as const]:[])];
+ const tabKeys=[...subscriberCenterTabs.map(([key])=>key),'package','expiry',...(photosEnabled?['photos' as const]:[])] as const;
  const [tab,setTab]=useListFilter('subscribers','tab',tabKeys,'overview');const heading=useRef<HTMLHeadingElement>(null);
  useEffect(()=>{heading.current?.focus();window.scrollTo(0,0);},[id]);
  const data=resource.data;const error=resource.error||(data&&!safeSubscriberCenter(data,id)?'Abone kaynağı veya router ID bağı doğrulanamadı; detay gösterilmedi.':undefined);
- return <section className="screen-stack"><button className="detail-back button-secondary" onClick={onBack}>← Geri dön</button><PageHeading title="Abone Detay Merkezi" eyebrow="SENTETİK DEMO · CANLI İŞLEM YOK" description="Kayıtlı hesap bilgileri gösterilir; cihaz ve RADIUS bağlantısı başlatılmaz." headingRef={heading}/><ResourceState {...resource} error={error}/>{data&&!resource.loading&&!error&&<SubscriberDeviceCenterView data={data} tab={tab} onTab={setTab} onEdit={onEdit} onRenew={onRenew} onManage={onManage} legacy={legacy} photosEnabled={photosEnabled}/>}</section>;
+ return <section className="screen-stack">{legacyAction&&<QuickActions rows={[legacyAction.detail.item]} today={today} initialAction={legacyAction.action} onClose={()=>setLegacyAction(null)}/>}<button className="detail-back button-secondary" onClick={onBack}>← Geri dön</button><PageHeading title="Abone Detay Merkezi" eyebrow="SENTETİK DEMO · CANLI İŞLEM YOK" description="Kayıtlı hesap bilgileri gösterilir; cihaz ve RADIUS bağlantısı başlatılmaz." headingRef={heading}/><ResourceState {...resource} error={error}/>{data&&!resource.loading&&!error&&<SubscriberDeviceCenterView data={data} tab={tab} onTab={setTab} onEdit={onEdit} onRenew={onRenew} onManage={onManage} onLegacyAction={(detail,action)=>setLegacyAction({detail,action})} legacy={legacy} photosEnabled={photosEnabled}/>}</section>;
 }
-export function SubscriberDeviceCenterView({data,tab,onTab,onEdit,onRenew,onManage,legacy,photosEnabled=false}:{data:SubscriberCenterData;tab:SubscriberTab;onTab:(tab:SubscriberTab)=>void;onEdit?:(item:CenterSubscriber)=>void;onRenew?:(item:CenterSubscriber)=>void;onManage?:(item:CenterSubscriber)=>void;legacy?:ReactNode;photosEnabled?:boolean}){
+export function SubscriberDeviceCenterView({data,tab,onTab,onEdit,onRenew,onManage,onLegacyAction,legacy,photosEnabled=false}:{data:SubscriberCenterData;tab:SubscriberTab;onTab:(tab:SubscriberTab)=>void;onEdit?:(item:CenterSubscriber)=>void;onRenew?:(item:CenterSubscriber)=>void;onManage?:(item:CenterSubscriber,action?:'PLAN'|'STATUS')=>void;onLegacyAction?:(detail:SubscriberDetailData,action:QuickAction)=>void;legacy?:ReactNode|((tab:SubscriberTab)=>ReactNode);photosEnabled?:boolean}){
  const writable=canChangeWorkspace(data,!!(onEdit||onRenew||onManage));
- const identity=useIdentity();const r=data.item;const today=useTurkeyToday();const buttons=useRef<(HTMLButtonElement|null)[]>([]);const [expanded,setExpanded]=useState(false);const routerHash=subscriberRouterHash(r,typeof window==='undefined'?'':window.location.hash);
- const tabs=[...subscriberCenterTabs,...(photosEnabled?[subscriberPhotoTab]:[])];
+ const identity=useIdentity();const r=data.item;const today=useTurkeyToday();const buttons=useRef<(HTMLButtonElement|null)[]>([]);const routerHash=subscriberRouterHash(r,typeof window==='undefined'?'':window.location.hash);
+ const tabs=subscriberCenterTabs;const activeTab=subscriberTab(tab);
+ const [photosOpen,setPhotosOpen]=useState(tab==='photos');
+ useEffect(()=>{if(tab==='photos')setPhotosOpen(true);},[tab]);
+ const supplementary=typeof legacy==='function'?legacy(activeTab):legacy;
+ const expiry=expiryInfo(r.expires_on,today);
+ const savedTime=(value:string|null)=>observationTime(value)?dateTime(value):'Ölçülmedi';
  const photoPermission=r.access_type==='HOTSPOT'?'can_manage_hotspot':'can_manage_pppoe';
  const photoIdentityValid=!!r.router_id&&!r.router_missing&&r.router_source!=='UNKNOWN'&&(r.source==='LOCAL'||r.source==='RADIUS')&&(r.access_type==='PPPOE'||r.access_type==='HOTSPOT');
  const canManagePhotos=photoIdentityValid&&(data.source==='PERSISTENT_WORKSPACE'?identity?.role_code==='ADMIN'&&identity.can_manage_users===true:can(identity,r.router_id,photoPermission));
  function key(event:KeyboardEvent,index:number){let next=index;if(event.key==='ArrowRight')next=(index+1)%tabs.length;else if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;else return;event.preventDefault();onTab(tabs[next][0]);buttons.current[next]?.focus();}
- return <><section className="panel registry-detail router-device-summary"><section className="inventory-toolbar" aria-label="Abone işlemleri">
-{data.source==='LEGACY_DEMO'&&<LegacySubscriberActions key={r.id} id={r.id}/>}
-{writable&&(onEdit||onRenew||onManage)&&<details className="subscriber-actions-menu"><summary className="button-primary">İşlemler</summary><div className="subscriber-actions-options">{onEdit&&<button className="button-secondary" onClick={()=>onEdit(r)}>Abone bilgilerini düzenle</button>}{onRenew&&<button className="button-secondary" onClick={()=>onRenew(r)}>Aboneliği uzat</button>}{onManage&&<button className="button-secondary" onClick={()=>onManage(r)}>Paket / durum / tarih işlemleri</button>}</div></details>}
-</section><div className="page-heading-row"><div><span className="eyebrow">SENTETİK ABONE · {r.access_type??'ERİŞİM TÜRÜ BİLİNMİYOR'}</span><h2>{r.customer_name}</h2><p>{r.username} · {accountStatus(r.status)}</p></div></div><Facts items={[
- ['Bağlı router',routerHash?<a className="record-link" href={routerHash}>{r.router_name??r.router_id}</a>:r.router_missing?'Router kaydı bulunamadı':'Bilinmiyor · güvenli ID bağı yok'],['Router modeli',r.router_model??(r.router_missing?'Router kaydı bulunamadı':'Bilinmiyor')],['Router kayıt kimliği',r.router_id??'Bilinmiyor'],['Güncel abonelik revizyonu',r.revision],['Profil / Paket',r.plan],['Yetkili kaynak',r.source??'Bilinmiyor'],['Oturum durumu','Bilinmiyor · canlı oturum ölçülmedi'],['Sentetik kayıt IP adresi',r.ip_address??'Ölçülmedi'],['Son bağlantı',r.last_connected_at?dateTime(r.last_connected_at):'Bilinmiyor · bağlantı kanıtı yok'],['Son sentetik örnek',r.last_seen_at?dateTime(r.last_seen_at):'Bilinmiyor']
- ]}/><ExpirySummary expiresOn={r.expires_on} today={today}/><p>Hesap etkinliği veya EXPIRE tarihi çevrimiçi oturum kanıtı değildir.</p></section>
- <div className="filter-tabs router-device-tabs" role="tablist" aria-label="Abone detay bölümleri">{tabs.map(([id,label],index)=><button key={id} ref={node=>{buttons.current[index]=node;}} role="tab" id={'subscriber-tab-'+id} aria-controls={'subscriber-panel-'+id} aria-selected={tab===id} tabIndex={tab===id?0:-1} onKeyDown={event=>key(event,index)} onClick={()=>onTab(id)} className={tab===id?'selected':''}>{label}</button>)}</div>
- <section className="panel registry-detail router-device-panel" role="tabpanel" id={'subscriber-panel-'+tab} aria-labelledby={'subscriber-tab-'+tab} tabIndex={0}><h2>{tabs.find(([key])=>key===tab)?.[1]??'Abone detayı'}</h2>
- {tab==='overview'?<><Facts items={[["Kayıt kimliği",r.id],["Router ID",r.router_id??'Bilinmiyor'],['Veri deposu',data.persistence],['Revizyon',r.revision]]}/><p>PPPoE ve Hotspot erişim türleri ayrı saklanır. Tek yetkili kaynak LOCAL veya RADIUS'tur; gerçek kaynakta işlem yapılmaz.</p>{legacy&&<details onToggle={e=>setExpanded(e.currentTarget.open)}><summary>Mevcut demo işlemleri ve raporları</summary>{expanded&&legacy}</details>}</>
- :tab==='package'?<><Facts items={[["Profil / Paket",r.plan],['Hesap durumu',accountStatus(r.status)],['Erişim türü',r.access_type??'Bilinmiyor']]}/><p>Bu alan sentetik hesap tanımıdır; gerçek cihaz veya RADIUS profili uygulanmaz.</p></>
- :tab==='expiry'?<><ExpirySummary expiresOn={r.expires_on} today={today}/><p>EXPIRE yalnız kaydedilmiş sentetik takvim tarihidir. Eksik tarih katılım veya bağlantı zamanından türetilmez.</p></>
- :tab==='history'?<>{data.history.length?<ol className="registry-history">{data.history.map((e,index)=><li key={index}><strong>{dailyLabels[e.operation]??(e.operation==='CREATE'?'Sentetik kayıt eklendi':e.operation==='UPDATE'?'Sentetik kayıt düzenlendi':e.operation==='RENEWAL'?'Abonelik uzatıldı':e.operation==='DATE_EDIT'?'Bitiş tarihi düzenlendi':e.operation==='PLAN'||e.operation==='PLAN_CHANGE'?'Paket değiştirildi':e.operation==='STATUS'||e.operation==='STATUS_CHANGE'?'Hesap durumu değiştirildi':'Kaydedilmiş demo işlemi')}</strong><span>İşlem UUID: {e.request_id??'Bu kayıtta belirtilmemiş'} · İşlem revizyonu: {e.revision??'Bilinmiyor'} · Güncel abonelik revizyonu: {r.revision}</span><span>Yetkili kaynak: {e.source??'Bu kayıtta belirtilmemiş'} · {dateTime(e.occurred_at)} · {e.actor_id}</span>{e.date_changed&&<span>Eski bitiş: {expiryDate(e.previous_expires_on)} → Yeni bitiş: {expiryDate(e.expires_on)}</span>}<span>Sonuç: {e.result==='FAILED'?'Başarısız · Kayıt değiştirilmedi':'Uygulandı · Sentetik kayıt'}</span>{e.router_id&&<span>İşlemdeki router: {e.router_id.startsWith(data.source==='PERSISTENT_WORKSPACE'?'demo-managed-router-':'demo-router-')?<a className="record-link" href={linkedDetailHash({module:'routers',id:e.router_id,source:data.source==='PERSISTENT_WORKSPACE'?'MANAGED_DEMO':'DEMO'},typeof window==='undefined'?'':window.location.hash)}>{e.router_id}</a>:e.router_id}</span>}<a className="record-link" href={linkedDetailHash({module:'subscribers',id:r.id,workspace:data.source==='PERSISTENT_WORKSPACE'?'PERSISTENT':'LEGACY'},typeof window==='undefined'?'':window.location.hash)}>Abone detayını aç</a>{e.new_values&&Object.keys(e.new_values).length>0&&<div className="registry-history-changes">
-{Object.entries(e.new_values).filter(([field])=>!e.date_changed||field!=='expires_on').map(([field,value])=><div key={field}>
-<strong>{({
-plan:'Paket',profile:'Profil',monthly_price:'Aylık ücret (TL)',status:'Hesap durumu',
-expires_on:'EXPIRE / Bitiş tarihi',source:'Abone kaynağı',
-access_type:'Bağlantı türü'
-} as Record<string,string>)[field]??field}</strong>: {String((e.previous_values as Record<string,unknown>|undefined)?.[field]??'Belirtilmemiş')} → {String(value??'Belirtilmemiş')}
-</div>)}
-</div>}{e.error&&<span>{e.error}</span>}</li>)}</ol>:<p>Kayıtlı işlem geçmişi bulunmuyor.</p>}<p>Gösterilen audit işlem anını anlatır; eski revizyon güncel hesap durumunun yerine geçmez. Belirsiz istek bu listeden başarılı sayılmaz. En fazla son 50 kayıt işlemi; bağlantı geçmişi değildir. Zamanlar Türkiye saatinde (Europe/Istanbul) gösterilir.</p></>
- :tab==='photos'&&photosEnabled&&photoIdentityValid?<SubscriberPhotos id={r.id} source={r.source!} accessType={r.access_type!} canManage={canManagePhotos}/>
- :tab==='connections'?<p className="missing-data">Ölçülmedi. Bağlantı/oturum açılış-kapanış kaynağı bağlı değil; sentetik hesap veya audit kaydından oturum üretilmez.</p>
- :tab==='photos'?<p className="missing-data" role="status">Fotoğraf erişimi için doğrulanmış LOCAL/RADIUS kaynağı, PPPoE/Hotspot türü ve router bağı gerekir.</p>
+ return <><section className="panel registry-detail router-device-summary subscriber-summary" aria-label="Abone özeti">
+ <div className="subscriber-summary-title"><div><span className="eyebrow">SENTETİK ABONE · {r.access_type??'ERİŞİM TÜRÜ BİLİNMİYOR'}</span><h2>{detailText(r.customer_name)}</h2></div><span className="demo-chip">{accountStatus(r.status)}</span></div>
+ <Facts items={[
+ ['PPPoE / Hotspot kullanıcı adı',detailText(r.username)],['Paket',detailText(r.plan)],
+ ['Bitiş tarihi',expiry.days===null?'Veri yok':expiryDate(r.expires_on)],['Kalan gün',expiry.days===null?'Veri yok':remainingDays(expiry.days)]
+ ]}/></section>
+ <div className="filter-tabs router-device-tabs" role="tablist" aria-label="Abone detay bölümleri">{tabs.map(([id,label],index)=><button key={id} ref={node=>{buttons.current[index]=node;}} role="tab" id={'subscriber-tab-'+id} aria-controls={'subscriber-panel-'+id} aria-selected={activeTab===id} tabIndex={activeTab===id?0:-1} onKeyDown={event=>key(event,index)} onClick={()=>onTab(id)} className={activeTab===id?'selected':''}>{label}</button>)}</div>
+ <section className="panel registry-detail router-device-panel" role="tabpanel" id={'subscriber-panel-'+activeTab} aria-labelledby={'subscriber-tab-'+activeTab} tabIndex={0}><h2>{tabs.find(([key])=>key===activeTab)?.[1]??'Abone detayı'}</h2>
+ {activeTab==='overview'?<><Facts items={[
+ ['Kayıt kimliği',r.id],['Erişim türü',r.access_type??'Bilinmiyor'],['Yetkili kaynak',r.source??'Bilinmiyor'],
+ ['Veri deposu',data.persistence],['Güncel abonelik revizyonu',r.revision]
+ ]}/><p>Bitiş tarihi Türkiye takvim gününe göre hesaplanır; hesap etkinliği çevrimiçi oturum kanıtı değildir.</p>
+ {supplementary}
+ {photosEnabled&&<details className="subscriber-photo-disclosure" open={photosOpen} onToggle={event=>setPhotosOpen(event.currentTarget.open)}><summary>{subscriberPhotoTab[1]}</summary>{photosOpen&&(photoIdentityValid?<SubscriberPhotos id={r.id} source={r.source!} accessType={r.access_type!} canManage={canManagePhotos}/>:<p className="missing-data" role="status">Fotoğraf erişimi için doğrulanmış LOCAL/RADIUS kaynağı, PPPoE/Hotspot türü ve router bağı gerekir.</p>)}</details>}
+ </>
+ :activeTab==='actions'?<><p>Yalnız yetkili sentetik kayıt işlemleri. Eski → yeni karşılaştırmasını inceleyin ve açıkça onaylayın; gerçek cihaz veya RADIUS hesabı değiştirilmez.</p>
+ <section className="inventory-toolbar" aria-label="Abone işlemleri">
+ {data.source==='LEGACY_DEMO'&&<LegacySubscriberActions key={r.id} id={r.id} onHistory={()=>onTab('history')} onSelect={onLegacyAction}/>}
+ {data.source==='PERSISTENT_WORKSPACE'&&<div className="subscriber-actions-menu">
+ <SubscriberQuickButtons status={r.status} onHistory={()=>onTab('history')} available={[...(onRenew?['EXTEND' as const]:[]),...(onManage?['PLAN' as const,'STATUS' as const]:[])]} onAction={writable?action=>{if(action==='EXTEND')onRenew?.(r);else onManage?.(r,action);}:undefined}/>
+ {writable&&onEdit&&<button className="record-link" onClick={()=>onEdit(r)}>Abone bilgilerini düzenle</button>}
+ </div>}
+ {data.source==='PERSISTENT_WORKSPACE'&&!writable&&<p role="status">İşlemler için merkezi yönetim yetkisi, kalıcı demo deposu ve doğrulanmış kaynak/router bağı gerekli.</p>}
+ </section>{supplementary}</>
+ :activeTab==='history'?<>{data.history.length?<ol className="registry-history">{data.history.map((e,index)=><li key={index}><strong>{dailyLabels[e.operation]??({DATE_EDIT:'Bitiş tarihi düzenlendi',PLAN_CHANGE:'Paket değiştirildi',STATUS_CHANGE:'Hesap durumu değiştirildi'} as Record<string,string>)[e.operation]??detailText(e.operation)}</strong><span>İşlem UUID: {detailText(e.request_id)} · İşlem revizyonu: {e.revision??'Veri yok'} · Güncel abonelik revizyonu: {r.revision}</span><span>Yetkili kaynak: {e.source??'Veri yok'} · {observationTime(e.occurred_at)?dateTime(e.occurred_at):'Veri yok'} · İşlemi yapan: {detailText(e.actor_id)}</span>{e.date_changed&&<span>Eski bitiş: {expiryInfo(e.previous_expires_on,today).days===null?'Veri yok':expiryDate(e.previous_expires_on)} → Yeni bitiş: {expiryInfo(e.expires_on,today).days===null?'Veri yok':expiryDate(e.expires_on)}</span>}<span>Sonuç: {e.result==='FAILED'?'Başarısız · Kayıt değiştirilmedi':e.result==='APPLIED'?'Uygulandı · Sentetik kayıt':'Veri yok'}</span>{e.router_id&&<span>İşlemdeki router: {e.router_id.startsWith(data.source==='PERSISTENT_WORKSPACE'?'demo-managed-router-':'demo-router-')?<a className="record-link" href={linkedDetailHash({module:'routers',id:e.router_id,source:data.source==='PERSISTENT_WORKSPACE'?'MANAGED_DEMO':'DEMO'},typeof window==='undefined'?'':window.location.hash)}>{e.router_id}</a>:e.router_id}</span>}<a className="record-link" href={linkedDetailHash({module:'subscribers',id:r.id,workspace:data.source==='PERSISTENT_WORKSPACE'?'PERSISTENT':'LEGACY'},typeof window==='undefined'?'':window.location.hash)}>Abone detayını aç</a><div className="registry-history-changes"><div><strong>Önceki değerler</strong>: {valuesText(e.previous_values)}</div><div><strong>Yeni değerler</strong>: {valuesText(e.new_values)}</div></div>{e.error&&<span>{e.error}</span>}</li>)}</ol>:<p className="missing-data">Veri yok. Kayıtlı işlem geçmişi bulunmuyor.</p>}<p>Gösterilen audit işlem anını anlatır; eski revizyon güncel hesap durumunun yerine geçmez. Belirsiz istek bu listeden başarılı sayılmaz. En fazla son 50 kayıt işlemi; bağlantı geçmişi değildir. Zamanlar Türkiye saatinde (Europe/Istanbul) gösterilir.</p></>
+ :activeTab==='connections'?<><Facts items={[
+ ['Bağlı router',routerHash?<a className="record-link" href={routerHash}>{r.router_name??r.router_id}</a>:r.router_missing?'Router kaydı bulunamadı':'Bilinmiyor · güvenli ID bağı yok'],
+ ['Router modeli',r.router_model??(r.router_missing?'Router kaydı bulunamadı':'Bilinmiyor')],['Router kayıt kimliği',r.router_id??'Bilinmiyor'],
+ ['Yetkili kaynak',r.source??'Bilinmiyor'],['Sentetik kayıt IP adresi',detailText(r.ip_address)==='Veri yok'?'Ölçülmedi':r.ip_address],
+ ['Oturum durumu','Bilinmiyor · canlı oturum ölçülmedi'],['Son bağlantı','Bilinmiyor · bağlantı kanıtı yok'],['Son sentetik örnek',savedTime(r.last_seen_at)],
+ ...(r.last_connected_at?[['Kaydedilmiş bağlantı zamanı (sentetik)',savedTime(r.last_connected_at)] as [string,ReactNode]]:[])
+ ]}/><p className="missing-data">Ölçülmedi. Bağlantı/oturum açılış-kapanış kaynağı bağlı değil; sentetik hesap veya audit kaydından oturum üretilmez.</p>{supplementary}</>
  :<p className="missing-data">Abone detay bölümü bulunamadı.</p>}
+
  </section></>;
 }
