@@ -48,12 +48,13 @@ class NextStepEvidenceTests(TestCase):
                     self.assertNotEqual(result.execution_id, f.command.execution_id)
                     self.assertEqual(f.unit.snapshot()['executor_accepted'][command.execution_id], accepted)
 
-    def test_no_decision_issue_even_with_existing_decision_permissions(self):
+    def test_evaluation_does_not_issue_and_explicit_issue_permission_is_required(self):
         f, command, _ = self.prepare()
         result = self.evaluate(f, command)
         before = f.unit.snapshot(), f.provider.snapshot()
-        with self.assertRaisesRegex(ExecutorDecisionConflict, 'NEXT_STEP_READ_ONLY_EVALUATION_ONLY'):
-            f.service.issue(f.request, f.scope, f.context, result,
+        self.assertNotIn(UUID(int=9900), f.unit._state['executor_decision_authorizations'])
+        with self.assertRaises(PermissionError):
+            f.service.issue(f.request, f.scope, f.context.model_copy(update={'can_issue_decision': False}), result,
                 ExecutorDecisionIntent(authorization_id=UUID(int=9900), decision='CONFIRM_SUCCESS'), permission=True)
         self.assertEqual(before, (f.unit.snapshot(), f.provider.snapshot()))
 

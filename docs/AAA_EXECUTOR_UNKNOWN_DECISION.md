@@ -92,3 +92,38 @@ intent'leri açmadan sürümlü devam/iptal politikasına bağlamak; canlı bağ
 sonrası checkpoint fingerprint'ini taşır ve mevcut kanıt doğrulayıcısını private
 snapshot kopyasında yeniden kullanır. İki yetkili geçiş de held ve dispatch'e kapalıdır;
 UNKNOWN receipt ile dış etkiler korunur.
+
+## Next-step UNKNOWN yetkili karar entegrasyonu — 2026-11-12
+
+Aynı `ExecutorReconciliationService.issue/apply` ve
+`AUTHORIZED_DECISION_V1_EXECUTOR_FIXTURE` kullanılır; ikinci karar deposu veya
+servisi yoktur. Next-step yetkisi nested `EVIDENCE_EVALUATION_V1_FIXTURE` içinde
+`NEXT_STEP_UNKNOWN_REFERENCE_V1_FIXTURE` sürümünü ve bağımsız execution kimliğini
+bağlar. Tenant/subscriber/request/event/attempt, plan/evidence/receipt fingerprint,
+owner revizyon/fence, worker token, karar türü ve actor aynı server-side registry
+grant'ının parçasıdır. Kopyalanmış/değiştirilmiş grant eşleşmez; yanlış sözleşme
+sürümü reddedilir. Süre 1–300 saniye, UTC fixture clock; aynı authorization UUID
+tekrar kullanılamaz. Okuma/evaluate yetkisi issue/apply yetkisi değildir.
+
+Issue ve apply öncesinde aynı evaluator güncel bağımsız fake provider kanıtını,
+next-step sırasını ve önceki UNKNOWN→yetkili karar→CONTINUE zincirini yeniden
+kontrol eder. Eksik/belirsiz kanıt yetkiye dönüşmez. Grant verildikten sonraki
+owner/journal/fencing/provider/evidence drift'i tüketimi engeller.
+
+Apply mevcut tek in-memory transaction içinde owner revision+1/fence+1,
+journal revision+1, korelasyonlu audit, HELD outbox olayı, lease token+1 ve
+registry tüketimini birlikte kaydeder. Yalnız **NEXT_STEP_DECISION_RECORDED**
+durumu oluşur. Owner authority LOCAL ve active_request korunur; başarı state'i,
+retry, telafi, provider dispatch veya sonraki adım yoktur. UNKNOWN receipt'ler,
+önceki evaluation/decision/CONTINUE kayıtları değişmez. İlgili güncel outbox olayının
+ACKED/APPLIED veya CANCELLED/NOT_APPLIED etiketi yalnız yetkili kanıt kararıdır;
+provider işlemi veya otomatik hesap SUCCESS sonucu değildir. Son ek olay HELD'dir.
+Mevcut CONTINUE politikası yalnız önceki EXECUTOR_DECISION_RECORDED durumunu kabul
+ettiğinden bu yeni checkpoint için continuation açılmış değildir.
+
+8 yeni hedefli test; iki adımda başarı/ret, eksik/çelişkili/yanlış scope-sürüm
+kanıt, yetki/süre, stale CAS/fence/geçmiş, tek kazanan yarış, duplicate karar ve
+beş atomik hata sınırı kapsanır. Önceki read-only testinin artık geçersiz olan
+“yetkili issue da kapalı” beklentisi, değerlendirme otomatik grant üretmez ve
+ayrı issue izni gerekir beklentisine güncellendi; yalnız bu değişen test çalıştı.
+Gerçek PostgreSQL, kalıcı audit/AAA veya canlı yetki kabulü değildir.

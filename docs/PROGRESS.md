@@ -6103,3 +6103,32 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   sır, canlı AAA/V1/V2.5/VDS/cihaz/IPsec, migration/restart/deploy/push yok.
 - Sonraki tek öncelik: bu salt okunur kanıt entegrasyonunun değerlendirilmesi
   ardından ayrı görevde güvenli Git senkronizasyonu; karar/dispatch açılmadı.
+
+## Next-step UNKNOWN yetkili karar entegrasyonu — 2026-11-12 — izole PASS
+
+- office-development/2be7e6f doğrulandı; AGENTS/güncel devir ve evaluator,
+  authorization/owner CAS/journal/audit/outbox/fencing birlikte incelendi.
+  Mevcut BASH, echo, pg_isready ve stash/dallar korundu.
+- Kök eksik: next-step kanıtı tutarlı olsa da issue/apply kapısı koşulsuz kapalıydı.
+  Mevcut sürümlü AUTHORIZED_DECISION ve registry/TTL/tek kullanım/transaction
+  mekanizması yeniden kullanıldı; paralel karar sistemi yok.
+- Next-step evaluation tenant/subscriber/execution/event/attempt/plan hash,
+  receipt/evidence fingerprint, owner revision/fence/token ve sürümü grant'a
+  bağlar. Fresh evaluator sıra/geçmiş/bağımsız provider kanıtını issue/apply
+  öncesinde yeniden doğrular. Yetki, karar türü, scope, TTL ve sürüm kontrolü var.
+- Tüketim, owner CAS, journal, audit, HELD outbox ve fencing tek atomik memory
+  işlemde NEXT_STEP_DECISION_RECORDED üretir. Eski UNKNOWN receipt/karar/CONTINUE
+  geçmişi korunur; source authority ve active_request değişmez. Otomatik
+  SUCCESS/retry/telafi/dispatch veya sonraki adım yok; yeni checkpoint worker
+  otomatik claim kapısında tutulur. Mevcut continuation bu duruma açılmadı.
+- PASS: 8 yeni hedefli test + yeni yetkili issue gereksinimine uyarlanan 1 eski
+  kanıt testi (9 ilgili kontrol). Başarı/ret iki next-step'te; değişmiş grant,
+  kapsam/TTL/sürüm/evidence, stale owner/journal/fence/token/geçmiş, yarış,
+  duplicate ve beş atomik fault rollback kapsandı. Önceki başarılı AAA suite,
+  frontend/build/HTTP tekrarlanmadı. Testler yalnız in-memory/sahte provider;
+  fixture socket/SQLite/psycopg girişlerini yasaklar.
+- Teknik sözleşme AAA_EXECUTOR_UNKNOWN_DECISION.md içinde güncellendi.
+  PostgreSQL/demo/kullanıcı/gerçek audit/secret/canlı cihaz/RADIUS/V1/V2.5/VDS/
+  IPsec erişimi veya yazımı, migration/restart/deploy/push yok.
+- Sonraki tek öncelik: sonucu değerlendirdikten sonra ayrı güvenli Git
+  senkronizasyonu. Next-step devam/dispatch politikası bu görevin dışındadır.

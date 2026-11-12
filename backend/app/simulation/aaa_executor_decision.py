@@ -75,7 +75,7 @@ class ExecutorDecisionRecord(ReadContract):
     owner_revision: int
     operation_revision: int
     checkpoint_fingerprint: str
-    state: Literal['EXECUTOR_DECISION_RECORDED'] = 'EXECUTOR_DECISION_RECORDED'
+    state: Literal['EXECUTOR_DECISION_RECORDED', 'NEXT_STEP_DECISION_RECORDED'] = 'EXECUTOR_DECISION_RECORDED'
     automatic_dispatch: Literal[False] = False
     external_writes: Literal[False] = False
 
@@ -281,8 +281,15 @@ class ExecutorReconciliationService:
             return self._evaluate(request, execution_id, scope=scope)
 
     def _supported(self, decision, evaluation):
-        if evaluation.reference_version is not None:
-            raise ExecutorDecisionConflict('NEXT_STEP_READ_ONLY_EVALUATION_ONLY')
+        if (evaluation.version != 'EVIDENCE_EVALUATION_V1_FIXTURE'
+                or decision not in ('CONFIRM_SUCCESS', 'CONFIRM_REJECTION')):
+            raise ExecutorDecisionConflict('DECISION_OR_EVALUATION_VERSION_CONFLICT')
+        if evaluation.reference_version is not None and (
+                evaluation.reference_version != 'NEXT_STEP_UNKNOWN_REFERENCE_V1_FIXTURE'
+                or any(getattr(evaluation, field) is None for field in ('event_id', 'attempt_id', 'plan_hash',
+                    'fencing_token', 'owner_fence', 'owner_revision', 'operation_revision',
+                    'receipt_fingerprint', 'provider_evidence_fingerprint'))):
+            raise ExecutorDecisionConflict('INCOMPLETE_NEXT_STEP_DECISION_EVIDENCE')
         expected = 'CONFIRMED_SUCCESS' if decision == 'CONFIRM_SUCCESS' else 'CONFIRMED_REJECTION'
         if evaluation.status != expected:
             raise ExecutorDecisionConflict('READ_ONLY_RECONCILIATION_REQUIRED')
@@ -290,6 +297,9 @@ class ExecutorReconciliationService:
     def issue(self, request, scope, context, evaluation: EvidenceEvaluation, intent: ExecutorDecisionIntent, *, permission=False):
         self._guard(request, scope, context, permission, 'can_issue_decision')
         self._guard(request, scope, context, permission, 'can_evaluate')
+        if type(intent) is not ExecutorDecisionIntent:
+            raise ExecutorDecisionConflict('INVALID_DECISION_INTENT')
+        intent = ExecutorDecisionIntent.model_validate_json(intent.model_dump_json())
         unit = self._unit
         with unit._lock, self._provider._lock, unit._transaction():
             if intent.authorization_id in unit._state['executor_decision_authorizations']:
@@ -308,6 +318,8 @@ class ExecutorReconciliationService:
     def apply(self, request, scope, context, grant: AuthorizedExecutorDecision, *, permission=False, fail_at=None):
         self._guard(request, scope, context, permission, 'can_apply_decision')
         self._guard(request, scope, context, permission, 'can_evaluate')
+        if type(grant) is not AuthorizedExecutorDecision or grant.version != 'AUTHORIZED_DECISION_V1_EXECUTOR_FIXTURE':
+            raise ExecutorDecisionConflict('DECISION_AUTHORIZATION_VERSION_CONFLICT')
         unit = self._unit
         with unit._lock, self._provider._lock, unit._transaction(None if fail_at == 'AUTHORIZATION' else fail_at):
             if unit._state['executor_decision_authorizations'].get(grant.authorization_id) != grant:
@@ -322,9 +334,10 @@ class ExecutorReconciliationService:
                 raise ExecutorDecisionConflict('CAS_FENCE_SCOPE_OR_EVIDENCE_CHANGED')
             self._supported(grant.decision, fresh)
             key, owner_key, op = unit._match(unit._state, request)
+            recorded_state = 'NEXT_STEP_DECISION_RECORDED' if fresh.reference_version is not None else 'EXECUTOR_DECISION_RECORDED'
             owner = unit._state['owners'][owner_key].model_copy(update={
                 'revision': fresh.owner_revision + 1, 'fence': fresh.owner_fence + 1})
-            op = op.model_copy(update={'state': 'EXECUTOR_DECISION_RECORDED', 'revision': op.revision + 1,
+            op = op.model_copy(update={'state': recorded_state, 'revision': op.revision + 1,
                                       'owner_revision': owner.revision, 'fence': owner.fence})
             unit._state['owners'][owner_key], unit._state['journal'][key] = owner, op
             events = tuple(e.model_copy(update={'status': 'ACKED' if grant.decision == 'CONFIRM_SUCCESS' else 'CANCELLED',
@@ -338,10 +351,10 @@ class ExecutorReconciliationService:
             unit._state['leases'][key] = lease
             record = ExecutorDecisionRecord(authorization_id=grant.authorization_id, evaluation=fresh,
                 decision=grant.decision, owner_revision=owner.revision, operation_revision=op.revision,
-                checkpoint_fingerprint=held_checkpoint_hash(owner, op, lease, unit._state['outbox'][key]))
+                checkpoint_fingerprint=held_checkpoint_hash(owner, op, lease, unit._state['outbox'][key]), state=recorded_state)
             unit._state['executor_decision_records'][grant.authorization_id] = record
-            unit._audit(unit._state, request, op, 'EXECUTOR_DECISION_RECORDED')
-            unit._record(lease, 'EXECUTOR_DECISION_RECORDED')
+            unit._audit(unit._state, request, op, recorded_state)
+            unit._record(lease, recorded_state)
             unit._state['executor_decision_audit'].append((grant.authorization_id, context.actor_id, 'CONSUMED', fresh.evidence_fingerprint, now))
             if fail_at == 'AUTHORIZATION':
                 raise ExecutorDecisionConflict('INJECTED_AUTHORIZATION_FAILURE')
