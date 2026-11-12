@@ -55,3 +55,36 @@ PostgreSQL/migration/gerçek audit/AAA/secret erişimi yoktur.
 
 Sonraki işlem veya bu veri kaydını yürütme yetkisine dönüştürme bu tasarımın
 dışındadır; ayrı kapsam ve güvenlik tasarımı gerektirir.
+
+## Ayrı execution authorization checkpoint'i — 2026-11-12
+
+PreparedExecutionService mevcut FixtureExecutionService issue/stage motorunu,
+ExecutionIntent TTL sınırını, execution_authorizations/execution_records registry'sini
+ve atomik transaction'ı kullanır. Yeni paralel yetki deposu yoktur. plan() mevcut
+hazırlığın consumed kaydı, event/audit/hash ve CAS/fencing bağlarını kontrol eder;
+özel predecessor kopyasında aynı NextStepPreparationService üzerinden tüm önceki
+kanıt/sıra zincirini yeniden doğrular. Gerçek unit/provider geriye sarılmaz.
+
+PREPARED_EXECUTION_PLAN_V1_FIXTURE hazırlık ID/fingerprint'ini ve mevcut
+execution/event/attempt/tenant/subscriber/canonical step/hash/evidence/receipt/
+owner revision/fence/token/sürüm bağlarını taşır. Yetki
+PREPARED_EXECUTION_AUTH_V1_FIXTURE ayrı UUID ve actor ile aynı registry'ye kaydedilir.
+Issue provider çağırmaz, owner/journal/outbox/preparation kaydı değiştirmez.
+
+consume (stage alias'ı da yalnız aynı işlemi yapar) scope/TTL/registry/tek kullanım
+ve güncel planı tekrar doğrular. Mevcut transaction owner revision/fence+1,
+journal revision+1, lease token+1, audit, HELD outbox ve tüketim kaydını birlikte
+EXECUTION_AUTHORIZED_HELD durumunda yayımlar. Önceki PREPARED_HELD dahil tüm
+kayıtlar korunur; yeni kayıt eklenir. Owner authority/active_request/provider
+aynı kalır. Bu checkpoint yalnız yetkilendirme metadata'sıdır; çalıştırma
+capability'si değildir. execution_authorized=false burada executor tarafından
+kabul edilen yetki olmadığını belirtir; ayrı issued authorization nesnesinin
+varlığını inkâr etmez. Dispatch için ayrı, henüz tanımlanmamış kabul yolu gerekir.
+Mevcut exact-type executor ve worker bu yeni checkpoint'i çalıştıramaz.
+
+7 yeni test PASS: issue/consume ayrımı ve JSON roundtrip; kapsam/kimlik/event/
+attempt/hash/step/version bağları; CAS/fence/provider/preparation drift;
+TTL/permission; beş atomik fault; concurrent CAS/duplicate/replay; UNKNOWN/
+CANCELLED/eksik kanıt/preparation. Testte yeni akış boyunca fake execute/run
+metotları yasak; provider snapshot değişmez. Önceki başarılı testler tekrarlanmadı.
+Gerçek DB/kullanıcı/audit/AAA veya ağ işlemi yapılmadı; push yok.

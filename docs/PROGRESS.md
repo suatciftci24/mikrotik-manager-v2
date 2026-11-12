@@ -6190,3 +6190,30 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   IPsec, migration/reset/restart/deploy/push işlemi yok.
 - Sonraki tek öncelik: sonucu değerlendirdikten sonra ayrı güvenli Git
   senkronizasyonu; hazırlık kaydı için execution yetkisi açılmadı.
+
+## Prepared-held ayrı execution authorization — 2026-11-12 — izole PASS
+
+- office-development/129124a doğrulandı; AGENTS, hazırlık/authorization ve
+  CAS/fencing/journal/audit/outbox sözleşmeleri okundu. BASH, echo, pg_isready,
+  mevcut stash ve yedek dallar korundu.
+- PreparedExecutionService mevcut execution issue/stage/TTL/registry/tek kullanım
+  transaction motorunu kullanır; paralel authorization altyapısı yok.
+  Hazırlığın atomik consumed/event/audit/hash/CAS bağları ve mevcut preparation
+  doğrulayıcısıyla private predecessor'da tüm kanıt/sıra geçmişi doğrulanır.
+- Ayrı PREPARED_EXECUTION_PLAN/AUTH v1 hazırlık ID/fingerprint ve tenant/
+  subscriber/execution/event/attempt/step/canonical hash/evidence/receipt/
+  owner revision/fence/token/sürüm bağlarını taşır. Issue yalnız yetki registry
+  ve audit'i yazar; consume güncel CAS/fencing/TTL/scope/replay'i yeniden sınar.
+- Atomik tüketim yalnız EXECUTION_AUTHORIZED_HELD metadata kaydı üretir;
+  owner/journal/lease/audit/outbox/registry birlikte kaydedilir. PREPARED_HELD
+  ve eski UNKNOWN/evidence/decision/CONTINUE geçmişi değişmez. Exact-type
+  executor/worker bu kayıtla dispatch yapamaz; provider/authority değişmez.
+- PASS: 7 yeni hedefli test. İlk 6; ardından ek UNKNOWN/CANCELLED/eksik kanıt/
+  issue izni testi geçti. JSON/scope/hash/step/version, drift, expiry, duplicate,
+  replay/concurrent CAS ve beş atomik fault sınırı kapsandı. Yeni akış boyunca
+  fake provider execute ve executor run testte yasaklandı. Önceki başarılı AAA
+  suite/frontend/build/HTTP tekrarı yok; socket/SQLite/psycopg fixture'da yasak.
+- AAA_NEXT_STEP_PREPARATION.md güncellendi. Gerçek PG/demo/kullanıcı/audit/
+  secret/canlı V1/V2.5/VDS/cihaz/RADIUS/IPsec işlemi, migration/restart/deploy/
+  veri silme/push yok. Sonraki tek öncelik: sonucu değerlendirdikten sonra
+  ayrı güvenli Git senkronizasyonu; execution/dispatch bu görevde açılmadı.
