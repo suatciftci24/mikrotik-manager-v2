@@ -6331,3 +6331,29 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   veri silme/push yok. Gerçek DB/provider entegrasyonu bu kabul değildir.
 - Sonraki tek öncelik: sonuç değerlendirmesi ardından ayrı güvenli Git
   senkronizasyonu; canlı entegrasyon için ayrı tasarım/kabul/onay gerekir.
+
+## AAA PostgreSQL kalıcılık tasarımı ve güvenlik — 2026-11-12
+
+- office-development/52a0e40 doğrulandı; AGENTS/son kabul ve mevcut PostgreSQL
+  kaynak şemaları/models, SessionLocal, subscriber transaction/idempotency,
+  demo marker/owned-cluster guard, V2.6 acceptance profile ve AAA memory zinciri
+  birlikte incelendi. Gerçek DB katalog/rol/servis sorgulanmadı.
+- docs/AAA-POSTGRESQL-DESIGN.md dört teknik tablo (operations/actions/attempts/
+  outbox), mevcut workspace owner ve events audit'inin yeniden kullanımı;
+  composite FK/unique/indeks, TTL/single-use CAS, lock sırası/fencing, UNKNOWN,
+  dispatch crash/recovery ve receipt-audit-outbox transaction sınırlarını tanımlar.
+  İkinci abone/audit deposu yok. Tenant/owner metadata ve migration yalnız taslak.
+- docs/AAA-POSTGRESQL-SECURITY-REVIEW.md local-demo/disposable V2.6 acceptance/
+  V2.5/V1/üretim ayrımı, exact identity/marker/PGDATA kapısı; RLS/rol/secret,
+  independent evidence, stale worker, restore token regression ve cross-tenant
+  risklerini açıklar. Kaynaktaki guard canlı katalog kanıtı sayılmadı.
+- Kritik açıklar: tenant/membership/actor FK sahibi, bütün owner writers için
+  active-operation/CAS, gerçek provider fencing/kanıt/idempotency, PostgreSQL
+  durability/concurrency/RLS ve restore/recovery kabulü. Memory PASS production
+  exactly-once veya canlı izin değildir; otomatik UNKNOWN retry yasak.
+- Yalnız belge link/başlık/kapsam ve diff kontrolleri; test/build/migration yok.
+  Ürün kodu değiştirilmedi, PostgreSQL/socket/secret/gerçek provider'a erişilmedi.
+  BASH, echo, pg_isready; stash/yedek dallar ve gerçek veriler korundu; push yok.
+- Sonraki tek uygulama önceliği: ayrı onaylı disposable kabul için dış dispatch'i
+  kapalı PostgreSQL metadata repository/UoW adapter hazırlığı; bu belge görevi
+  DB erişimi veya migration yetkisi vermez.
