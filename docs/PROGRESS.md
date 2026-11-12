@@ -5209,3 +5209,26 @@ Her iki ilerleme kaydi korunmustur:
   BLOCKED kalır; memory PASS canlı kabul değildir.
 - Son adım: bu ilgili dosyaları normal commit/push ile GitHub main-guncel'e
   aktarmak ve uzak SHA eşitliğini doğrulamak; force push yok.
+
+## V2.6 AAA PostgreSQL izole kabul incelemesi — 2026-11-12 — BLOCKED
+
+- Başlangıç main-guncel/78c70dc temiz, GitHub SHA aynı. AGENTS, son AAA/E2E,
+  PG güvenlik/adapter ve resolver/owner-writer planları okundu; önceki 57 test
+  tekrarlanmadı. Önceki görevin 78c70dc push ve SHA eşitliği doğrulanmıştır.
+- Belgeli /tmp/mikrotik-v26-acceptance kökü yok. Hazır/owned/marker ve AAA şema
+  kanıtı olmadığından PG bağlantısı kurulmadı; yeni DB yaratan HTTP harness
+  çalıştırılmadı. Gerçek claim TTL/prepared/decision/receipt PG kabulü BLOCKED.
+- Güvenli DI düzeltmeleri: metadata issue TTL artık 1–300 saniye ve aware
+  ActionMetadata yeniden doğrulanır; ownership grant yalnız gerçek True ve
+  pozitif int membership revision kabul eder. Yeni testte kanıtlanan kusurlar
+  giderildi. Runtime wiring, yeni resolver/şema/servis/yetki yolu eklenmedi.
+- PASS yalnız offline/fake: 4 yeni sınır testi,8 metadata,7 owner ve2 provider
+  fixture testi; toplam21. PostgreSQL CAS SQL derlemesi yapıldı; gerçek SQL,
+  MVCC/locking/RLS veya membership resolver kabulü değildir. Diff temiz.
+- Kabul: docs/AAA-POSTGRESQL-ISOLATED-ACCEPTANCE.md. Resolver kalıcı kaynak/
+  freshness, owner metadata/bütün writer katılımı ve PG runtime kabulü BLOCKED.
+- Önce/sonra HTTPS200 ve doğrulanmış readiness başarılı; database_checked=false.
+  Mevcut yerel/canlı DB, kullanıcılar, V1/V2.5/VDS/router/RADIUS korunur;
+  DB oluşturma/migration/silme/restore/deploy/restart veya gerçek AAA etkisi yok.
+- İlgili güvenli değişiklikler normal commit/push kapsamındadır; gereken sonraki
+  girdi hazır ve kimliği kanıtlı izole AAA kabul ortamı ve sözleşme ön koşullarıdır.

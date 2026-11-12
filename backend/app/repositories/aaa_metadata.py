@@ -122,7 +122,8 @@ class PostgresMetadataRepository:
 
     def issue(self, operation_id, action: ActionMetadata):
         self._check()
-        if action.expires_at <= action.issued_at or (action.expires_at-action.issued_at).total_seconds() > 300:
+        action = ActionMetadata.model_validate_json(action.model_dump_json())
+        if not 1 <= (action.expires_at-action.issued_at).total_seconds() <= 300:
             raise MetadataConflict('INVALID_AUTHORIZATION_TTL')
         if self.validate_contract(action.payload, self.scope, operation_id) is not True:
             raise MetadataConflict('VERSIONED_CONTRACT_REQUIRED')

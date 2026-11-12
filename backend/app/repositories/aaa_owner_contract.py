@@ -25,8 +25,9 @@ class OwnerContractConflict(ValueError):
 
 def require_ownership(scope, grant, capability='AAA_METADATA'):
     if (type(scope) is not OwnerScope or type(grant) is not OwnershipGrant
-            or grant.version != 'AAA_OWNER_SCOPE_V1' or not grant.actor_active
-            or grant.membership_revision < 1 or capability not in grant.capabilities
+            or grant.version != 'AAA_OWNER_SCOPE_V1' or grant.actor_active is not True
+            or type(grant.membership_revision) is not int or grant.membership_revision < 1
+            or capability not in grant.capabilities
             or (grant.tenant_id,grant.actor_id,grant.subscriber_id)
                 != (scope.tenant_id,scope.actor_id,scope.subscriber_id)):
         raise PermissionError('TRUSTED_TENANT_ACTOR_OWNER_GRANT_REQUIRED')
