@@ -6357,3 +6357,30 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
 - Sonraki tek uygulama önceliği: ayrı onaylı disposable kabul için dış dispatch'i
   kapalı PostgreSQL metadata repository/UoW adapter hazırlığı; bu belge görevi
   DB erişimi veya migration yetkisi vermez.
+
+## AAA PostgreSQL metadata repository/UoW prototipi — 2026-11-12 — PARTIAL
+
+- office-development/73c8164 doğrulandı; AGENTS, PG tasarım/güvenlik/E2E belgeleri,
+  metadata/owner yazıcıları ve mevcut memory UoW sözleşmeleri incelendi.
+  BASH, echo, pg_isready, stash ve yedek dallar korundu.
+- DI-only PostgresMetadataUow/repository, operations/actions/attempts/outbox
+  Core projeksiyonları; mevcut workspace owner/events yeniden kullanıldı.
+  Varsayılan engine/config/API wiring yok. Scope/target/contract callback'leri
+  zorunlu; owner-first locks, owner+operation CAS/fence, server clock TTL,
+  single-use/fingerprint, audit/outbox/journal transaction ve poison rollback var.
+- BLOCKED runtime: 008 owner'da tenant/fence/active-operation kolonları yok;
+  günlük subscriber_center/subscriber_operations yazıcıları AAA lock/fence
+  sözleşmesini tanımıyor. Büyük kapsamlı değişiklik yapılmadı. İlk owner
+  rezervasyonu, tam FK/unique/index/RLS, versioned contract callback bağlayıcısı,
+  lease/dispatch/recovery persistence hâlâ entegrasyon kapısı; sahte PASS yok.
+- PASS yalnız 8 yeni fake-session testinde: commit/rollback, caught fault poison,
+  concurrent CAS, stale fence, TTL/replay, wrong tenant/actor, idempotency,
+  UNKNOWN preservation ve audit/outbox tutarlılığı. İlk koşu OperationFixture'da
+  bulunmayan request_id erişimini yakaladı; mevcut fingerprint bağıyla düzeltildi.
+  Son sözleşme sıkılaştırmasında yalnız ilgili UNKNOWN testi tekrar geçti.
+- docs/AAA-POSTGRESQL-ADAPTER.md desteklenen sınırları ve eksikleri açıklar.
+  Fake lock/session gerçek PG transaction/MVCC/durability kanıtı değildir.
+  Gerçek PG/SQL gönderimi, migration/schema değişikliği, servis/provider/secret/
+  demo veri/audit veya canlı V1/V2.5/VDS/router/RADIUS/IPsec işlemi ve push yok.
+- Sonraki tek öncelik: tenant/actor+owner-writer kilit entegrasyon kapsamını
+  kesinleştirmek; sonra ayrı onaylı disposable PostgreSQL kabulü planlanabilir.
