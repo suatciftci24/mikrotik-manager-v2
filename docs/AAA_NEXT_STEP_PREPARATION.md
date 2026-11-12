@@ -132,3 +132,43 @@ izni testi geçti. SUCCESS/REJECTED/UNKNOWN, crash/lost-response, claim/run/acce
 race, replay, TTL/scope/version/content, stale fencing/history, post-effect CAS
 ve beş atomik fault kapsandı. Eski başarılı suite tekrarlanmadı. PostgreSQL/ağ/
 gerçek provider/secret kullanılmadı; test fixture dış IO girişlerini yasaklar.
+
+## Prepared UNKNOWN bağımsız evidence değerlendirmesi — 2026-11-12
+
+Önceki bölümdeki prepared checkpoint için koşulsuz read-only blokajı aynı
+EVIDENCE_EVALUATION_V1_FIXTURE evaluator içinde kaldırıldı. Yeni evaluator,
+karar servisi veya input kanıt endpoint'i yoktur. Yetkili pinned fake reader
+üzerinden receipt/current state/fence okunur. Executor fake dispatch sırasında
+provider state'ine receipt canonical fingerprint'ini `executor_evidence` olarak
+kaydeder; bu kayıt local timeout/UNKNOWN kabulünden üretilmez. Kesin provider
+receipt'i bu dispatch kaydıyla eşleşmeli, execution için tek olmalı ve provider
+örneği execution'ın kayıtlı kaynağı olmalıdır. Kopya reader, local UNKNOWN veya
+UNKNOWN'dan outcome değiştirilerek türetilmiş beyan tek başına kanıt değildir.
+Bu metadata fake provider trust boundary'sidir, kriptografik imza veya canlı
+sağlayıcı bağımsızlığı garantisi değildir; tüm internal state'i yetkisiz yazabilen
+bir saldırgana karşı tamper-proof ledger iddiası yoktur.
+
+Mevcut UNKNOWN referansı execution/event/attempt/tenant/subscriber/step/plan hash,
+receipt fingerprint, owner revision/fence/token ve contract sürümüne bağlanır.
+Mevcut staging/UNKNOWN checkpoint ve audit/outbox sayımları kontrol edilir.
+Prepared authorization ve tüm öncül preparation/CONTINUE/decision/provider
+zinciri mevcut doğrulayıcılarla private kopyalarda yeniden değerlendirilir.
+COMMIT_OWNER_CAS provider durumunu değiştirmediğinden pinned reader'ın kesin
+SUCCESS/REJECTED receipt'i gereklidir; aynı provider state'inden başarı tahmini
+üretilmez. Eksik/UNKNOWN/duplicate/stale/çelişkili kanıt fail-closed kalır.
+
+Çıktı yalnız CONFIRMED_SUCCESS / CONFIRMED_REJECTION veya
+READ_ONLY_RECONCILIATION_REQUIRED değerlendirmesidir. Unknown receipt, owner,
+journal, audit, outbox, history ve provider değişmez. execution_plan_contract
+alanı prepared kanıtı açıkça ayırır. Bu yeni evaluation için mevcut issue/apply
+karar kapısı kapalıdır: PREPARED_EXECUTION_READ_ONLY_EVALUATION_ONLY. Otomatik
+SUCCESS/CONTINUE/CANCEL/retry/dispatch/telafi yoktur.
+
+7 yeni hedefli test PASS: kesin success/ret ve history değişmezliği; UNKNOWN/
+missing/local-derived kanıt reddi; referans scope/hash/kimlik/sürüm; bağımsız
+receipt scope/step/version; stale fence/CAS/provider, duplicate audit/event ve
+missing history; foreign reader/izin/crash; duplicate receipt/dispatch-provenance.
+Son provenance kontrolü sonrası yalnız yeni test ve ilgili kesin kanıt matrisi
+tekrarlandı. Eski başarılı AAA suite çalıştırılmadı. Gerçek PG/ağ/AAA erişimi yok.
+Açık sınır: ayrı yetkili karar entegrasyonu ve gerçek provider kabulü bu görevin
+dışındadır; fixture doğrulaması canlı entegrasyon izni vermez.

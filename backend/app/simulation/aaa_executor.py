@@ -320,6 +320,8 @@ class FixtureExecutor:
                 provider_evidence_fingerprint=canonical_hash({'command': command.model_dump(mode='json'),
                     'provider': candidate['provider'].model_dump(mode='json')}))
             candidate['executor_receipts'][command.execution_id] = receipt
+            # Independent fake-reader provenance: bound at dispatch, never from local UNKNOWN acceptance.
+            candidate.setdefault('executor_evidence', {})[command.execution_id] = canonical_hash(receipt.model_dump(mode='json'))
             provider._state = candidate
             if crash == 'AFTER_EFFECT':
                 raise FixtureCrash('Fixture response lost after possible effect')

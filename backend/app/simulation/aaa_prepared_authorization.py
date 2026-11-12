@@ -37,7 +37,7 @@ class PreparedExecutionService(FixtureExecutionService):
         return dict(previous_execution_id=plan.previous_execution_id, next_step_id=plan.next_step_id,
                     preparation_id=plan.preparation_id)
 
-    def _plan(self, request, scope, followup_id, allowed_step, permission):
+    def _plan(self, request, scope, followup_id, allowed_step, permission, *, provider_checkpoint=None):
         unit = self._unit
         unit._authorized(request, scope, permission)
         key, owner_key, op = unit._match(unit._state, request)
@@ -83,7 +83,7 @@ class PreparedExecutionService(FixtureExecutionService):
         del state['audit'][last]
         del state['execution_records'][followup_id]
         fresh = NextStepPreparationService(shadow, self._provider, initialize=False)._plan(
-            request, scope, plan.followup_id, allowed_step, permission)
+            request, scope, plan.followup_id, allowed_step, permission, provider_checkpoint=provider_checkpoint)
         if fresh != plan:
             raise ExecutionConflict('PREPARATION_EVIDENCE_OR_ORDER_CHANGED')
         return PreparedExecutionPlan(**{**plan.model_dump(), 'contract_version':'PREPARED_EXECUTION_PLAN_V1_FIXTURE',
