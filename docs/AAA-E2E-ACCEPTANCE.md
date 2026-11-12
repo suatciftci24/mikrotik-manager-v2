@@ -70,3 +70,34 @@ bağlantı, veri taşıma, migration veya deploy onayı oluşturmaz.
 
 Sıradaki tek öncelik: kabul sonucunu değerlendirdikten sonra ayrı güvenli Git
 senkronizasyonu; canlı entegrasyon bu fixture PASS'inden başlatılmaz.
+
+## Next-Step deadline güvenlik regresyonu — 2026-11-12
+
+Başlangıç `main-guncel` / `32082b5`; GitHub ucu aynı, ağaç temiz.
+Prepared authorization, fixture executor, evidence, atomik decision ve receipt
+bağlantıları zaten uygulanmıştı. Bu incelemede iki gerçek eksik saptandı:
+`claim` değiştirilmiş Pydantic AttemptIntent için 1–300 saniye sınırını yeniden
+doğrulamıyordu; coordinator `timeout` attempt dolmadan UNKNOWN kaydedebiliyordu.
+Yeni testlerde her iki eksik düzeltme öncesinde başarısız oldu.
+
+Claim artık yeni ve duplicate girişte intent'i JSON sözleşmesiyle yeniden
+doğrular. Timeout aynı unit/provider kilitleri altında expiry öncesini reddeder;
+expiry eşitliğinde UNKNOWN kabulü ve idempotent tekrar korunur. Prepared claim
+expiry'si authorization TTL'siyle sınırlı kalır. Dört eski fixture kurucusu artık
+timeout öncesi sahte saati 30 saniye ilerletir; test beklentileri gevşetilmedi.
+
+PASS: 3 yeni deadline testi + 2 doğrudan timeout regresyonu = 5 test;
+değişen dört fixture modülü ve mevcut E2E kabulü = 52 test. Toplam 57 test geçti.
+Yeni testler alt/üst TTL sınırlarını, değiştirilmiş new/duplicate claim'i,
+dispatch/effect crash ve kayıp cevapta erken timeout reddini, expiry sınırını,
+UNKNOWN replay ve geç kesin receipt çatışmasını state/provider snapshot'larıyla
+doğrular. İlk düzeltme koşusundaki eski fixture timeout ihlalleri giderildi;
+yanlış test sınıfı adı gerçek FixtureExecutorTests adıyla düzeltildi.
+Diff kontrolü temiz. İlgisiz frontend/build/HTTP/PG kabulleri çalıştırılmadı.
+
+Salt okunur canlı HTTPS 200 ve kaynakta doğrulanan `/api/ready` kimliği başarılı;
+readiness `database_checked=false` bildirir, DB veya bütün servislerin sağlık
+kanıtı değildir. DB sorgulayan `/api/health` çağrılmadı. Değişiklikler yalnız
+memory fixture kodu/test/belge kapsamındadır; canlı DB, cihaz, RADIUS, VDS,
+deployment/migration/restart/silme yoktur. Gerçek entegrasyon için önceki
+PostgreSQL, trusted membership/owner writer ve provider kabul engelleri sürer.

@@ -5188,3 +5188,24 @@ Her iki ilerleme kaydi korunmustur:
 
 - docs/merge-history/PROGRESS-main-20261112-210523.md
 - docs/merge-history/PROGRESS-office-20261112-210523.md
+
+## V2.6 AAA Next-Step deadline güvenlik düzeltmesi — 2026-11-12
+
+- Başlangıç temiz office-development/32082b5; GitHub main-guncel aynı SHA.
+  Yerel main-guncel yalnız fast-forward ile eşitlendi; merge çatışması yok.
+  AGENTS, güncel/office ilerleme ve AAA hazırlık/executor/decision/E2E kabulü
+  okundu. Tamamlanmış prepared zincir tekrar geliştirilmedi.
+- Claim'de değiştirilmiş AttemptIntent TTL doğrulaması ve coordinator timeout'ta
+  expiry öncesi ret eksikti. İki hata yeni testte kanıtlandı; mevcut executor'a
+  intent revalidation ve kilit içinde expiry kontrolü eklendi. Yeni servis/state/
+  yetki yolu yok. Dört eski fixture builder sahte saatte expiry'yi bekler.
+- PASS: 5 deadline/doğrudan timeout testi ve değişen fixture modülleri + E2E'de
+  52 test; toplam 57. Eski başarılı ilgisiz AAA/frontend/build/PG testleri yok.
+  Kabul: docs/AAA-E2E-ACCEPTANCE.md son bölüm; güvenlik/diff kontrolü temiz.
+- HTTPS 200, doğrulanmış /api/ready kimliği başarılı; DB kontrol edilmedi.
+  Önce/sonra erişim kontrolleri yapıldı. V1/V2.5/VDS/router/RADIUS/canlı veya
+  yerel PG verileri, kullanıcılar ve audit korunur; deploy/migration/restart/
+  silme yok. Gerçek PG/tenant membership/owner writer/provider entegrasyonu
+  BLOCKED kalır; memory PASS canlı kabul değildir.
+- Son adım: bu ilgili dosyaları normal commit/push ile GitHub main-guncel'e
+  aktarmak ve uzak SHA eşitliğini doğrulamak; force push yok.

@@ -74,6 +74,7 @@ class ExecutorPolicyTests(TestCase):
             self.executor.run(self.request, self.scope, worker, self.command, permission=True, crash=crash)
         except FixtureCrash:
             pass
+        self.clock.advance(30)  # Coordinator timeout requires the claimed attempt to expire.
         self.unknown = self.executor.timeout(self.request, self.scope, worker, self.command, permission=True)
         self.service = ExecutorReconciliationService(self.unit, self.provider)
 

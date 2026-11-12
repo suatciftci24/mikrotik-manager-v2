@@ -255,6 +255,7 @@ class FixtureExecutor:
 
     def claim(self, request, scope, context, execution_id, intent: AttemptIntent, *, permission=False):
         self._scope(request, scope, context, permission, 'can_execute')
+        intent = AttemptIntent.model_validate_json(intent.model_dump_json())
         unit = self._unit
         with unit._lock, self._provider._lock, unit._transaction():
             if execution_id in unit._state['executor_claims']:
@@ -403,6 +404,8 @@ class FixtureExecutor:
     def timeout(self, request, scope, context, command, *, permission=False, fail_at=None):
         self._scope(request, scope, context, permission, 'can_record_timeout')
         with self._unit._lock, self._provider._lock:
+            if self._unit._clock.now() < command.expires_at:
+                raise ExecutorConflict('ATTEMPT_NOT_EXPIRED')
             previous = self._unit._state['executor_accepted'].get(command.execution_id)
             if previous and previous.receipt.outcome != 'UNKNOWN':
                 raise ExecutorConflict('DEFINITE_RESULT_ALREADY_ACCEPTED')
