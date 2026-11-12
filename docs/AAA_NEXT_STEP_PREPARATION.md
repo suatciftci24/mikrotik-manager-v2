@@ -172,3 +172,32 @@ Son provenance kontrolü sonrası yalnız yeni test ve ilgili kesin kanıt matri
 tekrarlandı. Eski başarılı AAA suite çalıştırılmadı. Gerçek PG/ağ/AAA erişimi yok.
 Açık sınır: ayrı yetkili karar entegrasyonu ve gerçek provider kabulü bu görevin
 dışındadır; fixture doğrulaması canlı entegrasyon izni vermez.
+
+## Prepared UNKNOWN atomik yetkili karar bağlantısı — 2026-11-12
+
+Koşulsuz prepared-evaluation karar blokajı kaldırıldı; yeni servis/registry/state
+oluşturulmadı. Mevcut ExecutorReconciliationService issue/apply ve
+AUTHORIZED_DECISION_V1_EXECUTOR_FIXTURE, prepared plan sürümü ile
+NEXT_STEP_UNKNOWN_REFERENCE_V1_FIXTURE eşleşmesini şart koşarak yeniden kullanılır.
+Fresh evaluator issue/apply öncesinde UNKNOWN checkpoint'i, pinned fake provider
+receipt/provenance, tek execution kaydı ve tüm önceki hazırlık/karar zincirini
+tekrar doğrular. Scope, execution/event/attempt, canonical step/plan hash,
+receipt/evidence fingerprint, owner revision/fence/token ve sürüm bağları grant'ın
+nested evaluation'ında korunur. Step identity mevcut doğrulanmış plan ve receipt
+üzerindedir; kullanıcıdan bağımsız yeni bir step beyanı kabul edilmez.
+
+Issue yalnız süreli server-registry grant ve ISSUED audit üretir. Apply ayrı
+can_apply_decision ve can_evaluate izinleriyle TTL/tek kullanım/replay ve güncel
+CAS/fencing/kanıtı tekrar kontrol eder. Mevcut transaction owner revision/fence,
+journal revision, lease token, audit, HELD outbox ve grant tüketimini atomik
+kaydeder. Aynı NEXT_STEP_DECISION_RECORDED durumu kullanılır; yeni durum yoktur.
+Owner authority LOCAL/active_request ve orijinal UNKNOWN receipt korunur.
+Önceki kayıt/audit geçmişi değiştirilmez, yeni olaylar eklenir. Outbox sonuç
+etiketi yetkili kararın kanıt yorumudur; provider effect/SUCCESS geçişi değildir.
+
+7 yeni test + yeni issue izni davranışına uyarlanan 1 ilgili evaluator testi
+PASS. Success/ret, scope/kimlik/hash/sürüm, eksik/bağımsız olmayan kanıt, current
+CAS/fence/provenance, TTL/izin, reused UUID/duplicate/concurrency ve beş atomik
+fault kapsandı. Önceki başarılı suite tekrarlanmadı. Otomatik SUCCESS/CONTINUE/
+CANCEL/retry/telafi/staging/dispatch yok. Gerçek PostgreSQL veya provider/ağ
+kabulü yapılmadı. Sonraki işlem seçimi bu kararın otomatik sonucu değildir.

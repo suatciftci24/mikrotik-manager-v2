@@ -327,8 +327,9 @@ class ExecutorReconciliationService:
             return self._evaluate(request, execution_id, scope=scope)
 
     def _supported(self, decision, evaluation):
-        if evaluation.execution_plan_contract == 'PREPARED_EXECUTION_PLAN_V1_FIXTURE':
-            raise ExecutorDecisionConflict('PREPARED_EXECUTION_READ_ONLY_EVALUATION_ONLY')
+        if (evaluation.execution_plan_contract == 'PREPARED_EXECUTION_PLAN_V1_FIXTURE'
+                and evaluation.reference_version != 'NEXT_STEP_UNKNOWN_REFERENCE_V1_FIXTURE'):
+            raise ExecutorDecisionConflict('PREPARED_EXECUTION_REFERENCE_VERSION_CONFLICT')
         if (evaluation.version != 'EVIDENCE_EVALUATION_V1_FIXTURE'
                 or decision not in ('CONFIRM_SUCCESS', 'CONFIRM_REJECTION')):
             raise ExecutorDecisionConflict('DECISION_OR_EVALUATION_VERSION_CONFLICT')

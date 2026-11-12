@@ -43,8 +43,8 @@ class PreparedEvidenceTests(TestCase):
             self.assertEqual(result.version,ref.evaluation_contract)
             self.assertEqual(self.f.unit._state['executor_accepted'][self.command.execution_id],self.accepted)
             before=self.f.unit.snapshot(),self.f.provider.snapshot()
-            with self.assertRaises(AtomicConflict):
-                self.f.service.issue(self.f.request,self.f.scope,self.f.context,result,
+            with self.assertRaises(PermissionError):
+                self.f.service.issue(self.f.request,self.f.scope,self.f.context.model_copy(update={'can_issue_decision':False}),result,
                     ExecutorDecisionIntent(authorization_id=UUID(int=11000),decision='CONFIRM_SUCCESS' if outcome=='SUCCESS' else 'CONFIRM_REJECTION'),permission=True)
             self.assertEqual(before,(self.f.unit.snapshot(),self.f.provider.snapshot()))
 

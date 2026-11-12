@@ -6277,3 +6277,31 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   kullanıcı/audit/secret/V1/V2.5/VDS/router/FreeRADIUS/RADIUS/IPsec, migration/
   restart/deploy/gerçek dispatch/push yok. Sonraki tek öncelik: prepared UNKNOWN
   doğrulanmış evaluation için ayrı, kapsamlı ve atomik yetkili karar entegrasyonu.
+
+## Prepared UNKNOWN atomik yetkili karar — 2026-11-12 — izole PASS
+
+- office-development/0ec5fc9 doğrulandı; AGENTS ve mevcut authorization,
+  evaluator/decision/CAS/fencing/journal/audit/outbox birlikte incelendi.
+  BASH, echo, pg_isready, stash ve yedek dallar korundu.
+- Yalnız eksik bağlantı tamamlandı: prepared evaluation koşulsuz blokajı,
+  prepared-plan/UNKNOWN-reference sürüm eşleşmesiyle değiştirildi. Mevcut
+  issue/apply TTL/scope/tek kullanım/registry/transaction yeniden kullanıldı;
+  yeni evaluator/authorization deposu veya durum eklenmedi.
+- Fresh evaluator issue/apply öncesi UNKNOWN, bağımsız fake receipt/provenance,
+  execution/event/attempt/tenant/subscriber/step/hash/receipt/evidence/CAS/
+  fencing/sürüm ve önceki hazırlık zincirini yeniden doğrular. Issue yalnız
+  grant/ISSUED audit; apply atomik owner/journal/audit/outbox/lease/tüketimle
+  mevcut NEXT_STEP_DECISION_RECORDED üretir. LOCAL/active_request/UNKNOWN ve
+  önceki geçmiş korunur. Otomatik SUCCESS/CONTINUE/CANCEL/retry/telafi/staging/
+  provider dispatch yok.
+- PASS: 7 yeni hedefli test + issue yetkisinin açılması nedeniyle uyarlanan
+  1 evaluator permission testi. Success/ret, eksik/bağımsız olmayan kanıt,
+  kimlik/hash/sürüm/scope, current CAS/fence/provenance, expiry/izin, duplicate/
+  reused UUID/race ve beş atomik fault rollback kapsandı. Önceki başarılı AAA
+  suite/frontend/build/HTTP tekrarı yok. Yeni test fixture'ları yalnız memory;
+  dış socket/SQLite/psycopg girişleri yasak.
+- AAA_NEXT_STEP_PREPARATION.md güncellendi. Gerçek PG/abone/kullanıcı/audit/
+  secret/V1/V2.5/VDS/router/FreeRADIUS/RADIUS/IPsec, migration/restart/deploy/
+  gerçek dispatch/push işlemi yok. Kalan sınır: fixture kabulü canlı entegrasyon
+  veya sonraki işlem izni değildir. Sonraki tek öncelik: sonuç değerlendirmesi
+  ardından ayrı güvenli Git senkronizasyonu.
