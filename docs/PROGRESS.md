@@ -5283,3 +5283,15 @@ Her iki ilerleme kaydi korunmustur:
   kurulum/fault işlemleri; mevcut DB migration/DML/restore/restart/deploy yok.
   Sıradaki iş sürümlü resolver/metadata entegrasyonu; mevcut kökü runner tekrar
   kullanmaz, silme veya guard gevşetme yok. İlgili kod/test/belge normal push.
+
+## Ev WSL mevcut AAA cluster başlatması — 2026-11-12 — PASS
+
+- Açık işlem onayıyla yalnız mevcut cluster7707358750625226262 başlatıldı.
+  PGDATA/manifest inode-device/UID/private sahiplik ve pg_controldata kimliği,
+  yapılandırma hedefi ve boş55433 portu başlatma öncesi doğrulandı.
+- 127.0.0.1:55433; mikrotik_v26_acceptance, v26_aaa_fixture mevcut.
+  Başlatma sonrası owned process, salt okunur SQL ile gerçek cluster/DB/PGDATA/
+  listen adresi ve pg_isready accepting connections doğrulandı. Küme çalışır bırakıldı.
+- Önce/sonra HTTPS200 ve API readiness başarılı. Yeni cluster/veri/migration/
+  silme/firewall/deploy yok; V1/V2.5/demo/diğer PG/VDS servislerine dokunulmadı.
+  Bu işlem AAA entegrasyon BLOCKED kayıtlarını kapatmaz; kabul testi tekrarlanmadı.
