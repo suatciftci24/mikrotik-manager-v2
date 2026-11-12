@@ -114,3 +114,84 @@ Bu görev hazırlama yetkisi vermez: DB/rol/şema/servis oluşturma, migration,
 DML/restore veya restart yoktur. Mevcut katalogların kesin envanteri için ayrıca
 mevcut ve yetkili salt okunur erişim gerekir; bu erişim eksikliği giderilmeden
 5432'ye ürün kimliği atanmaz. Kabul hâlâ kapalıdır.
+
+## Ev WSL'de yeni AAA cluster ve gerçek metadata kabulü — 2026-11-12
+
+Başlangıç `main-guncel` / `804ac7f`, temiz ağaç ve GitHub SHA aynı.
+Bu görevde kullanıcı yalnız ev WSL'de yeni izole ortam oluşturmayı açıkça
+yetkilendirdi; önceki envanter bölümünün oluşturma yasağı tarihsel kapsamdır.
+**PASS: yeni ortamın izolasyonu ve aşağıdaki metadata PostgreSQL senaryoları.**
+**BLOCKED: uygulamanın uçtan uca prepared/resolver/executor/receipt entegrasyonu.**
+
+| Kimlik | Doğrulanan değer |
+| --- | --- |
+| Host | Ev WSL `DESKTOP-MT2JS7H`; Microsoft kernel + WSL_DISTRO_NAME; UID1000 ve repo sahipliği |
+| PostgreSQL | Yeni PG16 cluster; system identifier `7707358750625226262` |
+| PGDATA | `/tmp/mikrotik-v26-acceptance/postgres-test` |
+| Ağ | Yalnız `127.0.0.1:55433`; private root içindeki Unix socket |
+| Veritabanı | `mikrotik_v26_acceptance` |
+| Test rolü | `v26_aaa_fixture`; superuser/CREATEDB/CREATEROLE/BYPASSRLS kapalı |
+| Sahiplik | Root/PGDATA UID1000 ve0700; inode/device manifest eşit; symlink yok |
+| Private varlıklar | Manifest ve yalnız bu yeni cluster'ın bootstrap parola dosyası0600; Git dışında |
+| Son durum | Yalnız owned postmaster durduruldu; PGDATA korundu. pg_ctl no server running,55433 listener yok |
+
+Yeni `backend.tests.run_aaa_postgres_wsl` runner'ı WSL/hostname/repo/owner/dal
+kontrolünden sonra sabit portu bind ederek çakışmayı reddeder; mevcut kök varsa
+yeniden kullanım yapmaz. OwnedRoot ve DisposableClusterGuard yeniden kullanılır.
+İlk SQL yazımından önce TCP host/port, current_database/current_user, gerçek
+data_directory ve process/PGDATA sahipliği doğrulanır. Runtime UoW her transaction'da
+process, DB/rol/port ve rastgele fixture marker'ını tekrar kontrol eder.
+
+Yalnız yeni DB'de test projeksiyon şemaları ve sentetik membership/owner kayıtları
+oluşturuldu. `metadata.create_all` burada yalnız test projeksiyonları içindir;
+kurulu ürün şemasına migration veya tam constraint/RLS tasarımı kabulü değildir.
+Gerçek kullanıcı/abone, mevcut5432/demo veya VDS kaynağı kullanılmadı.
+
+### Çalıştırılan gerçek PostgreSQL kapsamı
+
+Runner tek sentetik akışta altı senaryoyu doğruladı: sınırlı runtime rolü; DB
+clock_timestamp ile issue; audit CHECK hatası SQLSTATE23514 sonrası owner/action/
+outbox/attempt rollback; önceden commit edilmiş fixture membership iptalinde ret;
+owner revision/fence CAS ve single-use replay reddi; tek audit ile UNKNOWN receipt
+ve HELD outbox atomik kaydı. Bunlar **6 senaryo**,6 ayrı unittest değildir.
+
+Fixture üyelik okuması aynı session'da scoped SECURITY DEFINER SQL fonksiyonuyla
+kilit alır: sabit schema-qualified tablo, search_path=pg_catalog, dinamik SQL yok,
+PUBLIC execute kapalı. Runtime membership INSERT/UPDATE ve audit UPDATE yetkisi
+almadı. Bu fonksiyon ürün resolver'ı değildir; authenticated actor/identity schema,
+actor/policy freshness, cross-tenant RLS ve concurrent revocation kabulü eksiktir.
+
+5 yeni soketsiz runner güvenlik testi PASS: yabancı host reddi, mevcut kök reddi,
+port çakışmasında dosya oluşturmama ve Python optimize modunda kaldırılmayan kabul
+kontrolü ve hazırlık öncesi harici PGOPTIONS/PGHOSTADDR ortamının temizlenmesi.
+Önceki57/21 test veya ilgisiz HTTP/browser/build tekrarlanmadı.
+
+### Giderilen harness sorunları ve korunan kanıt
+
+İlk doğrudan dosya çağrısı import yolu nedeniyle dosya oluşturmadan durdu; doğru
+giriş `PYTHONPATH=backend backend/.venv/bin/python -m backend.tests.run_aaa_postgres_wsl`.
+İlk cluster denemesinde inet metninin host gösterimi assertion'ı durdurdu;
+`host(inet_server_addr())` ile düzeltildi. Sonraki deneme PostgreSQL'in kilitli
+SELECT için UPDATE yetkisi gereğini gösterdi. Yetkiyi gevşetmek yerine yukarıdaki
+dar fixture fonksiyonu eklendi. Düzeltilen kabul exit0 ile tamamlandı.
+Başarısız iki yeni cluster yalnız durdurulduktan ve sahiplikleri doğrulandıktan
+sonra private `/tmp/mikrotik-v26-acceptance-failed-*` tanı dizinlerinde korundu;
+mevcut/demo küme silinmedi veya yeniden adlandırılmadı. Kör tekrar yoktur.
+
+### Açık entegrasyon kapıları
+
+Prepared authorization ve executor decision/receipt registry'leri hâlâ memory
+motorundadır; gerçek sürümlü payload validator ve PG execution/lease bağlayıcısı
+yoktur. Bu kabulde payload `FIXTURE_TEST_ONLY` ve UNKNOWN receipt test verisidir;
+gerçek prepared authorization/claim TTL veya bağımsız provider kabulü değildir.
+Gerçek membership resolver, bütün günlük owner writers, final source commit,
+FK/RLS/immutable audit, concurrency/durability/crash-recovery kabulü BLOCKED kalır.
+Yeni fixture tablo/fonksiyonları bunları tamamlanmış saydırmaz.
+
+Yeni cluster durdurulmuş olarak korunur; runner mevcut kökü reddeder. Güvenli
+yeniden bağlanma/çalıştırma akışı ayrıca sahiplik ve cluster kimliğini doğrulamalı;
+runner'ı tekrar çalıştırmak için dizin silme veya guard gevşetme önerilmez.
+Sonraki teknik iş, ürün resolver ve sürümlü metadata bağlayıcısını bu izole
+hedefe güvenli bağlamaktır. Canlı deployment veya mevcut DB migration izni yoktur.
+Önce/sonra HTTPS200 ve API readiness başarılı; database_checked=false. Mevcut
+servis restartı, canlı DB/VDS/router/RADIUS işlemi yapılmadı.

@@ -5256,3 +5256,30 @@ Her iki ilerleme kaydi korunmustur:
 - Önce/sonra HTTPS200 ve API readiness doğrulanır; DB kontrolü değildir.
   DB/rol/şema/servis oluşturma, migration/DML/restore/restart/deploy yok.
   Yalnız belge/diff kontrolü ve normal commit/push; force push yok.
+
+## V2.6 AAA ev WSL izole PostgreSQL hazırlığı — 2026-11-12 — PARTIAL
+
+- main-guncel/804ac7f temiz ve GitHub SHA aynı; kurallar/son envanter okundu.
+  Önceki 804ac7f push eşitliği doğrulandı. Yeni cluster için bu görevin açık
+  izni kullanıldı; mevcut DB/servisler yetki kapsamına alınmadı.
+- Ev WSL hostname/kernel/distro/repo/UID1000 doğrulandı. Yeni private PG16
+  /tmp/mikrotik-v26-acceptance/postgres-test,127.0.0.1:55433,
+  mikrotik_v26_acceptance/v26_aaa_fixture; cluster7707358750625226262.
+  Port bind ve absent root, process/PGDATA, TCP DB/rol/directory kimliği PASS.
+- PASS yalnız6 gerçek PG metadata senaryosu: sınırlı rol,server clock issue,
+  audit fault atomic rollback,fixture membership iptali,owner CAS/single-use,
+  UNKNOWN receipt+HELD outbox. Ürün resolver/prepared/executor köprüsü değildir.
+- Harness inet host gösterimi düzeltildi; PG kilitli read UPDATE gereksinimi,
+  runtime'a üyelik mutation yetkisi vermeden dar fixture fonksiyonuyla çözüldü.
+  İki başarısız yeni cluster durdurulup private tanı dizinlerinde korundu.
+- Yeni5 runner güvenlik testi PASS; harici PG ortamı hazırlık öncesi temizlenir.
+  Önceki57/21 veya build/HTTP testi yok.
+  Yeni owned postmaster durduruldu;55433 boş,PGDATA0700 ve manifest/parola0600
+  Git dışında korunur. Mevcut5432/demo/V1/V2.5/VDS/router/RADIUS değişmedi.
+- Kabul docs/AAA-POSTGRESQL-ISOLATED-ACCEPTANCE.md son bölümünde. Gerçek ürün
+  membership/freshness,writer katılımı,prepared/claim TTL/decision/receipt PG
+  bağlayıcısı,FK/RLS/concurrency/crash kabulü BLOCKED. Sahte tam PASS yok.
+- Önce/sonra HTTPS200/readiness başarılı. Yalnız yeni test DB'sinde sentetik
+  kurulum/fault işlemleri; mevcut DB migration/DML/restore/restart/deploy yok.
+  Sıradaki iş sürümlü resolver/metadata entegrasyonu; mevcut kökü runner tekrar
+  kullanmaz, silme veya guard gevşetme yok. İlgili kod/test/belge normal push.
