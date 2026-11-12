@@ -6414,3 +6414,28 @@ Aşağıdaki sonuçlar aynı konuşmadaki önceki geliştirme görevinin gerçek
   canlı V1/V2.5/VDS/router/RADIUS/IPsec, migration/restart/deploy/push yok.
 - Sonraki tek öncelik: güvenilir resolver ve tüm günlük owner writer'ları için
   kapsamı sınırlandırılmış entegrasyon planını onaya hazır hale getirmek.
+
+## Membership resolver ve owner-writer entegrasyon planı — 2026-11-12 — belge PASS
+
+- office-development/48df672 doğrulandı; AGENTS, istenen tasarım/güvenlik/owner
+  matrisi/E2E ve ilerleme okundu. Kimlik/login/current_demo_user/find_user,
+  roles/permissions, workspace ve owner-writer kaynakları incelendi.
+- Aktif aktör kaynağı profile-bound users tablosu olabilir; mevcut domain
+  panel_users ile eşdeğer değil. Kalıcı tenant/membership entity yok. find_user
+  ayrı connection/fallback içerdiğinden aynı UoW resolver olarak doğrudan
+  kullanılamaz; trusted session-aware read ve ayrı actor/member/policy revision
+  freshness proof planlandı. Bootstrap/DEMO ve belirsiz origin/scope reddedilir.
+- AAA-MEMBERSHIP-RESOLVER-PLAN.md güvenilir kaynak/üyelik/iptal/TTL/single-use ve
+  transaction TOCTOU sınırını; AAA-OWNER-WRITER-INTEGRATION-PLAN.md fonksiyon
+  bazlı yazıcı matrisi, additive metadata ve altı aşamada ön koşul/risk/test/
+  PASS-BLOCKED/rollback/canlı etki kapılarını tanımlar. Security review bağlandı.
+- Günlük save/plan/status/renew/QuickActions, legacy/seed/repair/failure audit,
+  worker/recovery ve AAA yolları ayrıldı. Actor-membership-router-owner lock
+  sırası, ilk create yarışı, maintenance ve aktif AAA'da fallback yasağı açık.
+- Yalnız belge başlık/yerel link/referans/diff kontrolleri; test/build/ürün kodu/
+  migration/DB/socket/secret veya gerçek kullanıcı-abone-audit verisi işlemi yok.
+  BASH, echo, pg_isready, stash ve backup dalları korundu; push yok. Gerçek PG/
+  canlı V1/V2.5/VDS/cihaz/RADIUS/IPsec kabulü ve entegrasyonu BLOCKED.
+- Sonraki tek uygulama önceliği: seçilmiş actor schema/tenant membership kararı
+  ile session-aware resolver/freshness proof'u yalnız izole DI testlerinde
+  geliştirmek; gerçek membership verisi/DB/migration ayrıca açık yetki ister.

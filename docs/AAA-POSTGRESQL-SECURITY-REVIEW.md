@@ -160,3 +160,21 @@ active lock taşımaz; güvenilir membership resolver, FK/RLS/rol ve gerçek Pos
 concurrency kabulü yok. Grant modelini oluşturabilmek veya callback'te sabit grant
 döndürmek yetki kanıtı değildir. Python sözleşmesi raw SQL/DBA bypass'ını tek başına
 engellemez. Fake test sonuçları yalnız DI/prototip mantığını doğrular.
+
+## Membership resolver ve tüm writer entegrasyon kapısı — 2026-11-12
+
+[Resolver planı](AAA-MEMBERSHIP-RESOLVER-PLAN.md) profile bağlı kalıcı users
+kaynağını ve eksik membership entity'sini ayırır. current_demo_user her request
+aktörü tekrar okur; bu transaction içi revocation garantisi değildir. find_user
+ayrı connection açar ve kurulum fallback'i içerir; doğrudan UoW resolver olarak
+kullanılmamalı. Session-aware identity/membership read ve actor+membership+policy
+freshness proof gerekir. ADMIN/router izni tenant üyeliği veya AAA capability
+sayılmaz; bootstrap/DEMO origin fail-closed dışlanmalıdır.
+
+[Yazıcı entegrasyon planı](AAA-OWNER-WRITER-INTEGRATION-PLAN.md) fonksiyon bazlı
+create/edit/plan/status/renew/QuickActions, failure audit, legacy/seed/repair,
+worker/recovery ve AAA yollarını; additive owner alanlarını ve altı uygulama
+kapısını tanımlar. Actor/membership→router→owner→operation/action/outbox/attempt
+ortak lock sırası identity/üyelik değiştiricilerini de kapsamalıdır. Aktif AAA
+varken eski günlük yola fallback güvenli rollback değildir. Runtime, gerçek PG
+ve canlı entegrasyon BLOCKED; bu plan belge onayı migration/deploy izni değildir.
