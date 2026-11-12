@@ -268,3 +268,68 @@ AAA55433 pg_isready accepting connections; önce/sonra HTTPS200 ve API readiness
 başarılı. HTTPS readiness DB health kanıtı değildir.
 Sıradaki iş gerçek runtime wiring'i için ayrı şema/identity/writer ve rol-RLS
 kabulüdür; bu izole PASS normal panelde AAA dispatch açmaz.
+
+## Panel entegrasyonu için kapalı adaptör hazırlığı — 2026-11-12
+
+Başlangıç `main-guncel/0bbc747`; temiz ağaç ve GitHub HEAD eşitliği doğrulandı.
+**PASS: varsayılan kapalı, yalnız seçilmiş sentetik DI panel sınırı ve10 yeni test.**
+Önceki11 PostgreSQL kabul senaryosu/bağlayıcısı yeniden geliştirilmedi veya
+çalıştırılmadı. Bu görevde PostgreSQL bağlantısı, SQL veya gerçek login yoktur.
+
+### Kod üzerinden incelenen panel akışları
+
+- `core/security.py`: opaque session ve current_demo_user her istekte aktif
+  kimliği yeniden okur. current_admin ADMIN/can_manage_users/is_demo kontrolüyle
+  aynı user dict'ini döndürür. `identity.public_user` account_origin ile is_demo
+  çevre bayrağını ayırır; LOCAL/seal/login bilgisi birlikte değerlendirilir.
+- `identity.find_user` ayrı connection ve bootstrap fallback içerir; AAA UoW
+  resolver'ı yerine çağrılmadı. Gerçek cookie/login adapter'i enjekte edilmedi.
+- Workspace route'ları merkezi ADMIN + sentetik işlem header'ı kullanır;
+  save/renew ve operations.change revision/source/router ve transaction/row lock
+  kontrol eder. Bunlar ve mevcut AAA preview route'u değiştirilmedi.
+
+### Yeni adaptör ve yetki sınırı
+
+`services/aaa_panel_adapter.py` içinde PanelAaaAdapter varsayılan olarak kapalıdır.
+Ortam değişkeniyle açılamaz. Yalnız enabled=true seçilmiş fixture configuration,
+explicit actor/subscriber allowlist'i, tenant/deployment/worker bağı ve injected
+isolation guard ile kullanılabilir. Guard backend'e erişmeden önce çalışır.
+Default factory, engine, SessionLocal, identity reader, router veya API mount yok.
+Normal startup/router/core/writer dosyalarında adaptör import'u bulunmadığı kod
+üzerinden doğrulandı. Gerçek kullanıcı/abone kaynağına bağlanmadı.
+
+Her çağrıda trusted opaque fixture session okuyucusu, merkezi admin policy,
+server owner binding ve ayrı PanelFixtureAccess tekrar okunur. LOCAL/sealed/aktif
+kimlik, ADMIN, doğru tenant/owner/router/request ve seçilmiş fixture aktörü gerekir;
+is_demo tek başına kimlik veya yetki değildir. Merkezi policy'nin False/None dönüşü
+reddedilir. ADMIN ayrı AAA issue/consume/execute/accept/timeout yetkisi sağlamaz.
+
+Prepared plan server tarafında mevcut PreparedExecutionService ile hesaplanır;
+grant/command/receipt strict JSON sözleşmesi ve scope tekrar doğrulanır. Adaptör
+PostgresFixtureBridge'in invoke/run portuna uyar; AAA_PREPARE/AAA_EXECUTE ve
+ServerPrincipal/PreviewScope bağını korur. Membership çözümleme backend'de kalır,
+adapter tarafında cached grant veya ikinci registry/state machine oluşturulmaz.
+Run ayrı durable dispatch yoluna gider; consume provider çalıştırmaz.
+
+UNKNOWN ve timeout salt ayrı açık yetkiyle mevcut receipt motoruna gider.
+UNKNOWN otomatik SUCCESS/decision/retry/telafi üretmez. Geç kesin receipt çatışma
+olarak kalır; geçerli exact receipt tekrarı idempotenttir, ikinci execution değildir.
+Yeni adaptör normal writer çağırmaz, domain TTL/fence/single-use kapısını gevşetmez.
+
+### Hedefli kabul
+
+10 yeni soketsiz fixture testi PASS: default/env ile açılmama ve guard sırası;
+unauthenticated/DEMO/bootstrap/VIEWER/inactive/truthy flag/merkezi policy reddi;
+yanlış owner/tenant/router/actor/request; açık sentetik başarı ve receipt replay;
+expired prepared grant; ADMIN'den ayrı izin ve fresh panel identity; membership
+iptali; UNKNOWN no-retry/no-promotion; foreign grant/command/receipt; ayrı timeout
+izni/expiry ve late receipt conflict. Test backend'i gerçek domain servisleri ve
+SessionMembershipResolver ile çalışır; PG transaction motorunu yeniden sınamaz.
+Socket/psycopg/SQLite girişleri testte yasaktır. Son iki kapı değişince yalnız bu
+yeni10 test tekrarlandı ve geçti. İlgisiz build/browser/PG kabulü çalıştırılmadı.
+
+Kalan BLOCKED sınırı değişmedi: gerçek session-aware identity kaynağı, tüm panel
+writer'larının ortak AAA kilidine katılımı, runtime şema/rol/RLS ve canlı wiring
+kabulü. Bu kayıt canlı entegrasyon, migration veya dispatch izni değildir.
+HTTPS200 ve doğrulanmış API readiness ön/son başarılı; gerçek panel veya dev.sh
+süreçlerine müdahale edilmedi. Hazırlık yalnız yeni servis modülü/test ve belgedir.

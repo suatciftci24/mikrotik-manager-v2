@@ -5323,3 +5323,23 @@ Her iki ilerleme kaydi korunmustur:
   daily_touch yalnız fixture metadata writer kabulüdür; canlı entegrasyon iddiası yok.
 - Güvenli kod/test/belgeler commit/normal push kapsamındadır. Sıradaki somut iş,
   ayrı runtime şema/identity/writer kabulü; varsayılan panelde dispatch açılmaz.
+
+## V2.6 AAA panel entegrasyonu güvenli hazırlık — 2026-11-12 — hazırlık PASS
+
+- main-guncel/0bbc747 temiz ve GitHub SHA aynı. Kurallar/son kabul okundu;
+  önceki push eşitliği doğrulandı. Tamamlanmış11 PG senaryosu tekrarlanmadı.
+- Panel auth/identity/admin ve workspace save/renew/management writer akışları
+  yalnız koddan incelendi. Gerçek kullanıcı/abone/session/DB kullanılmadı.
+- Yeni PanelAaaAdapter default kapalı; yalnız açık sentetik selection+DI guard,
+  fresh kimlik+merkezi admin+server owner binding+ayrı AAA izinleriyle çalışır.
+  Mevcut resolver/prepared/executor/receipt ve bridge portu yeniden kullanılır.
+  Yeni API/config/registry, startup/writer veya gerçek identity bağlantısı yok.
+- PASS:10 yeni soketsiz fixture testi; yetkisiz/wrong owner/expired grant/replay/
+  UNKNOWN/timeout ve freshness sınırları. False/None policy ve guard sırası
+  sertleştirilince yalnız yeni10 test tekrar geçti.11 PG/build/browser yok.
+- Kabul docs/AAA-POSTGRESQL-ISOLATED-ACCEPTANCE.md son bölümünde. Default panel
+  davranışı korunur; normal route/core/writer'lar adaptörü import etmez. SQL,
+  migration/restart/deploy/cihaz/RADIUS/VDS veya mevcut veri değişikliği yok.
+- HTTPS200/API readiness ön/son başarılı. Gerçek runtime identity/writer/RLS
+  entegrasyonu BLOCKED kalır; sonraki iş yalnız ayrı kapsamlı wiring kabulüdür.
+  Güvenli servis/test/belgeler normal commit/push; force push yok.
