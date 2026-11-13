@@ -24,6 +24,14 @@ class ObserverTransport:
         if type(challenge) is not ObservationChallenge:
             return ObserverTransportResult("UNKNOWN")
         try:
+            if (
+                now.utcoffset() is None
+                or challenge.requested_at.utcoffset() is None
+                or challenge.deadline.utcoffset() is None
+                or not challenge.requested_at <= now < challenge.deadline
+                or (challenge.deadline - challenge.requested_at).total_seconds() > 5
+            ):
+                return ObserverTransportResult("UNKNOWN")
             envelope = self._reader(challenge)
             if type(envelope) is not SignedRemoteEvidence:
                 return ObserverTransportResult("UNKNOWN")

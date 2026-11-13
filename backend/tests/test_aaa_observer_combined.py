@@ -92,6 +92,6 @@ class CombinedObserverAcceptance(TestCase):
         result = self.transport(reader, ring, "new").observe(
             self.challenge, self.challenge.deadline)
         self.assertEqual(result.status, "UNKNOWN")
-        # Existing transport does not enforce a pre-read deadline.
-        # A real transport must implement bounded IO before production.
-        reader.assert_called_once()
+        # Expired challenges must be rejected before invoking the reader.
+        # Real network IO still requires an independently enforced timeout.
+        reader.assert_not_called()
