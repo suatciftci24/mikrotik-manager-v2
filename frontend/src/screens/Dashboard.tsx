@@ -56,7 +56,7 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
   const data=resource.loading?undefined:resource.data;
   const subscribers=(params:Record<string,string>={})=>onNavigate('subscribers',{workspace:'LEGACY',...params});
   const routers=(params:Record<string,string>={})=>onNavigate('routers',{source:'DEMO',...params});
-  const daily=(kind:string)=>{window.location.hash=new URLSearchParams({module:'dashboard',view:'DAILY_REPORT',report_source:'DEMO',period:'TODAY',kind}).toString();};
+  const daily=(kind:string)=>{onNavigate('dashboard',{view:'DAILY_REPORT',report_source:'DEMO',period:'TODAY',kind});};
   const fullDate=data?new Intl.DateTimeFormat('tr-TR',{dateStyle:'full',timeZone:'UTC'}).format(new Date(data.as_of_date+'T00:00:00Z')):'Türkiye takvim günü';
   return <div className="screen-stack dashboard-overview">
     <PageHeading title="Merkezi Dashboard" eyebrow={fullDate} description="V2 sentetik kayıtları · Mevcut demo çalışma alanı" actions={<button className="button-secondary" disabled={resource.loading} onClick={refresh}><RefreshCw size={15}/>Özeti yenile</button>}/>
@@ -97,7 +97,7 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
         <button className="button-secondary" onClick={()=>routers()}><RouterIcon size={17}/>Router Merkezi<ArrowRight size={14}/></button>
         <button className="button-secondary" onClick={()=>subscribers()}><Users size={17}/>Abone Merkezi<ArrowRight size={14}/></button>
         <button className="button-secondary" aria-label="Günlük Yönetim Merkezi" disabled={!reports} onClick={onReport}><LayoutDashboard size={17}/>Günlük Yönetim Merkezi<ArrowRight size={14}/></button>
-        <button className="button-secondary" disabled={!reports} onClick={()=>{window.location.hash=new URLSearchParams({module:'dashboard',view:'DAILY_REPORT',report_source:'DEMO',period:'LAST_24',kind:'OPERATIONS',section:'recent-operations'}).toString();}}><Activity size={17}/>Son 24 saat yönetim işlemleri<ArrowRight size={14}/></button>
+        <button className="button-secondary" disabled={!reports} onClick={()=>{onNavigate('dashboard',{view:'DAILY_REPORT',report_source:'DEMO',period:'LAST_24',kind:'OPERATIONS',section:'recent-operations'});}}><Activity size={17}/>Son 24 saat yönetim işlemleri<ArrowRight size={14}/></button>
         <button className="button-secondary" onClick={()=>onNavigate('operations')}><AlertTriangle size={17}/>Alarm Merkezi<ArrowRight size={14}/></button>
         <button className="button-secondary" disabled={!mika} onClick={()=>onNavigate('mikajani')}><Bot size={17}/>MikAjanı<ArrowRight size={14}/></button>
       </div>
