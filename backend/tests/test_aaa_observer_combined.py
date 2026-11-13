@@ -86,6 +86,30 @@ class CombinedObserverAcceptance(TestCase):
             self.assertEqual(result.status, "UNKNOWN")
             reader.assert_called_once()
 
+    def test_reader_return_before_deadline_is_verified(self):
+        ring = FixtureObserverKeyring([self.new])
+        reader = Mock(return_value=self.signed(self.new))
+        transport = self.transport(reader, ring, "new")
+        with patch(
+            "app.integrations.aaa_observer_transport.datetime"
+        ) as clock:
+            clock.now.return_value = self.now + timedelta(seconds=1)
+            result = transport.observe(self.challenge, self.now)
+        self.assertEqual(result.status, "VERIFIED")
+        reader.assert_called_once()
+
+    def test_reader_return_after_deadline_is_unknown(self):
+        ring = FixtureObserverKeyring([self.new])
+        reader = Mock(return_value=self.signed(self.new))
+        transport = self.transport(reader, ring, "new")
+        with patch(
+            "app.integrations.aaa_observer_transport.datetime"
+        ) as clock:
+            clock.now.return_value = self.challenge.deadline
+            result = transport.observe(self.challenge, self.now)
+        self.assertEqual(result.status, "UNKNOWN")
+        reader.assert_called_once()
+
     def test_expired_challenge_rejected_without_success(self):
         ring = FixtureObserverKeyring([self.new])
         reader = Mock(return_value=self.signed(self.new))

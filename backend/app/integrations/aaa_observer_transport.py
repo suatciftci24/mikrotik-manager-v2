@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 """Offline-only Remote Observer transport boundary. No network IO."""
 from dataclasses import dataclass
 from typing import Callable
@@ -35,7 +36,6 @@ class ObserverTransport:
             envelope = self._reader(challenge)
             # A blocking reader must enforce its own IO deadline.
             # Never accept evidence if the reader returned too late.
-            from datetime import datetime, timezone
             finished_at = datetime.now(timezone.utc)
             if finished_at >= challenge.deadline:
                 return ObserverTransportResult("UNKNOWN")
