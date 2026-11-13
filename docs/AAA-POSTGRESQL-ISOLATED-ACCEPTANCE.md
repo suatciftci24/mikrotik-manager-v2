@@ -649,3 +649,59 @@ RLS ve gerçek RouterOS kayıt sahipliği/oturum politikası. Önceki PG PASS
 kanıtları yeni entegrasyon PASS'i yerine kullanılmaz. Writer ve worker varsayılan
 kapalıdır. 14 abone/5 kullanıcı/yedekler üzerinde okuma/yazma yapılmadı.
 Üretim AAA entegrasyonu tamamlanmış değildir.
+
+## Yeni geçici PostgreSQL birleşik kabulü — 2026-11-13 — izole PASS
+
+Başlangıç main-guncel/36bf7ac temiz. Yeni runner:
+`PYTHONPATH=.:backend backend/.venv/bin/python -m backend.tests.run_aaa_combined_postgres`.
+Yalnız Ev WSL/main-guncel, yokluğu doğrulanmış sabit özel /tmp kökü, boş
+127.0.0.1:55433 ve yeni PG16 cluster kabul edilir. DSN veya existing/fallback
+seçeneği yoktur. Ortamın libpq/loader değişkenleri temizlenir. İlk sandbox
+socket açılışı PermissionError; kapsamlı çalıştırma izniyle tek PG çalışma geçti.
+Gerçek/demo bağlantısı veya ürün migration'ı yok; yeni DB'de yalnız mevcut
+metadata test fixture tabloları/rolleri oluşturuldu. Her transaction'da DB/port/
+PGDATA/system identifier/dizin sahipliği doğrulaması mevcut runner'dan kullanıldı.
+Test sınıfı doğrudan çağrıldığında eski cluster kimliğini benimseyemez.
+
+PASS: 2 PG testi, 0.990s, skip yok. LOCAL6, LOCAL7, RADIUS3 için CREATE,
+EXTEND, PLAN, STATUS pause/activate; süresi dolmuş hesapta disabled/Reject;
+credential gate açıkken gerçek bridge transaction'ı ve LOCAL one-shot worker;
+tenant/router/source/purpose/revision/aktiflik/credential süre reddi;
+VIEWER/OPERATOR reddi ve yabancı actor/tenant/router reddi; provider prepare
+hatasında owner/audit değişmemesi; audit INSERT sırasında PostgreSQL SQLSTATE
+22012 hatasıyla owner CAS ve audit'in birlikte rollback'i; aynı UUID'nin
+eşzamanlı tekrarında tek kayıt, UUID fingerprint çatışması; bağımsız stale
+revision/fence reddi ve iki rakip işlemden tek kazanan doğrulandı.
+Her kayıt kanonik receipt parser'ı ve yetkili DB recovery üzerinden yeniden
+okundu; credential referansı audit dışında kaldı. Worker replay yeni etki
+oluşturmadı; expire audit projeksiyonu disabled=yes içerdi. Worker default kapalı
+reddi doğrulandı. Fake projection saf olduğundan rollback garantisi uzak provider
+rollback'i veya timeout/reconciliation kabulü değildir.
+
+PASS: 2 ayrı runner güvenlik testi /0.001s: mevcut kökte veya yanlış ortamda
+provision çalışmaz. Önceki ağsız paketler tekrar edilmedi. Product kodu değişmedi.
+Cluster ID `7707700951594864184`; runner yalnız kendi postmaster'ını durdurdu,
+son pg_controldata aynı kimlik ve `shut down` gösterdi. Özel test dosyaları
+/tmp altında bırakıldı; otomatik silme/reset/reuse yoktur. Yeni çalıştırma mevcut
+kökü BLOCKED olarak reddeder. Bu kabul PG fixture rolüyledir; gerçek runtime
+kimliği, geniş prepared/executor ve üretim RLS kabulü olarak sunulmaz.
+
+Gerçek entegrasyon için eksik sözleşme/güvenlik gereksinimleri (uygulanmadı):
+
+- Secret-store: trusted runtime principal'dan taze tenant/router/subscriber ve
+  operation grant türetimi; subscriber password/router login/RADIUS shared secret
+  amaçlarının ayrılması; version/revision, validity ve rotation/revocation
+  davranışı. Mevcut resolver yalnız referans metadata'sıdır; secret tüketimi,
+  timeout/erişim hatasında fail-closed davranış, bellekte ömür ve redaction
+  sözleşmesi ile least-privilege store erişimi ayrı kabul gerektirir.
+- FreeRADIUS3: tenant/NAS kapsamlı SQL/unlang ve dictionary/profile allowlist;
+  PAP/CHAP/MSCHAPv2 credential storage uyumu; expiration module/date UTC
+  encoding; gerçek Accept/Reject ve session timeout kanıtı. Bu testte hiçbir
+  RADIUS sunucusu veya gerçek parola doğrulayıcısı kullanılmadı.
+- Gerçek provider: ayrı canlı komut sürümü, güvenli transport/kimlik doğrulama,
+  RouterOS *.id sahiplik kontrolü, kalıcı idempotency/fence ve UNKNOWN durumunda
+  otomatik yazma tekrarı olmadan bağımsız receipt/reconciliation. LOCAL worker
+  scheduler/claim ve aktif oturum politikası ayrıca tasarlanmalı/doğrulanmalı.
+
+Mevcut kullanıcı/veri/yedek ve canlı sistemlere dokunulmadı; varsayılan writer
+ve worker kapalı. Üretim AAA entegrasyonu tamamlanmış değildir.

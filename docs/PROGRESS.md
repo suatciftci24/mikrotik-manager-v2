@@ -1,5 +1,25 @@
 # MikroTik Manager V2 — İlerleme
 
+## AAA yeni geçici PostgreSQL birleşik kabulü — 2026-11-13 — izole PASS
+
+- Başlangıç main-guncel/36bf7ac temiz. Kurallar/son AAA raporu ve mevcut runner,
+  bridge, credential gate, adaptör ve expire akışları incelendi; ürün kodu değişmedi.
+- Yalnız yeni /tmp/mikrotik-v26-acceptance PG16 cluster ve yeni test DB kullanıldı.
+  İlk sandbox socket denemesi PermissionError; kapsamlı izinle tek çalışma PASS.
+  Mevcut demo/pilot DB veya başka hedefe fallback yok. Test tabloları metadata
+  fixture'larıdır; migrations/ çalıştırılmadı. Cluster ID 7707700951594864184.
+- PASS: 2 birleşik PG testi /0.990s + 2 runner güvenlik testi /0.001s, skip yok.
+  LOCAL6/7/RADIUS3 yaşam döngüsü, credential scope/süre, rol/scope reddi,
+  provider hata korunumu, gerçek SQL22012 audit rollback, UUID replay/çatışma,
+  eşzamanlı duplicate ve CAS/fencing yarışı, kalıcı receipt, LOCAL expire kabulü.
+- Runner sonrası pg_controldata aynı ID ve shut down doğruladı. Geçici dosyalar
+  özel izinli /tmp altında korundu; tekrar runner mevcut kökü reddeder, silmez.
+- V1/V2.5/canlıV2.6/router/RADIUS/IPsec/demo DB/14 abone/5 kullanıcı/yedeklere
+  dokunulmadı. Canlı sağlık bağlantısı yok. Writer/worker varsayılanları değişmedi.
+  Önceki geniş AAA prepared/executor/RLS/gerçek provider BLOCKED kayıtları kapanmaz.
+- Ayrıntılar ve gerçek secret-store/RADIUS eksikleri AAA-POSTGRESQL-ISOLATED-ACCEPTANCE.md
+  son bölümünde. Commit ve normal push sonucu görev sonu raporunda.
+
 ## AAA ağsız uçtan uca provider kabulü — 2026-11-13 — yerel PASS
 
 - Başlangıç main-guncel/2b0183e, temiz ağaç. Kurallar, son AAA kabulü ve
