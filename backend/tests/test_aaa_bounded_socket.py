@@ -58,6 +58,34 @@ class BoundedSocketTests(unittest.TestCase):
                 io("fixture", budget)
         connector.assert_not_called()
 
+    def test_slow_connect_reduces_read_timeout(self):
+        connection = Mock()
+        receiver = Mock(return_value="fixture-evidence")
+        with patch(
+            "app.integrations.aaa_bounded_socket.time.monotonic",
+            side_effect=[100.0, 102.5, 102.6],
+        ):
+            result = BoundedSocketIO(
+                Mock(return_value=connection), receiver
+            )("fixture", ReaderBudget(1.0, 3.0))
+        self.assertEqual(result, "fixture-evidence")
+        connection.settimeout.assert_called_once_with(1.5)
+        connection.close.assert_called_once()
+
+    def test_exhausted_budget_skips_read_and_closes(self):
+        connection = Mock()
+        receiver = Mock()
+        with patch(
+            "app.integrations.aaa_bounded_socket.time.monotonic",
+            side_effect=[100.0, 104.0],
+        ):
+            with self.assertRaises(TimeoutError):
+                BoundedSocketIO(
+                    Mock(return_value=connection), receiver
+                )("fixture", ReaderBudget(1.0, 3.0))
+        receiver.assert_not_called()
+        connection.close.assert_called_once()
+
     def test_late_response_rejected_and_closed(self):
         connection = Mock()
         with patch(

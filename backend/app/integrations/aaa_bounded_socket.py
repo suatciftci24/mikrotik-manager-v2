@@ -39,9 +39,10 @@ class BoundedSocketIO:
             if remaining <= 0:
                 raise TimeoutError("IO_BUDGET_EXHAUSTED")
 
-            connection.settimeout(
-                min(budget.read_seconds, remaining)
-            )
+            read_timeout = min(budget.read_seconds, remaining)
+            if read_timeout <= 0:
+                raise TimeoutError("IO_BUDGET_EXHAUSTED")
+            connection.settimeout(read_timeout)
             result = self._receiver(connection, challenge)
 
             if time.monotonic() >= deadline:
