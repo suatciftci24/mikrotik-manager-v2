@@ -183,7 +183,7 @@ def main():
         prepare()
 
 
-def prepare():
+def prepare(*, bridge_acceptance=None):
     if os.path.lexists(ROOT):
         raise RuntimeError('ACCEPTANCE_ROOT_ALREADY_EXISTS')
     # Prove port availability before creating any files or cluster.
@@ -244,6 +244,8 @@ def prepare():
         print(json.dumps({'environment':'HOME_WSL_AAA_FIXTURE', 'database':DB, 'role':ROLE,
             'host':'127.0.0.1','port':55433,'pgdata':str(data),'cluster_id':cluster_id,
             'checks_passed':checks,'product_prepared_resolver_executor_bridge':'BLOCKED'}))
+        if bridge_acceptance is not None:
+            bridge_acceptance(cluster_id)
     finally:
         if runtime is not None:
             runtime.dispose()

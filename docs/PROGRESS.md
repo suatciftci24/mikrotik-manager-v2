@@ -5343,3 +5343,28 @@ Her iki ilerleme kaydi korunmustur:
 - HTTPS200/API readiness ön/son başarılı. Gerçek runtime identity/writer/RLS
   entegrasyonu BLOCKED kalır; sonraki iş yalnız ayrı kapsamlı wiring kabulüdür.
   Güvenli servis/test/belgeler normal commit/push; force push yok.
+
+## Ofis AAA izole PostgreSQL runner — 2026-11-13 — BLOCKED
+
+- main-guncel/bdb3a44 temiz doğrulandı; AGENTS ve son izole kabul/panel adaptör
+  sınırları okundu. Üç stash ve yedek dallar korundu. Kullanıcı yeni izole ofis
+  kümesi/11 senaryo/commit-push için açık kapsam verdi; mevcut DB/servis yasak.
+- Exact office host/repo/.venv/WSL/UID/clean-branch guard'lı runner eklendi.
+  Ev guard'ı korunur; aynı provision/OwnedRoot ve 11 PG bridge testi yeniden
+  kullanılır. Optional callback doğrulanmış yeni private cluster kimliğini
+  geçirir; test ENV/CLI ile arbitrary DB/ID'ye yönlenmez. Mevcut root veya
+  dolu portta hiçbir kaynak oluşturulmadan ret; mevcut cluster reuse/silme yok.
+- PASS:5 yeni office safety +5 etkilenen provisioning safety testi. PG skip
+  başarı sayılmaz. Önceki13 soketsiz panel/resolver ve11 PG testi tekrarlanmadı.
+- Gerçek PG kabulü BLOCKED: bilinen sandbox socket EPERM tekrar denenmedi.
+  initdb/start/DDL/DML veya11 PG senaryosu çalıştırılmadı; ortam oluşturuldu
+  veya katalog/kullanıcı sağlığı doğrulandı iddiası yok. Normal writer ve gerçek
+  identity kapalı; fake provider dışına çıkış yok. Ofis normal terminal komutu
+  AAA-POSTGRESQL-ISOLATED-ACCEPTANCE.md son bölümünde.
+- Push BLOCKED: git fetch origin main-guncel tek denemede github.com DNS
+  hatası verdi. Fast-forward/uzak HEAD doğrulanamadı; push denenmeyecek.
+  Güvenli runner/test/belge tek yerel commit'te korunur; sahte tam PASS yok.
+- Mevcut PostgreSQL/demo/kullanıcı/audit/secret, V1/V2.5/VDS/router/RADIUS/IPsec
+  değişikliği, servis restartı, ürün migration'ı veya deploy yok. Sonraki tek
+  öncelik: socket izinli normal Ofis WSL'de explicit runner ile gerçek11 PG
+  kabulünü tamamlamak; ağ erişimiyle güvenli push ayrıca doğrulanmalı.

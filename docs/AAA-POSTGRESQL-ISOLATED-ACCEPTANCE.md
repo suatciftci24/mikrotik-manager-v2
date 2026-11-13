@@ -333,3 +333,47 @@ writer'larının ortak AAA kilidine katılımı, runtime şema/rol/RLS ve canlı
 kabulü. Bu kayıt canlı entegrasyon, migration veya dispatch izni değildir.
 HTTPS200 ve doğrulanmış API readiness ön/son başarılı; gerçek panel veya dev.sh
 süreçlerine müdahale edilmedi. Hazırlık yalnız yeni servis modülü/test ve belgedir.
+
+## Ofis WSL runner hazırlığı — 2026-11-13 — PG kabulü BLOCKED
+
+Başlangıç main-guncel/bdb3a44, temiz ağaç ve üç stash korundu. Önceki ev PG
+PASS sonuçları ofis kabulü olarak sunulmadı. Bilinen sandbox socket EPERM
+tekrarlanmadı; gerçek cluster/initdb/start/SQL/11 PG testi bu oturumda çalışmadı.
+
+`backend.tests.run_aaa_postgres_office_wsl` exact Office host
+DESKTOP-VD5T7VG, repo /home/suatpc/Codex-Projects/mikrotik-manager-v2, repo .venv,
+WSL/UID/sahiplik, temiz main-guncel ister. Ev host/path guard'ı değiştirilmedi.
+Mevcut provisioner'ın yok-root ve boş55433 kontrolleri, OwnedRoot/PGDATA inode/
+UID/PG16, private credential, loopback DB/rol ve cleanup protokolü yeniden kullanılır.
+Mevcut /tmp/mikrotik-v26-acceptance varsa reuse/delete/restart yok; BLOCKED.
+Mevcut servis/DB değişmez; oluşturulan kendi test postmaster'ı finally durdurulur,
+private test dosyaları korunur. Kullanıcı açık izni yalnız yeni izole AAA ortamıdır.
+
+Provisioner'a optional bridge callback eklendi. Kimliği doğrulanmış private
+PGDATA bağlantısından gelen gerçek system_identifier callback'e aktarılır;
+ENV/CLI cluster-ID veya DSN override yoktur. Aynı 11 PostgresBridgeAcceptance
+senaryosu Office subclass'ında çalışır; ev sınıfının varsayılan pinned kimliği
+korunur. Skip, test sayısının11 olmaması veya herhangi failure PASS üretmez.
+İlk setup'ta mevcut metadata_probe test şeması/rol altyapısını kurar; normal
+ürün migration'ı veya mevcut DB'ye şema yüklemesi değildir. Provider exact fake,
+normal panel writer/gerçek identity/API wiring kapalı kalır.
+
+PASS yalnız 5 yeni office runner safety +5 doğrudan etkilenen provisioning safety
+soketsiz testidir. Mock'lar sadece guard/provision çağrısının engellendiğini sınar;
+PG başarısı üretmez. Önceki13 panel/resolver veya11 gerçek PG testi tekrarlanmadı.
+Bağımlılıklar önceki ofis kontrolünde hazırdı; yeni paket/servis kurulmadı.
+
+**PG BLOCKED:** sandbox socket yetkisi yok; cluster oluşturulmadı, kullanıcı/
+servis/DB katalog sağlığı bağımsız doğrulanmadı. **Push BLOCKED:** tek git fetch
+origin main-guncel denemesi Could not resolve host: github.com verdi; geçmiş
+uyumu/uzak SHA doğrulanamadığı için push denenmez. Yerel güvenli commit korunur.
+
+Normal Ofis WSL terminalinde, temiz main-guncel ve socket yetkisi olan ortam için
+tek açık runner komutu (mevcut root/port engelinde durur; otomatik reuse yok):
+
+```bash
+cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && PYTHONPATH=backend .venv/bin/python -B -m backend.tests.run_aaa_postgres_office_wsl
+```
+
+Gerçek11 PG sonucu ve uzak HEAD eşitliği görülmeden uçtan uca ofis/push PASS
+verilemez. Port veya root engelinde mevcut veri/servis temizleme yapılmamalıdır.

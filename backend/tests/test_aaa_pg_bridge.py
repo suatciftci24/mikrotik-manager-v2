@@ -39,6 +39,8 @@ CAPS = ['AAA_METADATA', 'AAA_SEED', 'AAA_PREPARE', 'AAA_EXECUTE', 'AAA_DECISION'
 
 @skipUnless(os.environ.get('V2_AAA_EXISTING_PG_TESTS') == '1', 'Explicit existing isolated AAA PG opt-in required')
 class PostgresBridgeAcceptance(TestCase):
+    expected_cluster_id = '7707358750625226262'
+    environment_guard = staticmethod(home_guard)
     @classmethod
     def verify(cls, connection):
         DisposableClusterGuard(ROOT)(ROOT / 'postgres-test')
@@ -51,12 +53,12 @@ class PostgresBridgeAcceptance(TestCase):
             "current_setting('data_directory'),current_setting('listen_addresses'),"
             "(SELECT system_identifier::text FROM pg_control_system())")).one()
         if tuple(identity) != ('mikrotik_v26_acceptance','127.0.0.1',55433,str(ROOT / 'postgres-test'),
-                               '127.0.0.1','7707358750625226262'):
+                               '127.0.0.1',cls.expected_cluster_id):
             raise RuntimeError('EXACT_EXISTING_AAA_IDENTITY_REQUIRED')
 
     @classmethod
     def setUpClass(cls):
-        home_guard()
+        cls.environment_guard()
         cls.env = _isolated_runtime()
         cls.env.__enter__()
         cls.addClassCleanup(lambda: cls.env.__exit__(None, None, None))
