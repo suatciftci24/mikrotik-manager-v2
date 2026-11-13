@@ -33,6 +33,12 @@ class ObserverTransport:
             ):
                 return ObserverTransportResult("UNKNOWN")
             envelope = self._reader(challenge)
+            # A blocking reader must enforce its own IO deadline.
+            # Never accept evidence if the reader returned too late.
+            from datetime import datetime, timezone
+            finished_at = datetime.now(timezone.utc)
+            if finished_at >= challenge.deadline:
+                return ObserverTransportResult("UNKNOWN")
             if type(envelope) is not SignedRemoteEvidence:
                 return ObserverTransportResult("UNKNOWN")
             observation = self._verifier.verify(envelope, challenge, now)
