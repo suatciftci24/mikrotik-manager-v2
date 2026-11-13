@@ -179,6 +179,75 @@ class CombinedObserverAcceptance(TestCase):
         self.assertEqual(result.status, "UNKNOWN")
         io.assert_called_once()
 
+    def test_three_layer_signed_evidence_verified(self):
+        from app.integrations.aaa_bounded_reader import BoundedObserverReader
+        from app.integrations.aaa_bounded_socket import BoundedSocketIO
+
+        ring = FixtureObserverKeyring([self.new])
+        connection = Mock()
+        connector = Mock(return_value=connection)
+        receiver = Mock(return_value=self.signed(self.new))
+
+        io = BoundedSocketIO(connector, receiver)
+        reader = BoundedObserverReader(io)
+
+        result = self.transport(reader, ring, "new").observe(
+            self.challenge, self.now
+        )
+
+        self.assertEqual(result.status, "VERIFIED")
+        connector.assert_called_once_with(
+            self.challenge, timeout=1.0
+        )
+        connection.settimeout.assert_called_once()
+        receiver.assert_called_once_with(
+            connection, self.challenge
+        )
+        connection.close.assert_called_once()
+
+    def test_three_layer_connection_timeout_unknown(self):
+        from app.integrations.aaa_bounded_reader import BoundedObserverReader
+        from app.integrations.aaa_bounded_socket import BoundedSocketIO
+
+        ring = FixtureObserverKeyring([self.new])
+        connector = Mock(
+            side_effect=TimeoutError("fixture connect timeout")
+        )
+        receiver = Mock()
+
+        reader = BoundedObserverReader(
+            BoundedSocketIO(connector, receiver)
+        )
+        result = self.transport(reader, ring, "new").observe(
+            self.challenge, self.now
+        )
+
+        self.assertEqual(result.status, "UNKNOWN")
+        connector.assert_called_once()
+        receiver.assert_not_called()
+
+    def test_three_layer_read_timeout_unknown_and_closed(self):
+        from app.integrations.aaa_bounded_reader import BoundedObserverReader
+        from app.integrations.aaa_bounded_socket import BoundedSocketIO
+
+        ring = FixtureObserverKeyring([self.new])
+        connection = Mock()
+        receiver = Mock(
+            side_effect=TimeoutError("fixture read timeout")
+        )
+
+        reader = BoundedObserverReader(
+            BoundedSocketIO(
+                Mock(return_value=connection), receiver
+            )
+        )
+        result = self.transport(reader, ring, "new").observe(
+            self.challenge, self.now
+        )
+
+        self.assertEqual(result.status, "UNKNOWN")
+        connection.close.assert_called_once()
+
     def test_expired_challenge_rejected_without_success(self):
         ring = FixtureObserverKeyring([self.new])
         reader = Mock(return_value=self.signed(self.new))
