@@ -20,8 +20,9 @@ class AaaFixtureReadGate:
     boundary: AaaIdentityWriterBoundary
     bridge_reader: Callable
 
-    def read(self, session_handle, request, scope, principal):
-        decision = self.boundary.inspect(session_handle, request)
+    def read(self, session_handle, request, scope, principal, *, expected_source='LOCAL'):
+
+        decision = self.boundary.inspect(session_handle, request, expected_source=expected_source)
 
         if type(decision) is not dict or decision.get("authorized") is not True:
             raise PermissionError("AAA_AUTHORIZATION_REQUIRED")

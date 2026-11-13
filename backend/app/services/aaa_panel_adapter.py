@@ -29,6 +29,8 @@ class IsolatedPanelSelection(ReadContract):
 
 
 class PanelFixtureAccess(ReadContract):
+    can_manage_subscriber: bool = False
+    can_read_subscriber: bool = False
     can_issue_prepared: bool = False
     can_consume_prepared: bool = False
     can_execute: bool = False
@@ -43,7 +45,7 @@ class PanelOwnerBinding(ReadContract):
     tenant_id: UUID
     subscriber_id: str
     router_id: str
-    source: Literal['LOCAL'] = 'LOCAL'
+    source: Literal['LOCAL', 'RADIUS'] = 'LOCAL'
     store: Literal['PERSISTENT_WORKSPACE'] = 'PERSISTENT_WORKSPACE'
     request_id: UUID
 
@@ -128,7 +130,7 @@ class PanelAaaAdapter:
                 or not binding.subscriber_id.startswith('demo-managed-sub-')
                 or not binding.router_id.startswith('demo-managed-router-')
                 or binding.request_id != request.request_id or binding.subscriber_id != ref.account_id
-                or binding.store != ref.store or binding.source != request.plan.source
+                or binding.store != ref.store or (flag not in ('can_manage_subscriber','can_read_subscriber') and binding.source != request.plan.source)
                 or binding.router_id != request.plan.snapshot.nas.router_id):
             raise PermissionError('PANEL_OWNER_SCOPE_CONFLICT')
         access = deps.access_reader(session_handle, binding)
@@ -197,3 +199,50 @@ class PanelAaaAdapter:
         self._command_scope(request, scope, context, command)
         return self._deps.backend.invoke(request, scope, principal, 'AAA_EXECUTE', lambda unit:
             FixtureExecutor(unit, self._deps.backend.provider).timeout(request, scope, context, command, permission=True))
+
+    def subscriber_change(self, session_handle, request, command):
+        """Explicit opt-in synthetic account projection; not a real AAA writer."""
+        from app.repositories.aaa_fixture_bridge import PostgresFixtureBridge
+        from app.simulation.aaa_integration_preparation import SyntheticAaaCommand
+        request, scope, principal, _, _ = self._context(session_handle, request, 'can_manage_subscriber')
+        if type(self._deps.backend) is not PostgresFixtureBridge or type(command) is not SyntheticAaaCommand:
+            raise PermissionError('EXPLICIT_PG_SYNTHETIC_SUBSCRIBER_REQUIRED')
+        command = SyntheticAaaCommand.model_validate_json(command.model_dump_json())
+        if (command.tenant_id != UUID(scope.tenant_id) or command.actor_id != principal.actor_id
+                or command.subscriber_id != request.plan.snapshot.reference.account_id
+                or command.router_id != request.plan.snapshot.nas.router_id):
+            raise PermissionError('PANEL_SUBSCRIBER_COMMAND_SCOPE_REQUIRED')
+        boundary = self._subscriber_boundary('can_manage_subscriber')
+        boundary.inspect(session_handle, request, expected_source=command.expected_source)
+        # Fresh actor/membership/router grant is locked and checked again inside
+        # this bridge's transaction. Boundary.execute remains permanently closed.
+        return self._deps.backend.subscriber_change(request, scope, principal, command)
+
+    def _subscriber_boundary(self, flag):
+        from app.integrations.aaa_identity_writer_boundary import AaaIdentityWriterBoundary
+        def owner(req):
+            binding = self._deps.owner_reader(req.request_id, req.actor_id)
+            if type(binding) is not PanelOwnerBinding or binding.request_id != req.request_id:
+                raise PermissionError('FRESH_SERVER_OWNER_BINDING_REQUIRED')
+            return dict(actor_id=binding.actor_id, tenant_id=str(binding.tenant_id),
+                subscriber_id=binding.subscriber_id, router_id=binding.router_id, source=binding.source)
+        def permission(handle, req):
+            binding = self._deps.owner_reader(req.request_id, req.actor_id)
+            if type(binding) is not PanelOwnerBinding:
+                return False
+            access = self._deps.access_reader(handle, binding)
+            return type(access) is PanelFixtureAccess and getattr(access, flag) is True
+        return AaaIdentityWriterBoundary(self._deps.identity_reader, permission, owner, self._deps.backend.subscriber_change)
+
+    def subscriber_result(self, session_handle, request, request_id):
+        from app.integrations.aaa_fixture_read_gate import AaaFixtureReadGate
+        from app.repositories.aaa_fixture_bridge import PostgresFixtureBridge
+        request, scope, principal, _, _ = self._context(session_handle, request, 'can_read_subscriber')
+        if type(self._deps.backend) is not PostgresFixtureBridge:
+            raise PermissionError('EXPLICIT_PG_SYNTHETIC_SUBSCRIBER_REQUIRED')
+        binding = self._deps.owner_reader(request.request_id, request.actor_id)
+        if type(binding) is not PanelOwnerBinding:
+            raise PermissionError('FRESH_SERVER_OWNER_BINDING_REQUIRED')
+        gate = AaaFixtureReadGate(self._subscriber_boundary('can_read_subscriber'),
+            lambda req, scoped, actor, capability:self._deps.backend.subscriber_result(req, scoped, actor, request_id))
+        return gate.read(session_handle, request, scope, principal, expected_source=binding.source)

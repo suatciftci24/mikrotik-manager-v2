@@ -5465,3 +5465,54 @@ Her iki ilerleme kaydi korunmustur:
   IPsec değişmedi. Deploy/migration/restart veya DB yazımı yapılmadı.
 - Sonraki adım ancak ayrı açık yayın onayıyla canlı UI güncellemesidir; bu
   görevin teslimi yerel kod ve normal main-guncel push kapsamındadır.
+
+## AAA sentetik abone komutları / PostgreSQL audit-receipt — 2026-11-13 — izole PASS
+
+- Başlangıç güncel main-guncel/bd01a52; temiz ağaç ve fetch sonrası uzak eşitlik
+  doğrulandı. Önceki panel iyileştirmeleri, üç stash ve bf2ad12 okuma sınırı korundu.
+- Mevcut integration_preparation içinde strict versioned command/account/receipt
+  sözleşmeleri: CREATE/EXTEND/PLAN/STATUS, tenant/actor/router/subscriber/source,
+  UUID, önceki/yeni değer, revision/fence ve açık bool onayı. Sır/credential alanı
+  yoktur. FakeFencedProvider aynı yapı içinde yalnız saf sentetik etki hesaplar.
+- PostgresFixtureBridge yeni subscriber_change/subscriber_result yöntemleriyle
+  mevcut tek owner/audit tablolarını kullanır. İkinci owner deposu, yeni tablo,
+  migration, endpoint veya normal subscriber store bağlantısı yoktur. Hesap
+  özellikleri ve kanonik receipt mevcut audit'ten yeniden okunur. UUID fingerprint
+  çatışması, audit/receipt sapması ve owner/revision/source değişimi reddedilir.
+- CREATE yalnız önceden açıkça ayrılmış sentetik owner slotunda AAA hesap
+  projeksiyonu oluşturur; gerçek panel abonesi/kullanıcısı oluşturmaz. Aynı tenant/
+  router/username için transaction advisory lock ve namespace sahipliği kontrolü
+  vardır. Gerçek LOCAL/RADIUS kimlik kaydı veya credential provisioning yapılmaz.
+- Actor→membership→namespace→owner kilit sırası; fresh ADMIN, açık işlem izni,
+  DAILY_OWNER ve AAA_ROUTER:<id> grant zorunludur. Owner revision+fence CAS ve
+  audit INSERT aynı transaction'dadır. Aktif kaynak devriyle günlük işlem
+  çakışamaz. Saf fake etkide audit hatası tüm işlemi geri alır; bu garanti gerçek
+  uzak sağlayıcıya taşınmış sayılmaz. Üretim UNKNOWN/reconciliation kabulü ayrıdır.
+- PanelAaaAdapter varsayılan kapalı kalır; ayrı can_manage_subscriber ve
+  can_read_subscriber izinleri eklendi. Merkezi identity boundary ile read gate
+  yeniden kullanılır; PG aynı transaction'da tekrar yetkilendirir. RADIUS kaynağı
+  açık ve doğrulanmış binding ile desteklenir; varsayılan read boundary LOCAL
+  davranışı değişmez. Boundary.execute hâlâ koşulsuz kapalıdır.
+- RouterOS/FreeRadius mevcut Protocol'lerine açık apply_subscriber sözleşmesi
+  eklendi. V1 fixture-only komut canlı izin değildir; gelecekteki canlı adaptör
+  bunu reddetmelidir. Gerçek dispatch için ayrıca kabul edilmiş provider sürümü,
+  runtime identity/şema/RLS hardening, credential/NAS/profile eşleme ve gerçek
+  provider hata/timeout/reconciliation kabulü gerekir. Bunlar tamamlanmadı;
+  AAA üretim entegrasyonu veya tüm ürün AAA'sı bitmiş olarak raporlanmaz.
+- PASS: mevcut kalıcı izole PG'de tek hedefli test, 0.759s / 1 test / skip yok.
+  İki kaynakta dört işlem, UUID replay/çatışma ve salt okunur receipt recovery,
+  varsayılan kapalı panel, panel kimlik/izin reddi, PG actor aktiflik/rol reddi,
+  inspection sonrası üyelik/owner source değişimi, yabancı tenant/router reddi,
+  gerçek PostgreSQL 22012 audit hatasında rollback, iki rakip komuttan yalnız
+  birinin kaydı, kanonik receipt ve tamper reddi doğrulandı. Önceki11 PG/read/
+  panel/frontend test paketleri tekrar çalıştırılmadı; yeni test dosyası yok.
+- Runner --existing --subscriber-writes yalnız yeni kabulü seçer; mevcut fixture
+  şemasını salt okunur kontrol eder, DDL veya provision çağırmaz. Testin ürettiği
+  yeni UUID'li actor/member/owner/audit kayıtları dışında eski kayıtlar değişmez.
+  Yeni cluster/servis, restore/reset/silme yoktur. Kendi başlattığı izole postmaster
+  finally durduruldu; private manifest/config/PG16 ve shut down durumu son
+  salt okunur kontrolde doğrulandı. Veri ve parolalar .local/ altında Git dışıdır.
+- Ön/son HTTPS200 ve /api/ready runtime_profile=v26-isolated-acceptance geçti.
+  V1/V2.5/canlıV2.6, gerçek router/RADIUS/IPsec, mevcut demo abone/kullanıcı/DB,
+  deploy/migration/servis restartı değişmedi. Güvenli kod ve belge normal commit/
+  push kapsamındadır. Sonraki iş yalnız ayrı onaylı gerçek entegrasyon kabulüdür.

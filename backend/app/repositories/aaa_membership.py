@@ -32,7 +32,7 @@ class SessionMembershipResolver:
         self.deployment = deployment
         self.target_guard, self.actor_reader, self.membership_reader = target_guard, actor_reader, membership_reader
 
-    def resolve(self, session, principal, scope, capability):
+    def resolve(self, session, principal, scope, capability, *, router_id=None):
         if (type(principal) is not ServerPrincipal or type(scope) is not OwnerScope
                 or principal.actor_id != scope.actor_id or principal.origin != 'LOCAL'
                 or principal.deployment != self.deployment or self.target_guard(session) is not True):
@@ -51,7 +51,11 @@ class SessionMembershipResolver:
                 or type(member.get('capabilities')) not in (list, tuple)
                 or capability not in member['capabilities']):
             raise PermissionError('FRESH_ACTOR_MEMBERSHIP_POLICY_REQUIRED')
-        owner_capability = 'DAILY_OWNER' if capability == 'DAILY_OWNER' else 'AAA_METADATA'
+        daily = capability in ('AAA_SUBSCRIBER_CREATE', 'AAA_SUBSCRIBER_EXTEND', 'AAA_SUBSCRIBER_PLAN', 'AAA_SUBSCRIBER_STATUS', 'AAA_SUBSCRIBER_READ')
+        if daily and (actor.get('role') != 'ADMIN' or not router_id
+                      or 'AAA_ROUTER:' + router_id not in member['capabilities']):
+            raise PermissionError('FRESH_ADMIN_ROUTER_GRANT_REQUIRED')
+        owner_capability = 'DAILY_OWNER' if capability == 'DAILY_OWNER' or daily else 'AAA_METADATA'
         if owner_capability not in member['capabilities']:
             raise PermissionError('OWNER_CAPABILITY_REQUIRED')
         grant = OwnershipGrant(**scope.model_dump(), actor_active=True, membership_revision=member['revision'],

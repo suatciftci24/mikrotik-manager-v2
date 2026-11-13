@@ -107,6 +107,41 @@ class FakeFencedProvider:
         with self._lock:
             return deepcopy(self._state)
 
+    def project_subscriber(self, command, current, now):
+        """Pure fake effect; durable account/result is committed by the PG bridge.
+
+        Unlike a remote device this projection has no independent side effect,
+        so audit failure rolls back the entire synthetic operation.
+        """
+        from datetime import date, timedelta
+        from zoneinfo import ZoneInfo
+        from app.simulation.aaa_integration_preparation import SyntheticAaaCommand
+        if type(command) is not SyntheticAaaCommand:
+            raise PermissionError('TYPED_SYNTHETIC_COMMAND_REQUIRED')
+        command = SyntheticAaaCommand.model_validate_json(command.model_dump_json())
+        if self._account != (str(command.tenant_id), 'PERSISTENT_WORKSPACE', command.subscriber_id):
+            raise PermissionError('PROVIDER_SUBSCRIBER_BINDING_REQUIRED')
+        if current != command.before or now.utcoffset() is None:
+            raise ProviderConflict('SUBSCRIBER_PREVIEW_CHANGED')
+        if command.operation == 'CREATE':
+            if current is not None or command.days is not None:
+                raise ProviderConflict('EMPTY_SYNTHETIC_ACCOUNT_REQUIRED')
+        else:
+            if current is None:
+                raise ProviderConflict('EXISTING_SYNTHETIC_ACCOUNT_REQUIRED')
+            changes = {key for key in type(current).model_fields if getattr(current, key) != getattr(command.after, key)}
+            field = {'EXTEND': 'expires_on', 'PLAN': 'plan', 'STATUS': 'status'}[command.operation]
+            if changes != {field} or command.operation != 'EXTEND' and command.days is not None:
+                raise ProviderConflict('SINGLE_EXPLICIT_SUBSCRIBER_CHANGE_REQUIRED')
+            if command.operation == 'EXTEND':
+                if current.expires_on is None or command.days is None:
+                    raise ProviderConflict('KNOWN_EXPIRY_AND_DAYS_REQUIRED')
+                today = now.astimezone(ZoneInfo('Europe/Istanbul')).date()
+                expected = max(date.fromisoformat(current.expires_on), today) + timedelta(days=command.days)
+                if command.after.expires_on != expected.isoformat():
+                    raise ProviderConflict('TURKEY_EXPIRY_PREVIEW_CHANGED')
+        return command.after
+
     def _command(self, unit, request, scope, context, lease, permission, *, allow_done=False):
         _unit(unit)
         key, current, op = unit._validated(request, scope, context, lease, permission, allow_done=allow_done)

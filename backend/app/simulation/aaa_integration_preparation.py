@@ -159,3 +159,84 @@ def compare_prepared_steps(previous: PreparedStep, incoming: PreparedStep):
     if previous.operation_revision != incoming.operation_revision:
         return 'DIFFERENT_STEP'
     return 'MATCH' if previous == incoming else 'CONFLICT'
+
+
+class SyntheticAaaAccount(ReadContract):
+    """Public AAA attributes only; credential material is never part of a command."""
+    username: str = Field(min_length=1, max_length=96, pattern=r'^[A-Za-z0-9][A-Za-z0-9._@-]*$')
+    plan: str = Field(min_length=1, max_length=120)
+    status: Literal['ACTIVE', 'PAUSED']
+    expires_on: str | None = None
+
+    @field_validator('expires_on')
+    @classmethod
+    def calendar_date(cls, value):
+        from datetime import date
+        if value is not None and date.fromisoformat(value).isoformat() != value:
+            raise ValueError('CANONICAL_EXPIRY_REQUIRED')
+        return value
+
+    @field_validator('plan')
+    @classmethod
+    def printable_plan(cls, value):
+        if value != value.strip() or not value.isprintable():
+            raise ValueError('CANONICAL_PLAN_REQUIRED')
+        return value
+
+
+class SyntheticAaaCommand(ReadContract):
+    version: Literal['AAA_SYNTHETIC_SUBSCRIBER_V1'] = 'AAA_SYNTHETIC_SUBSCRIBER_V1'
+    fixture_only: Literal[True] = True
+    external_writes: Literal[False] = False
+    request_id: UUID
+    tenant_id: UUID
+    actor_id: str = Field(min_length=1)
+    subscriber_id: str = Field(pattern=r'^demo-managed-sub-.+$')
+    router_id: str = Field(pattern=r'^demo-managed-router-.+$')
+    expected_source: Literal['LOCAL', 'RADIUS']
+    expected_revision: int = Field(ge=0)
+    expected_fence: int = Field(ge=0)
+    operation: Literal['CREATE', 'EXTEND', 'PLAN', 'STATUS']
+    before: SyntheticAaaAccount | None
+    after: SyntheticAaaAccount
+    days: int | None = Field(default=None, ge=1, le=366)
+    confirmed: Literal[True]
+
+    @field_validator('confirmed', 'fixture_only', 'external_writes', mode='before')
+    @classmethod
+    def explicit_boolean(cls, value, info):
+        expected = info.field_name != 'external_writes'
+        if type(value) is not bool or value is not expected:
+            raise ValueError('EXPLICIT_SYNTHETIC_CONFIRMATION_REQUIRED')
+        return value
+
+    def fingerprint(self):
+        from app.simulation.aaa_atomic import canonical_hash
+        return canonical_hash(self.model_dump(mode='json'))
+
+
+class SyntheticAaaReceipt(ReadContract):
+    version: Literal['AAA_SYNTHETIC_RECEIPT_V1'] = 'AAA_SYNTHETIC_RECEIPT_V1'
+    fixture_only: Literal[True] = True
+    external_writes: Literal[False] = False
+    request_id: UUID
+    tenant_id: UUID
+    actor_id: str
+    subscriber_id: str
+    router_id: str
+    source: Literal['LOCAL', 'RADIUS']
+    operation: Literal['CREATE', 'EXTEND', 'PLAN', 'STATUS']
+    fingerprint: str = Field(pattern=r'^[0-9a-f]{64}$')
+    outcome: Literal['APPLIED'] = 'APPLIED'
+    before: SyntheticAaaAccount | None
+    after: SyntheticAaaAccount
+    revision: int = Field(ge=1)
+    fence: int = Field(ge=1)
+    occurred_at: datetime
+
+    @field_validator('occurred_at')
+    @classmethod
+    def utc_time(cls, value):
+        if value.utcoffset() is None:
+            raise ValueError('AWARE_RECEIPT_TIME_REQUIRED')
+        return value.astimezone(timezone.utc)

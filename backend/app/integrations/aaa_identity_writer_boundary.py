@@ -20,8 +20,10 @@ class AaaIdentityWriterBoundary:
     owner_reader: Callable
     writer: Callable
 
-    def inspect(self, session_handle, request):
+    def inspect(self, session_handle, request, *, expected_source='LOCAL'):
         """Read-only authorization decision; never invokes writer."""
+        if expected_source not in ('LOCAL', 'RADIUS'):
+            raise PermissionError('AAA_EXPLICIT_SOURCE_REQUIRED')
         user = self.identity_reader(session_handle)
         if type(user) is not dict:
             raise PermissionError("AAA_FRESH_IDENTITY_REQUIRED")
@@ -75,7 +77,7 @@ class AaaIdentityWriterBoundary:
 
         if owner.get("actor_id") != actor_id:
             raise PermissionError("AAA_OWNER_ACTOR_CONFLICT")
-        if owner.get("source") != "LOCAL":
+        if owner.get("source") != expected_source:
             raise PermissionError("AAA_LOCAL_OWNER_REQUIRED")
 
         return {

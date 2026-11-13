@@ -39,6 +39,7 @@ CAPS = ['AAA_METADATA', 'AAA_SEED', 'AAA_PREPARE', 'AAA_EXECUTE', 'AAA_DECISION'
 
 @skipUnless(os.environ.get('V2_AAA_EXISTING_PG_TESTS') == '1', 'Explicit existing isolated AAA PG opt-in required')
 class PostgresBridgeAcceptance(TestCase):
+    existing_schema_only = False
     fixture_root = ROOT
     expected_cluster_id = '7707358750625226262'
     environment_guard = staticmethod(home_guard)
@@ -70,6 +71,10 @@ class PostgresBridgeAcceptance(TestCase):
         cls.addClassCleanup(cls.engine.dispose)
         with cls.engine.begin() as c:
             cls.verify(c)  # BEFORE any DDL/DML.
+            if cls.existing_schema_only:
+                c.exec_driver_sql('SELECT actor_id FROM v2_aaa.fixture_actor_identity LIMIT 0')
+                c.exec_driver_sql('SELECT capabilities,policy_revision FROM v2_aaa.fixture_membership LIMIT 0')
+                return
             c.exec_driver_sql('CREATE TABLE IF NOT EXISTS v2_aaa.fixture_actor_identity '
                 '(actor_id text PRIMARY KEY,active boolean NOT NULL,origin text NOT NULL,role text NOT NULL,'
                 'revision bigint NOT NULL CHECK(revision>0),deployment text NOT NULL)')
@@ -143,6 +148,147 @@ class PostgresBridgeAcceptance(TestCase):
                 {'t':o.tenant_id,'a':o.actor_id,'u':o.subscriber_id}).mappings().one_or_none())
         self.bridge = PostgresFixtureBridge(self.sessions,self.resolver,self.f.provider)
         self.bridge.seed_fixture(self.f.request,self.f.scope,self.principal,self.f.unit)
+
+    def test_synthetic_subscriber_writes_atomic_authorized_and_idempotent(self):
+        from dataclasses import replace
+        from sqlalchemy import insert, select
+        from app.repositories import aaa_metadata as db
+        from app.simulation.aaa_provider import FakeFencedProvider
+        from app.simulation.aaa_integration_preparation import SyntheticAaaAccount, SyntheticAaaCommand
+        from app.services.aaa_panel_adapter import (PanelAaaAdapter, IsolatedPanelSelection,
+            IsolatedPanelDependencies, PanelFixtureAccess, PanelOwnerBinding)
+        from app.integrations.aaa_identity_writer_boundary import AaaIdentityWriterBoundary, AaaBoundaryDisabled
+        actor = 'aaa-panel-fixture-' + str(uuid4())
+        user = dict(id=actor, active=True, revision=1, role_code='ADMIN', account_origin='LOCAL',
+            bootstrap_closed=True, login_enabled=True, is_demo=True, can_manage_users=True)
+        with self.admin() as c:
+            c.execute(text("INSERT INTO v2_aaa.fixture_actor_identity VALUES (:a,true,'LOCAL','ADMIN',1,:d)"),
+                      {'a':actor, 'd':STAMP})
+        for source in ('LOCAL', 'RADIUS'):
+            subscriber = 'demo-managed-sub-' + str(uuid4())
+            router = 'demo-managed-router-' + str(uuid4())
+            snapshot_data = self.f.request.plan.snapshot.model_dump(mode='json')
+            snapshot_data['reference']['account_id'] = subscriber
+            snapshot_data['nas']['router_id'] = router
+            snapshot = type(self.f.request.plan.snapshot).model_validate_json(json.dumps(snapshot_data))
+            plan = self.f.request.plan.model_copy(update={'snapshot':snapshot})
+            request = self.f.request.model_copy(update={'actor_id':actor, 'plan':plan, 'request_id':uuid4()})
+            scope = self.f.scope.model_copy(update={'actor_id':actor})
+            provider = FakeFencedProvider(plan)
+            bridge = PostgresFixtureBridge(self.sessions, self.resolver, provider)
+            caps = ['DAILY_OWNER', 'AAA_ROUTER:' + router] + ['AAA_SUBSCRIBER_' + k for k in ('CREATE','EXTEND','PLAN','STATUS','READ')]
+            with self.admin() as c:
+                c.execute(insert(db.owner).values(id=subscriber,tenant_id=self.tenant,source=source,
+                    revision=0,aaa_fence=0,aaa_active_operation=None))
+                c.execute(text('INSERT INTO v2_aaa.fixture_membership '
+                    '(tenant_id,actor_id,subscriber_id,active,revision,policy_revision,capabilities,deployment) '
+                    'VALUES (:t,:a,:u,true,1,1,CAST(:c AS jsonb),:d)'),
+                    {'t':self.tenant,'a':actor,'u':subscriber,'c':json.dumps(caps),'d':STAMP})
+            binding = PanelOwnerBinding(actor_id=actor,tenant_id=self.tenant,subscriber_id=subscriber,
+                router_id=router,request_id=request.request_id,source=source)
+            access = PanelFixtureAccess(can_manage_subscriber=True,can_read_subscriber=True)
+            deps = IsolatedPanelDependencies(backend=bridge,isolation_guard=lambda:True,
+                identity_reader=lambda h:dict(user) if h=='fixture-session' else None,
+                require_admin=lambda u:u,owner_reader=lambda *args:binding,access_reader=lambda *args:access)
+            selection = IsolatedPanelSelection(enabled=True,deployment=STAMP,tenant_id=self.tenant,
+                actor_ids=(actor,),subscriber_ids=(subscriber,),worker_id='fixture-worker')
+            adapter = PanelAaaAdapter(selection,deps)
+            now = self.engine.connect()
+            try: today = now.execute(text("SELECT (clock_timestamp() AT TIME ZONE 'Europe/Istanbul')::date")).scalar_one()
+            finally: now.close()
+            account = SyntheticAaaAccount(username='aaa.fixture',plan='Fixture 100',status='ACTIVE',expires_on=today.isoformat())
+            def command(kind, before, after, revision, **kwargs):
+                return SyntheticAaaCommand(request_id=uuid4(),tenant_id=self.tenant,actor_id=actor,
+                    subscriber_id=subscriber,router_id=router,expected_source=source,
+                    expected_revision=revision,expected_fence=revision,operation=kind,
+                    before=before,after=after,confirmed=True,**kwargs)
+            def write(cmd): return adapter.subscriber_change('fixture-session',request,cmd)
+            def owner_state():
+                with self.admin() as c:
+                    return tuple(c.execute(select(db.owner.c.revision, db.owner.c.aaa_fence).where(db.owner.c.id==subscriber)).one())
+            create = command('CREATE',None,account,0)
+            with self.assertRaises(PermissionError): PanelAaaAdapter().subscriber_change('fixture-session',request,create)
+            denied = PanelAaaAdapter(selection,replace(deps,access_reader=lambda *args:PanelFixtureAccess()))
+            with self.assertRaises(PermissionError): denied.subscriber_change('fixture-session',request,create)
+            user['active'] = False
+            with self.assertRaises(PermissionError): write(create)
+            user['active'] = True
+            self.assertIsNone(adapter.subscriber_result('fixture-session',request,create.request_id))
+            receipt = write(create)
+            self.assertEqual(receipt,adapter.subscriber_result('fixture-session',request,create.request_id))
+            self.assertEqual(receipt,write(create))
+            self.assertEqual(owner_state(),(1,1))
+            with self.assertRaises(BridgeConflict): write(create.model_copy(update={'after':account.model_copy(update={'plan':'Foreign'})}))
+            extended = account.model_copy(update={'expires_on':(today+timedelta(days=30)).isoformat()})
+            extension = command('EXTEND',account,extended,1,days=30)
+            self.assertEqual(write(extension).after,extended)
+            planned = extended.model_copy(update={'plan':'Fixture 500'})
+            self.assertEqual(write(command('PLAN',extended,planned,2)).before,extended)
+            paused = planned.model_copy(update={'status':'PAUSED'})
+            self.assertEqual(write(command('STATUS',planned,paused,3)).after,paused)
+            self.assertEqual(owner_state(),(4,4))
+            pending = command('PLAN',paused,paused.model_copy(update={'plan':'Fixture 900'}),4)
+            # Committed revocation AFTER panel inspection must deny in the same
+            # transaction resolver. No row outside this new fixture is touched.
+            def revoke(value):
+                with self.admin() as c:
+                    c.execute(text('UPDATE v2_aaa.fixture_membership SET active=:v WHERE tenant_id=:t AND actor_id=:a AND subscriber_id=:u'),
+                        {'v':value,'t':self.tenant,'a':actor,'u':subscriber})
+            def race_access(*args):
+                revoke(False)
+                return access
+            racing = PanelAaaAdapter(selection,replace(deps,access_reader=race_access))
+            with self.assertRaises(PermissionError): racing.subscriber_change('fixture-session',request,pending)
+            revoke(True)
+            for table, field, value, restore in (
+                ('fixture_actor_identity','active',False,True),
+                ('fixture_actor_identity','role','OPERATOR','ADMIN'),
+            ):
+                with self.admin() as c:
+                    c.execute(text('UPDATE v2_aaa.'+table+' SET '+field+'=:v WHERE actor_id=:a'),{'v':value,'a':actor})
+                with self.assertRaises(PermissionError): write(pending)
+                with self.admin() as c:
+                    c.execute(text('UPDATE v2_aaa.'+table+' SET '+field+'=:v WHERE actor_id=:a'),{'v':restore,'a':actor})
+            def owner_race_access(*args):
+                with self.admin() as c:
+                    c.execute(text('UPDATE v2_subscriber_workspace.subscribers SET source=:v WHERE id=:u'),
+                              {'v':'RADIUS' if source=='LOCAL' else 'LOCAL','u':subscriber})
+                return access
+            owner_racing = PanelAaaAdapter(selection,replace(deps,access_reader=owner_race_access))
+            with self.assertRaises(PermissionError): owner_racing.subscriber_change('fixture-session',request,pending)
+            with self.admin() as c:
+                c.execute(text('UPDATE v2_subscriber_workspace.subscribers SET source=:v WHERE id=:u'),{'v':source,'u':subscriber})
+            with self.assertRaises(PermissionError): write(pending.model_copy(update={'tenant_id':uuid4()}))
+            with self.assertRaises(PermissionError): write(pending.model_copy(update={'router_id':'demo-managed-router-foreign'}))
+            # Audit INSERT fails after owner CAS; real PostgreSQL error must roll back both.
+            def audit_fault(conn,cursor,statement,parameters,context,many):
+                if statement.startswith('INSERT INTO v2_subscriber_workspace.events'):
+                    conn.exec_driver_sql('SELECT 1/0')
+            event.listen(self.engine,'before_cursor_execute',audit_fault)
+            try:
+                with self.assertRaises(Exception) as failure: write(pending)
+                self.assertEqual(getattr(getattr(failure.exception,'orig',None),'sqlstate',None),'22012')
+            finally: event.remove(self.engine,'before_cursor_execute',audit_fault)
+            self.assertEqual(owner_state(),(4,4))
+            def run(cmd):
+                try: return write(cmd)
+                except BridgeConflict: return None
+            competing = command('STATUS',paused,paused.model_copy(update={'status':'ACTIVE'}),4)
+            with ThreadPoolExecutor(max_workers=2) as workers:
+                results = list(workers.map(run,[pending,competing]))
+            self.assertEqual(sum(result is not None for result in results),1)
+            self.assertEqual(owner_state(),(5,5))
+            # Canonical stored receipt is exactly the returned historical result.
+            with self.admin() as c:
+                events = c.execute(select(db.audit).where(db.audit.c.subscriber_id==subscriber)).mappings().all()
+            self.assertEqual(len(events),5)
+            self.assertTrue(all(bridge._subscriber_receipt(e).actor_id==actor for e in events))
+            corrupt = deepcopy(dict(events[0]))
+            corrupt['changes']['_aaa_subscriber']['receipt']['after']['plan'] = 'Tampered'
+            with self.assertRaises(BridgeConflict): bridge._subscriber_receipt(corrupt)
+            self.assertEqual(receipt,write(create))
+            self.assertEqual(provider.snapshot()['attempts'],{})
+        with self.assertRaises(AaaBoundaryDisabled): AaaIdentityWriterBoundary(None,None,None,None).execute()
 
     def test_identity_gate_postgres_read_fail_closed(self):
         from app.integrations.aaa_identity_writer_boundary import AaaIdentityWriterBoundary, AaaBoundaryDisabled

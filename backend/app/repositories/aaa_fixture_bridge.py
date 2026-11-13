@@ -6,7 +6,7 @@ Only the exact fake provider is allowed. Its evidence is NOT crash durable.
 """
 import json
 from uuid import UUID, uuid4, uuid5
-from sqlalchemy import select, insert, update, func
+from sqlalchemy import select, insert, update, func, text
 from app.repositories import aaa_metadata as db
 from app.repositories.aaa_checkpoint_codec import encode, decode
 from app.repositories.aaa_membership import SessionMembershipResolver
@@ -44,7 +44,8 @@ class PostgresFixtureBridge:
 
     def _authorize(self, session, request, scope, principal, capability):
         owner_scope = self._scope(request, scope)
-        proof = self.resolver.resolve(session, principal, owner_scope, capability)
+        proof = self.resolver.resolve(session, principal, owner_scope, capability,
+                                      router_id=request.plan.snapshot.nas.router_id)
         return owner_scope, proof
 
     def _load(self, session, request, scope, proof):
@@ -275,3 +276,117 @@ class PostgresFixtureBridge:
                 occurred_at=session.execute(select(func.clock_timestamp())).scalar_one().isoformat(),
                 operation='AAA_FIXTURE_DAILY_TOUCH', changes={'fixture_only': True}))
         return after
+
+    def subscriber_change(self, request, scope, principal, command):
+        """Only a pure FakeFencedProvider projection, canonical owner and audit.
+
+        No normal subscriber store, network, DDL or provider dispatch. The owner
+        slot must already have been reserved in the isolated fixture namespace.
+        """
+        from app.simulation.aaa_integration_preparation import SyntheticAaaCommand, SyntheticAaaReceipt
+        if type(command) is not SyntheticAaaCommand:
+            raise PermissionError('TYPED_SYNTHETIC_COMMAND_REQUIRED')
+        command = SyntheticAaaCommand.model_validate_json(command.model_dump_json())
+        owner_scope = self._scope(request, scope)
+        if (command.tenant_id != owner_scope.tenant_id or command.actor_id != owner_scope.actor_id
+                or command.subscriber_id != owner_scope.subscriber_id
+                or command.router_id != request.plan.snapshot.nas.router_id):
+            raise PermissionError('SUBSCRIBER_COMMAND_SCOPE_REQUIRED')
+        digest = command.fingerprint()
+        with self.sessions() as session, session.begin():
+            self._authorize(session, request, scope, principal, 'AAA_SUBSCRIBER_' + command.operation)
+            # Serialize the exact fixture username across actors/subscriber IDs.
+            # The lock is transaction scoped and never contacts a remote provider.
+            namespace = canonical_hash([str(command.tenant_id), command.router_id, command.after.username])
+            session.execute(text('SELECT pg_advisory_xact_lock(hashtextextended(:namespace,0))'),
+                            {'namespace':namespace})
+            row = session.execute(select(db.owner).where(db.owner.c.tenant_id == owner_scope.tenant_id,
+                db.owner.c.id == owner_scope.subscriber_id).with_for_update()).mappings().one_or_none()
+            current = locked_owner(row, owner_scope, operation_id=None, writer='DAILY_OWNER')
+            if current.authority != command.expected_source:
+                raise PermissionError('SUBSCRIBER_SOURCE_CHANGED')
+            prior = session.execute(select(db.audit).where(db.audit.c.id == str(command.request_id))).mappings().one_or_none()
+            if prior:
+                receipt = self._subscriber_receipt(prior)
+                if (receipt.fingerprint != digest or receipt.tenant_id != owner_scope.tenant_id
+                        or receipt.actor_id != owner_scope.actor_id or receipt.subscriber_id != owner_scope.subscriber_id):
+                    raise BridgeConflict('SUBSCRIBER_REQUEST_ID_CONFLICT')
+                return receipt
+            if (current.revision, current.fence) != (command.expected_revision, command.expected_fence):
+                raise BridgeConflict('SUBSCRIBER_OWNER_PREVIEW_CHANGED')
+            history = session.execute(select(db.audit).where(db.audit.c.tenant_id == owner_scope.tenant_id,
+                db.audit.c.subscriber_id == owner_scope.subscriber_id,
+                db.audit.c.operation.in_(['AAA_SYNTHETIC_' + kind for kind in ('CREATE','EXTEND','PLAN','STATUS')]))
+                .order_by(db.audit.c.revision.desc()).limit(1)).mappings().one_or_none()
+            saved = self._subscriber_receipt(history) if history else None
+            if saved and (saved.revision != current.revision or saved.fence != current.fence
+                          or saved.source != current.authority or saved.router_id != command.router_id):
+                raise BridgeConflict('SUBSCRIBER_AUDIT_OWNER_DRIFT')
+            if command.operation == 'CREATE':
+                duplicate = session.execute(select(db.audit.c.id).where(
+                    db.audit.c.tenant_id == command.tenant_id, db.audit.c.subscriber_id != command.subscriber_id,
+                    db.audit.c.operation == 'AAA_SYNTHETIC_CREATE',
+                    db.audit.c.changes['_aaa_subscriber']['receipt']['router_id'].as_string() == command.router_id,
+                    db.audit.c.changes['_aaa_subscriber']['receipt']['after']['username'].as_string() == command.after.username)
+                    .limit(1)).first()
+                if duplicate:
+                    raise BridgeConflict('SYNTHETIC_USERNAME_ALREADY_OWNED')
+            now = session.execute(select(func.clock_timestamp())).scalar_one()
+            after = self.provider.project_subscriber(command, saved.after if saved else None, now)
+            owner_after = current.model_copy(update={'revision':current.revision+1, 'fence':current.fence+1})
+            require_metadata_transition(current, owner_after, operation_id=None, writer='DAILY_OWNER')
+            if session.execute(update(db.owner).where(*owner_cas_predicates(db.owner, owner_scope, current,
+                    operation_id=None, writer='DAILY_OWNER')).values(revision=owner_after.revision,
+                    aaa_fence=owner_after.fence)).rowcount != 1:
+                raise BridgeConflict('SUBSCRIBER_OWNER_CAS_CONFLICT')
+            receipt = SyntheticAaaReceipt(request_id=command.request_id, tenant_id=command.tenant_id,
+                actor_id=command.actor_id, subscriber_id=command.subscriber_id, router_id=command.router_id,
+                source=command.expected_source, operation=command.operation, fingerprint=digest,
+                before=command.before, after=after, revision=owner_after.revision, fence=owner_after.fence, occurred_at=now)
+            session.execute(insert(db.audit).values(id=str(command.request_id), tenant_id=command.tenant_id,
+                subscriber_id=command.subscriber_id, actor_id=command.actor_id, revision=receipt.revision,
+                occurred_at=receipt.occurred_at.isoformat(), operation='AAA_SYNTHETIC_' + command.operation,
+                changes={'_aaa_subscriber': {'command':command.model_dump(mode='json'),
+                                           'receipt':receipt.model_dump(mode='json')}}))
+        return receipt
+
+    def subscriber_result(self, request, scope, principal, request_id):
+        """Authenticated UUID recovery; absence is UNKNOWN, never a successful write."""
+        if type(request_id) is not UUID:
+            raise PermissionError('TYPED_SUBSCRIBER_REQUEST_ID_REQUIRED')
+        with self.sessions() as session, session.begin():
+            owner_scope, _ = self._authorize(session, request, scope, principal, 'AAA_SUBSCRIBER_READ')
+            row = session.execute(select(db.owner).where(db.owner.c.tenant_id == owner_scope.tenant_id,
+                db.owner.c.id == owner_scope.subscriber_id).with_for_update()).mappings().one_or_none()
+            current = locked_owner(row, owner_scope, operation_id=None, writer='DAILY_OWNER')
+            event = session.execute(select(db.audit).where(db.audit.c.id == str(request_id),
+                db.audit.c.tenant_id == owner_scope.tenant_id,
+                db.audit.c.subscriber_id == owner_scope.subscriber_id)).mappings().one_or_none()
+            if event is None:
+                return None
+            receipt = self._subscriber_receipt(event)
+            if receipt.actor_id != principal.actor_id or receipt.source != current.authority:
+                raise PermissionError('SUBSCRIBER_RECEIPT_OWNER_CHANGED')
+            return receipt
+
+    @staticmethod
+    def _subscriber_receipt(event):
+        from app.simulation.aaa_integration_preparation import SyntheticAaaCommand, SyntheticAaaReceipt
+        try:
+            record = event['changes']['_aaa_subscriber']
+            command = SyntheticAaaCommand.model_validate_json(json.dumps(record['command']))
+            receipt = SyntheticAaaReceipt.model_validate_json(json.dumps(record['receipt']))
+            if (str(receipt.request_id) != event['id'] or receipt.tenant_id != event['tenant_id']
+                    or receipt.subscriber_id != event['subscriber_id'] or receipt.actor_id != event['actor_id']
+                    or receipt.revision != event['revision'] or receipt.occurred_at.isoformat() != event['occurred_at']
+                    or 'AAA_SYNTHETIC_' + receipt.operation != event['operation']
+                    or receipt.fingerprint != command.fingerprint() or receipt.request_id != command.request_id
+                    or receipt.before != command.before or receipt.after != command.after
+                    or receipt.tenant_id != command.tenant_id or receipt.actor_id != command.actor_id
+                    or receipt.router_id != command.router_id or receipt.subscriber_id != command.subscriber_id
+                    or receipt.operation != command.operation or receipt.source != command.expected_source
+                    or receipt.revision != command.expected_revision+1 or receipt.fence != command.expected_fence+1):
+                raise ValueError()
+            return receipt
+        except (KeyError, TypeError, ValueError):
+            raise BridgeConflict('SUBSCRIBER_AUDIT_RECEIPT_CONFLICT') from None
