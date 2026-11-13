@@ -147,6 +147,38 @@ class CombinedObserverAcceptance(TestCase):
         self.assertEqual(result.status, "UNKNOWN")
         reader.assert_called_once_with(self.challenge, 5.0)
 
+    def test_bounded_reader_transport_integration(self):
+        from app.integrations.aaa_bounded_reader import BoundedObserverReader
+
+        ring = FixtureObserverKeyring([self.new])
+        evidence = self.signed(self.new)
+        io = Mock(return_value=evidence)
+        reader = BoundedObserverReader(io)
+
+        result = self.transport(reader, ring, "new").observe(
+            self.challenge, self.now
+        )
+
+        self.assertEqual(result.status, "VERIFIED")
+        io.assert_called_once()
+        budget = io.call_args.args[1]
+        self.assertEqual(budget.connect_seconds, 1.0)
+        self.assertEqual(budget.read_seconds, 4.0)
+
+    def test_bounded_reader_timeout_fails_closed(self):
+        from app.integrations.aaa_bounded_reader import BoundedObserverReader
+
+        ring = FixtureObserverKeyring([self.new])
+        io = Mock(side_effect=TimeoutError("fixture IO timeout"))
+        reader = BoundedObserverReader(io)
+
+        result = self.transport(reader, ring, "new").observe(
+            self.challenge, self.now
+        )
+
+        self.assertEqual(result.status, "UNKNOWN")
+        io.assert_called_once()
+
     def test_expired_challenge_rejected_without_success(self):
         ring = FixtureObserverKeyring([self.new])
         reader = Mock(return_value=self.signed(self.new))
