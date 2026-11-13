@@ -38,7 +38,7 @@ def office_guard():
         raise RuntimeError('DIRTY_WORKTREE_REJECTED')
 
 
-def run_bridge(cluster_id, *, subscriber_writes=False):
+def run_bridge(cluster_id, *, subscriber_writes=False, adapter_mappings=False):
     # Identity comes from verified provisioning or the owner-private manifest
     # checked against PG16 controldata. No environment/CLI DSN or ID override.
     if not isinstance(cluster_id,str) or not cluster_id.isdecimal():
@@ -47,20 +47,21 @@ def run_bridge(cluster_id, *, subscriber_writes=False):
     class OfficeAcceptance(PostgresBridgeAcceptance):
         expected_cluster_id = cluster_id
         fixture_root = ROOT
-        existing_schema_only = subscriber_writes
+        existing_schema_only = subscriber_writes or adapter_mappings
         environment_guard = staticmethod(office_guard)
     # Parent opt-in decorator is retained; activate only in this explicit runner.
     if os.environ.get('V2_AAA_EXISTING_PG_TESTS') != '1':
         raise RuntimeError('EXPLICIT_OFFICE_PG_OPT_IN_REQUIRED')
     # The inherited class skip flag was bound at import; the import above must
     # occur only after main's explicit process-local opt-in is installed.
-    name = ('test_synthetic_subscriber_writes_atomic_authorized_and_idempotent' if subscriber_writes
+    name = ('test_adapter_mappings_scoped_secret_free_and_durable' if adapter_mappings else
+            'test_synthetic_subscriber_writes_atomic_authorized_and_idempotent' if subscriber_writes
             else 'test_identity_gate_postgres_read_fail_closed')
     suite = unittest.TestSuite([OfficeAcceptance(name)])
     result = unittest.TextTestRunner(verbosity=1).run(suite)
     if not result.wasSuccessful() or result.testsRun != 1 or result.skipped:
         raise RuntimeError('OFFICE_TARGETED_READ_NOT_PASSED')
-    print('PASS: Office isolated AAA PostgreSQL ' + ('subscriber writes' if subscriber_writes else 'identity read')
+    print('PASS: Office isolated AAA PostgreSQL ' + ('adapter mappings' if adapter_mappings else 'subscriber writes' if subscriber_writes else 'identity read')
           + ' / fail-closed; not production acceptance')
 
 
@@ -141,7 +142,7 @@ def verify_existing_files():
     return manifest, fields.get('Database cluster state','').strip()
 
 
-def run_existing(*, subscriber_writes=False):
+def run_existing(*, subscriber_writes=False, adapter_mappings=False):
     manifest, state = verify_existing_files()
     # Adopt only this private, pinned directory; OwnedRoot.__init__ creates a
     # directory and must NEVER be called for an existing cluster.
@@ -177,7 +178,7 @@ def run_existing(*, subscriber_writes=False):
         else:
             raise RuntimeError('EXISTING_CLUSTER_STATE_REJECTED')
         owned.verify()
-        run_bridge(manifest['cluster_id'], subscriber_writes=subscriber_writes)  # SQL exact identity is checked before every test transaction.
+        run_bridge(manifest['cluster_id'], subscriber_writes=subscriber_writes, adapter_mappings=adapter_mappings)  # SQL exact identity is checked before every test transaction.
     finally:
         try:
             if started:
@@ -187,13 +188,20 @@ def run_existing(*, subscriber_writes=False):
             os.close(owned.parent_fd)
 
 
-def main(*, existing=False, subscriber_writes=False):
-    if subscriber_writes and not existing:
+def main(*, existing=False, subscriber_writes=False, adapter_mappings=False):
+    if subscriber_writes and adapter_mappings:
+        raise RuntimeError('SELECT_ONE_TARGETED_ACCEPTANCE')
+    if (subscriber_writes or adapter_mappings) and not existing:
         raise RuntimeError('EXISTING_SYNTHETIC_CLUSTER_REQUIRED')
     office_guard()
     with office_runtime():
         if existing:
-            run_existing(subscriber_writes=True) if subscriber_writes else run_existing()
+            if adapter_mappings:
+                run_existing(adapter_mappings=True)
+            elif subscriber_writes:
+                run_existing(subscriber_writes=True)
+            else:
+                run_existing()
         else:
             provision.prepare(bridge_acceptance=run_bridge, environment='OFFICE_WSL_AAA_FIXTURE',
                               root=ROOT, bootstrap_only=True)
@@ -205,8 +213,9 @@ if __name__ == '__main__':
         parser = argparse.ArgumentParser(description=__doc__)
         parser.add_argument('--existing',action='store_true',help='Use ONLY the pinned existing Office cluster; never initdb')
         parser.add_argument('--subscriber-writes',action='store_true',help='One targeted synthetic subscriber write acceptance; requires --existing')
+        parser.add_argument('--adapter-mappings',action='store_true',help='One targeted pure-adapter PG acceptance; requires --existing')
         args = parser.parse_args()
-        main(existing=args.existing, subscriber_writes=args.subscriber_writes)
+        main(existing=args.existing, subscriber_writes=args.subscriber_writes, adapter_mappings=args.adapter_mappings)
     except Exception as error:
         # Never print DSN, secrets, SQL parameters or arbitrary exception messages.
         codes = {'PERSISTENT_FIXTURE_MISSING','OFFICE_WSL_IDENTITY_REJECTED','EXACT_OFFICE_CLUSTER_REQUIRED','EXISTING_CLUSTER_STATE_REJECTED',

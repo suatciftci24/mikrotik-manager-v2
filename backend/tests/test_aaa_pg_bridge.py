@@ -149,6 +149,110 @@ class PostgresBridgeAcceptance(TestCase):
         self.bridge = PostgresFixtureBridge(self.sessions,self.resolver,self.f.provider)
         self.bridge.seed_fixture(self.f.request,self.f.scope,self.principal,self.f.unit)
 
+    def test_adapter_mappings_scoped_secret_free_and_durable(self):
+        from sqlalchemy import insert, select, func
+        from pydantic import ValidationError
+        from app.repositories import aaa_metadata as db
+        from app.simulation.aaa_provider import FakeFencedProvider
+        from app.simulation.aaa_integration_preparation import SyntheticAaaAccount, SyntheticAaaCommand
+        from app.modules.adapter_contracts import AaaAdapterTarget, AaaProfileMapping, PasswordVerification
+        from app.adapters.aaa_freeradius import FreeRadiusFixtureAdapter
+        from app.adapters.aaa_routeros import RouterOsFixtureAdapter
+        from app.integrations.aaa_identity_writer_boundary import AaaBoundaryDisabled
+        reference = 'secretref:v2/aaa-fixture/opaque-test-reference'
+        password = PasswordVerification(method='CHAP',storage='CLEARTEXT_REFERENCE',credential_reference=reference)
+        with self.assertRaises(ValidationError):
+            PasswordVerification(method='CHAP',storage='CRYPT_REFERENCE',credential_reference=reference)
+        with self.admin() as c: now = c.execute(select(func.clock_timestamp())).scalar_one()
+        from zoneinfo import ZoneInfo
+        today = now.astimezone(ZoneInfo('Europe/Istanbul')).date()
+        for source, major in (('LOCAL',6),('LOCAL',7),('RADIUS',7)):
+            subscriber, router = 'demo-managed-sub-'+str(uuid4()), 'demo-managed-router-'+str(uuid4())
+            snapshot_data = self.f.request.plan.snapshot.model_dump(mode='json')
+            snapshot_data['reference']['account_id'] = subscriber
+            snapshot_data['nas']['router_id'] = router
+            snapshot = type(self.f.request.plan.snapshot).model_validate_json(json.dumps(snapshot_data))
+            plan = self.f.request.plan.model_copy(update={'snapshot':snapshot})
+            request = self.f.request.model_copy(update={'plan':plan,'request_id':uuid4()})
+            target = AaaAdapterTarget(tenant_id=self.tenant,actor_id=self.actor,subscriber_id=subscriber,
+                router_id=router,source=source,routeros_major=major,mapping_revision=1,nas_identifier='fixture-nas',
+                profiles=(AaaProfileMapping(plan='Fixture 100',profile='pppoe-100',rate_limit='10M/100M'),
+                          AaaProfileMapping(plan='Fixture 500',profile='pppoe-500',rate_limit='50M/500M')),password=password)
+            adapter = RouterOsFixtureAdapter(target) if source=='LOCAL' else FreeRadiusFixtureAdapter(target)
+            provider = FakeFencedProvider(plan,subscriber_adapter=adapter)
+            bridge = PostgresFixtureBridge(self.sessions,self.resolver,provider)
+            caps = ['DAILY_OWNER','AAA_ROUTER:'+router] + ['AAA_SUBSCRIBER_'+k for k in ('CREATE','EXTEND','PLAN','STATUS','READ')]
+            with self.admin() as c:
+                c.execute(insert(db.owner).values(id=subscriber,tenant_id=self.tenant,source=source,revision=0,aaa_fence=0,aaa_active_operation=None))
+                c.execute(text('INSERT INTO v2_aaa.fixture_membership '
+                    '(tenant_id,actor_id,subscriber_id,active,revision,policy_revision,capabilities,deployment) '
+                    'VALUES (:t,:a,:u,true,1,1,CAST(:c AS jsonb),:d)'),
+                    {'t':self.tenant,'a':self.actor,'u':subscriber,'c':json.dumps(caps),'d':STAMP})
+            account = SyntheticAaaAccount(username='aaa.adapter.fixture',plan='Fixture 100',status='ACTIVE',
+                expires_on=(today+timedelta(days=5)).isoformat())
+            def command(operation,before,after,revision,**kwargs):
+                return SyntheticAaaCommand(request_id=uuid4(),tenant_id=self.tenant,actor_id=self.actor,
+                    subscriber_id=subscriber,router_id=router,expected_source=source,expected_revision=revision,
+                    expected_fence=revision,operation=operation,before=before,after=after,confirmed=True,**kwargs)
+            create = command('CREATE',None,account,0)
+            projection = adapter.prepare(create,now)
+            public = projection.model_dump_json()
+            for value in (reference,'credential_reference','Cleartext-Password :=','password='):
+                self.assertNotIn(value,public)
+            self.assertNotIn(reference,repr(target));self.assertNotIn(reference,repr(projection))
+            self.assertEqual(projection.expires_at_utc.hour,21)
+            self.assertEqual(projection.expires_at_utc.utcoffset(),timedelta(0))
+            if source=='LOCAL':
+                self.assertEqual(projection.api_path,'/ppp/secret/add')
+                self.assertEqual(projection.values,{'name':account.username,'service':'pppoe','profile':'pppoe-100','disabled':'no'})
+                self.assertNotIn('password',projection.values)
+                self.assertEqual(projection.expiration_enforcement,'EXTERNAL_WORKER_REQUIRED')
+            else:
+                self.assertEqual(projection.authentication.password_attribute,'Cleartext-Password')
+                self.assertEqual(projection.authentication.action,'SET_FROM_REFERENCE')
+                self.assertEqual(projection.authorization.control['Expiration'],int(projection.expires_at_utc.timestamp()))
+                self.assertEqual(projection.authorization.reply['Mikrotik-Group'],'pppoe-100')
+                self.assertEqual(projection.authorization.reply['Mikrotik-Rate-Limit'],'10M/100M')
+                self.assertNotIn('Auth-Type',projection.authorization.control)
+            with self.assertRaises(PermissionError): adapter.prepare(create.model_copy(update={'tenant_id':uuid4()}),now)
+            malformed = type(adapter)(target.model_copy(update={'routeros_major':8}))
+            with self.assertRaises(ValidationError): malformed.prepare(create,now)
+            malformed_profile = target.profiles[0].model_copy(update={'profile':'bad\nprofile'})
+            malformed = type(adapter)(target.model_copy(update={'profiles':(malformed_profile,)}))
+            with self.assertRaises(ValidationError): malformed.prepare(create,now)
+            foreign = FreeRadiusFixtureAdapter(target) if source=='LOCAL' else RouterOsFixtureAdapter(target)
+            with self.assertRaises(PermissionError): foreign.prepare(create,now)
+            with self.assertRaises(AaaBoundaryDisabled): adapter.apply_subscriber(create).send(None)
+            self.assertEqual(bridge.subscriber_change(request,self.f.scope,self.principal,create).after,account)
+            if source=='LOCAL': adapter.target = target.model_copy(update={'routeros_record_id':'*AB'})
+            changed = account.model_copy(update={'plan':'Fixture 500'})
+            package = command('PLAN',account,changed,1)
+            mapped = adapter.prepare(package,now)
+            if source=='LOCAL': self.assertEqual(mapped.values,{'.id':'*AB','profile':'pppoe-500'})
+            else: self.assertEqual(mapped.authentication.action,'PRESERVE')
+            self.assertEqual(bridge.subscriber_change(request,self.f.scope,self.principal,package).after,changed)
+            extended = changed.model_copy(update={'expires_on':(today+timedelta(days=35)).isoformat()})
+            renewal = command('EXTEND',changed,extended,2,days=30)
+            mapped = adapter.prepare(renewal,now)
+            if source=='LOCAL':
+                self.assertEqual(mapped.action,'METADATA_ONLY');self.assertIsNone(mapped.api_path);self.assertEqual(mapped.values,{})
+            else: self.assertGreater(mapped.authorization.reply['Session-Timeout'],projection.authorization.reply['Session-Timeout'])
+            self.assertEqual(bridge.subscriber_change(request,self.f.scope,self.principal,renewal).after,extended)
+            paused = extended.model_copy(update={'status':'PAUSED'})
+            status = command('STATUS',extended,paused,3)
+            mapped = adapter.prepare(status,now)
+            if source=='LOCAL': self.assertEqual(mapped.values['disabled'],'yes')
+            else: self.assertEqual(mapped.authorization.control['Auth-Type'],'Reject')
+            self.assertEqual(bridge.subscriber_change(request,self.f.scope,self.principal,status).after,paused)
+            self.assertEqual(bridge.subscriber_change(request,self.f.scope,self.principal,create).revision,1)
+            with self.admin() as c:
+                audits = c.execute(select(db.audit).where(db.audit.c.subscriber_id==subscriber)).mappings().all()
+            self.assertEqual(len(audits),4)
+            self.assertTrue(all(e['changes']['_aaa_subscriber']['adapter_projection']['mapping_revision']==1 for e in audits))
+            self.assertTrue(all(bridge._subscriber_receipt(e).actor_id==self.actor for e in audits))
+            self.assertNotIn(reference,json.dumps([dict(e) for e in audits],default=str))
+            self.assertEqual(provider.snapshot()['attempts'],{})
+
     def test_synthetic_subscriber_writes_atomic_authorized_and_idempotent(self):
         from dataclasses import replace
         from sqlalchemy import insert, select

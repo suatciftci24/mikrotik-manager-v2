@@ -93,7 +93,13 @@ def _unit(unit):
 
 class FakeFencedProvider:
     """Independent caller-owned provider memory; outcomes are fixed fixture scripts."""
-    def __init__(self, plan, *, outcomes=None):
+    def __init__(self, plan, *, outcomes=None, subscriber_adapter=None):
+        if subscriber_adapter is not None:
+            from app.adapters.aaa_freeradius import FreeRadiusFixtureAdapter
+            from app.adapters.aaa_routeros import RouterOsFixtureAdapter
+            if type(subscriber_adapter) not in (FreeRadiusFixtureAdapter,RouterOsFixtureAdapter):
+                raise TypeError('ONLY_PURE_FIXTURE_ADAPTERS_ALLOWED')
+        self.subscriber_adapter = subscriber_adapter
         outcomes = dict(outcomes or {})
         if any(k not in plan.steps[:3] or v not in ('APPLIED', 'NOT_APPLIED', 'UNKNOWN')
                for k, v in outcomes.items()):
@@ -107,7 +113,7 @@ class FakeFencedProvider:
         with self._lock:
             return deepcopy(self._state)
 
-    def project_subscriber(self, command, current, now):
+    def project_subscriber(self, command, current, now, *, include_mapping=False):
         """Pure fake effect; durable account/result is committed by the PG bridge.
 
         Unlike a remote device this projection has no independent side effect,
@@ -123,24 +129,21 @@ class FakeFencedProvider:
             raise PermissionError('PROVIDER_SUBSCRIBER_BINDING_REQUIRED')
         if current != command.before or now.utcoffset() is None:
             raise ProviderConflict('SUBSCRIBER_PREVIEW_CHANGED')
-        if command.operation == 'CREATE':
-            if current is not None or command.days is not None:
-                raise ProviderConflict('EMPTY_SYNTHETIC_ACCOUNT_REQUIRED')
-        else:
-            if current is None:
-                raise ProviderConflict('EXISTING_SYNTHETIC_ACCOUNT_REQUIRED')
-            changes = {key for key in type(current).model_fields if getattr(current, key) != getattr(command.after, key)}
-            field = {'EXTEND': 'expires_on', 'PLAN': 'plan', 'STATUS': 'status'}[command.operation]
-            if changes != {field} or command.operation != 'EXTEND' and command.days is not None:
-                raise ProviderConflict('SINGLE_EXPLICIT_SUBSCRIBER_CHANGE_REQUIRED')
-            if command.operation == 'EXTEND':
-                if current.expires_on is None or command.days is None:
-                    raise ProviderConflict('KNOWN_EXPIRY_AND_DAYS_REQUIRED')
-                today = now.astimezone(ZoneInfo('Europe/Istanbul')).date()
-                expected = max(date.fromisoformat(current.expires_on), today) + timedelta(days=command.days)
-                if command.after.expires_on != expected.isoformat():
-                    raise ProviderConflict('TURKEY_EXPIRY_PREVIEW_CHANGED')
-        return command.after
+        if command.operation == 'EXTEND':
+            if current.expires_on is None or command.days is None:
+                raise ProviderConflict('KNOWN_EXPIRY_AND_DAYS_REQUIRED')
+            today = now.astimezone(ZoneInfo('Europe/Istanbul')).date()
+            expected = max(date.fromisoformat(current.expires_on), today) + timedelta(days=command.days)
+            if command.after.expires_on != expected.isoformat():
+                raise ProviderConflict('TURKEY_EXPIRY_PREVIEW_CHANGED')
+        mapping = None
+        if self.subscriber_adapter is not None:
+            from app.adapters.aaa_freeradius import FreeRadiusFixtureAdapter
+            from app.adapters.aaa_routeros import RouterOsFixtureAdapter
+            if type(self.subscriber_adapter) not in (FreeRadiusFixtureAdapter,RouterOsFixtureAdapter):
+                raise TypeError('ONLY_PURE_FIXTURE_ADAPTERS_ALLOWED')
+            mapping = self.subscriber_adapter.prepare(command,now)
+        return (command.after,mapping) if include_mapping else command.after
 
     def _command(self, unit, request, scope, context, lease, permission, *, allow_done=False):
         _unit(unit)

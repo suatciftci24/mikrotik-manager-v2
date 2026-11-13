@@ -510,3 +510,64 @@ Gerçek11 test PASS'i veya GitHub SHA eşitliği iddia edilmez.
   V1/V2.5/canlıV2.6, gerçek router/RADIUS/IPsec, mevcut demo abone/kullanıcı/DB,
   deploy/migration/servis restartı değişmedi. Güvenli kod ve belge normal commit/
   push kapsamındadır. Sonraki iş yalnız ayrı onaylı gerçek entegrasyon kabulüdür.
+
+## FreeRADIUS / RouterOS saf adaptör eşlemeleri — 2026-11-13 — izole PASS
+
+- Başlangıç main-guncel/74f0a03; temiz Git ve fetch eşitliği doğrulandı. Mevcut
+  yazılım korunur; normal API/config/route/transport veya canlı writer bağlanmadı.
+- Yeni aaa_freeradius.py ve aaa_routeros.py yalnız saf prepare projeksiyonlarıdır.
+  FakeFencedProvider'a explicit opt-in ile verilir; yabancı adaptör tipi reddedilir.
+  apply_subscriber iki sınıfta da koşulsuz AaaBoundaryDisabled üretir. Gerçek
+  RADIUS DB, RouterOS API/REST/SSH/WinBox istemcisi veya parola resolver'ı yoktur.
+- FreeRADIUS3 authentication modeli PAP/CHAP/MSCHAPV2 ile cleartext/NT/crypt
+  referanslarını ayırır; CHAP cleartext, MSCHAPV2 cleartext veya NT gerektirir.
+  Ham parola/hash/RADIUS secret alınmaz. Credential referansları repr/JSON/audit/
+  receipt dışında tutulur; CREATE SET_FROM_REFERENCE, diğer işlemler PRESERVE.
+  Authorization ayrı control/reply modelidir: Mikrotik-Group PPP profilini,
+  opsiyonel Mikrotik-Rate-Limit router RX/TX yani upload/download değerlerini,
+  Expiration typed UTC epoch'u, Session-Timeout kalan saniyeyi belirtir.
+  PAUSED veya dolmuş süre Auth-Type Reject üretir; aktif hesapta Auth-Type Accept
+  zorlanmaz. managed_control/reply yalnız yönetilen attribute'ların desired-image
+  kapsamıdır; bilinmeyen bitiş UNSPECIFIED kalır, Expiration silinmesi istenmez.
+- RouterOS6/7 ortak native API /ppp/secret/add ve /set alanları kullanılır;
+  CREATE name/service=pppoe/profile/disabled, PLAN profile, STATUS disabled
+  eşlemeleridir. SET için doğrulanmış *.id, CREATE için boş kayıt bağı gerekir.
+  Parola komut değerlerinde yoktur. EXTEND METADATA_ONLY: PPP secret'ta native
+  absolute expiry yoktur; uydurma expiration alanı, session-timeout ile abonelik
+  taklidi, script/scheduler veya aktif oturum kesme komutu üretilmez. Tarih varsa
+  EXTERNAL_WORKER_REQUIRED, tarih bilinmiyorsa UNSPECIFIED açıkça gösterilir.
+- Mevcut SubscriptionTerms ile bitiş gününün ertesi Türkiye gece yarısı UTC'ye
+  dönüştürülür. Target tenant/actor/subscriber/router/source, mapping revision ve
+  explicit profil allowlist'i komuta bağlanır; eksik/belirsiz paket ve değiştirilmiş
+  nested model/version reddedilir. Komutun tek-alan değişimi kendi validator'ında
+  tutulur; fake provider'daki aynı kontrol tekrarı kaldırıldı.
+- PG bridge içinde fresh grant/namespace/owner lock ve revision/fence CAS aynı
+  kalır. Saf mapping çıktısı credential dışlanarak aynı kanonik audit satırına
+  adapter_projection olarak eklenir; source/type/UUID/scope/fingerprint/revision/
+  fence bağı receipt okunurken doğrulanır. Eski projection'sız receipt okunabilir.
+- PASS: --existing --adapter-mappings ile 1 yeni hedefli gerçek PG testi /0.540s.
+  LOCAL6, LOCAL7 ve RADIUS3 için CREATE/PLAN/EXTEND/STATUS, UUID replay, mapping/
+  audit/receipt, yetkili scope/source, unknown version/nested mapping reddi,
+  CHAP-crypt uyumsuzluğu, secret reference serialization/repr reddi ve kapalı canlı
+  apply doğrulandı. Önceki yazma/read/11PG/frontend paketleri tekrarlanmadı.
+  Yeni test dosyası yoktur. Mevcut şemada yalnız yeni UUID'li fixture kayıtları
+  kullanıldı; DDL/provision/migration/reset/silme veya mevcut demo verisi değişmedi.
+- Ön/son HTTPS200 ve /api/ready v26-isolated-acceptance geçti. Kendi test
+  postmaster'ı durduruldu; private manifest/PG16 kimliği ve shut down son kontrolde
+  doğrulandı. Üç stash, yedekler, kullanıcılar ve Git dışı cluster/sırlar korundu.
+
+Devreye alma ön koşulları (bu görevde yapılmadı): kabul edilmiş canlı komut
+sürümü, gerçek kimlik/tenant/NAS bağları, credential store ve parola metodu
+uyumu; FreeRADIUS3 SQL/unlang tenant-NAS kapsamı, dictionary/profil ve expiration
+modülü/UTC date encoding kabulü; RouterOS6/7 üzerinde gerçek *.id sahiplik ve
+profil doğrulaması, güvenli credential aktarımı, LOCAL expiry worker'ı ve mevcut
+oturum politikası; least-privilege/RLS, gerçek provider UNKNOWN/timeout/
+reconciliation ve audit tutarlılığı kabulü. FreeRADIUS4 farklı attribute dili bu
+sürümde desteklenmez. Üretim bağlantısı ve AAA'nın tamamı bitmiş sayılmaz.
+
+Eşleme dayanakları (resmî kaynaklar):
+- MikroTik [PPP AAA](https://help.mikrotik.com/docs/spaces/ROS/pages/132350049/PPP+AAA)
+  ve [RADIUS attributes](https://help.mikrotik.com/docs/spaces/ROS/pages/328097/RADIUS).
+- FreeRADIUS [PAP verifier](https://www.freeradius.org/radiusd/man/rlm_pap.html),
+  [expiration module](https://wiki.freeradius.org/modules/rlm-expiration) ve
+  [date AVP epoch formatı](https://lists.freeradius.org/hyperkitty/list/freeradius-users%40lists.freeradius.org/thread/IYAOU35E2NY3FC4YIOEZYMZFFY2SB35P/).

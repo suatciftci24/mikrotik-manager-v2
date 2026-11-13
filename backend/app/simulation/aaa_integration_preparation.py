@@ -5,7 +5,7 @@ from hashlib import sha256
 from typing import Literal
 from uuid import UUID, uuid5
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from app.integrations.aaa_contracts import ReadContract, PreviewScope, require_preview_scope, snapshot_fingerprint
 from app.simulation.aaa_transition import SimulationRequest, simulate_transition
 
@@ -209,6 +209,20 @@ class SyntheticAaaCommand(ReadContract):
         if type(value) is not bool or value is not expected:
             raise ValueError('EXPLICIT_SYNTHETIC_CONFIRMATION_REQUIRED')
         return value
+
+    @model_validator(mode='after')
+    def explicit_change(self):
+        if self.operation=='CREATE':
+            if self.before is not None or self.days is not None:
+                raise ValueError('EMPTY_SYNTHETIC_ACCOUNT_REQUIRED')
+        else:
+            if self.before is None:
+                raise ValueError('EXISTING_SYNTHETIC_ACCOUNT_REQUIRED')
+            field = {'EXTEND':'expires_on','PLAN':'plan','STATUS':'status'}[self.operation]
+            changed = {k for k in SyntheticAaaAccount.model_fields if getattr(self.before,k)!=getattr(self.after,k)}
+            if changed != {field} or (self.operation!='EXTEND' and self.days is not None):
+                raise ValueError('SINGLE_EXPLICIT_SUBSCRIBER_CHANGE_REQUIRED')
+        return self
 
     def fingerprint(self):
         from app.simulation.aaa_atomic import canonical_hash

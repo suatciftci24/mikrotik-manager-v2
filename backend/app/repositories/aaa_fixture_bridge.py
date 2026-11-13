@@ -332,7 +332,7 @@ class PostgresFixtureBridge:
                 if duplicate:
                     raise BridgeConflict('SYNTHETIC_USERNAME_ALREADY_OWNED')
             now = session.execute(select(func.clock_timestamp())).scalar_one()
-            after = self.provider.project_subscriber(command, saved.after if saved else None, now)
+            after, mapping = self.provider.project_subscriber(command, saved.after if saved else None, now, include_mapping=True)
             owner_after = current.model_copy(update={'revision':current.revision+1, 'fence':current.fence+1})
             require_metadata_transition(current, owner_after, operation_id=None, writer='DAILY_OWNER')
             if session.execute(update(db.owner).where(*owner_cas_predicates(db.owner, owner_scope, current,
@@ -347,7 +347,8 @@ class PostgresFixtureBridge:
                 subscriber_id=command.subscriber_id, actor_id=command.actor_id, revision=receipt.revision,
                 occurred_at=receipt.occurred_at.isoformat(), operation='AAA_SYNTHETIC_' + command.operation,
                 changes={'_aaa_subscriber': {'command':command.model_dump(mode='json'),
-                                           'receipt':receipt.model_dump(mode='json')}}))
+                                           'receipt':receipt.model_dump(mode='json'),
+                                           'adapter_projection':mapping.model_dump(mode='json') if mapping is not None else None}}))
         return receipt
 
     def subscriber_result(self, request, scope, principal, request_id):
@@ -387,6 +388,17 @@ class PostgresFixtureBridge:
                     or receipt.operation != command.operation or receipt.source != command.expected_source
                     or receipt.revision != command.expected_revision+1 or receipt.fence != command.expected_fence+1):
                 raise ValueError()
+            if record.get('adapter_projection') is not None:
+                from app.adapters.aaa_routeros import RouterOsProjection
+                from app.adapters.aaa_freeradius import RadiusProjection
+                model = RouterOsProjection if receipt.source=='LOCAL' else RadiusProjection
+                projection = model.model_validate_json(json.dumps(record['adapter_projection']))
+                if (projection.fingerprint != receipt.fingerprint
+                        or any(getattr(projection,key)!=getattr(receipt,key) for key in
+                               ('request_id','tenant_id','actor_id','subscriber_id','router_id','source','operation'))
+                        or projection.expected_revision != command.expected_revision
+                        or projection.expected_fence != command.expected_fence):
+                    raise ValueError()
             return receipt
         except (KeyError, TypeError, ValueError):
             raise BridgeConflict('SUBSCRIBER_AUDIT_RECEIPT_CONFLICT') from None

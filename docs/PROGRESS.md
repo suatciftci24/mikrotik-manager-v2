@@ -5516,3 +5516,22 @@ Her iki ilerleme kaydi korunmustur:
   V1/V2.5/canlıV2.6, gerçek router/RADIUS/IPsec, mevcut demo abone/kullanıcı/DB,
   deploy/migration/servis restartı değişmedi. Güvenli kod ve belge normal commit/
   push kapsamındadır. Sonraki iş yalnız ayrı onaylı gerçek entegrasyon kabulüdür.
+
+## FreeRADIUS / RouterOS adaptör eşlemeleri — 2026-11-13 — izole PASS
+
+- Güncel main-guncel/74f0a03 ve temiz ağaçtan; önceki panel/AAA kodu korundu.
+- İki saf fixture adaptörü: FreeRADIUS3 auth/authz ve profil/expiration/status
+  attribute'ları; RouterOS6/7 PPP secret add/set ve metadata-only uzatma.
+  Credential yalnız dışlanmış referans; canlı apply koşulsuz kapalıdır.
+- FakeFencedProvider opt-in ve mevcut PG bridge aynı grant/owner/UUID/CAS/audit
+  sınırını kullanır. Sansürlü adapter projection audit ile atomik ve scope-bound.
+- PASS: tek yeni hedefli PG testi/0.540s; dört işlem, üç sürüm/kaynak seçimi,
+  audit/receipt/replay, scope/version reddi ve secret dışlama. Eski PASS paketleri
+  tekrarlanmadı. HTTPS200/API runtime_profile ön/son başarılı; cluster shut down.
+- Kabul ve kısa üretim ön koşulları AAA-POSTGRESQL-ISOLATED-ACCEPTANCE.md son
+  bölümünde. Gerçek bağlantı/credential çözümü, LOCAL expiry worker ve canlı
+  provider kabulü açık kalır; AAA üretim entegrasyonu bitmiş değildir.
+- DDL/migration/deploy/servis restartı, mevcut demo kullanıcı/abone veya gerçek
+  cihaz/DB değişikliği yok. Üç stash ve Git dışı cluster/secret dosyaları korundu.
+  Sonraki adım yalnız ayrı onaylı gerçek entegrasyon kabulüdür; güvenli kod/belge
+  normal main-guncel commit/push kapsamındadır.
