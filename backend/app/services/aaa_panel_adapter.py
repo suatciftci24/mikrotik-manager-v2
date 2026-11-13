@@ -29,6 +29,7 @@ class IsolatedPanelSelection(ReadContract):
 
 
 class PanelFixtureAccess(ReadContract):
+    can_reconcile: bool = False
     can_manage_subscriber: bool = False
     can_read_subscriber: bool = False
     can_issue_prepared: bool = False
@@ -83,6 +84,14 @@ class IsolatedPanelDependencies:
 class PanelAaaAdapter:
     def __init__(self, selection=None, dependencies=None):
         self._selection, self._deps = selection, dependencies
+
+    def reconcile(self, session_handle, request, service, **intent):
+        from app.repositories.aaa_reconciliation import DurableFixtureReconciliation
+        request,scope,principal,_,_ = self._context(session_handle,request,'can_reconcile')
+        if (type(service) is not DurableFixtureReconciliation or service.bridge is not self._deps.backend
+                or service.observer is None):
+            raise PermissionError('OBSERVER_BOUND_RECONCILIATION_REQUIRED')
+        return service.evaluate(request,scope,principal,**intent)
 
     def _context(self, session_handle, request, flag):
         selection, deps = self._selection, self._deps

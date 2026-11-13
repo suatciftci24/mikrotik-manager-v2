@@ -39,6 +39,7 @@ CAPS = ['AAA_METADATA', 'AAA_SEED', 'AAA_PREPARE', 'AAA_EXECUTE', 'AAA_DECISION'
 
 @skipUnless(os.environ.get('V2_AAA_EXISTING_PG_TESTS') == '1', 'Explicit existing isolated AAA PG opt-in required')
 class PostgresBridgeAcceptance(TestCase):
+    actor_prefix = 'aaa-pg-actor-'
     existing_schema_only = False
     fixture_root = ROOT
     expected_cluster_id = '7707358750625226262'
@@ -107,7 +108,7 @@ class PostgresBridgeAcceptance(TestCase):
 
     def setUp(self):
         self.tenant = uuid4()
-        self.actor = 'aaa-pg-actor-' + str(self.tenant)
+        self.actor = self.actor_prefix + str(self.tenant)
         self.subscriber = 'demo-managed-sub-' + str(self.tenant)
         with self.admin() as c:
             now = c.execute(text('SELECT clock_timestamp()')).scalar_one()

@@ -839,3 +839,80 @@ planı ve tüm owner writer'ların katılımı; gerçek secret-store, RADIUS pro
 RouterOS/session kabulü. V1/V2.5/canlı/demo ve 14 abone/5 kullanıcı/yedeklere
 dokunulmadı; canlı health bağlantısı yapılmadı. Writer/expire worker varsayılan
 kapalı kalır. Üretim AAA entegrasyonu tamamlanmış değildir.
+
+## Remote Observer, kanıt doğrulama ve principal — 2026-11-13 — izole PASS
+
+Başlangıç main-guncel/6078c2d temiz. Mevcut kalıcı reconciliation değiştirilmeden
+genişletildi: `with_observer` açık seçimi typed verifier ve RuntimePrincipalGuard
+gerektirir. Eski reader/verifier fixture yolu uyumluluk için kalır; yeni panel
+reconcile bu eski, observer'sız yolu reddeder. Hiçbir yeni uygulama endpoint'i,
+default provider, credential store veya gerçek ağ bağlantısı eklenmedi.
+
+RemoteObserver.observe(challenge) read-only arayüzüdür. SyntheticRemoteObserver
+istekten sonuç türetmez; önceden ayrı oluşturulan scoped observation registry'sini
+kullanır. Değerlendirme UUID, tam scope, dispatch fingerprint/alt plan hash'i,
+owner revision/fence ve 5 saniyelik zaman penceresi challenge hash'ine bağlıdır.
+Sentetik, çalışma anında üretilen 32-byte key ile HMAC-SHA256 doğrulanır;
+verifier kaynak identity/revision/key'i pin eder. Her yeni evaluation için eski
+signed envelope replay'i reddedilir; aynı evaluation UUID için mevcut immutable
+receipt replay'i gözlem veya yeni etki üretmez. İmza yazma yetkisi vermez.
+
+Tenant/router/subscriber/operation/execution, revision/fence veya dispatch bağı
+yanlışsa; source/key/revision güvenilmezse; MAC değiştirilmişse, gözlem gelecekte,
+expired, 30 saniyeden eski veya validity penceresi 30 saniyeden uzunsa UNKNOWN.
+Observer exception/timeout ve 5 saniyelik challenge süresini aşan cevap da UNKNOWN.
+Gerçek IO yoktur; gerçek adapter'ın IO'yu deadline ile sınırlaması ayrıca gerekir.
+Gözlem sırasında oluşan timestamp verified_at DB saatiyle karşılaştırılır.
+Secure observer yolunda gerileyen/çelişkili watermark UNKNOWN kaydeder, son
+doğrulanmış watermark'ı korur; otomatik retry/resume/owner değişimi yapmaz.
+
+RemoteObservation'a optional source_identity/source_revision eklendi; boşken
+eski serialization korunur. Kaynak provenance sansürlü receipt/audit'te kalır;
+signed envelope signature ve key saklanmaz. Ham remote çıktı/credential yoktur.
+HMAC yalnız sentetik kaynak güveni kabulüdür; üretim PKI, key rotation/revocation
+ve kompromize kaynak iddialarının bağımsız doğruluğu kabul edilmiş sayılmaz.
+
+PanelFixtureAccess.can_reconcile default False; PanelAaaAdapter.reconcile mevcut
+opaque session→fresh _PanelActor→central admin→selected actor→owner binding→
+ayrı operation access yolunu yeniden kullanır. Ardından aynı reconciliation
+transaction'ında RuntimePrincipalGuard gerçek session_user/login, RLS tenant,
+request/scope/ServerPrincipal actor ve deployment'i admin-owned mapping'e bağlar.
+Test-only runtime_principal_lock fonksiyonu mapping satırını FOR SHARE kilitler;
+request GUC/header eşlemeyi değiştiremez. Mevcut fresh DB membership/ADMIN/router,
+owner source/active operation ve CAS/audit kontrolleri devam eder. Auth reader
+testte sentetiktir; gerçek cookie/session/pool entegrasyonu seçilmedi.
+
+PASS: 2 yeni birleşik PG testi /1.625s, skip yok; yalnız yeni UUID'li cluster:
+`PYTHONPATH=.:backend backend/.venv/bin/python -m backend.tests.run_aaa_observer_postgres`.
+Authenticated panel→runtime login→RLS→observer→durable receipt yolu; challenge
+replay, timeout, signed contradiction UNKNOWN; UUID idempotency, CAS race tek
+kazanan; gerçek SQLSTATE22012 audit hatasında row/audit birlikte rollback;
+secret/signature dışlama ve engine/owner değişmemesi doğrulandı. Ayrı testte
+eksik session/operation access, VIEWER, yabancı owner/router/subscriber/tenant,
+DB tenant/actor/deployment uyuşmazlığı, revoked router grant ve owner source
+drift reddedildi; düzeltildikten sonra aynı kontrollü fixture başarı verdi.
+
+PASS: 4 ilk observer unittest /0.180s (MAC/scope/source/key/replay/time);
+ek 1 legacy/sparse serialization testi ve 3 mevcut runtime/runner güvenlik
+testi geçti. Bu dört başarılı testle aynı komutta iki eski panel testinin
+selector sınıf adı yanlış yazılmıştı; yalnız bulunamayan selector'lar doğru
+PanelAaaAdapterTests adıyla yeniden çalıştırıldı, 2 test /0.410s PASS.
+Toplam 12 benzersiz hedefli test PASS; geniş eski paketler tekrar edilmedi.
+
+İlk PG koşusu FAIL: base fixture actor adı aaa-pg-actor-* idi; mevcut panelin
+aaa-panel-fixture-* sınırı doğru biçimde reddetti. Base fixture'a default'u
+koruyan actor_prefix seçimi eklendi; yeni test sınıfı panel prefix'ini seçti.
+Ürün güvenlik kontrolü gevşetilmedi. Yalnız başarısız iki PG testi yeni cluster'da
+tekrarlandı. Son ID `7707716007384275032`, root
+`/tmp/mikrotik-v26-reconciliation-86eaa9bdf35d4c0980db6d1e5b60a0dc`.
+İlk FAIL cluster ID `7707715842720671764`; her ikisi pg_controldata ile shut down.
+Eski test/demo/pilot ortamına fallback, migration/reset/restore/silme yok.
+DDL yalnız yeni test DB fixture'ıdır; üretim RLS kurulumu değildir. Diff check PASS.
+
+Üretim öncesi açık: authenticated gerçek observer transport/source registry ve
+anahtar lifecycle; gerçek provider tarafında independent state/partial/crash
+kanıtı ve bounded IO; production authentication session→principal/pool/login
+dağıtımı; ayrıca onaylanacak RLS schema/role migration/rollback planı ve tüm
+writer katılımı; gerçek secret-store/RADIUS/RouterOS/session kabulü. V1/V2.5/
+canlı/14 abone/5 kullanıcı/yedekler korunur; writer ve LOCAL expire worker
+varsayılan kapalıdır. Üretim AAA entegrasyonu tamamlanmış değildir.

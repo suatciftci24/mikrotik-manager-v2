@@ -20,7 +20,7 @@ def acceptance(cluster_id):
         raise RuntimeError('RECONCILIATION_ACCEPTANCE_NOT_PASSED')
 
 
-def main():
+def main(*, bridge_acceptance=acceptance):
     provision.home_guard()
     if os.path.lexists(ROOT):
         raise RuntimeError('ACCEPTANCE_ROOT_ALREADY_EXISTS')
@@ -28,7 +28,7 @@ def main():
     with _isolated_runtime():
         os.environ['WSL_DISTRO_NAME'] = distro
         os.environ['V2_AAA_EXISTING_PG_TESTS'] = '1'
-        provision.prepare(root=ROOT,bridge_acceptance=acceptance,bootstrap_only=True)
+        provision.prepare(root=ROOT,bridge_acceptance=bridge_acceptance,bootstrap_only=True)
 
 
 if __name__ == '__main__':

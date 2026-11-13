@@ -1,5 +1,34 @@
 # MikroTik Manager V2 — İlerleme
 
+## Remote Observer / kanıt / runtime principal — 2026-11-13 — izole PASS
+
+- Başlangıç main-guncel/6078c2d temiz; kurallar/son AAA kabul ve mevcut
+  reconciliation, panel identity/membership ve RLS kodu incelendi, korundu.
+- RemoteObserver portu, bağımsız sentetik observation registry adaptörü ve
+  pinned synthetic HMAC verifier eklendi. Evaluation UUID challenge hash'i,
+  kaynak kimliği/revizyonu, dispatch hash/alt plan ve tüm scope/fence/zaman
+  bağları doğrulanır; sahte/replay/expired/conflicting kanıt UNKNOWN olur.
+- Panel reconcile ayrı default-false izinle mevcut _context kimlik/ADMIN/owner
+  sınırını kullanır. Aynı SQL transaction'da RuntimePrincipalGuard gerçek login,
+  RLS tenant ve admin-owned kilitli actor/deployment eşlemesini doğrular.
+- PASS: toplam 12 benzersiz hedefli test: 2 yeni PG /1.625s, 5 observer testi,
+  3 mevcut runtime/runner güvenlik testi, 2 panel sınır regresyonu. UUID replay,
+  CAS yarışı, SQL22012 audit rollback, tenant/router/owner/role reddi doğrulandı.
+  İlk PG koşusu fixture actor prefix uyumsuzluğuyla FAIL; güvenlik kuralı
+  korunup fixture parametresi düzeltildi, yalnız iki başarısız test tekrarlandı.
+  Ek test selector yazım hatasında yalnız bulunamayan 2 selector düzeltildi.
+- Son yeni PG16 ID 7707716007384275032, root /tmp/mikrotik-v26-reconciliation-
+  86eaa9bdf35d4c0980db6d1e5b60a0dc; hem başarılı hem ilk başarısız test cluster'ı
+  shut down doğrulandı. Eski ortam/demo DB fallback, silme/reset/restore yok.
+- Receipt optional provenance alanları eski serialization'ı korur; signature ve
+  sentetik key audit/receipt'e girmez. Otomatik retry/dispatch/owner değişimi yok.
+  Writer/expire worker varsayılan kapalı; V1/V2.5/canlı/router/RADIUS/IPsec/demo
+  DB/14 abone/5 kullanıcı/yedeklere ve canlı health'e bağlantı yok.
+- Açık: gerçek authenticated observer/transport, key lifecycle, production
+  principal/pool ve RLS kurulum kabulü; mevcut sentetik HMAC üretim PKI'sı değildir.
+  Üretim AAA tamamlanmadı. Son kabul raporu güncellendi; commit/push sonucu
+  görev sonu raporunda.
+
 ## Kalıcı AAA reconciliation / runtime RLS — 2026-11-13 — izole PASS
 
 - Başlangıç main-guncel/114dab7 temiz; kurallar/son kabul ve mevcut bridge,

@@ -1,5 +1,6 @@
 """Explicit fixture runtime identity and RLS checks. No engine or app startup IO."""
 from sqlalchemy import text
+from uuid import UUID
 
 
 def require_fixture_runtime(connection, *, login, tenant_id):
@@ -15,3 +16,26 @@ def require_fixture_runtime(connection, *, login, tenant_id):
         "AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='tenant_id')")).all()
     if not tables or any(not r[2] or not r[3] or r[4] in (login,'v26_aaa_fixture') for r in tables):
         raise PermissionError('AAA_RUNTIME_RLS_REQUIRED')
+
+
+class RuntimePrincipalGuard:
+    """Bind trusted authenticated ServerPrincipal to the same DB login/tenant.
+
+    Mapping is admin-owned and locked by a narrow definer function. No request
+    header/GUC may set it. Production session/pool wiring remains unselected.
+    """
+    def __init__(self, *, login):
+        if not isinstance(login,str) or not login:
+            raise TypeError('EXPLICIT_RUNTIME_LOGIN_REQUIRED')
+        self.login = login
+
+    def check(self, session, request, scope, principal):
+        from app.repositories.aaa_membership import ServerPrincipal
+        if (type(principal) is not ServerPrincipal or principal.actor_id!=request.actor_id
+                or scope.actor_id!=principal.actor_id or scope.tenant_id!=request.plan.tenant_id):
+            raise PermissionError('RUNTIME_PRINCIPAL_SCOPE_REJECTED')
+        tenant = UUID(scope.tenant_id)
+        require_fixture_runtime(session,login=self.login,tenant_id=tenant)
+        row = session.execute(text('SELECT actor_id,deployment,tenant_id FROM v2_aaa.runtime_principal_lock()')).one_or_none()
+        if row is None or tuple(row)!=(principal.actor_id,principal.deployment,tenant):
+            raise PermissionError('RUNTIME_AUTHENTICATED_PRINCIPAL_REJECTED')
