@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {EMPTY_SUBSCRIBER_FILTERS,filterSubscribers,subscriberFilterOptions} from '../src/lib/subscriberFilters.ts';
+import {EMPTY_SUBSCRIBER_FILTERS,filterSubscribers,subscriberFilterOptions,sortSubscribers} from '../src/lib/subscriberFilters.ts';
 const today='2026-10-27';
 const base={id:'one',username:'ayse.isik',customer_name:'Ayşe Işık',router_name:'Kadıköy',plan:'Fiber 100',source:'LOCAL',status:'ACTIVE',expires_on:'2026-10-30',is_demo:true};
 const rows=[base,{...base,id:'two',username:'MERT.ISP',customer_name:'Mert İleri',source:'RADIUS',status:'PAUSED',router_name:'Ataşehir',plan:'Fiber 500',expires_on:'2026-11-30'},
@@ -41,4 +41,14 @@ test('access type filter intersects authority and status without hiding unknown 
  assert.deepEqual(apply({access:'HOTSPOT',source:'RADIUS',status:'PAUSED'}),['hotspot']);
  assert.deepEqual(apply({access:'PPPOE',source:'RADIUS'}),[]);
  assert.deepEqual(apply({access:'UNKNOWN'}),['unknown']);
+});
+
+test('search includes saved IP and ID; expiry sorting keeps unknown last and inventory untouched',()=>{
+ const inventory=[{...base,id:'unknown',expires_on:null},{...base,id:'late',expires_on:'2026-12-01',ip_address:'192.0.2.42'},
+  {...base,id:'early',expires_on:'2026-10-26'},{...base,id:'invalid',expires_on:'2026-02-30'}];
+ assert.deepEqual(filterSubscribers(inventory,{...EMPTY_SUBSCRIBER_FILTERS,query:'192.0.2.42'},today).map(r=>r.id),['late']);
+ assert.deepEqual(filterSubscribers(inventory,{...EMPTY_SUBSCRIBER_FILTERS,query:'unknown'},today).map(r=>r.id),['unknown']);
+ assert.deepEqual(sortSubscribers(inventory,'EXPIRY',today).map(r=>r.id),['early','late','invalid','unknown']);
+ assert.deepEqual(sortSubscribers(inventory,'EXPIRY_DESC',today).map(r=>r.id),['late','early','invalid','unknown']);
+ assert.deepEqual(inventory.map(r=>r.id),['unknown','late','early','invalid']);
 });

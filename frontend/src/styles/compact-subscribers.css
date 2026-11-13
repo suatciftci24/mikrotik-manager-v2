@@ -51,3 +51,28 @@
  .subscriber-center-list .source-picker{min-width:0;max-width:100%}
 }
 @media(min-width:601px){.subscriber-mobile-note{display:none}}
+
+.subscriber-list-controls,.subscriber-summary-links,.subscriber-selection-notice,.management-period-shortcuts{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:12px 0}
+.subscriber-list-controls{padding:0 14px}
+.subscriber-list-controls .form-label{margin:0;min-width:0}
+.subscriber-selection-notice{padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--text)}
+.subscriber-connection-note{display:block;color:var(--text-secondary);font-size:var(--font-small);white-space:normal}
+.management-period-shortcuts button[aria-pressed=true]{border-color:var(--accent);color:var(--accent);font-weight:600}
+.compact-subscriber-meta{display:block;font-size:12px;line-height:1.6;color:var(--text-secondary);overflow-wrap:anywhere;white-space:normal}
+.compact-operation-subscriber{margin:0 10px 8px;min-height:44px;align-items:center}
+@media(max-width:600px){
+ .subscriber-center-list .subscriber-result-count{display:block;padding:6px 0}
+ .synthetic-subscriber-list>p[role=status]{display:block;font-size:12px}
+ .compact-subscriber-first{flex-wrap:wrap}
+ .compact-subscriber-status{white-space:normal}
+ .subscriber-list-controls{padding:0}
+ .subscriber-list-controls label,.subscriber-list-controls select{max-width:100%;width:100%}
+ .subscriber-summary-links button,.management-period-shortcuts button{min-height:44px;white-space:normal}
+ .subscriber-summary-links>*{flex:1 1 160px}
+ .management-report .management-pppoe>.table-scroll{display:none}
+ .management-report .management-pppoe>.compact-operation-list{display:block}
+ .management-report .management-pppoe>.operations-desktop-empty{display:none}
+ .management-period-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .expiry-dialog{max-width:calc(100vw - 24px);box-sizing:border-box;overflow-wrap:anywhere}
+ .daily-review{max-height:45vh;overflow-y:auto}
+}

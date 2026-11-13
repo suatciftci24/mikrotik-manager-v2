@@ -47,3 +47,12 @@ test('long names remain full text and the empty state disables navigation',()=>{
  const tree=CompactSubscriberList({...props,rows:[]});assert.match(renderToStaticMarkup(tree),/eşleşen abone yok/);
  assert.ok(nodes(tree).filter(n=>n.type==='button').every(n=>n.props.disabled));
 });
+
+test('mobile subscriber evidence shows authority, router and Turkey-day expiry without inventing a session',()=>{
+ page=1;
+ const render=row=>renderToStaticMarkup(CompactSubscriberList({...props,today:'2026-12-23',rows:[row]}));
+ const html=render({...rows[0],username:'demo.fixture',router_name:'Ofis fixture',source:'RADIUS'});
+ for(const value of ['demo.fixture','Ofis fixture','RADIUS','Bugün bitiyor (0 gün)','Oturum: Bilinmiyor'])assert.ok(html.includes(value),value);
+ const unknown=render({...rows[0],expires_on:null,source:null});
+ assert.match(unknown,/Kaynak: Bilinmiyor/);assert.match(unknown,/Bitiş tarihi bilinmiyor/);assert.doesNotMatch(unknown,/Çevrimiçi|Online/);
+});

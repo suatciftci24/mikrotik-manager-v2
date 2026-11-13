@@ -5428,3 +5428,40 @@ Her iki ilerleme kaydi korunmustur:
 - Sonraki sentetik kullanım aynı Ofis WSL'de mevcut mod ile yapılır:
   `PYTHONPATH=backend .venv/bin/python -B -m backend.tests.run_aaa_postgres_office_wsl --existing`.
   Bu görevde başarılı test tekrar çalıştırılmadı; servis kurulumu/otomatik başlatma yok.
+
+## Abone Merkezi ve günlük panel kullanılabilirliği — 2026-11-13 — yerel PASS
+
+- Başlangıç main-guncel/bf2ad12; temiz ağaç, fetch ve uzak ancestry eşitliği
+  doğrulandı. AGENTS, güncel ilerleme ve özellik koruma kabulü okundu.
+- Mevcut demo listesinde arama kayıt IP/ID alanlarını da kapsar. Ad/yakın/uzak
+  bitiş sıralaması URL bağlamında korunur; bilinmeyen/geçersiz tarihler her iki
+  yönde en sondadır. Filtre dışında kalan seçimler açıkça gösterilir; yenileme
+  düğmesi ve mobil sonuç sayısı görünürdür. Mevcut filtreler korunur.
+- LEGACY ve PERSISTENT mobil kartlarında kullanıcı/router, LOCAL/RADIUS veya
+  bilinmeyen kaynak, Türkiye gününe göre kalan süre ve ölçülmemiş oturum
+  gösterilir. Kalıcı masaüstü seçiminde ortak canChangeWorkspaceItem politikası
+  kullanılır; belirsiz kaynak ve desteklenmeyen erişim türü seçilemez.
+- Detay özeti router/veri deposunu ve mevcut İşlemler/Geçmiş sekmelerine açık
+  geçişi gösterir. Uzatma önizlemesinde abone/router/paket/revizyon/eski-yeni
+  tarih görünür. Uzatma ve günlük işlemlerde gönderimden önce önizlemeye geri
+  dönülebilir; belirsiz veya gönderilmiş UUID için yeni işlem üretilmez.
+- Günlük yönetimde Son24saat/Bugün/7gün/30gün dönem kısayolları, kayıt/etkilenen
+  abone sayısı ve mobil audit kartından ayrı, kaynağı bağlı abone linki vardır.
+  Bugün/3/7/30 gün abonelik uyarıları mevcut ortak hesapları kullanır; iç içe
+  aralıklar korunur. Bilinmeyen işlem sonucu başarı veya başarısızlık diye
+  doldurulmaz. Türkiye saat dilimi, tema tokenları ve audit korunur.
+- PASS: tek TypeScript/Vite build; değişen liste/sıralama, kompakt kartlar,
+  detay kaynak/yetki, uzatma receipt ve günlük işlem senaryoları hedefli
+  doğrulandı. Yeni test dosyası yok; üç mevcut dosyaya ilgili regresyon eklendi.
+  İlk compactOperations koşusu strip-only TS aracıyla açılamadı; transform-types
+  ile altı senaryo geçti, eski tek-JSX-çocuk varsayımı olan bir harness hatası
+  görüldü. Test button düğümünü bulacak şekilde düzeltildi; yalnız başarısız
+  sayfalama senaryosu tekrar çalışıp geçti. Başarılı kapsam tekrarlanmadı.
+- Ön/son HTTPS200 ve /api/ready runtime_profile=v26-isolated-acceptance geçti.
+  Gerçek browser/HTTP yazma veya PostgreSQL testi çalıştırılmadı; bu kabul
+  ağsız sentetik React handler/render regresyonları ve derleme kapsamındadır.
+- Backend/AAA değişmedi; bf2ad12 izole PG okuma ve kapalı gerçek writer korundu.
+  Demo verisi, kullanıcı, cluster, stash, yedek, V1/V2.5/canlıV2.6/cihaz/RADIUS/
+  IPsec değişmedi. Deploy/migration/restart veya DB yazımı yapılmadı.
+- Sonraki adım ancak ayrı açık yayın onayıyla canlı UI güncellemesidir; bu
+  görevin teslimi yerel kod ve normal main-guncel push kapsamındadır.

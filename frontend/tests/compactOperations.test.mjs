@@ -19,7 +19,7 @@ test('eleven operations show 5/5/1 and every arrow opens its original audit ID',
  for(page=1;page<=3;page++){
   const tree=CompactOperationList({...props,onOpen:id=>visited.push(id)});
   const records=nodes(tree).filter(n=>n.type==='li');assert.equal(records.length,page===3?1:5);
-  for(const record of records)record.props.children.props.onClick();
+  for(const record of records)nodes(record).find(node=>node.type==='button').props.onClick();
  }
  assert.deepEqual(visited,rows.map(row=>row.id));assert.equal(rows.length,11);
 });
@@ -52,4 +52,13 @@ test('reloadable operation filter retains search plus source/router/type context
  const filter={query:'Abone RADIUS',period:'LAST_24',router:'demo-router-001',kind:'PPPOE',source:'RADIUS'};
  assert.deepEqual(managementFilterFromHash(managementReportHash(filter,'operations')),filter);
  assert.equal(managementFilterFromHash('#module=operations&query='+('a'.repeat(200))).query.length,120);
+});
+
+test('audit card keeps its audit action separate from the source-bound subscriber link',()=>{
+ page=1;let selected;
+ const href='#module=subscribers&workspace=PERSISTENT&id=demo-managed-sub-fixture';
+ const tree=CompactOperationList({...props,rows:[{...rows[0],detailHref:href}],onOpen:id=>{selected=id;}});
+ const link=nodes(tree).find(n=>n.type==='a');assert.equal(link.props.href,href);
+ const rowButton=nodes(tree).find(n=>n.type==='button');rowButton.props.onClick();assert.equal(selected,rows[0].id);
+ assert.equal(nodes(rowButton).filter(n=>n.type==='a').length,0);
 });
