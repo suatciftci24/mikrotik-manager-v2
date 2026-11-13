@@ -18,7 +18,7 @@ from sqlalchemy.engine import URL
 from sqlalchemy.orm import sessionmaker
 
 from backend.tests.run_v26_http_acceptance_wsl import EXPECTED_REPO, EXPECTED_HOST, runtime_environment, _isolated_runtime
-from backend.tests.v26_owned_resources import OwnedRoot
+from backend.tests.v26_owned_resources import OwnedRoot, reconciliation_root
 from backend.tests.v26_disposable_cluster import DisposableClusterGuard
 from backend.tests import test_aaa_metadata_repository as fixtures
 from app.repositories import aaa_metadata as m
@@ -188,7 +188,9 @@ def main():
 
 def prepare(*, bridge_acceptance=None, environment='HOME_WSL_AAA_FIXTURE', root=None, bootstrap_only=False):
     root = ROOT if root is None else Path(root)
-    if root != ROOT and (root != Path('/home/suatpc/Codex-Projects/mikrotik-manager-v2/.local/aaa-office-fixture')
+    if (root == Path('/tmp/mikrotik-v26-reconciliation') or reconciliation_root(root)) and environment == 'HOME_WSL_AAA_FIXTURE':
+        pass  # Separate absent-only root for reconciliation acceptance; never reuse old fixtures.
+    elif root != ROOT and (root != Path('/home/suatpc/Codex-Projects/mikrotik-manager-v2/.local/aaa-office-fixture')
                          or environment != 'OFFICE_WSL_AAA_FIXTURE'):
         raise RuntimeError('AAA_FIXTURE_ROOT_REJECTED')
     if environment not in ('HOME_WSL_AAA_FIXTURE', 'OFFICE_WSL_AAA_FIXTURE'):

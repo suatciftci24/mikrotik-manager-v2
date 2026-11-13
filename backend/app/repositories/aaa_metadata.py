@@ -17,6 +17,11 @@ from app.simulation.aaa_atomic import AtomicRequest, OperationFixture, OwnerFixt
 from app.repositories.aaa_owner_contract import (OwnerScope, require_ownership, locked_owner, owner_cas_predicates, require_metadata_transition)
 
 metadata = MetaData()
+# Proposed fixture metadata only; no DDL is executed by application imports.
+reconciliations = Table('reconciliations', metadata,
+    Column('tenant_id', PgUUID, primary_key=True), Column('execution_id', PgUUID, primary_key=True),
+    Column('operation_id', PgUUID), Column('revision', BigInteger), Column('receipt', JSON),
+    Column('evidence', JSON), schema='v2_aaa')
 # Projection of existing owner/event tables, with UNAPPLIED proposed owner metadata.
 owner = Table('subscribers', metadata, Column('id', String, primary_key=True),
     Column('tenant_id', PgUUID), Column('revision', BigInteger), Column('source', String),

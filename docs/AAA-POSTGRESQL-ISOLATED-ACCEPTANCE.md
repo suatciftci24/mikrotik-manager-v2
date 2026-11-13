@@ -758,3 +758,84 @@ PAP ve CHAP/MSCHAPv2 protokol kabulü, NAS/tenant SQL/unlang ve dictionary;
 kalıcı dispatch/UNKNOWN journal, bağımsız remote evidence ve restart sonrası
 reconciliation; PostgreSQL runtime role/RLS ve gerçek device/session policy.
 Bu çalışma yalnız izole yazılım kabulüdür; üretim AAA tamamlanmış değildir.
+
+## Kalıcı reconciliation ve runtime/RLS — 2026-11-13 — izole PASS
+
+Başlangıç main-guncel/114dab7 temiz. Mevcut executor UNKNOWN receipt ve
+bridge/membership kilitleri korundu. Yeni DurableFixtureReconciliation yalnız
+FIXTURE_STEP_UNKNOWN operasyonu ve kabul edilmiş durable UNKNOWN attempt ile
+çalışır. AAA_DECISION + taze ADMIN/AAA_SUBSCRIBER_READ/router/DAILY_OWNER yetkisi,
+tenant/actor/subscriber, kök plan fingerprint, owner source/active operation,
+owner revision/fence zorunludur. Yeni proposed metadata reconciliation tablosu
+mevcut owner/operation kilitleriyle seri hale gelir; revision CAS, değerlendirme
+UUID fingerprint ve değişmez audit receipt'i aynı SQL transaction'dadır.
+Ürün migration'ı veya yeni uygulama endpoint'i yoktur.
+
+Bağımsız reader ve verifier trusted dependency olarak açıkça enjekte edilir;
+request body'den verified flag alınmaz. Gözlem typed/sanitize edilmiş alanlardan
+oluşur: tenant, operation/execution/subscriber/router, executor alt plan hash'i,
+tam dispatch fingerprint'i, owner revision/fence, sıra, aware timestamp/validity
+ve APPLIED/NOT_APPLIED/UNKNOWN. Geçersiz/eksik/süresi dolmuş veya reader hatası
+UNKNOWN kaydeder. Doğrulama sonrasında DB saatiyle validity tekrar kontrol edilir.
+Son doğrulanmış gözlem watermark'ı UNKNOWN'a dönüldüğünde de kalıcıdır; aynı
+sırada farklı içerik, sıra veya gözlem zamanı gerilemesi reddedilir. Son row ve
+watermark audit receipt ile karşılaştırılır; sapma fail-closed olur. Sır/parola,
+ham remote çıktı veya exception ayrıntısı audit'e yazılmaz.
+
+CONFIRMED_APPLIED/CONFIRMED_NOT_APPLIED yalnız değerlendirmedir; otomatik
+retry/resume/compensation veya owner commit yapmaz. Önceki doğrulanmış sonuç,
+kanıt artık yoksa yeni değerlendirmede başarı sayılmaz. Tarihsel UUID replay'i
+yalnız taze yetki ve aynı operasyon sınırında eski immutable sonucu döndürür;
+yeni karar/yazma izni değildir. Repository ve fake provider nesneleri yeniden
+oluşturulduğunda UUID/UNKNOWN/gözlem kalıcılığı PG'den korunur. Bu, gerçek
+provider process crash/restart kabulü veya üretim reader implementasyonu değildir.
+
+Runtime kabulü yeni DB'de gerçek LOGIN rolüyle yapıldı; superuser/admin bağlantı
+uygulama işlemlerinde kullanılmadı. Runtime guard session_user/current_user,
+DB/loopback/port, non-super/non-bypass bayrakları, tenant mapping ve tenant
+tablolarında ENABLE+FORCE RLS/non-owner durumunu kontrol eder. Test policy'leri
+tenant'ı admin-owned mapping'den session_user ile üretir; caller GUC tenant'ı
+değiştiremez. Runtime mapping'e yazamaz veya superuser role geçemez. Definer
+membership/actor lock fonksiyonları ayrıca session tenant'ı filtreler; eski
+sınırsız fixture lock fonksiyonu runtime'dan revoke edildi. Policy/function DDL
+yalnız yeni test DB fixture'ıdır, üretim kurulum veya genel RLS migration'ı değildir.
+
+Çalıştırma: `PYTHONPATH=.:backend backend/.venv/bin/python -m
+backend.tests.run_aaa_reconciliation_postgres`. Yeni UUID'li özel /tmp kökü ve
+PG16; mevcut root/DSN/DB fallback yok. Eski sabit acceptance ve başarısız test
+kökleri korundu. Test-only OwnedRoot/provision allowlist'i yalnız /tmp altında
+tam UUID suffix'li yeni reconciliation kökleri için genişletildi; ownership,
+inode/PGDATA/process/system identifier kontrolleri kaldırılmadı.
+
+PASS: son 2 PG testi /3.113s, skip yok. Gerçek bridge.run kayıp yanıt/timeout
+ve APPLY_THEN_UNKNOWN; durable UNKNOWN kaydı; cold service/provider reload;
+UUID replay/çatışma, owner fence reddi, foreign/unverified/expired observation,
+monotonic watermark ve contradiction reddi; gerçek SQLSTATE22012 ile evaluation
+row/audit birlikte rollback; iki rakip değerlendirmeden tek kazanan; engine ve
+owner değişmemesi/retry reddi; gerçek runtime SELECT/UPDATE/INSERT tenant
+izolasyonu, GUC spoof reddi, privilege escalation ve role revocation doğrulandı.
+PASS: 5 yerel güvenlik/runner testi /0.006s; yanlış runtime identity/DB/host/port/
+tenant/role flags/RLS/table owner, geçersiz root ve mevcut root fallback reddi,
+bool/string/negatif CAS revision için bağlantı açmadan ret. Diff check PASS.
+Değişen provision allowlist'i için 5 mevcut Home WSL güvenlik regresyonu da
+0.005s'de geçti (host/root/port/optimized Python/environment izolasyonu).
+Toplam 12 benzersiz hedefli test PASS; geniş eski AAA paketleri tekrarlanmadı.
+
+Önceki iki PG koşusu FAIL olarak kaydedilir: ilkinde test aracı Session üzerinde
+exec_driver_sql çağırdı; execute(text(...)) ile düzeltildi. İkincisinde yeni
+receipt bağı doğrulaması kök plan hash'i ile executor dispatch alt plan hash'ini
+karşılaştırdı; mevcut ExecutorCommand sözleşmesine göre ayrıldı ve dispatch
+fingerprint bağı eklendi. Yalnız başarısız iki test yeniden çalıştırıldı.
+Son cluster `7707712148697146856`, root
+`/tmp/mikrotik-v26-reconciliation-beae59dc99d34e3ebf2e119cb85f9a19`;
+runner kendi postmaster'ını durdurdu, pg_controldata son durumda `shut down`.
+Silme/reset/restore veya mevcut DB'ye bağlantı yapılmadı.
+
+Üretim öncesi açık: bağımsız authenticated remote observer/verifier ve kalıcı
+dispatch provenance; gerçek timeout/partial/crash kanıtı, bounded reader IO;
+trusted runtime principal→tenant/actor bağları ve pool/proxy oturum politikası;
+least-privilege/RLS şema kurulumu için ayrıca incelenecek migration/rollback
+planı ve tüm owner writer'ların katılımı; gerçek secret-store, RADIUS protokol ve
+RouterOS/session kabulü. V1/V2.5/canlı/demo ve 14 abone/5 kullanıcı/yedeklere
+dokunulmadı; canlı health bağlantısı yapılmadı. Writer/expire worker varsayılan
+kapalı kalır. Üretim AAA entegrasyonu tamamlanmış değildir.

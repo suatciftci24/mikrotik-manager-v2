@@ -5,15 +5,22 @@ import select
 import shutil
 import signal
 import stat
+import re
 
 PROC = Path('/proc')
+
+
+def reconciliation_root(root):
+    root = Path(root)
+    return root.parent == Path('/tmp') and re.fullmatch(r'mikrotik-v26-reconciliation-[0-9a-f]{32}',root.name) is not None
 
 
 class OwnedRoot:
     def __init__(self, root):
         self.root = Path(root)
         if self.root not in (Path('/tmp/mikrotik-v26-acceptance'),
-                Path('/home/suatpc/Codex-Projects/mikrotik-manager-v2/.local/aaa-office-fixture')):
+                Path('/tmp/mikrotik-v26-reconciliation'),
+                Path('/home/suatpc/Codex-Projects/mikrotik-manager-v2/.local/aaa-office-fixture')) and not reconciliation_root(self.root):
             raise RuntimeError('OWN_ROOT_TARGET_REJECTED')
         if self.root.parent.resolve() != self.root.parent:
             raise RuntimeError('OWN_PARENT_TARGET_REJECTED')

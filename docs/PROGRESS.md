@@ -1,5 +1,36 @@
 # MikroTik Manager V2 — İlerleme
 
+## Kalıcı AAA reconciliation / runtime RLS — 2026-11-13 — izole PASS
+
+- Başlangıç main-guncel/114dab7 temiz; kurallar/son kabul ve mevcut bridge,
+  executor UNKNOWN checkpoint, membership ve metadata yeniden kullanıldı.
+- DurableFixtureReconciliation: durable UNKNOWN receipt şartı, bağımsız trusted
+  reader/verifier, dispatch fingerprint/alt plan/tenant/router/subscriber bağı;
+  taze ADMIN/router/decision izinleri, owner/source/CAS, UUID replay/çatışma,
+  monotonic remote evidence watermark; sonuç ve audit tek transaction'da.
+  Hiçbir değerlendirme dispatch/retry/resume/owner commit izni üretmez.
+- Yeni runtime guard ve yalnız test DB'de session_user→tenant eşlemeli FORCE
+  RLS; gerçek LOGIN non-super/non-bypass rol, tenant GUC ile atlatma/foreign
+  read-update-insert, SET ROLE yükseltme ve mapping yazma reddi doğrulandı.
+- PASS: 2 birleşik yeni PG testi /3.113s + 5 güvenlik/runner testi /0.006s
+  + değişen provision allowlist'i için 5 mevcut güvenlik regresyonu /0.005s,
+  skip yok. Timeout/lost response, APPLY_THEN_UNKNOWN, cold repository/provider
+  reload, verified/missing/expired/conflicting observation, audit SQL22012
+  rollback, yarış, UUID ve fresh rol reddi doğrulandı. Diff check PASS.
+- İlk iki koşu FAIL: önce Session test çağrısı, sonra receipt alt plan hash'i
+  kök planla yanlış karşılaştırma düzeltildi; yalnız başarısız iki test yeni
+  ortamlarda tekrarlandı. Kanıt/güvenlik kontrolleri gevşetilmedi.
+- Son PG16 cluster ID 7707712148697146856, /tmp/mikrotik-v26-reconciliation-
+  beae59dc99d34e3ebf2e119cb85f9a19; son kontrol shut down. Eski ve başarısız
+  geçici ortamlar silinmedi/kullanılmadı. Yeni runner UUID'li absent-only root
+  kullanır; arbitrary DSN/existing/demo fallback yoktur.
+- Yeni tablo metadata prototipidir; DDL yalnız yeni test DB'de, migrations/
+  çalışmadı. Gerçek runtime principal/remote reader/kanıt doğrulayıcı ve üretim
+  RLS rollout kabulü açık; üretim AAA tamamlanmadı. V1/V2.5/canlı/gerçek ağ,
+  router/RADIUS/IPsec/demo DB/14 abone/5 kullanıcı/yedekler değişmedi. Canlı
+  sağlık bağlantısı yok; writer/worker default kapalı. Ayrıntılar son kabul
+  bölümünde; commit/push sonucu görev sonu raporunda.
+
 ## AAA sentetik secret-provider / PAP / transport güvenliği — 2026-11-13 — yerel PASS
 
 - Başlangıç main-guncel/1f0e8f4 temiz; kurallar, güncel kabul ve mevcut kod okundu.
