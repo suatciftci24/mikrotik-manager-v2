@@ -5368,3 +5368,31 @@ Her iki ilerleme kaydi korunmustur:
   değişikliği, servis restartı, ürün migration'ı veya deploy yok. Sonraki tek
   öncelik: socket izinli normal Ofis WSL'de explicit runner ile gerçek11 PG
   kabulünü tamamlamak; ağ erişimiyle güvenli push ayrıca doğrulanmalı.
+
+## Ofis identity hatası ve pinned-existing AAA kabul yolu — 2026-11-13 — PG/push BLOCKED
+
+- main-guncel/41c7b0b üzerinde önceki kesilen turn'ün üç dosyalık düzeltmesi
+  korundu. AGENTS ve mevcut code/manifest okundu. Host/path/.venv/UID/kernel
+  ofisle eşleşti; read-only controldata/manifest exact cluster7707521885424832975
+  ve shut down durumunu doğruladı. Secret içeriği yazdırılmadı;3 stash korundu.
+- Yeni OFFICE_WSL_IDENTITY_REJECTED kök nedeni `_isolated_runtime` içinde silinen
+  WSL_DISTRO_NAME; ikinci test class guard'ı reddediyordu. Office context yalnız
+  doğrulanmış marker'ı korur, harici PG/loader ayarları temiz kalır. Güvenlik
+  guard'ı kaldırılmadı. HOME etiketi provisioner sabitiydi; eski manifest aynı,
+  yeni ofis provisioning explicit OFFICE etiketi kullanır.
+- --existing exact office kimliği+private ownership/config+PG16 system ID'ye
+  sabit kabul yolu eklendi. Re-init/silme/reprovision yok. Gerekirse yalnız
+  verified durmuş test cluster'ını başlatıp kendi başlattığını finally durdurur;
+  önceden çalışana sinyal/restart yok. Aynı11 PG testi SQL identity kontrolünü
+  her transaction'da korur; panel/gerçek identity/writer bağlanmadı.
+- PASS yalnız19 farklı soketsiz guard testi: önceki düzeltmede15;4 yeni existing
+  guard/lifecycle testi ayrı geçti. Gerçek11 PG senaryosu çalışmadı, sandbox
+  socket engeli tekrar denenmedi. Cluster dosyaları/manifest/user/DB değişmedi;
+  normal terminal için tek --existing komutu kabul belgesine eklendi.
+- Git fetch origin main-guncel DNS hatası: güncel remote ancestry/SHA eşitliği
+  doğrulanamadı, push güvenlik kapısı BLOCKED. Güvenli düzeltme tek yerel
+  commit'e alınacak; önceki41c7b0b korunur. Mevcut PostgreSQL/normal panel/
+  V1/V2.5/VDS/router/RADIUS/IPsec, migration/deploy/gerçek dispatch değişikliği yok.
+- Sonraki tek öncelik: normal Ofis WSL'de pinned-existing runner'ın11 gerçek
+  PG sonucunu almak; ağ erişiminde gönderilmemiş main-guncel commit'lerini
+  fast-forward doğrulaması ardından normal push ile senkronize etmek.

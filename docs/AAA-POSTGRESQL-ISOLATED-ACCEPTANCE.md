@@ -377,3 +377,53 @@ cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && PYTHONPATH=backend .venv/b
 
 Gerçek11 PG sonucu ve uzak HEAD eşitliği görülmeden uçtan uca ofis/push PASS
 verilemez. Port veya root engelinde mevcut veri/servis temizleme yapılmamalıdır.
+
+## OFFICE_WSL_IDENTITY_REJECTED düzeltmesi / mevcut cluster — 2026-11-13
+
+Normal Ofis terminalindeki yeni hata esas alındı. Kök neden: main'in ilk ofis
+guard'ından sonra `_isolated_runtime()` WSL_DISTRO_NAME değişkenini siliyordu;
+PostgresBridgeAcceptance.setUpClass ikinci office_guard çağrısında kimliği
+reddediyordu. Before/inside-isolation marker farkı soketsiz yeniden üretildi.
+Office runtime şimdi yalnız önceden doğrulanmış aynı WSL marker'ını korur;
+libpq/loader/harici ayarlar hâlâ temizlenir. Host/path/venv/UID/kernel/branch ve
+clean-worktree kontrollerinin hiçbiri kaldırılmadı.
+
+Salt okunur pg_controldata, private manifest/PG_VERSION/inode/UID kontrolüyle
+mevcut Ofis cluster **7707521885424832975**, durum **shut down** doğrulandı.
+Bu SQL/katalog/servis accepting-connections kanıtı değildir. Manifestin
+HOME_WSL_AAA_FIXTURE purpose etiketi ortak provisioner'daki hardcoded değerden
+kaynaklanıyor; bilgisayarın ev ortamı olduğunu ispatlamıyor. Eski manifest
+**değiştirilmedi**. Yeni ofis provisioning çağrısı explicit OFFICE_WSL_AAA_FIXTURE
+etiketi üretir; ev varsayılanı aynı kalır.
+
+`--existing` yalnız bu sabit Ofis cluster ID'si, exact Office host/repo/.venv ve
+private PGDATA/manifest/password/socket/log/config sınırlarıyla çalışır.
+Env/CLI ile başka cluster seçilemez. PG16 controldata kimliği, manifest sahiplik
+ve sabit DB/port/rol kontrol edilir; include/recovery/preload/harici config
+indirection reddedilir. Historical HOME label yalnız bu exact pinned cluster'ın
+manifestinde kabul edilir; label kimlik kontrolünün yerine geçmez.
+
+Mevcut cluster silinmez/re-init edilmez; initdb veya metadata_probe çağrılmaz.
+Şu an durmuş olduğu için socket izinli normal WSL'de verified existing cluster
+başlatılıp aynı11 gerçek PG bridge testi çalışır. Test öncesi her transaction
+SQL'de DB/PGDATA/port/listen/system ID doğrular; test DDL/DML yalnız AAA sentetik
+şemalarına aittir. Bu ürün migration'ı değildir. Runner yalnız kendisinin
+başlattığı verified PID'yi finally durdurur; cluster zaten çalışıyorsa stop/restart
+göndermez. Önceki stopped/running durumu korunur; dosyalar/credential/manifest
+silinmez. Beklenmeyen config/root/kimlikte fail-closed durur.
+
+PASS:19 farklı soketsiz guard testi (önceki düzeltmede15, mevcut mode için4 yeni).
+Existing mode provision çağırmama, wrong ID/guard öncesi start engeli, sabit ID,
+çalışan/durmuş lifecycle ve failure cleanup kontrol edildi. Bunlar gerçek PG
+PASS üretmez. Gerçek11 PG senaryosu sandbox socket engeli nedeniyle çalışmadı;
+engel tekrar denenmedi. Mevcut cluster tüm bu oturum boyunca shut down kaldı.
+
+Normal **Ofis WSL terminalinde**, temiz main-guncel için tek kabul komutu:
+
+```bash
+cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && PYTHONPATH=backend .venv/bin/python -B -m backend.tests.run_aaa_postgres_office_wsl --existing
+```
+
+GitHub senkronizasyonu BLOCKED: fetch origin main-guncel DNS çözümlemesinde
+durdu; güncel uzak ancestry doğrulanamadığından normal push yapılmadı.
+Gerçek11 test PASS'i veya GitHub SHA eşitliği iddia edilmez.

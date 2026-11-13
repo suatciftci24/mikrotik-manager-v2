@@ -183,7 +183,9 @@ def main():
         prepare()
 
 
-def prepare(*, bridge_acceptance=None):
+def prepare(*, bridge_acceptance=None, environment='HOME_WSL_AAA_FIXTURE'):
+    if environment not in ('HOME_WSL_AAA_FIXTURE', 'OFFICE_WSL_AAA_FIXTURE'):
+        raise RuntimeError('AAA_FIXTURE_ENVIRONMENT_REJECTED')
     if os.path.lexists(ROOT):
         raise RuntimeError('ACCEPTANCE_ROOT_ALREADY_EXISTS')
     # Prove port availability before creating any files or cluster.
@@ -193,7 +195,7 @@ def prepare(*, bridge_acceptance=None):
         data = ROOT / 'postgres-test'
         data.mkdir(mode=0o700)
         owned.capture_data()
-        manifest = {'purpose':'HOME_WSL_AAA_FIXTURE', 'root_identity':owned.identity,
+        manifest = {'purpose':environment, 'root_identity':owned.identity,
                     'data_identity':owned.data_identity, 'port':55433, 'database':DB, 'runtime_role':ROLE}
         fd = os.open(ROOT / 'fixture-manifest.json', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, 'w') as f:
@@ -241,7 +243,7 @@ def prepare(*, bridge_acceptance=None):
             connect_args={'connect_timeout': 5, 'options': '-c statement_timeout=5000 -c lock_timeout=2000'})
         marker = secrets.token_hex(24)
         checks = metadata_probe(admin, runtime, owned, marker)
-        print(json.dumps({'environment':'HOME_WSL_AAA_FIXTURE', 'database':DB, 'role':ROLE,
+        print(json.dumps({'environment':environment, 'database':DB, 'role':ROLE,
             'host':'127.0.0.1','port':55433,'pgdata':str(data),'cluster_id':cluster_id,
             'checks_passed':checks,'product_prepared_resolver_executor_bridge':'BLOCKED'}))
         if bridge_acceptance is not None:
