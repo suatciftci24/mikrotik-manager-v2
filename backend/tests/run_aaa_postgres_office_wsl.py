@@ -1,4 +1,4 @@
-"""Office WSL only: new isolated cluster or explicit pinned-existing acceptance.
+"""Office WSL only: durable synthetic cluster or explicit existing acceptance.
 
 Default provision refuses an existing root. --existing never creates a cluster.
 No application wiring, external DB, real identity or provider.
@@ -20,7 +20,7 @@ from backend.tests.run_v26_http_acceptance_wsl import _isolated_runtime
 REPO = Path('/home/suatpc/Codex-Projects/mikrotik-manager-v2')
 HOST = 'DESKTOP-VD5T7VG'
 PYTHON = REPO / '.venv/bin/python'
-EXISTING_CLUSTER_ID = '7707521885424832975'
+ROOT = REPO / '.local/aaa-office-fixture'
 
 
 def office_guard():
@@ -39,24 +39,25 @@ def office_guard():
 
 
 def run_bridge(cluster_id):
-    # Identity comes from verified new provisioning or the hard-pinned existing
-    # Office cluster. No environment/CLI arbitrary cluster ID or DSN override.
+    # Identity comes from verified provisioning or the owner-private manifest
+    # checked against PG16 controldata. No environment/CLI DSN or ID override.
     if not isinstance(cluster_id,str) or not cluster_id.isdecimal():
         raise RuntimeError('VERIFIED_CLUSTER_ID_REQUIRED')
     from backend.tests.test_aaa_pg_bridge import PostgresBridgeAcceptance
     class OfficeAcceptance(PostgresBridgeAcceptance):
         expected_cluster_id = cluster_id
+        fixture_root = ROOT
         environment_guard = staticmethod(office_guard)
     # Parent opt-in decorator is retained; activate only in this explicit runner.
     if os.environ.get('V2_AAA_EXISTING_PG_TESTS') != '1':
         raise RuntimeError('EXPLICIT_OFFICE_PG_OPT_IN_REQUIRED')
     # The inherited class skip flag was bound at import; the import above must
     # occur only after main's explicit process-local opt-in is installed.
-    suite = unittest.defaultTestLoader.loadTestsFromTestCase(OfficeAcceptance)
+    suite = unittest.TestSuite([OfficeAcceptance('test_identity_gate_postgres_read_fail_closed')])
     result = unittest.TextTestRunner(verbosity=1).run(suite)
-    if not result.wasSuccessful() or result.testsRun != 11 or result.skipped:
-        raise RuntimeError('OFFICE_ELEVEN_PG_TESTS_NOT_PASSED')
-    print('PASS: Office isolated AAA PostgreSQL 11 scenarios; not production acceptance')
+    if not result.wasSuccessful() or result.testsRun != 1 or result.skipped:
+        raise RuntimeError('OFFICE_TARGETED_READ_NOT_PASSED')
+    print('PASS: Office isolated AAA PostgreSQL identity read / fail-closed; not production acceptance')
 
 
 @contextmanager
@@ -74,7 +75,9 @@ def office_runtime():
 
 def verify_existing_files():
     from backend.tests.v26_disposable_cluster import DisposableClusterGuard
-    root = provision.ROOT
+    root = ROOT
+    if not os.path.lexists(root):
+        raise RuntimeError('PERSISTENT_FIXTURE_MISSING')
     guard = DisposableClusterGuard(root)
     guard(root / 'postgres-test')
     manifest_path = root / 'fixture-manifest.json'
@@ -85,9 +88,8 @@ def verify_existing_files():
                 or info.st_uid != os.getuid() or info.st_mode & 0o077):
             raise RuntimeError('EXISTING_PRIVATE_FILE_REJECTED')
     manifest = json.loads(manifest_path.read_text())
-    # HOME was a historical provisioner label, NOT host identity evidence.
-    # Accept it only for this exact independently pinned Office cluster.
-    if (manifest.get('purpose') not in ('HOME_WSL_AAA_FIXTURE', 'OFFICE_WSL_AAA_FIXTURE')
+    # Durable Office manifests must carry the explicit synthetic purpose.
+    if (manifest.get('purpose') != 'OFFICE_WSL_AAA_FIXTURE'
             or (manifest.get('port'),manifest.get('database'),manifest.get('runtime_role'))
                 != (55433, provision.DB, provision.ROLE)):
         raise RuntimeError('EXISTING_FIXTURE_MANIFEST_REJECTED')
@@ -128,7 +130,9 @@ def verify_existing_files():
     result = subprocess.run([str(provision.PG/'pg_controldata'),str(data)],check=True,
         capture_output=True,text=True,env={**provision.runtime_environment(),'LC_ALL':'C'})
     fields = dict(line.split(':',1) for line in result.stdout.splitlines() if ':' in line)
-    if fields.get('Database system identifier','').strip() != EXISTING_CLUSTER_ID:
+    cluster_id = manifest.get('cluster_id')
+    if (type(cluster_id) is not str or not cluster_id.isdecimal()
+            or fields.get('Database system identifier','').strip() != cluster_id):
         raise RuntimeError('EXACT_OFFICE_CLUSTER_REQUIRED')
     return manifest, fields.get('Database cluster state','').strip()
 
@@ -138,11 +142,11 @@ def run_existing():
     # Adopt only this private, pinned directory; OwnedRoot.__init__ creates a
     # directory and must NEVER be called for an existing cluster.
     owned = object.__new__(provision.OwnedRoot)
-    owned.root = provision.ROOT
+    owned.root = ROOT
     owned.identity = tuple(manifest['root_identity'])
     owned.data_identity = tuple(manifest['data_identity'])
     owned.fd = os.open(owned.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    owned.parent_fd = os.open('/tmp', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    owned.parent_fd = os.open(ROOT.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     owned.process_identity = None
     owned.start_after = None
     owned.pg_stopped = True
@@ -169,7 +173,7 @@ def run_existing():
         else:
             raise RuntimeError('EXISTING_CLUSTER_STATE_REJECTED')
         owned.verify()
-        run_bridge(EXISTING_CLUSTER_ID)  # SQL exact identity is checked before every test transaction.
+        run_bridge(manifest['cluster_id'])  # SQL exact identity is checked before every test transaction.
     finally:
         try:
             if started:
@@ -185,7 +189,8 @@ def main(*, existing=False):
         if existing:
             run_existing()
         else:
-            provision.prepare(bridge_acceptance=run_bridge, environment='OFFICE_WSL_AAA_FIXTURE')
+            provision.prepare(bridge_acceptance=run_bridge, environment='OFFICE_WSL_AAA_FIXTURE',
+                              root=ROOT, bootstrap_only=True)
 
 
 if __name__ == '__main__':
@@ -197,7 +202,7 @@ if __name__ == '__main__':
         main(existing=args.existing)
     except Exception as error:
         # Never print DSN, secrets, SQL parameters or arbitrary exception messages.
-        codes = {'OFFICE_WSL_IDENTITY_REJECTED','EXACT_OFFICE_CLUSTER_REQUIRED','EXISTING_CLUSTER_STATE_REJECTED',
+        codes = {'PERSISTENT_FIXTURE_MISSING','OFFICE_WSL_IDENTITY_REJECTED','EXACT_OFFICE_CLUSTER_REQUIRED','EXISTING_CLUSTER_STATE_REJECTED',
                  'ACCEPTANCE_ROOT_ALREADY_EXISTS','DIRTY_WORKTREE_REJECTED','OFFICE_BRANCH_REJECTED'}
         reason = str(error) if type(error) is RuntimeError and str(error) in codes else type(error).__name__
         print('BLOCKED: OFFICE_AAA_POSTGRES_' + reason)

@@ -39,20 +39,21 @@ CAPS = ['AAA_METADATA', 'AAA_SEED', 'AAA_PREPARE', 'AAA_EXECUTE', 'AAA_DECISION'
 
 @skipUnless(os.environ.get('V2_AAA_EXISTING_PG_TESTS') == '1', 'Explicit existing isolated AAA PG opt-in required')
 class PostgresBridgeAcceptance(TestCase):
+    fixture_root = ROOT
     expected_cluster_id = '7707358750625226262'
     environment_guard = staticmethod(home_guard)
     @classmethod
     def verify(cls, connection):
-        DisposableClusterGuard(ROOT)(ROOT / 'postgres-test')
-        manifest = json.loads((ROOT / 'fixture-manifest.json').read_text())
-        for p, key in ((ROOT, 'root_identity'), (ROOT / 'postgres-test', 'data_identity')):
+        DisposableClusterGuard(cls.fixture_root)(cls.fixture_root / 'postgres-test')
+        manifest = json.loads((cls.fixture_root / 'fixture-manifest.json').read_text())
+        for p, key in ((cls.fixture_root, 'root_identity'), (cls.fixture_root / 'postgres-test', 'data_identity')):
             s = p.lstat()
             if (s.st_dev, s.st_ino, s.st_uid) != tuple(manifest[key]):
                 raise RuntimeError('RECORDED_OWNERSHIP_REQUIRED')
         identity = connection.execute(text("SELECT current_database(),host(inet_server_addr()),inet_server_port(),"
             "current_setting('data_directory'),current_setting('listen_addresses'),"
             "(SELECT system_identifier::text FROM pg_control_system())")).one()
-        if tuple(identity) != ('mikrotik_v26_acceptance','127.0.0.1',55433,str(ROOT / 'postgres-test'),
+        if tuple(identity) != ('mikrotik_v26_acceptance','127.0.0.1',55433,str(cls.fixture_root / 'postgres-test'),
                                '127.0.0.1',cls.expected_cluster_id):
             raise RuntimeError('EXACT_EXISTING_AAA_IDENTITY_REQUIRED')
 
@@ -62,7 +63,7 @@ class PostgresBridgeAcceptance(TestCase):
         cls.env = _isolated_runtime()
         cls.env.__enter__()
         cls.addClassCleanup(lambda: cls.env.__exit__(None, None, None))
-        url = URL.create('postgresql+psycopg', username='v26_acceptance', password=(ROOT / 'test-password').read_text(),
+        url = URL.create('postgresql+psycopg', username='v26_acceptance', password=(cls.fixture_root / 'test-password').read_text(),
                          host='127.0.0.1', port=55433, database='mikrotik_v26_acceptance')
         cls.engine = create_engine(url, hide_parameters=True,
             connect_args={'connect_timeout':5,'options':'-c statement_timeout=10000 -c lock_timeout=3000'})
@@ -142,6 +143,74 @@ class PostgresBridgeAcceptance(TestCase):
                 {'t':o.tenant_id,'a':o.actor_id,'u':o.subscriber_id}).mappings().one_or_none())
         self.bridge = PostgresFixtureBridge(self.sessions,self.resolver,self.f.provider)
         self.bridge.seed_fixture(self.f.request,self.f.scope,self.principal,self.f.unit)
+
+    def test_identity_gate_postgres_read_fail_closed(self):
+        from app.integrations.aaa_identity_writer_boundary import AaaIdentityWriterBoundary, AaaBoundaryDisabled
+        from app.integrations.aaa_fixture_read_gate import AaaFixtureReadGate
+        f = self.f
+        def identity(handle):
+            if handle != 'synthetic-session':
+                return None
+            with self.admin() as c:
+                row = c.execute(text('SELECT * FROM v2_aaa.fixture_actor_identity WHERE actor_id=:a'),
+                                {'a': self.actor}).mappings().one()
+            return dict(id=row['actor_id'], active=row['active'], bootstrap_closed=True,
+                        login_enabled=True, role_code=row['role'], account_origin=row['origin'], can_manage_users=True)
+        def permission(handle, request):
+            with self.admin() as c:
+                row = c.execute(text('SELECT active,capabilities FROM v2_aaa.fixture_membership '
+                    'WHERE tenant_id=:t AND actor_id=:a AND subscriber_id=:u'),
+                    {'t': self.tenant, 'a': self.actor, 'u': self.subscriber}).mappings().one()
+            return row['active'] is True and 'AAA_READ' in row['capabilities']
+        def owner(request):
+            with self.admin() as c:
+                row = c.execute(text('SELECT source FROM v2_subscriber_workspace.subscribers '
+                    'WHERE tenant_id=:t AND id=:u'), {'t': self.tenant, 'u': self.subscriber}).one()
+            return dict(actor_id=self.actor, tenant_id=str(self.tenant), subscriber_id=self.subscriber,
+                        router_id=f.request.plan.snapshot.nas.router_id, source=row.source)
+        def forbidden(*args, **kwargs):
+            raise AssertionError('REAL_WRITER_FORBIDDEN')
+        boundary = AaaIdentityWriterBoundary(identity, permission, owner, forbidden)
+        gate = AaaFixtureReadGate(boundary, self.bridge.read)
+        def read(scope=None):
+            return gate.read('synthetic-session', f.request, f.scope if scope is None else scope, self.principal)
+        provider_before = f.provider.snapshot()
+        before = read()[0].snapshot()
+        with self.assertRaises(PermissionError):
+            read(f.scope.model_copy(update={'tenant_id': str(uuid4())}))
+        # Revocations both before inspection and after inspection (TOCTOU).
+        for table, change, restore in (
+            ('fixture_actor_identity', 'active=false', 'active=true'),
+            ('fixture_membership', "capabilities='[]'::jsonb", 'capabilities=CAST(:caps AS jsonb)'),
+        ):
+            def update(value):
+                with self.admin() as c:
+                    c.execute(text('UPDATE v2_aaa.' + table + ' SET ' + value + ' WHERE actor_id=:a'),
+                              {'a': self.actor, 'caps': json.dumps(CAPS)})
+            update(change)
+            with self.assertRaises(PermissionError): read()
+            update(restore)
+            def race(*args):
+                update(change)
+                return self.bridge.read(*args)
+            with self.assertRaises(PermissionError):
+                AaaFixtureReadGate(boundary, race).read('synthetic-session', f.request, f.scope, self.principal)
+            update(restore)
+        # Owner revision change after inspection must be rejected by the locked
+        # authoritative owner/journal binding, not trusted boundary metadata.
+        def owner_race(*args):
+            with self.admin() as c:
+                c.execute(text('UPDATE v2_subscriber_workspace.subscribers SET revision=revision+1 '
+                    'WHERE tenant_id=:t AND id=:u'), {'t': self.tenant, 'u': self.subscriber})
+            return self.bridge.read(*args)
+        with self.assertRaisesRegex(BridgeConflict, 'OWNER_JOURNAL_DRIFT'):
+            AaaFixtureReadGate(boundary, owner_race).read('synthetic-session', f.request, f.scope, self.principal)
+        with self.admin() as c:
+            c.execute(text('UPDATE v2_subscriber_workspace.subscribers SET revision=revision-1 '
+                'WHERE tenant_id=:t AND id=:u'), {'t': self.tenant, 'u': self.subscriber})
+        with self.assertRaises(AaaBoundaryDisabled): boundary.execute()
+        self.assertEqual(before, read()[0].snapshot())
+        self.assertEqual(provider_before, f.provider.snapshot())
 
     def call(self, capability, callback, **kwargs):
         return self.bridge.invoke(self.f.request,self.f.scope,self.principal,capability,callback,**kwargs)

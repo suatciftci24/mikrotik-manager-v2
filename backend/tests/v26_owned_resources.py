@@ -12,9 +12,12 @@ PROC = Path('/proc')
 class OwnedRoot:
     def __init__(self, root):
         self.root = Path(root)
-        if self.root != Path('/tmp/mikrotik-v26-acceptance'):
+        if self.root not in (Path('/tmp/mikrotik-v26-acceptance'),
+                Path('/home/suatpc/Codex-Projects/mikrotik-manager-v2/.local/aaa-office-fixture')):
             raise RuntimeError('OWN_ROOT_TARGET_REJECTED')
-        self.parent_fd = os.open('/tmp', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        if self.root.parent.resolve() != self.root.parent:
+            raise RuntimeError('OWN_PARENT_TARGET_REJECTED')
+        self.parent_fd = os.open(self.root.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         try:
             os.mkdir(self.root.name, mode=0o700, dir_fd=self.parent_fd)
             self.fd = os.open(self.root.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,

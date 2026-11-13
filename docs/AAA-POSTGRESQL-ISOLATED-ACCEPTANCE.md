@@ -427,3 +427,35 @@ cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && PYTHONPATH=backend .venv/b
 GitHub senkronizasyonu BLOCKED: fetch origin main-guncel DNS çözümlemesinde
 durdu; güncel uzak ancestry doğrulanamadığından normal push yapılmadı.
 Gerçek11 test PASS'i veya GitHub SHA eşitliği iddia edilmez.
+
+## Ofis kalıcı sentetik AAA okuma entegrasyonu — 2026-11-13
+
+- Kullanıcı yalnız yeni boş sentetik cluster için açık onay verdi. Hedefli
+  aramada eski /tmp AAA cluster/manifest/yedek bulunmadı; mevcut .local demo
+  PostgreSQL korunur. İnceleme erişilebilir repo/.local/share/tmp kapsamındadır.
+- Yeni sabit, Git dışı konum .local/aaa-office-fixture; private owner/inode,
+  manifest+PG16 system ID, loopback55433 ve exact DB/rol kontrolleri korunur.
+  Dolu root/port reddedilir; silme/restore/re-init veya servis kurulumu yoktur.
+  --existing kalıcı manifest kimliğini doğrular; eksik root artık sabit
+  PERSISTENT_FIXTURE_MISSING verir. WSL tmp temizliği yeni konumu etkilemez.
+- Boundary typed AtomicRequest sahibini projekte eder; gate PreviewScope ve
+  ServerPrincipal sözleşmeleriyle bridge.read çağırır. Bridge içinde aynı
+  transaction actor/member kilidi ve owner/journal revision kontrolü korunur.
+  Gerçek writer execute daima kapalıdır; normal API wiring yapılmaz.
+- Yalnız bir hedefli gerçek PG okuma kabulü seçildi: başarılı okuma, kimlik/izin
+  iptali, tenant reddi, inspection sonrası iptal/sahiplik yarışı, writer reddi
+  ve provider/veri değişmezliği. Önceki11 PG test paketi çalıştırılmaz.
+  Yeni ortamda yalnız sentetik şema bootstrap edildi; eski metadata senaryoları
+  tekrar çalıştırılmadı. PASS: 1 gerçek PG testi / 0.325s, skip/failure yok.
+- HTTPS200 ve /api/ready runtime_profile=v26-isolated-acceptance ön kontrolü
+  geçti. Canlı deploy/migration/restart, V1/V2.5/router/RADIUS/IPsec değişmez.
+- Yeni cluster system ID 7707635612888176393; runner yalnız kendi başlattığı
+  süreci durdurdu. Son salt okunur verify_existing_files kontrolü private
+  manifest/config/PG16 kimliğini ve shut down durumunu doğruladı. WSL reboot
+  fiilen denenmedi; kalıcı konum ve --existing ön koşulları doğrulandı.
+- Son HTTPS200 ve aynı API runtime_profile kapısı geçti. .local/ Git ignore
+  doğrulandı; private parolalar/cluster içeriği Git'e alınmadı. Üç stash korundu.
+  Görev kapsamındaki izole okuma kabulü PASS; gerçek runtime/writer açılmadı.
+- Sonraki sentetik kullanım aynı Ofis WSL'de mevcut mod ile yapılır:
+  `PYTHONPATH=backend .venv/bin/python -B -m backend.tests.run_aaa_postgres_office_wsl --existing`.
+  Bu görevde başarılı test tekrar çalıştırılmadı; servis kurulumu/otomatik başlatma yok.

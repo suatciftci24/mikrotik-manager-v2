@@ -6,6 +6,8 @@ All authorization data must come from explicitly injected trusted readers.
 from dataclasses import dataclass
 from typing import Callable
 
+from app.simulation.aaa_atomic import AtomicRequest
+
 
 class AaaBoundaryDisabled(PermissionError):
     pass
@@ -37,9 +39,23 @@ class AaaIdentityWriterBoundary:
         if type(actor_id) is not str or not actor_id:
             raise PermissionError("AAA_ACTOR_REQUIRED")
 
-        if type(request) is not dict:
+        # Keep the original typed request for trusted readers and the bridge.
+        # This projection only binds the existing identity/owner decision.
+        if type(request) is AtomicRequest:
+            request = AtomicRequest.model_validate_json(request.model_dump_json())
+            binding = {
+                'actor_id': request.actor_id,
+                'tenant_id': request.plan.tenant_id,
+                'subscriber_id': request.plan.snapshot.reference.account_id,
+                'router_id': request.plan.snapshot.nas.router_id,
+            }
+            if request.plan.snapshot.reference.store != 'PERSISTENT_WORKSPACE':
+                raise PermissionError('AAA_PERSISTENT_OWNER_REQUIRED')
+        elif type(request) is dict:
+            binding = request
+        else:
             raise PermissionError("AAA_REQUEST_REQUIRED")
-        if request.get("actor_id") != actor_id:
+        if binding.get("actor_id") != actor_id:
             raise PermissionError("AAA_ACTOR_MISMATCH")
 
         permission = self.authorization_reader(session_handle, request)
@@ -51,7 +67,7 @@ class AaaIdentityWriterBoundary:
             raise PermissionError("AAA_OWNER_REQUIRED")
 
         for field in ("tenant_id", "subscriber_id", "router_id"):
-            value = request.get(field)
+            value = binding.get(field)
             if type(value) is not str or not value:
                 raise PermissionError("AAA_SCOPE_REQUIRED")
             if owner.get(field) != value:
@@ -65,9 +81,9 @@ class AaaIdentityWriterBoundary:
         return {
             "authorized": True,
             "actor_id": actor_id,
-            "tenant_id": request["tenant_id"],
-            "subscriber_id": request["subscriber_id"],
-            "router_id": request["router_id"],
+            "tenant_id": binding["tenant_id"],
+            "subscriber_id": binding["subscriber_id"],
+            "router_id": binding["router_id"],
         }
 
     def execute(self, *args, **kwargs):

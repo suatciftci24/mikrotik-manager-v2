@@ -53,7 +53,7 @@ def home_guard():
         raise RuntimeError('BRANCH_REJECTED')
 
 
-def metadata_probe(admin, runtime, owned, marker):
+def metadata_probe(admin, runtime, owned, marker, *, bootstrap_only=False):
     # Reuse only synthetic request/model builders; release their no-IO patches
     # before this explicitly authorized isolated PostgreSQL test.
     h = fixtures.MetadataRepositoryTests(methodName='runTest')
@@ -89,6 +89,9 @@ def metadata_probe(admin, runtime, owned, marker):
                          'v2_aaa,v2_subscriber_workspace TO v26_aaa_fixture')
         c.exec_driver_sql('REVOKE INSERT,UPDATE ON v2_aaa.fixture_identity,v2_aaa.fixture_membership FROM v26_aaa_fixture')
         c.exec_driver_sql('REVOKE UPDATE ON v2_subscriber_workspace.events FROM v26_aaa_fixture')
+
+    if bootstrap_only:
+        return []
 
     def target(session):
         owned.verify_data()
@@ -183,39 +186,43 @@ def main():
         prepare()
 
 
-def prepare(*, bridge_acceptance=None, environment='HOME_WSL_AAA_FIXTURE'):
+def prepare(*, bridge_acceptance=None, environment='HOME_WSL_AAA_FIXTURE', root=None, bootstrap_only=False):
+    root = ROOT if root is None else Path(root)
+    if root != ROOT and (root != Path('/home/suatpc/Codex-Projects/mikrotik-manager-v2/.local/aaa-office-fixture')
+                         or environment != 'OFFICE_WSL_AAA_FIXTURE'):
+        raise RuntimeError('AAA_FIXTURE_ROOT_REJECTED')
     if environment not in ('HOME_WSL_AAA_FIXTURE', 'OFFICE_WSL_AAA_FIXTURE'):
         raise RuntimeError('AAA_FIXTURE_ENVIRONMENT_REJECTED')
-    if os.path.lexists(ROOT):
+    if os.path.lexists(root):
         raise RuntimeError('ACCEPTANCE_ROOT_ALREADY_EXISTS')
     # Prove port availability before creating any files or cluster.
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reservation:
         reservation.bind(('127.0.0.1', 55433))
-        owned = OwnedRoot(ROOT)
-        data = ROOT / 'postgres-test'
+        owned = OwnedRoot(root)
+        data = root / 'postgres-test'
         data.mkdir(mode=0o700)
         owned.capture_data()
         manifest = {'purpose':environment, 'root_identity':owned.identity,
                     'data_identity':owned.data_identity, 'port':55433, 'database':DB, 'runtime_role':ROLE}
-        fd = os.open(ROOT / 'fixture-manifest.json', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        fd = os.open(root / 'fixture-manifest.json', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, 'w') as f:
             json.dump(manifest, f)
-        (ROOT / 'socket').mkdir(mode=0o700)
+        (root / 'socket').mkdir(mode=0o700)
         password = secrets.token_urlsafe(32)
-        pwfile = ROOT / 'test-password'
+        pwfile = root / 'test-password'
         fd = os.open(pwfile, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, 'w') as f:
             f.write(password)
         run_tool([str(PG / 'initdb'), '-D', str(data), '-U', 'v26_acceptance',
                   '--auth-local=trust', '--auth-host=scram-sha-256', '--pwfile=' + str(pwfile)])
-        guard = DisposableClusterGuard(ROOT)
+        guard = DisposableClusterGuard(root)
         guard(data)
     admin = runtime = None
     try:
         owned.start_after = int(time.time())
         owned.pg_stopped = False
-        run_tool([str(PG / 'pg_ctl'), '-D', str(data), '-l', str(ROOT / 'postgres.log'),
-                  '-o', '-h 127.0.0.1 -p 55433 -k ' + str(ROOT / 'socket') +
+        run_tool([str(PG / 'pg_ctl'), '-D', str(data), '-l', str(root / 'postgres.log'),
+                  '-o', '-h 127.0.0.1 -p 55433 -k ' + str(root / 'socket') +
                   ' -c log_statement=none -c log_min_error_statement=panic -c log_error_verbosity=terse'
                   ' -c log_parameter_max_length_on_error=0', '-w', 'start'])
         owned.capture_process()
@@ -242,10 +249,14 @@ def prepare(*, bridge_acceptance=None, environment='HOME_WSL_AAA_FIXTURE'):
         runtime = create_engine(url.set(database=DB, username=ROLE, password=runtime_password), hide_parameters=True,
             connect_args={'connect_timeout': 5, 'options': '-c statement_timeout=5000 -c lock_timeout=2000'})
         marker = secrets.token_hex(24)
-        checks = metadata_probe(admin, runtime, owned, marker)
+        checks = metadata_probe(admin, runtime, owned, marker, bootstrap_only=bootstrap_only)
         print(json.dumps({'environment':environment, 'database':DB, 'role':ROLE,
             'host':'127.0.0.1','port':55433,'pgdata':str(data),'cluster_id':cluster_id,
             'checks_passed':checks,'product_prepared_resolver_executor_bridge':'BLOCKED'}))
+        manifest['cluster_id'] = cluster_id
+        fd = os.open(root / 'fixture-manifest.json', os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW)
+        with os.fdopen(fd, 'w') as f:
+            json.dump(manifest, f)
         if bridge_acceptance is not None:
             bridge_acceptance(cluster_id)
     finally:
