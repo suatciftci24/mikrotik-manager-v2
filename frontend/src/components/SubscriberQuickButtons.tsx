@@ -2,9 +2,9 @@ import {useEffect,useId,useRef,useState,type MouseEvent,type KeyboardEvent} from
 import {accountActionLabel,type SubscriberQuickAction} from '../lib/subscriberActions';
 import {subscriberMenuPosition} from '../lib/subscriberMenu';
 
-type Props={status:string;onAction?:(action:SubscriberQuickAction)=>void;onHistory?:()=>void;compact?:boolean;label?:string;available?:readonly SubscriberQuickAction[];unavailableReason?:string};
+type Props={status:string;onAction?:(action:SubscriberQuickAction)=>void;onHistory?:()=>void;onEdit?:()=>void;compact?:boolean;label?:string;available?:readonly SubscriberQuickAction[];unavailableReason?:string};
 /** Selection only. Native auto-popover supplies top-layer stacking and light dismiss. */
-export function SubscriberQuickButtons({status,onAction,onHistory,compact=false,label='Abone',available,unavailableReason}:Props){
+export function SubscriberQuickButtons({status,onAction,onHistory,onEdit,compact=false,label='Abone',available,unavailableReason}:Props){
  const id=useId(),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null);
  const [open,setOpen]=useState(false);
  function position(){
@@ -41,6 +41,7 @@ export function SubscriberQuickButtons({status,onAction,onHistory,compact=false,
  const buttons=<div className="subscriber-quick-buttons">
  {onAction&&([['EXTEND','Abonelik Uzat'],['PLAN','Paket Değiştir'],['STATUS',accountActionLabel(status)]] as const).map(([action,text])=><button type="button" role={compact?'menuitem':undefined} className="button-secondary" key={action} disabled={!!available&&!available.includes(action)} onClick={event=>choose(event,()=>onAction(action))}>{text}</button>)}
  {!onAction&&unavailableReason&&<p className="subscriber-action-reason" role="note">{unavailableReason}</p>}
+ {onEdit&&<button type="button" role={compact?'menuitem':undefined} className="button-secondary" onClick={event=>choose(event,onEdit)}>Abone bilgilerini düzenle</button>}
  {onHistory&&<button type="button" role={compact?'menuitem':undefined} className="button-secondary" onClick={event=>choose(event,onHistory)}>İşlem Geçmişi</button>}
  </div>;
  if(!compact)return buttons;
