@@ -33,7 +33,10 @@ class ObserverTransport:
                 or (challenge.deadline - challenge.requested_at).total_seconds() > 5
             ):
                 return ObserverTransportResult("UNKNOWN")
-            envelope = self._reader(challenge)
+            remaining_seconds = (challenge.deadline - now).total_seconds()
+            if remaining_seconds <= 0:
+                return ObserverTransportResult("UNKNOWN")
+            envelope = self._reader(challenge, remaining_seconds)
             # A blocking reader must enforce its own IO deadline.
             # Never accept evidence if the reader returned too late.
             finished_at = datetime.now(timezone.utc)

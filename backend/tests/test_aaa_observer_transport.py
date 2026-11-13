@@ -31,7 +31,13 @@ class ObserverTransportTests(TestCase):
             valid_until=self.now+timedelta(seconds=20), outcome="APPLIED")
         key = SecretBytes(secrets.token_bytes(32))
         options = dict(key=key, source_identity="fixture-observer-radius3", source_revision=1)
-        self.reader = Mock(wraps=SyntheticRemoteObserver([observation], **options).observe)
+        synthetic_observe = SyntheticRemoteObserver(
+            [observation], **options
+        ).observe
+        self.reader = Mock(
+            side_effect=lambda challenge, remaining_seconds:
+                synthetic_observe(challenge)
+        )
         self.verifier = RemoteEvidenceVerifier(**options)
 
     def test_valid_signed_evidence(self):
@@ -57,7 +63,7 @@ class ObserverTransportTests(TestCase):
             reader.assert_called_once()
 
     def test_invalid_signature_and_expired_challenge(self):
-        evidence = self.reader(self.challenge)
+        evidence = self.reader(self.challenge, 5.0)
         invalid = evidence.model_copy(update={"signature": "0"*64})
         reader = Mock(return_value=invalid)
         result = ObserverTransport(reader, self.verifier).observe(
