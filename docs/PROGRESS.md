@@ -1,5 +1,30 @@
 # MikroTik Manager V2 — İlerleme
 
+## AAA sentetik secret-provider / PAP / transport güvenliği — 2026-11-13 — yerel PASS
+
+- Başlangıç main-guncel/1f0e8f4 temiz; kurallar, güncel kabul ve mevcut kod okundu.
+  SecretVerificationProvider değiştirilebilir doğrulama arayüzü ve caller-owned
+  sentetik provider eklendi. Secret getter, gerçek store/transport veya API yok.
+- FreeRADIUS3 fixture PAP/CLEARTEXT_REFERENCE doğrulaması mevcut adapter/scope
+  gate ile bağlandı. Taze trusted callback yetkisi ve deadline provider öncesi/
+  sonrası kontrol edilir. Yanlış/eksik credential, iptal/scope, expired/paused,
+  geç/bozuk yanıt ve desteklenmeyen CHAP/MSCHAPv2 fail-closed reddedilir.
+- Mevcut fenced provider'a explicit connection/timeout/partial failure script
+  wrapper'ı eklendi. UNKNOWN lease'i dondurur; otomatik retry/resume yoktur.
+  Mevcut bağımsız receipt observation/reconciliation yeniden kullanılır.
+- PASS: son hedefli paket 8 test /0.104s, skip yok (5 yeni + 3 doğrudan
+  idempotency/fencing regresyonu). Retry hata assertion'ı AtomicConflict olarak
+  daraltılınca yalnız ilgili 1 test /0.079s yeniden geçti. Diff check PASS.
+- DB bridge/CAS/audit kodu değişmedi; PG testi/cluster oluşturma tekrarlanmadı.
+  Önceki PG PASS yeni secret-store/production kabulü değildir. V1/V2.5/canlı,
+  cihaz/RADIUS/IPsec/demo DB/14 abone/5 kullanıcı/yedeklere dokunulmadı.
+  Canlı sağlık bağlantısı yok; writer/expire worker varsayılanları değişmedi.
+- Gerçek store principal/rotation, bounded IO, RADIUS protocol CHAP/MSCHAPv2,
+  kalıcı remote UNKNOWN reconciliation/runtime RLS kabulü açık. Sonraki adım
+  ayrıca kapsamlandırılacak üretim öncesi sözleşme kabulüdür; canlı geçiş yok.
+  Ayrıntılar AAA-POSTGRESQL-ISOLATED-ACCEPTANCE.md son bölümünde; commit/push
+  sonucu görev sonu raporunda.
+
 ## AAA yeni geçici PostgreSQL birleşik kabulü — 2026-11-13 — izole PASS
 
 - Başlangıç main-guncel/36bf7ac temiz. Kurallar/son AAA raporu ve mevcut runner,

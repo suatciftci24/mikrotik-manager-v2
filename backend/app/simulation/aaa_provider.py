@@ -236,6 +236,36 @@ class FakeFencedProvider:
                 plan_hash=request.plan.plan_hash(), complete=bool(receipts) and all(r.outcome != 'UNKNOWN' for r in receipts),
                 receipts=receipts, current=self._state['provider'])
 
+    def execute_transport_fixture(self, unit, request, scope, context, lease, command,
+                                  *, failure='NONE', permission=False):
+        """Explicit failure script around existing fenced execution; no retry loop.
+
+        UNKNOWN freezes delivery even when a receipt exists after response loss.
+        Only existing independent observation may classify that result.
+        """
+        if failure not in ('NONE','CONNECTION','TIMEOUT_BEFORE','TIMEOUT_AFTER','PARTIAL'):
+            raise ValueError('FIXTURE_TRANSPORT_FAILURE_REQUIRED')
+        with unit._lock, self._lock:
+            expected = self._command(unit,request,scope,context,lease,permission)
+            if command != expected:
+                raise ProviderConflict('PLAN_EVENT_ATTEMPT_OR_OWNER_MISMATCH')
+            if failure == 'NONE':
+                return self.execute(unit,request,scope,context,lease,command,permission=permission)
+            if failure == 'TIMEOUT_AFTER':
+                self.execute(unit,request,scope,context,lease,command,permission=permission)
+            elif failure == 'PARTIAL':
+                # Existing UNKNOWN script records indeterminate evidence without
+                # claiming which remote fields were applied.
+                prior = self._outcomes.get(command.step)
+                self._outcomes[command.step] = 'UNKNOWN'
+                try:
+                    self.execute(unit,request,scope,context,lease,command,permission=permission)
+                finally:
+                    if prior is None: self._outcomes.pop(command.step,None)
+                    else: self._outcomes[command.step] = prior
+            unit.nack(request,scope,context,lease,'UNKNOWN',permission=permission)
+            raise ProviderConflict('PROVIDER_TRANSPORT_UNKNOWN_RECONCILIATION_REQUIRED')
+
 
 def accept_provider_response(unit, provider, request, scope, context, lease, receipt, *, permission=False):
     """Validate both current lease and provider-owned receipt; never accept a caller ACK claim."""

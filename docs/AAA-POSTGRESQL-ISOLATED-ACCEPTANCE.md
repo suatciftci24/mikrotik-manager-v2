@@ -705,3 +705,56 @@ Gerçek entegrasyon için eksik sözleşme/güvenlik gereksinimleri (uygulanmad�
 
 Mevcut kullanıcı/veri/yedek ve canlı sistemlere dokunulmadı; varsayılan writer
 ve worker kapalı. Üretim AAA entegrasyonu tamamlanmış değildir.
+
+## Sentetik secret-provider, PAP ve transport hataları — 2026-11-13 — yerel PASS
+
+Başlangıç main-guncel/1f0e8f4 temiz. Yeni aaa_secret_provider.py içinde
+SecretVerificationProvider.verify_password(reference, scope, SecretStr,
+now/deadline) -> bool arayüzü vardır. Provider değiştirilebilir; gerçek store
+uygulaması veya varsayılan provider seçimi yoktur. Scope tenant/actor/subscriber/
+router/source/purpose/revision içerir. SyntheticSecretProvider yalnız caller'ın
+ürettiği sentetik değerleri bellekte tutar, UTF-8 byte constant-time compare
+kullanır; eksik, duplicate, inactive veya scope uyuşmazlığında False döndürür.
+Secret/reference entry repr/serialization dışında; değer getter'ı, audit veya
+receipt üretimi yok. Python belleği için garantili zeroization iddia edilmez.
+
+RadiusFixturePasswordVerifier mevcut FreeRadiusFixtureAdapter.prepare ve
+credential gate'i kullanır. PAP/CLEARTEXT_REFERENCE desteklenir. Paused/expired
+authorization, yanlış/eksik parola ve diğer storage/metotlar reddedilir. Trusted
+caller'ın authorize(scope) callback'i provider öncesi/sonrası tam True dönmeli;
+credential deadline/revocation ve account expiration tekrar kontrol edilir.
+Provider exception ayrıntısı dışarı çıkmaz; timeout/connection/partial hata ve
+truthy ama bool olmayan sonuç False olur. Bu read-only auth kontrolü abone
+oluşturmaz; mevcut command/account'ın trusted güncel snapshot olması caller'ın
+sorumluluğudur. Merkezi runtime principal veya gerçek RADIUS server değildir.
+
+FakeFencedProvider.execute_transport_fixture explicit opt-in script'leri:
+CONNECTION/TIMEOUT_BEFORE etki kanıtı bırakmaz; TIMEOUT_AFTER mevcut fenced
+execution sonrası yanıt kaybıdır; PARTIAL mevcut UNKNOWN evidence modelidir,
+hangi uzak alanın değiştiğini iddia etmez. Hatalar mevcut unit.nack UNKNOWN
+ile delivery'yi kapatır. Aynı teslimatı yeniden yazmak reddedilir. Mevcut
+observe/reconcile_unknown yalnız bağımsız receipt kanıtıyla sınıflandırır:
+TIMEOUT_AFTER APPLIED_CONFIRMED, kanıtsız veya partial durum READ_ONLY_REQUIRED.
+Hiçbiri otomatik resume, owner commit veya compensation izni oluşturmaz.
+Bu bellek ledger'ı restart dayanıklılığı veya gerçek remote recovery değildir.
+
+PASS: son paket 8 test /0.104s, skip yok: 5 yeni secret/transport testi ve
+mevcut 3 exact replay/concurrency/authorization-fencing regresyonu. Testler socket,
+psycopg/sqlite bağlantılarını yasaklayan mevcut fixture'ları kullanır. Rastgele
+sentetik parola log/stdout/stderr, entry ve adapter public projection içinde
+bulunmadı; reference de dışlanmıştır. Transport retry kontrolü daha dar
+AtomicConflict assertion'ına çevrildikten sonra yalnız 1 test /0.079s tekrarlandı.
+İlk koşuda unittest import keşfi mevcut 3 lifecycle testini de seçmişti;
+module import'a çevrildi, son 8 test sayısı 5 yeni + 3 seçilmiş regresyondur.
+
+PG bridge/UUID/CAS/audit transaction kodu değişmedi; önceki PG kabulü sebepsiz
+tekrarlanmadı. Yeni PG/cluster, ürün migration, gerçek ağ/health, secret-store,
+RADIUS, demo veri veya canlı servis işlemi yok. Writer/worker default kapalıdır.
+
+Üretim öncesi açık gereksinimler: runtime principal ve fresh account snapshot
+bağlama; gerçek store least-privilege, rotation/revocation ve bounded IO
+deadline uygulaması; secret tüketimi/redaction/bellek ömrü; gerçek FreeRADIUS3
+PAP ve CHAP/MSCHAPv2 protokol kabulü, NAS/tenant SQL/unlang ve dictionary;
+kalıcı dispatch/UNKNOWN journal, bağımsız remote evidence ve restart sonrası
+reconciliation; PostgreSQL runtime role/RLS ve gerçek device/session policy.
+Bu çalışma yalnız izole yazılım kabulüdür; üretim AAA tamamlanmış değildir.
