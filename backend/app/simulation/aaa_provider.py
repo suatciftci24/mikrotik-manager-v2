@@ -129,6 +129,11 @@ class FakeFencedProvider:
             raise PermissionError('PROVIDER_SUBSCRIBER_BINDING_REQUIRED')
         if current != command.before or now.utcoffset() is None:
             raise ProviderConflict('SUBSCRIBER_PREVIEW_CHANGED')
+        if command.expire_deadline is not None:
+            from app.simulation.aaa_local_expire import require_expire_command, expire_instant
+            require_expire_command(command)
+            if not expire_instant(current.local_expire_comment) <= now < command.expire_deadline:
+                raise ProviderConflict('LOCAL_EXPIRE_TIME_WINDOW_CLOSED')
         if command.operation == 'EXTEND':
             if current.expires_on is None or command.days is None:
                 raise ProviderConflict('KNOWN_EXPIRY_AND_DAYS_REQUIRED')

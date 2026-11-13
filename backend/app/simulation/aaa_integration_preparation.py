@@ -5,7 +5,7 @@ from hashlib import sha256
 from typing import Literal
 from uuid import UUID, uuid5
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator, model_serializer
 from app.integrations.aaa_contracts import ReadContract, PreviewScope, require_preview_scope, snapshot_fingerprint
 from app.simulation.aaa_transition import SimulationRequest, simulate_transition
 
@@ -167,6 +167,22 @@ class SyntheticAaaAccount(ReadContract):
     plan: str = Field(min_length=1, max_length=120)
     status: Literal['ACTIVE', 'PAUSED']
     expires_on: str | None = None
+    local_expire_comment: str | None = None
+
+    @model_serializer(mode='wrap')
+    def serialize_account(self, handler):
+        data = handler(self)
+        if self.local_expire_comment is None:
+            data.pop('local_expire_comment', None)
+        return data
+
+    @field_validator('local_expire_comment')
+    @classmethod
+    def local_comment(cls, value):
+        if value is not None:
+            from app.simulation.aaa_local_expire import expire_instant
+            expire_instant(value)
+        return value
 
     @field_validator('expires_on')
     @classmethod
@@ -201,6 +217,14 @@ class SyntheticAaaCommand(ReadContract):
     after: SyntheticAaaAccount
     days: int | None = Field(default=None, ge=1, le=366)
     confirmed: Literal[True]
+    expire_deadline: datetime | None = None
+
+    @model_serializer(mode='wrap')
+    def serialize_command(self, handler):
+        data = handler(self)
+        if self.expire_deadline is None:
+            data.pop('expire_deadline', None)
+        return data
 
     @field_validator('confirmed', 'fixture_only', 'external_writes', mode='before')
     @classmethod
@@ -212,6 +236,9 @@ class SyntheticAaaCommand(ReadContract):
 
     @model_validator(mode='after')
     def explicit_change(self):
+        if self.expire_deadline is not None:
+            from app.simulation.aaa_local_expire import require_expire_command
+            require_expire_command(self)
         if self.operation=='CREATE':
             if self.before is not None or self.days is not None:
                 raise ValueError('EMPTY_SYNTHETIC_ACCOUNT_REQUIRED')

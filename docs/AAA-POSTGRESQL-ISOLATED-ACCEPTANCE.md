@@ -571,3 +571,43 @@ Eşleme dayanakları (resmî kaynaklar):
 - FreeRADIUS [PAP verifier](https://www.freeradius.org/radiusd/man/rlm_pap.html),
   [expiration module](https://wiki.freeradius.org/modules/rlm-expiration) ve
   [date AVP epoch formatı](https://lists.freeradius.org/hyperkitty/list/freeradius-users%40lists.freeradius.org/thread/IYAOU35E2NY3FC4YIOEZYMZFFY2SB35P/).
+
+## Credential reference / LOCAL expire — 2026-11-13 — yerel yazılım PASS
+
+- FixtureCredentialResolver yalnız tipli, değişmez sentetik referans registry'si
+  kullanır. Açık izin, aware geçerlilik süresi, tekil aktif referans, tenant,
+  router, source, purpose ve revision eşitliği zorunludur. Hatalar sabit ve
+  referanssızdır. Sonuç yalnız sansürlü metadata'dır; parola, hash, router parolası
+  veya RADIUS shared secret alınmaz/çözülmez. Trusted caller izin sağlamakla
+  yükümlüdür; bu sınıf merkezi runtime kimlik doğrulaması veya canlı secret store
+  değildir. Referans repr/serialization dışında kalır; API bağlantısı yoktur.
+- LocalExpireFixtureWorker varsayılan kapalı, explicit PostgresFixtureBridge
+  ile tek hesaplık one-shot çalışır; tarama, servis, scheduler veya transport yok.
+  Yalnız LOCAL/PPPOE, ACTIVE ve canonical EXPIRE=YYYY-MM-DD HH:MM kabul edilir.
+  Europe/Istanbul -> UTC dönüşümü; eşit anda dolmuş, deadline eşitliğinde kapalı.
+  Account comment before/after içinde korunur; yalnız status PAUSED olur.
+- Mevcut SyntheticAaaCommand STATUS, FakeFencedProvider ve bridge kullanılır.
+  Aynı snapshot/window için deterministik UUID; farklı window/rakip komutlar
+  mevcut owner revision/fence CAS'a tabidir. Bridge taze membership/DAILY_OWNER/
+  router yetkisi ve owner kaynağını kilit altında kontrol eder; provider DB saatinde
+  süre/window ve exact before kontrol eder. Audit ve receipt aynı transaction.
+  Başarısız/UNKNOWN sonucu otomatik tekrar eden döngü yoktur; mevcut receipt read
+  yolu kullanılmalıdır. Replay eski sonucu döndürür, yeni etki oluşturmaz.
+- Yeni optional alanlar yokken serialization eski biçimi korur; önceki UUID
+  fingerprint/receipt kayıtları bozulmaz. Gün bazlı expires_on sözleşmesi değişmez.
+  Bu worker dakika hassasiyetli local_expire_comment kullanır.
+- Minimum kontrol: dört yeni unittest (scope/redaction, expiry/provider sınırları,
+  kapalı worker/bridge handoff, eski fingerprint roundtrip) ve mevcut iki provider
+  testi (yetki/stale worker, eşzamanlı idempotency) geçti. İlk worker testindeki
+  string tenant/strict UUID hatası düzeltildi; yalnız o başarısız test tekrarlandı.
+  Yeni PG integration/race testi veya DB erişimi çalıştırılmadı; atomik PG/CAS
+  garantisi önceki bridge kabulüne dayanır, yeni PG kabulü iddia edilmez.
+- Ön HTTPS200/API ready başarılı. Son HTTPS/API kontrolü DNS çözümlemesinde
+  başarısız (curl6/HTTPS000); son sağlık PASS değildir, tekrar denenmedi.
+- 14 demo abone, 5 kullanıcı, mevcut DB ve yedek içerikleri okunmadı/değişmedi.
+  Belirtilen dump dosyasının yalnız varlık/boyutu kontrol edildi (41908 bytes).
+  Restore/merge/senkronizasyon, migration, restart, deploy veya gerçek AAA yok.
+- Açık entegrasyonlar: runtime principal/secret-store yetkilendirme ve güvenli
+  secret tüketimi, canlı provider sürümü/UNKNOWN reconciliation, gerçek RouterOS
+  kayıt sahipliği ve süre sonu dispatch kabulü. Canlı writer kapalı kalır;
+  AAA üretim entegrasyonu tamamlanmış değildir.

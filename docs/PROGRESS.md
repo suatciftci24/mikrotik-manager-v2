@@ -5535,3 +5535,19 @@ Her iki ilerleme kaydi korunmustur:
   cihaz/DB değişikliği yok. Üç stash ve Git dışı cluster/secret dosyaları korundu.
   Sonraki adım yalnız ayrı onaylı gerçek entegrasyon kabulüdür; güvenli kod/belge
   normal main-guncel commit/push kapsamındadır.
+
+## Güvenli credential referansı / LOCAL expire worker — 2026-11-13
+
+- Başlangıç main-guncel/5a3d656, temiz ağaç ve GitHub HEAD eşitliği doğrulandı.
+- Fixture referans çözümleme sözleşmesi ve varsayılan kapalı LOCAL/PPPOE one-shot
+  worker mevcut command/provider/bridge/audit/receipt sınırlarıyla tamamlandı.
+  Secret değerleri yok; tenant/router/source/purpose/revision, açık izin ve
+  zaman sınırı fail-closed. EXPIRE dakika sözleşmesi ve eski fingerprint korunur.
+- Yerel PASS: dört yeni hedefli test + mevcut iki provider yarış/yetki testi.
+  Yeni PG kabulü/DB bağlantısı yok. Ayrıntılar son AAA isolated acceptance bölümünde.
+- Ön HTTPS/API PASS; son kontrolde DNS curl6/HTTPS000, sağlık BLOCKED. Tekrar yok.
+  Yerel güvenli geliştirme kullanıcı talimatı doğrultusunda tamamlandı.
+- 14 abone/5 kullanıcı/DB/backup içeriği, V1/V2.5/canlı/router/RADIUS/IPsec
+  değiştirilmedi. Dump yalnız stat ile 41908 bytes doğrulandı; yedek korundu.
+- Gerçek secret-store, runtime identity ve canlı expire/provider kabulü açık;
+  üretim AAA tamamlanmadı. Commit/push sonucu görev sonu raporunda bildirilir.
