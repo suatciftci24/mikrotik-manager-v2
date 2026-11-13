@@ -31,6 +31,7 @@ class CredentialResolution(ReadContract):
 
 class FixtureCredentialResolver:
     def __init__(self, bindings):
+        bindings = tuple(bindings)
         if any(type(b) is not CredentialBinding for b in bindings):
             raise PermissionError('FIXTURE_CREDENTIAL_BINDINGS_REQUIRED')
         self._bindings = tuple(CredentialBinding.model_validate(
@@ -51,3 +52,19 @@ class FixtureCredentialResolver:
             raise PermissionError('CREDENTIAL_RESOLUTION_DENIED')
         return CredentialResolution(**{k:getattr(b,k) for k in
             ('tenant_id','router_id','source','purpose','revision')})
+
+
+class FixtureSubscriberCredentialGate:
+    """Explicit reference-only provider gate; never grants actor/owner authority."""
+    def __init__(self, resolver, *, revision, valid_until):
+        if type(resolver) is not FixtureCredentialResolver or type(revision) is not int or revision < 1:
+            raise PermissionError('FIXTURE_CREDENTIAL_GATE_REQUIRED')
+        self.resolver, self.revision, self.valid_until = resolver, revision, valid_until
+
+    def check(self, command, target, now):
+        if target.password is None:
+            raise PermissionError('CREDENTIAL_RESOLUTION_DENIED')
+        return self.resolver.resolve(target.password.credential_reference,
+            tenant_id=command.tenant_id, router_id=command.router_id,
+            source=command.expected_source, purpose='SUBSCRIBER_PASSWORD',
+            revision=self.revision, permitted=True, now=now, valid_until=self.valid_until)

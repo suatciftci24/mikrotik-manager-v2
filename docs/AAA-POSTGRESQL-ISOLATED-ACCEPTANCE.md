@@ -611,3 +611,41 @@ Eşleme dayanakları (resmî kaynaklar):
   secret tüketimi, canlı provider sürümü/UNKNOWN reconciliation, gerçek RouterOS
   kayıt sahipliği ve süre sonu dispatch kabulü. Canlı writer kapalı kalır;
   AAA üretim entegrasyonu tamamlanmış değildir.
+
+## Ağsız provider yaşam döngüsü — 2026-11-13 — yerel PASS
+
+Başlangıç `main-guncel/2b0183e`, temiz ağaç. Güncel açık kullanıcı sınırı
+nedeniyle canlı sağlık/Git fetch, PostgreSQL, migration veya servis işlemi yok.
+Git push yalnız kullanıcının açıkça istediği kaynak kod aktarımı istisnasıdır.
+
+Mevcut FakeFencedProvider saf projeksiyonuna isteğe bağlı, tip kontrollü
+FixtureSubscriberCredentialGate bağlandı. Seçildiğinde her komutta subscriber
+password referansının tenant/router/source/purpose/revision/aktiflik ve zaman
+sınırı doğrulanır. Bu gate aktör yetkisi vermez; mevcut bridge fresh role/grant,
+owner, UUID, CAS/fencing ve audit transaction kontrolleri değişmedi. Önceki
+gate'siz fixture davranışı uyumluluk için korunur; canlı writer değildir.
+Resolver generator girdisini iki kez tüketiyordu; artık bir kez tuple'a alınır.
+Ham parola/secret çözümü, yeni endpoint veya normal subscriber store bağı yok.
+
+PASS: `PYTHONPATH=.:backend backend/.venv/bin/python -m unittest
+backend.tests.test_aaa_subscriber_isolated backend.tests.test_aaa_e2e_acceptance
+backend.tests.test_aaa_credentials_expire backend.tests.test_identity_permissions -q`
+— 31 test, 2.821s, skip yok. Yeni yaşam döngüsü testlerinde socket/socket connection,
+psycopg ve sqlite bağlantıları yasaklandı. LOCAL6/7 ve RADIUS3 CREATE, EXTEND,
+PLAN, STATUS pause/activate; süresi dolmuş hesapta disabled/Reject; scope,
+credential expiry ve provider hata reddi; worker komutundan RouterOS disabled
+projeksiyonuna geçiş doğrulandı. Worker testinde PG bridge handoff bilinçli
+olarak test seam'idir; PostgreSQL transaction kabulü değildir.
+
+Mevcut bellek E2E zinciri UUID replay/yarış, audit hata korunumu, stale CAS/fence,
+yetki süresi, UNKNOWN otomatik retry reddi, iptal/compensation policy ve
+kanıta bağlı kurtarmayı doğruladı. Identity testleri yanlış parola reddi,
+rol/izin değişiminin yeniden okunması ve pasif aktör reddini doğruladı.
+Bu, RADIUS PAP/CHAP/MSCHAPv2 parola doğrulaması değildir.
+
+BLOCKED/çalıştırılmadı: yeni PG bridge+credential+expire transaction/race kabulü,
+gerçek provider parola/timeout/reconciliation, secret-store, runtime principal,
+RLS ve gerçek RouterOS kayıt sahipliği/oturum politikası. Önceki PG PASS
+kanıtları yeni entegrasyon PASS'i yerine kullanılmaz. Writer ve worker varsayılan
+kapalıdır. 14 abone/5 kullanıcı/yedekler üzerinde okuma/yazma yapılmadı.
+Üretim AAA entegrasyonu tamamlanmış değildir.

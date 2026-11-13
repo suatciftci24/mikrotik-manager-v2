@@ -93,7 +93,12 @@ def _unit(unit):
 
 class FakeFencedProvider:
     """Independent caller-owned provider memory; outcomes are fixed fixture scripts."""
-    def __init__(self, plan, *, outcomes=None, subscriber_adapter=None):
+    def __init__(self, plan, *, outcomes=None, subscriber_adapter=None, credential_gate=None):
+        if credential_gate is not None:
+            from app.integrations.aaa_credentials import FixtureSubscriberCredentialGate
+            if type(credential_gate) is not FixtureSubscriberCredentialGate or subscriber_adapter is None:
+                raise TypeError('EXPLICIT_FIXTURE_CREDENTIAL_GATE_REQUIRED')
+        self.credential_gate = credential_gate
         if subscriber_adapter is not None:
             from app.adapters.aaa_freeradius import FreeRadiusFixtureAdapter
             from app.adapters.aaa_routeros import RouterOsFixtureAdapter
@@ -148,6 +153,8 @@ class FakeFencedProvider:
             if type(self.subscriber_adapter) not in (FreeRadiusFixtureAdapter,RouterOsFixtureAdapter):
                 raise TypeError('ONLY_PURE_FIXTURE_ADAPTERS_ALLOWED')
             mapping = self.subscriber_adapter.prepare(command,now)
+            if self.credential_gate is not None:
+                self.credential_gate.check(command, self.subscriber_adapter.target, now)
         return (command.after,mapping) if include_mapping else command.after
 
     def _command(self, unit, request, scope, context, lease, permission, *, allow_done=False):

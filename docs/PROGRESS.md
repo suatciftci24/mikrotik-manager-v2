@@ -1,5 +1,25 @@
 # MikroTik Manager V2 — İlerleme
 
+## AAA ağsız uçtan uca provider kabulü — 2026-11-13 — yerel PASS
+
+- Başlangıç main-guncel/2b0183e, temiz ağaç. Kurallar, son AAA kabulü ve
+  özellik koruma envanteri okundu. Mevcut bridge/adaptörler yeniden yazılmadı.
+- Credential reference gate mevcut saf provider projeksiyonuna opt-in bağlandı;
+  scope/revision/aktiflik/süre reddi ve resolver generator tüketim hatası düzeltildi.
+  Bridge merkezi rol/owner/grant/UUID/CAS/audit sınırları değişmedi.
+- PASS: 31 hedefli ağsız test (2.821s, skip yok): üç adaptör varyantında beş
+  abone işlemi, expire worker→provider→RouterOS mapping; scope/expiry/provider
+  hataları; mevcut memory E2E yarış/replay/audit/UNKNOWN/policy; identity yanlış
+  parola ve fresh rol/izin reddi. Ayrıntılar AAA-POSTGRESQL-ISOLATED-ACCEPTANCE.md.
+- BLOCKED/çalıştırılmadı: yeni PG entegre kabulü ve gerçek AAA/secret-store/
+  RADIUS parola/RouterOS oturum kabulü. Önceki PG kanıtı yeni PASS sayılmadı.
+  Geçmiş BLOCKED/ROLLBACK kayıtları korunur; üretim entegrasyonu tamamlanmadı.
+- Güncel açık ağ yasağı nedeniyle canlı sağlık/fetch yok; kaynak push ayrı açık
+  istek kapsamındadır. DB/migration/deploy/restart, gerçek cihaz/RADIUS/IPsec,
+  14 demo abone/5 kullanıcı ve yedeklere dokunulmadı. Varsayılan writer/worker
+  kapalı kaldı. Sıradaki ihtiyaç ayrı izole PG birleşik kabulü ve sonrasında
+  ayrıca onaylanacak gerçek entegrasyon. Commit/push sonucu görev sonu raporunda.
+
 ## Ofis → Ev GitHub senkronizasyonu — 2026-11-09 — BLOCKED
 
 - office-development/30f067c temiz başlangıç. Yerel origin/main-guncel
