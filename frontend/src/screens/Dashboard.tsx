@@ -13,10 +13,11 @@ import { ResourceState, dateTime } from '../components/Resource';
 import { useResource } from '../lib/useResource';
 import { useTurkeyToday } from '../lib/useTurkeyToday';
 import { useIdentity } from '../lib/permissions';
+import {loadWorkspaceDashboardSummary} from '../lib/workspaceDashboard';
 import { loadDashboardSummary, dashboardToday, dashboardCritical, dashboardAlarmTarget, loadDashboardAlarms, dashboardAlarmPath, latestRouterObservation, type DashboardSummary } from '../lib/dashboardOverview';
 import { loadRouterEvents } from '../lib/routerEvents';
 
-const DEPENDENCIES = ['/routers', '/subscribers'] as const;
+const DEPENDENCIES = ['/routers', '/subscribers','/router-workspace/routers','/subscriber-workspace'] as const;
 const EVENT_DEPENDENCIES = ['/routers','/subscribers','/router-events'] as const;
 const ALARM_DEPENDENCIES = [...EVENT_DEPENDENCIES,'/alarms','/mikajani'] as const;
 type Navigate = (screen: ScreenKey, params?: Record<string,string>) => void;
@@ -43,19 +44,20 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
   const reports=grants.some(grant=>grant.can_view&&grant.can_view_reports);
   const mika=grants.some(grant=>grant.can_view&&grant.can_use_mikajani);
   const admin=identity?.role_code==='ADMIN'&&identity.can_manage_users===true;
-  const resource=useResource<DashboardSummary>('/dashboard/summary',loadDashboardSummary,DEPENDENCIES);
+  const persistent=identity?.router_inventory_source==='PERSISTENT_WORKSPACE';
+  const resource=useResource<DashboardSummary>(persistent?'/dashboard/summary?inventory=workspace':'/dashboard/summary',persistent?loadWorkspaceDashboardSummary:loadDashboardSummary,DEPENDENCIES);
   const today=useTurkeyToday(),previousDay=useRef(today);
   useEffect(()=>{if(previousDay.current!==today){previousDay.current=today;resource.retry();}},[today,resource.retry]);
-  const refresh=()=>invalidateResources(['/routers','/subscribers','/router-events','/mikajani','/alarms']);
+  const refresh=()=>invalidateResources(['/router-workspace/routers','/subscriber-workspace','/routers','/subscribers','/router-events','/mikajani','/alarms']);
   useEffect(()=>{
-    const tick=()=>{if(!document.hidden)invalidateResources(['/routers','/subscribers','/router-events','/mikajani','/alarms']);};
+    const tick=()=>{if(!document.hidden)invalidateResources(['/router-workspace/routers','/subscriber-workspace','/routers','/subscribers','/router-events','/mikajani','/alarms']);};
     const timer=window.setInterval(tick,60000);
     window.addEventListener('focus',tick);document.addEventListener('visibilitychange',tick);
     return()=>{window.clearInterval(timer);window.removeEventListener('focus',tick);document.removeEventListener('visibilitychange',tick);};
   },[]);
   const data=resource.loading?undefined:resource.data;
-  const subscribers=(params:Record<string,string>={})=>onNavigate('subscribers',{workspace:'LEGACY',...params});
-  const routers=(params:Record<string,string>={})=>onNavigate('routers',{source:'DEMO',...params});
+  const subscribers=(params:Record<string,string>={})=>onNavigate('subscribers',{workspace:persistent?'PERSISTENT':'LEGACY',...params});
+  const routers=(params:Record<string,string>={})=>onNavigate('routers',{source:persistent?'MANAGED_DEMO':'DEMO',...params});
   const daily=(kind:string)=>{onNavigate('dashboard',{view:'DAILY_REPORT',report_source:'DEMO',period:'TODAY',kind});};
   const fullDate=data?new Intl.DateTimeFormat('tr-TR',{dateStyle:'full',timeZone:'UTC'}).format(new Date(data.as_of_date+'T00:00:00Z')):'Türkiye takvim günü';
   return <div className="screen-stack dashboard-overview">

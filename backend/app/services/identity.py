@@ -53,6 +53,7 @@ def public_user(user,management=False,*,bootstrap_closed=None):
             'role':{'ADMIN':'Sistem Yöneticisi','OPERATOR':'Operatör','VIEWER':'Gözlemci'}.get(user['role'],'Gözlemci'),'is_demo':True,
             'account_origin':origin,'bootstrap_closed':bool(closed),'login_enabled':login_enabled,
             'can_manage_users':user['role']=='ADMIN' and login_enabled and all(user['permissions'].get(r['id'],{}).get('can_view') is True for r in ROUTERS),
+            'router_inventory_source':'PERSISTENT_WORKSPACE' if os.environ.get('V2_DEPLOYMENT_PROFILE')=='v26-isolated-acceptance' else 'LEGACY_DEMO',
             'permissions':{id:grant for id,grant in user['permissions'].items() if management or grant.get('can_view') is True}}
 
 
@@ -112,7 +113,11 @@ class UserChange(BaseModel):
         return str(UUID(value))
     @model_validator(mode='after')
     def valid_scope(self):
-        if set(self.permissions)-{r['id'] for r in ROUTERS}:raise ValueError('Bilinmeyen router izni')
+        from app.services.workspace_inventory import permission_router_ids
+        from app.services.router_workspace import WorkspaceError
+        try:known_ids=permission_router_ids()
+        except WorkspaceError:raise ValueError('Router çalışma alanı doğrulanamadı; yetkiler kaydedilmedi.') from None
+        if set(self.permissions)-known_ids:raise ValueError('Bilinmeyen router izni')
         if self.role=='VIEWER' and any(getattr(grant,p) for grant in self.permissions.values() for p in WRITE_FLAGS):raise ValueError('VIEWER değişiklik yetkisi alamaz')
         if self.role=='OPERATOR' and any(grant.can_ack_alarms for grant in self.permissions.values()):raise ValueError('OPERATOR alarm onay yetkisi alamaz')
         return self

@@ -5676,3 +5676,18 @@ Her iki ilerleme kaydi korunmustur:
   değiştirilmedi. Dump yalnız stat ile 41908 bytes doğrulandı; yedek korundu.
 - Gerçek secret-store, runtime identity ve canlı expire/provider kabulü açık;
   üretim AAA tamamlanmadı. Commit/push sonucu görev sonu raporunda bildirilir.
+
+## V26 merkezi router veri kaynağı — 2026-11-14 — yerel PASS / push BLOCKED
+
+- Başlangıç main-guncel/73ec462, temiz ağaç. V26 kimlik yanıtındaki kaynak seçimi
+  Dashboard, Router Merkezi ve Abone Merkezi'ni mevcut kalıcı workspace API'lerine
+  yönlendirir. Kullanıcı yetki matrisi DEMO_ROUTER ID/ad listesini aynı depodan okur.
+- Eski demo profili ve kaydedilmiş kullanıcı grant'leri korunur; veri/parola yazımı
+  yok. Tek V26 Test Router, sıfır abone, sayfalama ve hatada fallback reddi sentetik
+  doğrulandı. Canlı VDS verisi okunmadı veya değiştirilmedi.
+- 30 backend hedef testi, üç frontend hedef test dosyası ve production build PASS.
+  Node strip-only araç hatası transform-types ile çözüldü. Ayrıntı ve kapsam:
+  docs/V26_ROUTER_SOURCE_ACCEPTANCE.md.
+- GitHub ls-remote DNS hatası: uzak HEAD doğrulanamadı, push yapılmadı. Canlı
+  deploy/migration/restart yok. Sonraki adım bağlantı sağlanınca normal push;
+  etkinleşmesi için ayrıca onaylı backend/frontend deploy gerekir, migration yok.

@@ -32,7 +32,8 @@ const ROUTER_FILTERS = ['ALL','ONLINE','OFFLINE','DEGRADED','UNKNOWN'] as const;
 const ROUTER_VIEWS = ['LIST','REPORT'] as const;
 export function Routers({ onToast }: { onToast: (message: string) => void }) {
   const identity=useIdentity();const admin=identity?.role_code==='ADMIN'&&identity.can_manage_users===true;
-  const [source,setSource]=useListFilter('routers','source',ROUTER_SOURCES,'DEMO');
+  const [selectedSource,setSource]=useListFilter('routers','source',ROUTER_SOURCES,'DEMO');
+  const source=identity?.router_inventory_source==='PERSISTENT_WORKSPACE'&&selectedSource==='DEMO'?'MANAGED_DEMO':selectedSource;
   const [pilot,setPilot]=useState(false);
   const [inventory,setInventory]=useState(false);
   const [onboarding,setOnboarding]=useState<{item?:RegisteredRouter}|null>(null);

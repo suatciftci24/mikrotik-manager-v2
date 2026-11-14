@@ -43,7 +43,8 @@ const currency = (amount:number) => new Intl.NumberFormat('tr-TR',{style:'curren
 export function Subscribers({ onToast,runtimeProfile='local-demo' }: { onToast: (message:string)=>void;runtimeProfile?:RuntimeProfile }) {
   const identity=useIdentity();
   const centralAdmin=identity?.role_code==='ADMIN'&&identity.can_manage_users===true;
-  const [workspace,setWorkspace]=useListFilter('subscribers','workspace',WORKSPACES,'LEGACY');
+  const [selectedWorkspace,setWorkspace]=useListFilter('subscribers','workspace',WORKSPACES,'LEGACY');
+  const workspace=identity?.router_inventory_source==='PERSISTENT_WORKSPACE'&&selectedWorkspace==='LEGACY'?'PERSISTENT':selectedWorkspace;
   const [dailyAction,setDailyAction]=useState<DailyAction>('EXTEND');
   const [rowAction,setRowAction]=useState<{id:string;action:SubscriberQuickAction}|null>(null);
   const [dailyRows,setDailyRows]=useState<CenterSubscriber[]|null>(null);

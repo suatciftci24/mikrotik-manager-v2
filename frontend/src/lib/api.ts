@@ -24,8 +24,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 export type Router = {
   wan_snapshot?: {interface:string;ip:string;gateway:string;default_route:string;is_demo:true}|null;
   id: string; name: string; management_address: string; site: string; model: string;
-  routeros_version: string; status: 'ONLINE' | 'DEGRADED' | 'OFFLINE';
-  cpu_percent: number; memory_percent: number; subscriber_count: number; uptime: string;
+  routeros_version: string; status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'UNKNOWN';
+  cpu_percent: number | null; memory_percent: number | null; subscriber_count: number; uptime: string;
   last_seen: string; is_demo: true;
 };
 

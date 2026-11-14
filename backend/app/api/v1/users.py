@@ -2,12 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.core.security import current_admin,current_user_mutator
 from app.services import identity
 from app.services.demo_subscriptions import DemoChangeError
-from app.services.demo_data import ROUTERS
+from app.api.v1.router_workspace import execute as workspace_execute
 router=APIRouter(prefix='/users',tags=['local-user-management'])
 
 @router.get('')
 def users(page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=50),query:str=Query('',max_length=100),user:dict=Depends(current_admin)):
-    return {**identity.list_users(page,page_size,query),'routers':[dict(id=r['id'],name=r['name']) for r in ROUTERS]}
+    from app.services.workspace_inventory import router_choices
+    return {**identity.list_users(page,page_size,query),'routers':workspace_execute(router_choices)}
 
 @router.get('/audit')
 def audit(page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=50),user:dict=Depends(current_admin)):

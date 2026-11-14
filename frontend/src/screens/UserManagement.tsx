@@ -14,7 +14,7 @@ function AdminUsers(){
  const local=useIdentity()?.account_origin==='LOCAL';
  const [query,setQuery]=useState('');
  const [page,setPage]=useState(1),[auditPage,setAuditPage]=useState(1);
- const resource=useResource<UserPage>('/users?page='+page+'&query='+encodeURIComponent(query)),audit=useResource<{items:{id:string;actor_id:string;target_id:string;operation:string;previous_values:unknown;new_values:unknown;result:string;occurred_at:string}[];total:number;page_size?:number}>('/users/audit?page='+auditPage);
+ const resource=useResource<UserPage>('/users?page='+page+'&query='+encodeURIComponent(query),undefined,['/users','/router-workspace/routers']),audit=useResource<{items:{id:string;actor_id:string;target_id:string;operation:string;previous_values:unknown;new_values:unknown;result:string;occurred_at:string}[];total:number;page_size?:number}>('/users/audit?page='+auditPage);
  const [editing,setEditing]=useState<ManagedUser|null|undefined>(undefined),[name,setName]=useState(''),[username,setUsername]=useState(''),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[role,setRole]=useState<'ADMIN'|'OPERATOR'|'VIEWER'>('VIEWER'),[active,setActive]=useState(true),[permissions,setPermissions]=useState<Record<string,Record<string,boolean>>>({});
  const [review,setReview]=useState(false),[pending,setPending]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const request=useRef(''),sending=useRef(false),routerChoices=useRef<UserPage['routers']>([]);
