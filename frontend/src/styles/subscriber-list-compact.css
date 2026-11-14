@@ -45,3 +45,33 @@
     align-items: stretch;
   }
 }
+
+
+/* Abone Merkezi: son kompakt masaüstü düzeni */
+@media (min-width: 1100px) {
+  .subscriber-panel .subscriber-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 8px 12px;
+  }
+  .subscriber-panel .subscriber-filters label {
+    margin: 0;
+  }
+  .subscriber-panel .subscriber-list-controls {
+    padding: 6px 12px;
+    gap: 8px;
+  }
+  .subscriber-panel .subscriber-table td {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    vertical-align: middle;
+  }
+  .subscriber-panel .subscriber-table .table-main,
+  .subscriber-panel .subscriber-table .plan-cell {
+    gap: 3px;
+  }
+  .subscriber-panel .subscriber-table .subscriber-connection-note {
+    margin-top: 3px;
+  }
+}
