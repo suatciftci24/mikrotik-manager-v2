@@ -5691,3 +5691,19 @@ Her iki ilerleme kaydi korunmustur:
 - GitHub ls-remote DNS hatası: uzak HEAD doğrulanamadı, push yapılmadı. Canlı
   deploy/migration/restart yok. Sonraki adım bağlantı sağlanınca normal push;
   etkinleşmesi için ayrıca onaylı backend/frontend deploy gerekir, migration yok.
+
+## V26 OPERATOR scoped router okuma — 2026-11-14 — yerel PASS / push BLOCKED
+
+- Temiz main-guncel/4058844 temel alındı. Kök neden workspace okumasındaki ADMIN
+  kapısı, frontend admin kaynak/detay koşulu ve Dashboard'ın admin-only abone
+  çağrısıydı. Legacy allowed() sabit ID'leri kalıcı kaynakla birleştirilmedi.
+- Workspace can_view kapsamı SQL count/pagination öncesi filtrelenir; izinli
+  operatör salt okunur liste/detay ve doğru Dashboard sayacını görür. Genel ADMIN
+  hakkı verilmedi; yönetim/silme/trust/abone/provider kapıları korundu.
+- 43 backend ve 19 frontend hedef test + son production build/diff kontrolü PASS.
+  ASGI test worker scheduler ortam engeli inline test harness ile giderildi;
+  canlı veri/HTTP/browser kabulü yok. Ayrıntı: V26_OPERATOR_ROUTER_ACCESS_ACCEPTANCE.md.
+- GitHub remote HEAD DNS nedeniyle doğrulanamadı; push yapılmadı. Yerel commit
+  hazırlanır. Sonraki adım bağlantı sağlanınca normal push ve ayrı onayla
+  backend/frontend yayınıdır; migration gerekmez. VDS/veri/kullanıcı/parola,
+  V1/V2.5/cihaz/RADIUS/IPsec, deploy/migration/restart işlemi yok.

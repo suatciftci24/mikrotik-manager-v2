@@ -34,3 +34,10 @@ export async function loadWorkspaceDashboardSummary(_path:string,init?:RequestIn
  // Inventory is not audit history or session evidence.
  return {...summary,within_3,expiry_today,history_available:false};
 }
+
+export async function loadWorkspaceRouterSummary(_path:string,init?:RequestInit):Promise<DashboardSummary>{
+ const records=await allPages<WorkspaceRouter>('/router-workspace/routers',init);
+ if(records.some(row=>row.kind!=='DEMO_ROUTER'||row.is_demo!==true||row.device_connected!==false))throw new Error('Kalıcı router kaynağı doğrulanamadı.');
+ const routers:Router[]=records.map(row=>({id:row.id,...row.fields,site:row.fields.site??'',is_demo:true,status:'UNKNOWN',cpu_percent:null,memory_percent:null,subscriber_count:0,routeros_version:'',uptime:'',last_seen:''}));
+ return {...buildDailySummary(routers,[]),history_available:false};
+}

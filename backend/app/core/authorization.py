@@ -54,3 +54,20 @@ def public_detail(detail,user):
     return {**detail,'item':public_item(detail['item'],user),
             'history':detail['history'] if router_id(detail['item']) in allowed(user,'can_view_reports') else [],
             'history_available':router_id(detail['item']) in allowed(user,'can_view_reports')}
+
+
+def workspace_scope(user):
+    """None means existing central-admin scope; all other reads need explicit grants."""
+    if user.get('is_demo') is True and user.get('role_code')=='ADMIN' and user.get('can_manage_users') is True:
+        return None
+    from app.services.workspace_inventory import persistent_inventory
+    if not persistent_inventory() or user.get('is_demo') is not True or user.get('role_code') not in ('ADMIN','OPERATOR','VIEWER'):
+        raise HTTPException(403,'Sentetik router okuma yetkisi gerekli')
+    return {id for id,grant in user.get('permissions',{}).items()
+            if id.startswith('demo-managed-router-') and grant.get('can_view') is True}
+
+
+def require_workspace_router(user,id):
+    scope=workspace_scope(user)
+    if scope is not None and id not in scope:raise HTTPException(404,'Kayıt bulunamadı')
+    return scope

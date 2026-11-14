@@ -110,3 +110,8 @@ test('persistent router navigation retains PPPoE or Hotspot subscriber scope',()
  assert.equal(legacy.get('workspace'),'LEGACY');assert.equal(legacy.get('router_id'),'demo-router-001');
  assert.equal(legacy.has('workspace_access'),false);
 });
+
+test('restricted persistent detail does not mount subscriber or provider request components',()=>{
+ const html=renderToStaticMarkup(view('pppoe',{sections:{...data.sections,pppoe:'PREPARING',hotspot:'PREPARING'},events:[]}));
+ assert.match(html,/Hazırlanıyor/);assert.doesNotMatch(html,/PPPoE gözlemleri|Aboneler yükleniyor/);
+});

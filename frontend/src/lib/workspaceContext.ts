@@ -7,6 +7,10 @@ export const routerSources: readonly SourceOption[] = [
  {value:'REGISTERED',label:'Kayıtlı cihazlar ve pilot',description:'Gerçek cihaz kayıtları ve API-SSL pilot hazırlığı. Bağlantısız kayıt ile onaylı bağlantı farklı işlemlerdir.',access:'Kayıt yönetimi · Bağlantı ayrıca onaylı'},
  {value:'V1_INVENTORY',label:'V1 aktarılmış envanter',description:'V1’den aktarılmış son envanter ve sağlık verileri. Bu ekrandan V1’e yazılmaz.',access:'Salt okunur'},
 ];
+export function routerSourceOptions(admin:boolean,persistent:boolean):readonly SourceOption[]{
+ if(admin)return routerSources;
+ return routerSources.filter(option=>option.value==='DEMO'||persistent&&option.value==='MANAGED_DEMO').map(option=>option.value==='MANAGED_DEMO'?{...option,label:'Yetkili sentetik routerlar',description:'Yalnız görüntüleme yetkisi verilen kalıcı sentetik kayıtlar.',access:'Salt okunur'}:option);
+}
 export const subscriberSources: readonly SourceOption[] = [
  {value:'LEGACY',label:'Mevcut demo aboneleri',description:'Mevcut demo kayıtları; LOCAL / RADIUS burada yetkili hesap kaynağıdır, canlı bağlantı değildir.',access:'Yetkili sentetik kayıt işlemleri'},
  {value:'PERSISTENT',label:'Sentetik PPPoE / Hotspot yönetimi',description:'Ayrı kalıcı abone çalışma alanı. Mevcut demo aboneleriyle birleştirilmez.',access:'Merkezi yönetici · Sentetik kayıt işlemleri'},

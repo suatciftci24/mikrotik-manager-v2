@@ -22,7 +22,7 @@ class InventoryViews(TestCase):
             self.assertEqual(summary['router_count'],1)
             self.assertEqual(summary['subscribers_total'],0)
             self.assertIsNone(summary['routers_online'])
-            with self.assertRaises(HTTPException):dashboard.dashboard_summary({**admin,'role_code':'VIEWER'})
+            self.assertIsNone(dashboard.dashboard_summary({**admin,'role_code':'VIEWER','can_manage_users':False})['summary']['subscribers_total'])
     def test_non_v26_keeps_legacy_source_without_workspace_reads(self):
         with patch.dict(os.environ,{'V2_DEPLOYMENT_PROFILE':'local-demo'}),patch('app.services.router_workspace.workspace.list',side_effect=AssertionError('unexpected workspace read')):
             self.assertEqual(inventory.router_choices(),[{'id':r['id'],'name':r['name']} for r in inventory.ROUTERS])

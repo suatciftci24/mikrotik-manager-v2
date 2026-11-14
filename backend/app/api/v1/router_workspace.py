@@ -1,6 +1,7 @@
-"""ADMIN-only local workspace. No live onboarding authorization is granted here."""
+"""Scoped synthetic reads; mutations and trust profiles remain central ADMIN only."""
 from fastapi import APIRouter,Depends,Header,HTTPException,Query
-from app.core.security import current_admin
+from app.core.security import current_admin,current_demo_user
+from app.core.authorization import workspace_scope,require_workspace_router
 from app.schemas.router_workspace import DemoRouterCommand,TrustProfileCommand,DeleteWorkspaceRecord,WorkspaceList,WorkspaceRecord
 from app.services.router_workspace import workspace,WorkspaceError
 
@@ -15,10 +16,14 @@ def execute(call,*args):
     except WorkspaceError as error:raise HTTPException(error.status,error.detail) from None
 
 @router.get('/routers',response_model=WorkspaceList)
-def routers(query:str=Query('',max_length=120),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_admin)):
-    return execute(workspace.list,'DEMO_ROUTER',query,page,page_size)
+def routers(query:str=Query('',max_length=120),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_demo_user)):
+    scope=workspace_scope(user)
+    if scope is None:return execute(workspace.list,'DEMO_ROUTER',query,page,page_size)
+    return execute(workspace.list,'DEMO_ROUTER',query,page,page_size,scope)
 @router.get('/routers/{id}',response_model=WorkspaceRecord)
-def detail(id:str,user:dict=Depends(current_admin)):return execute(workspace.detail,id,'DEMO_ROUTER')
+def detail(id:str,user:dict=Depends(current_demo_user)):
+    require_workspace_router(user,id)
+    return execute(workspace.detail,id,'DEMO_ROUTER')
 @router.post('/routers',response_model=WorkspaceRecord)
 def create(payload:DemoRouterCommand,user:dict=Depends(mutator)):return execute(workspace.save,'DEMO_ROUTER',payload,user['id'])
 @router.post('/routers/{id}',response_model=WorkspaceRecord)

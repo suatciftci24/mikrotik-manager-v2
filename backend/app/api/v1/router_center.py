@@ -2,7 +2,7 @@
 from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
 from app.core.security import current_demo_user,current_admin
-from app.core.authorization import require_router,router_id,public_item
+from app.core.authorization import require_router,router_id,public_item,require_workspace_router
 from app.api.v1.router_registry import reader as registry_reader,execute as registry_execute
 from app.api.v1.router_workspace import execute as workspace_execute
 from app.services.router_registry import registry
@@ -18,7 +18,12 @@ router=APIRouter(prefix='/router-center',tags=['router-center'])
 @router.get('/{id}',response_model=RouterCenterData)
 def detail(id:str,user:dict=Depends(current_demo_user)):
     if id.startswith('demo-managed-router-'):
-        current_admin(user)
+        scope=require_workspace_router(user,id)
+        if scope is not None:
+            row=workspace_execute(workspace.detail,id,'DEMO_ROUTER')
+            data=persistent_demo(row)
+            for section in ('pppoe','hotspot','events'):data.sections[section]='PREPARING'
+            return data
         row,events=workspace_execute(workspace.center_detail,id)
         return persistent_demo(row,events)
     if id.startswith('registered-'):
@@ -48,6 +53,8 @@ def subscribers(id:str,access_type:str=Query(...,pattern='^(PPPOE|HOTSPOT)$'),qu
 
 @router.get('/{id}/pppoe-observations', response_model=PppoeSnapshot)
 def pppoe_observations(id: str, user: dict = Depends(current_demo_user), binding=Depends(disabled_binding), source: Literal['LOCAL', 'RADIUS'] | None = None):
+    # Metadata-only grants never authorize provider observations.
+    if id.startswith('demo-managed-router-'):current_admin(user)
     # Reuse the center's source-specific authorization before any adapter dispatch.
     data = detail(id, user)
     if data.item.status=='PENDING_VERIFICATION':binding=None

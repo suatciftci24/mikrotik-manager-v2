@@ -46,3 +46,25 @@ test('synthetic form saves only workspace fields with explicit CSRF; delete requ
   assert.match(renderToStaticMarkup(tree),/Cihaz doğrulanmadı/);
  }finally{globalThis.window=originalWindow;globalThis.fetch=originalFetch;}
 });
+
+test('V26 source menu offers scoped read-only workspace without registry or V1 access',async()=>{
+ const {routerSourceOptions}=await import('../src/lib/workspaceContext.ts');
+ const options=routerSourceOptions(false,true);
+ assert.deepEqual(options.map(row=>row.value),['DEMO','MANAGED_DEMO']);assert.equal(options[1].access,'Salt okunur');
+ assert.deepEqual(routerSourceOptions(false,false).map(row=>row.value),['DEMO']);
+ assert.equal(routerSourceOptions(true,true).length,4);
+});
+test('read-only workspace shows saved router and hides create/edit/delete controls',()=>{
+ const require=createRequire(import.meta.url);
+ const row={id:'demo-managed-router-test',revision:1,kind:'DEMO_ROUTER',is_demo:true,device_connected:false,fields:{name:'V26 Test Router',management_address:'192.0.2.10',model:'Synthetic'}};
+ const react={...React,useEffect:()=>{},useCallback:fn=>fn,useRef:value=>({current:value}),useState:initial=>{
+  const value=typeof initial==='function'?initial():initial;
+  return [value?.path?{...value,loading:false,data:{items:[row],total:1}}:value,()=>{}];
+ }};
+ const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/DemoRouterWorkspace.tsx',import.meta.url))],bundle:true,write:false,loader:{'.css':'empty'},platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+ const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?react:require(name),module,module.exports);
+ const html=renderToStaticMarkup(module.exports.DemoRouterWorkspace({readOnly:true,onOpen:()=>{}}));
+ assert.match(html,/V26 Test Router/);assert.match(html,/Salt okunur/);assert.doesNotMatch(html,/Sentetik router ekle|Sentetik kaydı düzenle|Sentetik kaydı sil/);
+ const detail=module.exports.DemoRouterWorkspace({readOnly:true,detailId:row.id,onBack:()=>{}});
+ assert.equal(detail.props.id,row.id);assert.equal(detail.props.actions,undefined);
+});

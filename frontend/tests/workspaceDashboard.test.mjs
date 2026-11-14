@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {loadWorkspaceDashboardSummary} from '../src/lib/workspaceDashboard.ts';
+import {loadWorkspaceDashboardSummary,loadWorkspaceRouterSummary} from '../src/lib/workspaceDashboard.ts';
 const router={id:'demo-managed-router-test',kind:'DEMO_ROUTER',is_demo:true,device_connected:false,fields:{name:'V26 Test Router',model:'Sentetik',management_address:'192.0.2.10'}};
 async function withApi(handler,run){const original=globalThis.fetch;globalThis.fetch=async(url,init)=>({ok:true,json:async()=>handler(String(url),init)});try{await run();}finally{globalThis.fetch=original;}}
 test('one saved router and zero accounts; no static inventory reads or invented telemetry',async()=>{
@@ -16,4 +16,12 @@ test('all router pages are read, with account authority and unknown state preser
 test('workspace errors and non-demo records never fall back to static demo',async()=>{
  await withApi(()=>{throw Error('storage unavailable');},async()=>assert.rejects(loadWorkspaceDashboardSummary(''),/storage unavailable/));
  await withApi(url=>({items:url.includes('/router-workspace/')?[{...router,kind:'TRUST_PROFILE'}]:[],total:url.includes('/router-workspace/')?1:0}),async()=>assert.rejects(loadWorkspaceDashboardSummary(''),/doğrulanamadı/));
+});
+
+test('operator dashboard reads scoped workspace routers without admin account or static APIs',async()=>{
+ await withApi(url=>{assert.match(url,/router-workspace\/routers/);return {items:[router],total:1};},async()=>{
+  const data=await loadWorkspaceRouterSummary('');assert.equal(data.router_counts.total,1);assert.equal(data.routers[0].name,'V26 Test Router');assert.equal(data.history_available,false);
+ });
+ await withApi(()=>({items:[],total:0}),async()=>assert.equal((await loadWorkspaceRouterSummary('')).router_counts.total,0));
+ await withApi(()=>{throw Error('denied');},async()=>assert.rejects(loadWorkspaceRouterSummary(''),/denied/));
 });

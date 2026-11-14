@@ -62,10 +62,11 @@ class RouterWorkspace:
     def audit(session,row,actor,action):
         session.add(Audit(id=str(uuid4()),record_id=row.id,actor_id=actor,action=action,revision=row.revision,occurred_at=datetime.now(timezone.utc).isoformat()))
     @boundary
-    def list(self,kind,query='',page=1,page_size=25):
+    def list(self,kind,query='',page=1,page_size=25,allowed_ids=None):
         with self.sessions() as session:
             self.check(session)
             clauses=[Record.kind==kind]
+            if allowed_ids is not None:clauses.append(Record.id.in_(allowed_ids))
             if query:clauses.append(Record.fields['name'].as_string().ilike('%'+query.replace('!','!!').replace('%','!%').replace('_','!_')+'%',escape='!'))
             total=session.scalar(select(func.count()).select_from(Record).where(*clauses))
             rows=session.scalars(select(Record).where(*clauses).order_by(Record.id).offset((page-1)*page_size).limit(page_size)).all()
