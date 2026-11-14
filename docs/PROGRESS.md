@@ -5707,3 +5707,21 @@ Her iki ilerleme kaydi korunmustur:
   hazırlanır. Sonraki adım bağlantı sağlanınca normal push ve ayrı onayla
   backend/frontend yayınıdır; migration gerekmez. VDS/veri/kullanıcı/parola,
   V1/V2.5/cihaz/RADIUS/IPsec, deploy/migration/restart işlemi yok.
+
+## V26 OPERATOR auth response-model kaybı — 2026-11-14 — yerel PASS
+
+- Temiz main-guncel/98a45c9. AGENTS/Altın Kurallar ve son operatör kabulü okundu.
+  Kullanıcının canlı dağıtım kanıtı korundu; canlı kontrol veya değişiklik yok.
+- Kök neden HTTP UserResponse şemasının router_inventory_source alanını atması:
+  public_user doğru olsa da login/me JSON'unda alan yoktu; operatör menüsü kalıcı
+  kaynağı açamıyordu. Yeni gerçek cookie/ASGI regresyonu önce hatayı üretti.
+- Üretim kodunda yalnız auth response şemasına kaynak literal alanı eklendi.
+  Frontend/rol/SQL/kullanıcı verisi değişmedi. Aynı oturumda grant kaldırma/verme,
+  /me kaynağı ve yetki yenileme, router listesi/sayaç, yabancı ID 404 ve ADMIN
+  reddi doğrulandı. Önceki testlerin response-model boşluğu giderildi.
+- 18 backend + 8 frontend hedef test, production build ve diff PASS. Eski
+  acceptance guard fixture role_code ile güncellendi; yalnız başarısız test
+  tekrarlandı. Ayrıntılar V26_OPERATOR_ROUTER_ACCESS_ACCEPTANCE.md son bölümde.
+- Yerel commit kapsamı; push/deploy/migration/restart yok. Etkinleşmesi için
+  ayrı onaylı backend yayını yeterli; frontend yayını veya migration gerekmez.
+  V1/V2.5/VDS/PostgreSQL/kullanıcı/parola/router/RADIUS/IPsec değişmedi.

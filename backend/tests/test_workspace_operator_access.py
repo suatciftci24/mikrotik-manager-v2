@@ -30,7 +30,7 @@ class TestClient:
             async def send(message):messages.append(message)
             await asyncio.wait_for(self.app(scope,receive,send),5)
             content=b''.join(m.get('body',b'') for m in messages if m['type']=='http.response.body')
-            return SimpleNamespace(status_code=next(m['status'] for m in messages if m['type']=='http.response.start'),text=content.decode(),json=lambda:json.loads(content))
+            return SimpleNamespace(headers=dict((k.decode(),v.decode()) for m in messages if m['type']=='http.response.start' for k,v in m.get('headers',[])),status_code=next(m['status'] for m in messages if m['type']=='http.response.start'),text=content.decode(),json=lambda:json.loads(content))
         async def inline_worker(function,*args,**kwargs):return function(*args)
         # Deterministic socket-free ASGI harness; preserve dependency/auth execution.
         with patch('anyio.to_thread.run_sync',inline_worker):return asyncio.run(run())
@@ -94,3 +94,41 @@ class OperatorAccess(TestCase):
         self.user.update(role_code='ADMIN',can_manage_users=True)
         self.assertEqual(self.client.get('/api/v1/router-workspace/routers').json()['total'],2)
         self.assertEqual(self.client.get('/api/v1/router-workspace/profiles').status_code,200)
+
+    def test_real_login_me_response_preserves_source_and_refreshes_workspace_grants(self):
+        from http.cookies import SimpleCookie
+        from app.api.v1 import auth
+        from app.core import security
+        from app.services.identity import bootstrap
+        account=bootstrap()
+        account.update(id=self.user['id'],username='fixture-operator',role='OPERATOR',permissions=self.user['permissions'],bootstrap_closed=True,account_origin='LOCAL')
+        self.client.app.dependency_overrides.clear()
+        self.client.app.include_router(auth.router,prefix='/api/v1')
+        with patch.object(security,'find_user',return_value=account):
+            response=self.client.post('/api/v1/auth/login',json={'username':'fixture-operator','password':'demo-only'})
+            self.assertEqual(response.status_code,200,response.text)
+            token=SimpleCookie(response.headers['set-cookie'])['v2_session'].value
+            self.addCleanup(security.logout_demo,token)
+            headers={'Cookie':'v2_session='+token}
+            for payload in (response.json(),self.client.get('/api/v1/auth/me',headers=headers).json()):
+                self.assertEqual(payload['router_inventory_source'],'PERSISTENT_WORKSPACE')
+                self.assertEqual(payload['role_code'],'OPERATOR')
+                self.assertFalse(payload['can_manage_users'])
+                self.assertTrue(payload['permissions'][self.allowed]['can_view'])
+                self.assertNotIn('password_hash',payload)
+            self.assertEqual(self.client.get('/api/v1/router-workspace/routers',headers=headers).json()['total'],1)
+            self.assertEqual(self.client.get('/api/v1/router-workspace/routers/'+self.hidden,headers=headers).status_code,404)
+            account['permissions'][self.allowed]['can_view']=False
+            account['revision']+=1
+            refreshed=self.client.get('/api/v1/auth/me',headers=headers).json()
+            self.assertEqual(refreshed['router_inventory_source'],'PERSISTENT_WORKSPACE')
+            self.assertNotIn(self.allowed,refreshed['permissions'])
+            self.assertEqual(refreshed['revision'],account['revision'])
+            self.assertEqual(self.client.get('/api/v1/router-workspace/routers',headers=headers).json()['total'],0)
+            self.assertEqual(self.client.get('/api/v1/router-workspace/routers/'+self.allowed,headers=headers).status_code,404)
+            account['permissions'][self.allowed]['can_view']=True
+            account['revision']+=1
+            refreshed=self.client.get('/api/v1/auth/me',headers=headers).json()
+            self.assertTrue(refreshed['permissions'][self.allowed]['can_view'])
+            self.assertEqual(self.client.get('/api/v1/dashboard/summary',headers=headers).json()['summary']['router_count'],1)
+            self.assertEqual(self.client.get('/api/v1/router-workspace/profiles',headers=headers).status_code,403)

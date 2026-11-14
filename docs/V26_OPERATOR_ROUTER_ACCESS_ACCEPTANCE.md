@@ -48,3 +48,39 @@ belirlenemedi ve push yapılmadı. Yerel commit teslim edilir. Etkinleşmesi iç
 ayrı onaylı backend + frontend deploy gerekir; migration gerekmez. V1/V2.5,
 VDS/PostgreSQL/kullanıcı/parola, gerçek cihaz/RADIUS/IPsec, deploy/migration/
 servis restartı değişikliği yoktur.
+
+## 98a45c9 sonrası oturum yanıtı düzeltmesi — 2026-11-14
+
+Başlangıç temiz main-guncel/98a45c9. Kullanıcının canlı deploy/HTTPS ve başarılı
+kullanıcı audit kanıtı esas alındı; VDS'ye bağlanılmadı. Önceki kabulde eksik
+kalan sınır gerçek /auth/login ve /auth/me response_model serileştirmesiydi.
+
+Kanıtlanan kök neden: identity.public_user router_inventory_source üretmesine
+rağmen UserResponse alanı tanımlamıyordu. FastAPI alanı iki HTTP yanıtından da
+atıyordu. Frontend eksik alanı kalıcı kaynak olarak seçmediğinden operatör yalnız
+Demo envanter görüyordu; ADMIN menüsü başka koşulla açıldığı için sorun admin'de
+maskeleniyordu. Yeniden giriş de aynı şemadan geçtiği için çözüm olmuyordu.
+
+Üretim düzeltmesi yalnız backend/app/schemas/auth.py içinde literal kaynak
+alanının eklenmesidir. Eski profil için LEGACY_DEMO varsayılanı korunur. Rol,
+grant filtresi, SQL, frontend veya oturum güvenlik politikası değiştirilmez.
+
+Yeni ASGI regresyonu önce gerçek login JSON'unda KeyError: router_inventory_source
+ile başarısız oldu; düzeltme sonrası geçti. Sentetik identity deposu ve geçici
+SQLite workspace kullanır; security/current_demo_user override edilmeden gerçek
+login cookie ve response_model ile /me, liste, yetkisiz detay ve Dashboard
+kontrol edilir. Aynı cookie'de can_view kaldırılınca /me ve liste hemen güncellenir,
+detay 404 olur; yeniden verilince sayaç 1 olur, ADMIN/profile erişimi 403 kalır.
+HTTP harness yalnız worker scheduler'ı inline çalıştırır; oturum/yetki ve
+serileştirme yürütülür. Canlı hesap/DB veya PostgreSQL kabulü değildir.
+
+PASS: workspace_operator_access 5, acceptance_security 7, pilot_operator_identity 6
+= 18 backend test; routerWorkspace 4 + workspaceDashboard 4 = 8 frontend test;
+production TypeScript/Vite build ve diff kontrolü. AcceptanceSecurity'deki eski
+rol-etiketi-only fixture, mevcut role_code sözleşmesine göre düzeltildi; başarısız
+tek senaryo tekrar geçti. Üretim guard'ı gevşetilmedi.
+
+Değişenler: auth.py yanıt şeması, iki backend test dosyası, bu rapor ve PROGRESS.
+İstek yalnız yerel commit kapsamındadır; push/deploy/restart/migration yapılmadı.
+Etkinleşmesi için ayrı onaylı backend yayını gerekir; frontend değişmedi ve
+migration gerekmez. V1/V2.5/VDS/DB/kullanıcı/parola/cihaz/RADIUS/IPsec korunur.

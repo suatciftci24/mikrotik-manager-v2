@@ -45,7 +45,7 @@ class AcceptanceSecurity(TestCase):
         self.assertEqual(cookie['samesite'].lower(),'strict')
         self.assertEqual(cookie['path'],'/api')
         self.assertEqual(cookie['max-age'],'28800')
-        self.assertEqual(set(UserResponse.model_validate(user).model_dump()),{'id','name','email','role','is_demo','username','role_code','active','revision','permissions','can_manage_users','pilot_identity','account_origin','bootstrap_closed','login_enabled'})
+        self.assertEqual(set(UserResponse.model_validate(user).model_dump()),{'id','name','email','role','is_demo','username','role_code','active','revision','permissions','can_manage_users','pilot_identity','account_origin','bootstrap_closed','login_enabled','router_inventory_source'})
         self.assertTrue(user['is_demo'])
         self.assertEqual(auth.me(current_demo_user(cookie.value)),user)
         auth.logout(Response(),cookie.value)
@@ -66,10 +66,10 @@ class AcceptanceSecurity(TestCase):
                     self.assertTrue(depends_on(route.dependant,current_demo_mutator) or depends_on(route.dependant,current_demo_account_mutator))
 
     def test_both_mutator_guards_reject_wrong_role_source_and_action(self):
-        user={'id':'demo-user','role':'Sistem Yöneticisi','is_demo':True}
+        user={'id':'demo-user','role':'Sistem Yöneticisi','role_code':'ADMIN','is_demo':True}
         for guard,action in [(current_demo_mutator,'expiry'),(current_demo_account_mutator,'subscriber-management')]:
             self.assertEqual(guard(user,action),user)
-            for invalid,header in [({**user,'role':'Viewer'},action),({**user,'is_demo':False},action),(user,None),(user,'wrong')]:
+            for invalid,header in [({**user,'role_code':'VIEWER'},action),({**user,'is_demo':False},action),(user,None),(user,'wrong')]:
                 with self.assertRaises(HTTPException) as error:
                     guard(invalid,header)
                 self.assertEqual(error.exception.status_code,403)

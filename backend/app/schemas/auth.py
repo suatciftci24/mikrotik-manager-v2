@@ -9,6 +9,7 @@ class DemoLogin(BaseModel):
 
 
 class UserResponse(BaseModel):
+    router_inventory_source: Literal['PERSISTENT_WORKSPACE','LEGACY_DEMO'] = 'LEGACY_DEMO'
     pilot_identity: PilotIdentity | None = None
     id: str
     name: str
