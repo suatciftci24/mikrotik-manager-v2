@@ -5725,3 +5725,26 @@ Her iki ilerleme kaydi korunmustur:
 - Yerel commit kapsamı; push/deploy/migration/restart yok. Etkinleşmesi için
   ayrı onaylı backend yayını yeterli; frontend yayını veya migration gerekmez.
   V1/V2.5/VDS/PostgreSQL/kullanıcı/parola/router/RADIUS/IPsec değişmedi.
+
+## V26 kalıcı PPPoE Abone Merkezi tamamlama — 2026-11-14 — yerel PASS / push BLOCKED
+
+- Temiz main-guncel/93e23c9 esas alındı. Mevcut create/edit/renew/daily/receipt/audit
+  akışları korundu. ADMIN-only workspace erişimi router can_view kapsamına,
+  mutasyonlar ADMIN/OPERATOR + ilgili PPPoE/Hotspot yönetim grant'ine bağlandı.
+- SQL list/count/history filtreleri, canonical bağ kontrolü, readonly UI,
+  yönetilebilir kalıcı DEMO_ROUTER seçimi, scoped kayıtlı profil önerileri,
+  opsiyonel started_on ve tarih sırası, eski istemci/UUID uyumluluğu tamamlandı.
+  Router taşıma ADMIN'de; provider ve gerçek hesap işlemleri kapalı kalır.
+- Dashboard ve Abone Merkezi aynı yetkili kayıtları ve boşta 0'ı gösterir.
+  Her abone değişikliği/audit atomik; mevcut bulk per-item sözleşmesi korunur.
+  Taşınmış abonenin yetkisiz eski router audit/receipt bilgisi gizlenir.
+- Altı yeni ASGI/SQL senaryosu, mevcut ilgili backend paketleri; beş frontend
+  hedef dosyasının ilgili kapsamları, iki yeni UI senaryosu, son build/diff PASS.
+  Hatalı import/hook/eski seçici test harness'leri düzeltildi, başarılı kapsam
+  sebepsiz tekrarlanmadı. Gerçek PG/VDS/browser kabulü yapılmadı.
+- Kabul: docs/V26_PPPOE_WORKSPACE_COMPLETION_ACCEPTANCE.md. Model/şema değişmedi;
+  migration gerekmez, mevcut 007/008 hazır kabul edilir. Profil önerileri
+  sentetiktir; bağımsız katalog veya cihaz/RADIUS profil eşlemesi değildir.
+- GitHub remote DNS hatası; push yapılmadı. Yerel commit sonrası somut adım,
+  bağlantı sağlanınca normal push ve ayrı onayla backend/frontend deploy'dur.
+  V1/V2.5/VDS/DB/hesap/parola/cihaz/RADIUS/IPsec, migration/restart/veri silme yok.

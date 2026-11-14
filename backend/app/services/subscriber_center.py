@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from datetime import datetime,timezone,date,timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy import select,func,or_
+from app.core.authorization import workspace_scope,require_workspace_account,workspace_can_manage
 from app.core.database import SessionLocal
 from app.services.router_workspace import guard,boundary,WorkspaceError
 from app.models.router_workspace import RouterWorkspaceRecord as Router
@@ -11,8 +12,8 @@ from app.models.subscriber_workspace import SyntheticSubscriber as Account,Synth
 from app.schemas.subscriber_center import CenterSubscriber,SubscriberCenterData
 
 
-def account_view(account,router):
-    return CenterSubscriber(id=account.id,**account.fields,revision=account.revision,router_name=router.fields['name'] if router else None,router_model=router.fields.get('model') if router else None,router_missing=router is None,router_source='PERSISTENT_DEMO' if router else 'UNKNOWN')
+def account_view(account,router,user=None):
+    return CenterSubscriber(can_manage=bool(user and router and workspace_can_manage(user,account.router_id,account.access_type)),id=account.id,**account.fields,revision=account.revision,router_name=router.fields['name'] if router else None,router_model=router.fields.get('model') if router else None,router_missing=router is None,router_source='PERSISTENT_DEMO' if router else 'UNKNOWN')
 
 def request_audit(event,account,router_id,source,success):
     """Exact UUID evidence from the audit row; never read a paginated history list."""
@@ -29,6 +30,11 @@ def request_audit(event,account,router_id,source,success):
                 source=source,revision=event.revision,operation=event.operation,occurred_at=event.occurred_at,
                 success=success,storage='PERSISTENT_WORKSPACE',is_demo=True)
 
+def event_scope(ids):
+    recorded=func.coalesce(Event.changes['_router_id'].as_string(),Event.changes['_management']['receipt']['router_id'].as_string())
+    previous=Event.changes['_management']['receipt']['previous_router_id'].as_string()
+    return [recorded.in_(ids),or_(previous.is_(None),previous.in_(ids))]
+
 class SubscriberWorkspace:
     def __init__(self,sessions=SessionLocal,check=guard):self.sessions=sessions;self.check=check
     @staticmethod
@@ -36,14 +42,23 @@ class SubscriberWorkspace:
         router=session.get(Router,id,with_for_update=True)
         if not router or router.kind!='DEMO_ROUTER':raise WorkspaceError(409,'Yalnız kalıcı sentetik router ID seçilebilir; gerçek cihaz ve sertifika profili kullanılamaz.')
         return router
+    @staticmethod
+    def authorize(row,user,write=False):
+        if user is not None:
+            require_workspace_account(user,row.router_id,row.access_type,write)
+            if row.fields.get('router_id')!=row.router_id or row.fields.get('source')!=row.source or row.fields.get('access_type')!=row.access_type:raise WorkspaceError(409,'Abone kaynak/router bağı uyuşmuyor.')
+
     @boundary
-    def list(self,query='',access_type='ALL',status='ALL',router_id='',page=1,page_size=25,require_parent=False):
+    def list(self,query='',access_type='ALL',status='ALL',router_id='',page=1,page_size=25,require_parent=False,user=None):
         with self.sessions() as session:
             self.check(session)
             if require_parent:
                 parent=session.get(Router,router_id)
                 if not parent or parent.kind!='DEMO_ROUTER':raise WorkspaceError(404,'Sentetik router kaydı bulunamadı.')
             clauses=[or_(Router.kind=='DEMO_ROUTER',Router.id.is_(None))]
+            if user is not None:
+                ids=workspace_scope(user)
+                if ids is not None:clauses.extend([Account.router_id.in_(ids),Router.kind=='DEMO_ROUTER'])
             if query:
                 term='%'+query.replace('!','!!').replace('%','!%').replace('_','!_')+'%'
                 clauses.append(or_(Account.username_key.ilike(term,escape='!'),Account.fields['customer_name'].as_string().ilike(term,escape='!')))
@@ -53,22 +68,44 @@ class SubscriberWorkspace:
             base=select(Account,Router).outerjoin(Router,Account.router_id==Router.id).where(*clauses)
             total=session.scalar(select(func.count()).select_from(base.subquery()))
             rows=session.execute(base.order_by(Account.username_key,Account.id).offset((page-1)*page_size).limit(page_size)).all()
-            return dict(items=[account_view(a,r) for a,r in rows],total=total,page=page,page_size=page_size,is_demo=True)
+            return dict(items=[account_view(a,r,user) for a,r in rows],total=total,page=page,page_size=page_size,is_demo=True)
     @boundary
-    def detail(self,id):
+    def plans(self,user):
+        with self.sessions() as session:
+            self.check(session);ids=workspace_scope(user)
+            clauses=[Router.kind=='DEMO_ROUTER']
+            if ids is not None:clauses.append(Account.router_id.in_(ids))
+            values=session.scalars(select(Account.fields['plan'].as_string()).join(Router,Router.id==Account.router_id).where(*clauses).distinct().order_by(Account.fields['plan'].as_string())).all()
+            return {'plans':[value for value in values if value],'is_demo':True}
+
+    @boundary
+    def detail(self,id,user=None,write=False):
         with self.sessions() as session:
             self.check(session);account=session.get(Account,id)
             if not account:raise WorkspaceError(404,'Sentetik abone bulunamadı.')
+            self.authorize(account,user,write)
             router=session.get(Router,account.router_id)
             if router and router.kind!='DEMO_ROUTER':router=None
-            events=session.scalars(select(Event).where(Event.subscriber_id==id).order_by(Event.occurred_at.desc(),Event.id).limit(50)).all()
-            return SubscriberCenterData(item=account_view(account,router),source='PERSISTENT_WORKSPACE',persistence='local-postgresql-workspace',history=[center_event(e) for e in events])
+            ids=workspace_scope(user) if user is not None else None
+            if ids is not None and router is None:raise WorkspaceError(404,'Sentetik router bulunamadı.')
+            events=session.scalars(select(Event).where(Event.subscriber_id==id,*(event_scope(ids) if ids is not None else [])).order_by(Event.occurred_at.desc(),Event.id).limit(50)).all()
+            return SubscriberCenterData(item=account_view(account,router,user),source='PERSISTENT_WORKSPACE',persistence='local-postgresql-workspace',history=[center_event(e) for e in events])
     @boundary
-    def save(self,command,actor,id=None):
+    def save(self,command,actor,id=None,user=None):
         values=command.fields.model_dump(mode='json');target=id or 'demo-managed-sub-'+str(command.request_id)
-        fingerprint=hashlib.sha256(json.dumps([actor,id,command.model_dump(mode='json')],sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        canonical=command.model_dump(mode='json')
+        # Keep pre-started_on UUID fingerprints valid for older clients.
+        if 'started_on' not in command.fields.model_fields_set:canonical['fields'].pop('started_on',None)
+        fingerprint=hashlib.sha256(json.dumps([actor,id,canonical],sort_keys=True,separators=(',',':')).encode()).hexdigest()
         with self.sessions.begin() as session:
-            self.check(session);router=self.parent(session,values['router_id']);row=session.get(Account,target,with_for_update=True)
+            self.check(session)
+            if user is not None:require_workspace_account(user,values['router_id'],values['access_type'],True)
+            router=self.parent(session,values['router_id']);row=session.get(Account,target,with_for_update=True)
+            if row:
+                self.authorize(row,user,True)
+                if 'started_on' not in command.fields.model_fields_set and row.fields.get('started_on'):
+                    values['started_on']=row.fields['started_on']
+                    if values.get('expires_on') and values['expires_on']<values['started_on']:raise WorkspaceError(422,'Bitiş tarihi başlangıçtan önce olamaz.')
             prior=session.get(Event,str(command.request_id))
             if prior:
                 saved=prior.changes.get('_save')
@@ -108,7 +145,7 @@ class SubscriberWorkspace:
         return response,evidence
 
     @boundary
-    def save_result(self,request_id,actor):
+    def save_result(self,request_id,actor,user=None):
         # Read-only receipt; missing/foreign/older receipts do not prove failure.
         with self.sessions() as session:
             if session.bind.dialect.name=='postgresql':
@@ -121,13 +158,17 @@ class SubscriberWorkspace:
             if not saved:return result
             verified=self.saved_evidence(session,prior,saved.get('response'))
             if not verified:return result
+            if user is not None:
+                self.authorize(session.get(Account,prior.subscriber_id),user)
+                require_workspace_account(user,verified[0].router_id,verified[0].access_type)
             return {**result,'status':'SUCCESS','response':verified[0],'audit':verified[1]}
 
     @boundary
-    def renew(self,id,command,actor):
+    def renew(self,id,command,actor,user=None):
         with self.sessions.begin() as session:
             self.check(session);row=session.get(Account,id,with_for_update=True)
             if not row:raise WorkspaceError(404,'Sentetik abone bulunamadı.')
+            self.authorize(row,user,True)
             router=session.get(Router,row.router_id)
             if not router or router.kind!='DEMO_ROUTER':raise WorkspaceError(409,'Sentetik router bağı doğrulanamadı.')
             prior=session.get(Event,str(command.request_id))
@@ -137,6 +178,7 @@ class SubscriberWorkspace:
                 cached=prior.changes.get('_renewal_response')
                 if cached:
                     if prior.subscriber_id!=id or prior.actor_id!=actor or prior.operation!='RENEWAL' or prior.changes.get('expires_on')!={'previous':old,'new':new} or prior.changes.get('_renewal')!={'days':command.days,'expected_source':command.expected_source,'expected_revision':command.expected_revision}:raise WorkspaceError(409,'Uzatma isteği farklı bir işleme ait.')
+                    if user is not None:require_workspace_account(user,cached['router_id'],cached['access_type'],True)
                     return CenterSubscriber.model_validate(cached)
                 if prior.subscriber_id==id and prior.actor_id==actor and prior.operation=='RENEWAL' and prior.revision==row.revision and prior.changes.get('expires_on')=={'previous':old,'new':new} and prior.changes.get('_renewal')=={'days':command.days,'expected_source':command.expected_source,'expected_revision':command.expected_revision} and row.fields['expires_on']==new:return account_view(row,router)
                 raise WorkspaceError(409,'Uzatma isteği başka işleme veya eski revizyona ait.')
@@ -147,6 +189,7 @@ class SubscriberWorkspace:
                 try:target=max(date.fromisoformat(old),today)+timedelta(days=command.days)
                 except (ValueError,OverflowError):raise WorkspaceError(422,'Kayıtlı tarih veya uzatma aralığı geçersiz.') from None
                 if target!=command.expires_on:raise WorkspaceError(409,'Uzatma önizlemesi değişti; yeniden inceleyin.')
+            if row.fields.get('started_on') and new<row.fields['started_on']:raise WorkspaceError(422,'Bitiş tarihi başlangıçtan önce olamaz.')
             if command.expires_on<today or (old is not None and new<=old):raise WorkspaceError(422,'Uzatma tarihi Türkiye bugününden önce olamaz ve mevcut bitişten ileri olmalı.')
             before=row.fields;row.fields={**row.fields,'expires_on':new};row.revision+=1
             response=account_view(row,router)
@@ -156,7 +199,7 @@ class SubscriberWorkspace:
             audit.changes={**audit.changes,'_renewal_response':response.model_dump(mode='json')}
             return response
     @boundary
-    def renewal_result(self,request_id,actor):
+    def renewal_result(self,request_id,actor,user=None):
         with self.sessions() as session:
             if session.bind.dialect.name=='postgresql':
                 session.connection(execution_options={'isolation_level':'REPEATABLE READ','postgresql_readonly':True})
@@ -168,6 +211,9 @@ class SubscriberWorkspace:
             if not cached:return result
             verified=self.saved_evidence(session,prior,cached)
             if not verified:return result
+            if user is not None:
+                self.authorize(session.get(Account,prior.subscriber_id),user)
+                require_workspace_account(user,verified[0].router_id,verified[0].access_type)
             return {**result,'status':'SUCCESS','response':verified[0],'audit':verified[1]}
     @staticmethod
     def audit(session,row,actor,before,request_id,operation=None,renewal=None):

@@ -56,9 +56,9 @@ class DailyManagement(cases.SubscriberTransactions):
     def test_bulk_cross_router_partial_failure_receipts_and_retry(self):
         first=self.workspace.save(self.command(username='one.test'),'actor');target=self.other_router();second=self.workspace.save(self.command('HOTSPOT',username='two.test',router_id=target),'actor')
         payload=SubscriberOperations(entries=[self.operation(first,'STATUS','ACTIVE'),self.operation(second,'STATUS','ACTIVE',expected_revision=999)])
-        with patch.object(routes,'operations',self.ops):
-            result=routes.manage(payload,{'id':'actor'});OperationResults.model_validate(result)
-            self.assertEqual([r['success'] for r in result['results']],[True,False]);self.assertEqual(routes.manage(payload,{'id':'actor'}),result)
+        with patch.object(routes,'operations',self.ops),patch.object(routes,'workspace',self.workspace):
+            result=routes.manage(payload,{'id':'actor','is_demo':True,'role_code':'ADMIN','can_manage_users':True});OperationResults.model_validate(result)
+            self.assertEqual([r['success'] for r in result['results']],[True,False]);self.assertEqual(routes.manage(payload,{'id':'actor','is_demo':True,'role_code':'ADMIN','can_manage_users':True}),result)
         self.assertEqual(self.workspace.detail(second.id).item.status,'PAUSED');self.assertEqual(self.workspace.detail(second.id).history[0].result,'FAILED')
         self.assertEqual(self.ops.history(result='FAILED')['total'],1)
         self.assertEqual(self.ops.history(result='SUCCESS')['total'],3)  # Two creates + one status change.

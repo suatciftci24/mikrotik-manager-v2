@@ -13,20 +13,17 @@ router = APIRouter(prefix='/dashboard', tags=['operations'])
 def dashboard_summary(_user: dict = Depends(current_demo_user)):
     if persistent_inventory():
         scope=workspace_scope(_user)
-        if scope is not None:
-            from app.services.router_workspace import workspace as routers
-            count=execute(routers.list,'DEMO_ROUTER','',1,1,scope)['total']
-            return {'summary':{'router_count':count,'routers_online':None,
-                'subscribers_total':None,'subscribers_online':None,'radius_accounts':None,
-                'local_accounts':None,'monthly_revenue':None,'attention_count':None},
-                'traffic':None,'activity':None,'attention':None,'is_demo':True}
         from app.services.subscriber_center import workspace
-        routers=execute(router_choices)
-        first=execute(workspace.list, '', 'ALL', 'ALL', '', 1, 100)
+        if scope is None:
+            routers=execute(router_choices)
+        else:
+            from app.services.router_workspace import workspace as router_store
+            routers=range(execute(router_store.list,'DEMO_ROUTER','',1,1,scope)['total'])
+        first=execute(workspace.list, '', 'ALL', 'ALL', '', 1, 100,user=_user)
         total=first['total']
         accounts=list(first['items'])
         for page in range(2,(total+99)//100+1):
-            accounts.extend(execute(workspace.list,'','ALL','ALL','',page,100)['items'])
+            accounts.extend(execute(workspace.list,'','ALL','ALL','',page,100,user=_user)['items'])
         return {'summary':{'router_count':len(routers),'routers_online':None,
             'subscribers_total':total,'subscribers_online':None,
             'radius_accounts':sum(row.source=='RADIUS' for row in accounts),

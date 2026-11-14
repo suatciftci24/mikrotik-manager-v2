@@ -6,10 +6,10 @@ from uuid import UUID
 from sqlalchemy import select,func,case
 from app.core.database import SessionLocal
 from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as Event
-from app.services.subscriber_center import SubscriberWorkspace,request_audit
+from app.services.subscriber_center import SubscriberWorkspace,request_audit,event_scope
 from app.services.router_workspace import guard,boundary,WorkspaceError
 
-PUBLIC_FIELDS={'customer_name','plan','status','expires_on','router_id','username','access_type','source'}
+PUBLIC_FIELDS={'customer_name','plan','status','expires_on','started_on','router_id','username','access_type','source'}
 
 def fingerprint(command,actor):
     return hashlib.sha256(json.dumps([actor,command.model_dump(mode='json')],sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -37,17 +37,32 @@ def event_receipt(event):
 class SubscriberOperationsService:
     def __init__(self,sessions=SessionLocal,check=guard):self.sessions=sessions;self.check=check
     @staticmethod
-    def prior(session,command,actor):
+    def prior(session,command,actor,user=None):
         prior=session.get(Event,str(command.request_id))
         if prior:
             if prior.actor_id!=actor or prior.changes.get('_management',{}).get('fingerprint')!=fingerprint(command,actor):raise WorkspaceError(409,'İstek kimliği başka bir işleme ait. Yeni önizleme oluşturun.')
-            return event_receipt(prior)
+            receipt=event_receipt(prior)
+            if user is not None:
+                from app.core.authorization import require_workspace_router
+                for key in ('router_id','previous_router_id'):
+                    if receipt.get(key):require_workspace_router(user,receipt[key])
+            return receipt
     @boundary
-    def change(self,command,actor):
+    def change(self,command,actor,user=None):
         with self.sessions.begin() as session:
             self.check(session)
-            prior=self.prior(session,command,actor)
-            if prior:return prior
+            if user is not None:
+                row=session.get(Account,command.item_id)
+                if not row:raise WorkspaceError(404,'Sentetik abone bulunamadı.')
+                SubscriberWorkspace.authorize(row,user,True)
+                from app.core.authorization import require_workspace_account
+                require_workspace_account(user,command.expected_router_id,row.access_type,True)
+                if command.operation=='ROUTER':
+                    from app.core.security import current_admin
+                    current_admin(user)
+            if user is None:
+                prior=self.prior(session,command,actor,user=user)
+                if prior:return prior
             parents={command.expected_router_id}
             if command.operation=='ROUTER':
                 try:
@@ -57,10 +72,11 @@ class SubscriberOperationsService:
                 except ValueError:raise WorkspaceError(422,'Yalnız kalıcı sentetik router ID seçin.') from None
                 parents.add(value)
             for id in sorted(parents):SubscriberWorkspace.parent(session,id)
-            row=session.get(Account,command.item_id,with_for_update=True)
-            prior=self.prior(session,command,actor)
-            if prior:return prior
+            row=session.get(Account,command.item_id,with_for_update=True,populate_existing=True)
             if not row:raise WorkspaceError(404,'Sentetik abone bulunamadı.')
+            SubscriberWorkspace.authorize(row,user,True)
+            prior=self.prior(session,command,actor,user=user)
+            if prior:return prior
             if row.revision!=command.expected_revision or row.router_id!=command.expected_router_id or row.source!=command.expected_source or row.fields.get('source')!=row.source or row.fields.get('router_id')!=row.router_id:raise WorkspaceError(409,'Abone, router veya kaynak değişti. Güncel kaydı yeniden seçin.')
             field={'EDIT':'customer_name','PLAN':'plan','STATUS':'status','EXPIRE':'expires_on','EXTEND':'expires_on','ROUTER':'router_id'}[command.operation]
             value=command.value
@@ -79,6 +95,7 @@ class SubscriberOperationsService:
                 try:expected=(max(date.fromisoformat(old),today)+timedelta(days=command.days)).isoformat()
                 except (ValueError,OverflowError):raise WorkspaceError(422,'Kayıtlı tarih veya uzatma aralığı geçersiz.') from None
                 if value!=expected:raise WorkspaceError(409,'Türkiye gününe göre uzatma önizlemesi değişti; yeniden inceleyin.')
+            if field=='expires_on' and value and row.fields.get('started_on') and value<row.fields['started_on']:raise WorkspaceError(422,'Bitiş tarihi başlangıçtan önce olamaz.')
             old=row.fields.get(field)
             if old==value:raise WorkspaceError(422,'Yeni değer mevcut değerden farklı olmalı.')
             before=row.fields
@@ -96,35 +113,45 @@ class SubscriberOperationsService:
     def audit(session,command,actor,revision,changes,receipt,source=None):
         session.add(Event(id=str(command.request_id),subscriber_id=command.item_id,actor_id=actor,revision=revision,operation=command.operation,occurred_at=receipt['occurred_at'],changes={**changes,'_source':source,'_management':{'fingerprint':fingerprint(command,actor),'receipt':receipt}}))
     @boundary
-    def failed(self,command,actor,error):
+    def failed(self,command,actor,error,user=None):
         with self.sessions.begin() as session:
-            self.check(session);prior=self.prior(session,command,actor)
-            if prior:return prior
+            self.check(session)
+            if user is None:
+                prior=self.prior(session,command,actor,user=user)
+                if prior:return prior
             row=session.get(Account,command.item_id,with_for_update=True)
-            prior=self.prior(session,command,actor)
+            if user is not None:
+                if row is None:raise WorkspaceError(404,'Sentetik abone bulunamadı.')
+                SubscriberWorkspace.authorize(row,user,True)
+            prior=self.prior(session,command,actor,user=user)
             if prior:return prior
             receipt=dict(item_id=command.item_id,request_id=str(command.request_id),success=False,recorded=True,operation=command.operation,actor_id=actor,router_id=row.router_id if row else None,previous_router_id=row.router_id if row else None,previous={},values={},occurred_at=datetime.now(timezone.utc).isoformat(),revision=row.revision if row else 0,error=error.detail)
             self.audit(session,command,actor,receipt['revision'],{},receipt,row.source if row and row.fields.get('source')==row.source else None)
             return receipt
     @boundary
-    def lookup(self,command,actor):
+    def lookup(self,command,actor,user=None):
         with self.sessions() as session:
-            self.check(session);return self.prior(session,command,actor)
-    def execute(self,command,actor):
-        try:return self.change(command,actor)
+            self.check(session)
+            if user is not None:
+                row=session.get(Account,command.item_id)
+                if row is None:return None
+                SubscriberWorkspace.authorize(row,user,True)
+            return self.prior(session,command,actor,user=user)
+    def execute(self,command,actor,user=None):
+        try:return self.change(command,actor,user=user)
         except WorkspaceError as failure:
             if failure.status!=503:
-                try:return self.failed(command,actor,failure)
+                try:return self.failed(command,actor,failure,user=user)
                 except WorkspaceError as recording_error:
                     if recording_error.status==409:
                         try:
-                            prior=self.lookup(command,actor)
+                            prior=self.lookup(command,actor,user=user)
                             if prior:return prior
                         except WorkspaceError:pass
             # Persistence is unavailable or request ID conflicts: never claim a saved receipt.
             return dict(item_id=command.item_id,request_id=str(command.request_id),success=False,recorded=False,operation=command.operation,actor_id=actor,router_id=None,previous_router_id=None,previous={},values={},occurred_at=datetime.now(timezone.utc).isoformat(),revision=0,error=failure.detail)
     @boundary
-    def request_result(self,request_id,actor):
+    def request_result(self,request_id,actor,user=None):
         with self.sessions() as session:
             if session.bind.dialect.name=='postgresql':
                 session.connection(execution_options={'isolation_level':'REPEATABLE READ','postgresql_readonly':True})
@@ -135,6 +162,11 @@ class SubscriberOperationsService:
             receipt=prior.changes.get('_management',{}).get('receipt')
             if not receipt or receipt.get('recorded') is not True or receipt.get('request_id')!=str(request_id) or receipt.get('item_id')!=prior.subscriber_id or receipt.get('actor_id')!=actor:return result
             account=session.get(Account,prior.subscriber_id)
+            if user is not None and account is not None:
+                SubscriberWorkspace.authorize(account,user)
+                from app.core.authorization import require_workspace_router
+                for key in ('router_id','previous_router_id'):
+                    if receipt.get(key):require_workspace_router(user,receipt[key])
             if (receipt.get('revision')!=prior.revision or receipt.get('operation')!=prior.operation
                     or receipt.get('occurred_at')!=prior.occurred_at or type(receipt.get('success')) is not bool
                     or receipt.get('values')!=public_changes(prior.changes,'new')
@@ -148,9 +180,13 @@ class SubscriberOperationsService:
             return {**result,'status':'SUCCESS' if receipt['success'] else 'FAILED','response':receipt,'audit':evidence}
 
     @boundary
-    def history(self,item_id='',operation='ALL',result='ALL',page=1,page_size=25,*,start=None,until=None,router_id='',actor_id='',query=''):
+    def history(self,item_id='',operation='ALL',result='ALL',page=1,page_size=25,*,start=None,until=None,router_id='',actor_id='',query='',user=None):
         with self.sessions() as session:
             self.check(session);clauses=[]
+            if user is not None:
+                from app.core.authorization import workspace_scope
+                ids=workspace_scope(user)
+                if ids is not None:clauses.extend([Account.router_id.in_(ids),*event_scope(ids)])
             if start:clauses.append(Event.occurred_at>=start)
             if until:clauses.append(Event.occurred_at<until)
             if item_id:clauses.append(Event.subscriber_id==item_id)

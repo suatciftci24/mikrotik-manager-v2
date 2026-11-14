@@ -13,7 +13,7 @@ import { ResourceState, dateTime } from '../components/Resource';
 import { useResource } from '../lib/useResource';
 import { useTurkeyToday } from '../lib/useTurkeyToday';
 import { useIdentity } from '../lib/permissions';
-import {loadWorkspaceDashboardSummary,loadWorkspaceRouterSummary} from '../lib/workspaceDashboard';
+import {loadWorkspaceDashboardSummary} from '../lib/workspaceDashboard';
 import { loadDashboardSummary, dashboardToday, dashboardCritical, dashboardAlarmTarget, loadDashboardAlarms, dashboardAlarmPath, latestRouterObservation, type DashboardSummary } from '../lib/dashboardOverview';
 import { loadRouterEvents } from '../lib/routerEvents';
 
@@ -45,7 +45,7 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
   const mika=grants.some(grant=>grant.can_view&&grant.can_use_mikajani);
   const admin=identity?.role_code==='ADMIN'&&identity.can_manage_users===true;
   const persistent=identity?.router_inventory_source==='PERSISTENT_WORKSPACE';
-  const resource=useResource<DashboardSummary>(persistent?'/dashboard/summary?inventory=workspace':'/dashboard/summary',persistent?(admin?loadWorkspaceDashboardSummary:loadWorkspaceRouterSummary):loadDashboardSummary,DEPENDENCIES);
+  const resource=useResource<DashboardSummary>(persistent?'/dashboard/summary?inventory=workspace':'/dashboard/summary',persistent?loadWorkspaceDashboardSummary:loadDashboardSummary,DEPENDENCIES);
   const today=useTurkeyToday(),previousDay=useRef(today);
   useEffect(()=>{if(previousDay.current!==today){previousDay.current=today;resource.retry();}},[today,resource.retry]);
   const refresh=()=>invalidateResources(['/router-workspace/routers','/subscriber-workspace','/routers','/subscribers','/router-events','/mikajani','/alarms']);
@@ -60,7 +60,6 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
   const routers=(params:Record<string,string>={})=>onNavigate('routers',{source:persistent?'MANAGED_DEMO':'DEMO',...params});
   const daily=(kind:string)=>{onNavigate('dashboard',{view:'DAILY_REPORT',report_source:'DEMO',period:'TODAY',kind});};
   const fullDate=data?new Intl.DateTimeFormat('tr-TR',{dateStyle:'full',timeZone:'UTC'}).format(new Date(data.as_of_date+'T00:00:00Z')):'Türkiye takvim günü';
-  if(persistent&&!admin)return <div className="screen-stack dashboard-overview"><PageHeading eyebrow="SENTETİK ROUTER OKUMA" title="Merkezi Dashboard" description="Yetkili kalıcı sentetik routerlar · Salt okunur"/><ResourceState {...resource}/>{data&&!resource.error&&<><SummaryTile title="Routerlar" value={data.router_counts.total} note="Yalnız görüntüleme yetkisi verilen kayıtlar" icon={<RouterIcon size={18}/>} label="Yetkili routerları göster" onClick={()=>routers()}/><p>Canlı durum ölçülmedi. Abone ve yönetim verileri bu okuma kapsamına dahil değildir.</p></>}</div>;
   return <div className="screen-stack dashboard-overview">
     <PageHeading title="Merkezi Dashboard" eyebrow={fullDate} description="V2 sentetik kayıtları · Mevcut demo çalışma alanı" actions={<button className="button-secondary" disabled={resource.loading} onClick={refresh}><RefreshCw size={15}/>Özeti yenile</button>}/>
     <section aria-labelledby="overview-status-title" className="overview-section"><div className="overview-section-heading"><h2 id="overview-status-title">Genel durum</h2><span className="demo-chip">SENTETİK V2</span></div>

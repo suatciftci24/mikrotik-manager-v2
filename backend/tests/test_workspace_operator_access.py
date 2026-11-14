@@ -42,8 +42,10 @@ class OperatorAccess(TestCase):
     def setUp(self):
         self.env=patch.dict(os.environ,{'V2_DEPLOYMENT_PROFILE':'v26-isolated-acceptance'});self.env.start();self.addCleanup(self.env.stop)
         directory=tempfile.TemporaryDirectory();self.addCleanup(directory.cleanup)
-        engine=create_engine('sqlite+pysqlite:///'+str(Path(directory.name)/'workspace.db'),connect_args={'check_same_thread':False},execution_options={'schema_translate_map':{'v2_router_workspace':None}});self.addCleanup(engine.dispose)
+        engine=create_engine('sqlite+pysqlite:///'+str(Path(directory.name)/'workspace.db'),connect_args={'check_same_thread':False},execution_options={'schema_translate_map':{'v2_router_workspace':None,'v2_subscriber_workspace':None}});self.addCleanup(engine.dispose)
         Record.__table__.create(engine);Audit.__table__.create(engine)
+        from app.models.subscriber_workspace import SyntheticSubscriber,SyntheticSubscriberEvent
+        SyntheticSubscriber.__table__.create(engine);SyntheticSubscriberEvent.__table__.create(engine)
         self.sessions=sessionmaker(bind=engine,expire_on_commit=False)
         self.store=RouterWorkspace(self.sessions,lambda session:None)
         self.allowed='demo-managed-router-b';self.hidden='demo-managed-router-a'
@@ -54,6 +56,10 @@ class OperatorAccess(TestCase):
             p=patch.object(module,'workspace',self.store);p.start();self.addCleanup(p.stop)
         # Dashboard imports the same singleton lazily.
         p=patch('app.services.router_workspace.workspace',self.store);p.start();self.addCleanup(p.stop)
+        from app.services.subscriber_center import SubscriberWorkspace
+        accounts=SubscriberWorkspace(self.sessions,lambda session:None)
+        for target in ('app.services.subscriber_center.workspace','app.api.v1.subscriber_center.workspace'):
+            p=patch(target,accounts);p.start();self.addCleanup(p.stop)
         self.user={'id':'synthetic-operator','is_demo':True,'role_code':'OPERATOR','can_manage_users':False,'permissions':{self.allowed:{'can_view':True},self.hidden:{'can_view':False},'demo-router-1':{'can_view':True},'trust-profile-x':{'can_view':True}}}
         app=FastAPI()
         for module in (router_workspace,router_center,dashboard,subscriber_center):app.include_router(module.router,prefix='/api/v1')
@@ -65,9 +71,8 @@ class OperatorAccess(TestCase):
         self.assertEqual(self.client.get('/api/v1/router-workspace/routers?page=2&page_size=1').json()['items'],[])
         self.assertEqual(self.client.get('/api/v1/router-workspace/routers?query=Hidden').json()['total'],0)
         self.assertEqual(self.client.get('/api/v1/router-workspace/routers/'+self.allowed).status_code,200)
-        data=self.client.get('/api/v1/router-center/'+self.allowed).json();self.assertEqual(data['source'],'PERSISTENT_DEMO');self.assertEqual(data['events'],[]);self.assertEqual(data['sections']['pppoe'],'PREPARING')
-        with patch('app.services.subscriber_center.workspace.list',side_effect=AssertionError('operator cannot read accounts')):
-            data=self.client.get('/api/v1/dashboard/summary').json()['summary'];self.assertEqual(data['router_count'],1);self.assertIsNone(data['subscribers_total'])
+        data=self.client.get('/api/v1/router-center/'+self.allowed).json();self.assertEqual(data['source'],'PERSISTENT_DEMO');self.assertEqual(data['events'],[]);self.assertEqual(data['sections']['pppoe'],'AVAILABLE')
+        data=self.client.get('/api/v1/dashboard/summary').json()['summary'];self.assertEqual(data['router_count'],1);self.assertEqual(data['subscribers_total'],0)
     def test_foreign_ids_and_revoked_grants_are_denied_before_read(self):
         for id in (self.hidden,'demo-managed-router-missing','trust-profile-x','demo-router-1'):
             self.assertEqual(self.client.get('/api/v1/router-workspace/routers/'+id).status_code,404)
@@ -85,8 +90,8 @@ class OperatorAccess(TestCase):
         self.assertEqual(self.client.get('/api/v1/router-workspace/profiles').status_code,403)
         with patch.object(router_center,'snapshot',side_effect=AssertionError('provider dispatched')):
             self.assertEqual(self.client.get('/api/v1/router-center/'+self.allowed+'/pppoe-observations').status_code,403)
-        self.assertEqual(self.client.get('/api/v1/router-center/'+self.allowed+'/subscribers?access_type=PPPOE').status_code,403)
-        self.assertEqual(self.client.get('/api/v1/subscriber-workspace').status_code,403)
+        self.assertEqual(self.client.get('/api/v1/router-center/'+self.allowed+'/subscribers?access_type=PPPOE').status_code,200)
+        self.assertEqual(self.client.get('/api/v1/subscriber-workspace').status_code,200)
         self.assertEqual(self.client.get('/api/v1/subscriber-observations/'+self.allowed+'/account?source=LOCAL').status_code,403)
     def test_viewer_scope_and_central_admin_regression(self):
         self.user['role_code']='VIEWER'

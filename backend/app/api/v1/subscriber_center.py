@@ -1,19 +1,20 @@
 from fastapi import APIRouter,Depends,Query,Header,HTTPException,Request,Response,status
 from app.core.security import current_demo_user,current_admin
-from app.core.authorization import subscriber_for,public_detail
+from app.core.authorization import subscriber_for,public_detail,workspace_scope
 from app.api.v1.router_workspace import execute
 from app.services.subscriber_center import workspace,legacy_center
 from app.schemas.subscriber_center import SubscriberCenterData,SubscriberWorkspaceList,CenterSubscriber,SyntheticSubscriberCommand,SubscriberRenewal
 
 router=APIRouter(tags=['subscriber-center'])
-def mutator(user:dict=Depends(current_admin),x_v2_demo_action:str|None=Header(default=None)):
-    current_admin(user)
+def mutator(user:dict=Depends(current_demo_user),x_v2_demo_action:str|None=Header(default=None)):
+    workspace_scope(user)
+    if user.get('role_code') not in ('ADMIN','OPERATOR'):raise HTTPException(403,'Abone yönetim yetkisi gerekli')
     if x_v2_demo_action!='subscriber-workspace':raise HTTPException(403,'Sentetik abone işlem onayı gerekli.')
     return user
 @router.get('/subscriber-center/{id}',response_model=SubscriberCenterData)
 def detail(id:str,user:dict=Depends(current_demo_user)):
     if id.startswith('demo-managed-sub-'):
-        current_admin(user);return execute(workspace.detail,id)
+        workspace_scope(user);return execute(workspace.detail,id,user=user)
     try:return legacy_center(public_detail(subscriber_for(user,id),user))
     except HTTPException as failure:
         if failure.status_code!=404:raise
@@ -26,26 +27,36 @@ def detail(id:str,user:dict=Depends(current_demo_user)):
         if not detail or detail['item'].get('is_demo') is not True or detail['item'].get('router_id') in {r['id'] for r in ROUTERS}:raise failure
         return legacy_center(detail)
 @router.get('/subscriber-workspace',response_model=SubscriberWorkspaceList)
-def list_subscribers(query:str=Query('',max_length=120),access_type:str=Query('ALL',pattern='^(ALL|PPPOE|HOTSPOT)$'),status:str=Query('ALL',pattern='^(ALL|ACTIVE|PAUSED)$'),router_id:str=Query('',max_length=100),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_admin)):
-    return execute(workspace.list,query,access_type,status,router_id,page,page_size)
+def list_subscribers(query:str=Query('',max_length=120),access_type:str=Query('ALL',pattern='^(ALL|PPPOE|HOTSPOT)$'),status:str=Query('ALL',pattern='^(ALL|ACTIVE|PAUSED)$'),router_id:str=Query('',max_length=100),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_demo_user)):
+    workspace_scope(user)
+    return execute(workspace.list,query,access_type,status,router_id,page,page_size,user=user)
+@router.get('/subscriber-workspace/options')
+def options(user:dict=Depends(current_demo_user)):
+    workspace_scope(user)
+    return execute(workspace.plans,user)
+
 @router.post('/subscriber-workspace',response_model=CenterSubscriber)
-def create(payload:SyntheticSubscriberCommand,user:dict=Depends(mutator)):return execute(workspace.save,payload,user['id'])
+def create(payload:SyntheticSubscriberCommand,user:dict=Depends(mutator)):return execute(workspace.save,payload,user['id'],user=user)
 @router.post('/subscriber-workspace/{id}',response_model=CenterSubscriber)
-def update(id:str,payload:SyntheticSubscriberCommand,user:dict=Depends(mutator)):return execute(workspace.save,payload,user['id'],id)
+def update(id:str,payload:SyntheticSubscriberCommand,user:dict=Depends(mutator)):return execute(workspace.save,payload,user['id'],id,user=user)
 
 @router.post('/subscriber-workspace/{id}/renew',response_model=CenterSubscriber)
-def renew(id:str,payload:SubscriberRenewal,user:dict=Depends(mutator)):return execute(workspace.renew,id,payload,user['id'])
+def renew(id:str,payload:SubscriberRenewal,user:dict=Depends(mutator)):return execute(workspace.renew,id,payload,user['id'],user=user)
 
 from app.schemas.subscriber_management_center import SubscriberOperations,OperationResults,OperationHistory
 from app.services.subscriber_operations import operations
 
 @router.post('/subscriber-workspace/management/execute',response_model=OperationResults)
 def manage(payload:SubscriberOperations,user:dict=Depends(mutator)):
-    return {'results':[operations.execute(entry,user['id']) for entry in payload.entries],'is_demo':True}
+    for entry in payload.entries:
+        execute(workspace.detail,entry.item_id,user=user,write=True)
+        if entry.operation=='ROUTER':current_admin(user)
+    return {'results':[execute(operations.execute,entry,user['id'],user=user) for entry in payload.entries],'is_demo':True}
 
 @router.get('/subscriber-workspace/management/history',response_model=OperationHistory)
-def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',pattern='^(ALL|EDIT|PLAN|STATUS|EXPIRE|EXTEND|ROUTER|CREATE|UPDATE|RENEWAL)$'),result:str=Query('ALL',pattern='^(ALL|SUCCESS|FAILED)$'),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_admin)):
-    return execute(operations.history,item_id,operation,result,page,page_size)
+def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',pattern='^(ALL|EDIT|PLAN|STATUS|EXPIRE|EXTEND|ROUTER|CREATE|UPDATE|RENEWAL)$'),result:str=Query('ALL',pattern='^(ALL|SUCCESS|FAILED)$'),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_demo_user)):
+    workspace_scope(user)
+    return execute(operations.history,item_id,operation,result,page,page_size,user=user)
 
 
 from typing import Literal
@@ -65,21 +76,21 @@ def pppoe_observations(router_id: str, account_id: str, source: Literal['LOCAL',
 from uuid import UUID
 from app.schemas.subscriber_center import SubscriberSaveResult
 @router.get('/subscriber-workspace/requests/{request_id}',response_model=SubscriberSaveResult)
-def saved_request(request_id:UUID,user:dict=Depends(current_admin)):
-    current_admin(user)
-    return execute(workspace.save_result,request_id,user['id'])
+def saved_request(request_id:UUID,user:dict=Depends(current_demo_user)):
+    workspace_scope(user)
+    return execute(workspace.save_result,request_id,user['id'],user=user)
 
 
 from app.schemas.subscriber_management_center import OperationRequestResult
 @router.get('/subscriber-workspace/management/requests/{request_id}',response_model=OperationRequestResult)
-def operation_result(request_id:UUID,user:dict=Depends(current_admin)):
-    current_admin(user)
-    return execute(operations.request_result,request_id,user['id'])
+def operation_result(request_id:UUID,user:dict=Depends(current_demo_user)):
+    workspace_scope(user)
+    return execute(operations.request_result,request_id,user['id'],user=user)
 
 @router.get('/subscriber-workspace/renewals/requests/{request_id}',response_model=SubscriberSaveResult)
-def renewal_result(request_id:UUID,user:dict=Depends(current_admin)):
-    current_admin(user)
-    return execute(workspace.renewal_result,request_id,user['id'])
+def renewal_result(request_id:UUID,user:dict=Depends(current_demo_user)):
+    workspace_scope(user)
+    return execute(workspace.renewal_result,request_id,user['id'],user=user)
 
 
 from app.services.subscriber_photos import PhotoError,SubscriberPhotoStore

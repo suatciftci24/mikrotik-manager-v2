@@ -71,3 +71,17 @@ def require_workspace_router(user,id):
     scope=workspace_scope(user)
     if scope is not None and id not in scope:raise HTTPException(404,'Kayıt bulunamadı')
     return scope
+
+
+def workspace_can_manage(user,router_id,access_type):
+    scope=workspace_scope(user)
+    if access_type not in ('PPPOE','HOTSPOT'):return False
+    if scope is None:return True
+    permission='can_manage_pppoe' if access_type=='PPPOE' else 'can_manage_hotspot'
+    return router_id in scope and can_manage_role(user,permission) and user.get('permissions',{}).get(router_id,{}).get(permission) is True
+
+
+def require_workspace_account(user,router_id,access_type,write=False):
+    require_workspace_router(user,router_id)
+    if write and not workspace_can_manage(user,router_id,access_type):
+        raise HTTPException(403,'Bu router için abone yönetim yetkisi gerekli')

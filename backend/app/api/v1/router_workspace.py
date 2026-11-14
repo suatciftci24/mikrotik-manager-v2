@@ -11,8 +11,8 @@ def mutator(user:dict=Depends(current_admin),x_v2_demo_action:str|None=Header(de
     if x_v2_demo_action!='router-workspace':raise HTTPException(403,'Yerel çalışma alanı işlem onayı gerekli.')
     return user
 
-def execute(call,*args):
-    try:return call(*args)
+def execute(call,*args,**kwargs):
+    try:return call(*args,**kwargs)
     except WorkspaceError as error:raise HTTPException(error.status,error.detail) from None
 
 @router.get('/routers',response_model=WorkspaceList)

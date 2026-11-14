@@ -22,7 +22,7 @@ def detail(id:str,user:dict=Depends(current_demo_user)):
         if scope is not None:
             row=workspace_execute(workspace.detail,id,'DEMO_ROUTER')
             data=persistent_demo(row)
-            for section in ('pppoe','hotspot','events'):data.sections[section]='PREPARING'
+            data.sections['events']='PREPARING'
             return data
         row,events=workspace_execute(workspace.center_detail,id)
         return persistent_demo(row,events)
@@ -39,8 +39,8 @@ def detail(id:str,user:dict=Depends(current_demo_user)):
 def subscribers(id:str,access_type:str=Query(...,pattern='^(PPPOE|HOTSPOT)$'),query:str=Query('',max_length=120),status:str=Query('ALL',pattern='^(ALL|ACTIVE|PAUSED|PENDING)$'),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_demo_user)):
     from app.services.subscriber_center import workspace as accounts,legacy_center
     if id.startswith('demo-managed-router-'):
-        current_admin(user)
-        result=workspace_execute(accounts.list,query,access_type,status,id,page,page_size,True)
+        require_workspace_router(user,id)
+        result=workspace_execute(accounts.list,query,access_type,status,id,page,page_size,True,user=user)
         return {**result,'source':'PERSISTENT_WORKSPACE','availability':'AVAILABLE'}
     if id.startswith('registered-'):
         registry_reader(user);registry_execute(registry.detail,id)

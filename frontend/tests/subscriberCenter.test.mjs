@@ -112,12 +112,12 @@ test('workspace actions keep direct preset callbacks and history navigation in t
   const button=buttons.find(n=>n.props.children===label);assert.ok(button);button.props.onClick(event);assert.deepEqual(calls.at(-1),expected);
  }
  buttons.find(n=>n.props.children==='İşlem Geçmişi').props.onClick(event);assert.equal(selected,'history');
- nodes(menu).find(n=>n.type==='button'&&n.props.children==='Abone bilgilerini düzenle').props.onClick();assert.deepEqual(calls.at(-1),['edit',data.item]);
+ shared.props.onEdit();assert.deepEqual(calls.at(-1),['edit',data.item]);
  for(const tab of ['overview','history','connections'])assert.equal(nodes(module.exports.SubscriberDeviceCenterView({...props,tab})).some(n=>n.props?.className==='subscriber-actions-menu'),false);
  for(const patch of [{source:null},{router_missing:true},{router_source:'UNKNOWN'}]){
   const denied=module.exports.SubscriberDeviceCenterView({...props,data:{...data,item:{...data.item,...patch}},tab:'actions'});
   const surface=nodes(denied).find(n=>typeof n.type==='function'&&n.type.name==='SubscriberQuickButtons');
-  assert.equal(surface.props.onAction,undefined);assert.deepEqual(nodes(surface.type(surface.props)).filter(n=>n.type==='button').map(n=>n.props.children),['İşlem Geçmişi']);
+  assert.equal(surface.props.onAction,undefined);const deniedButtons=nodes(surface.type(surface.props)).filter(n=>n.type==='button');assert.deepEqual(deniedButtons.filter(n=>n.props.role==='menuitem').map(n=>n.props.children),['İşlem Geçmişi']);
  }
 });
 test('legacy detail exposes existing quick action surface without hiding it in demo disclosure',()=>{
@@ -205,4 +205,20 @@ test('legacy missing protocol stays separate from current authority and historic
    if(source===null)assert.match(html,/Kaynak doğrulanmadan değişiklik yapılamaz/);
   }
  }
+});
+
+test('workspace read-only capability denies mutation callbacks',()=>{
+ const tree=module.exports.SubscriberDeviceCenterView({data:{...data,item:{...data.item,can_manage:false}},tab:'actions',onTab(){},onEdit(){throw Error('write');},onRenew(){throw Error('write');},onManage(){throw Error('write');}});
+ const surface=nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='SubscriberQuickButtons');
+ assert.equal(surface.props.onAction,undefined);assert.equal(surface.props.onEdit,undefined);
+});
+test('operator editor filters writable router choices and exposes scoped profiles and dates',()=>{
+ const built=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/SyntheticSubscribers.tsx',import.meta.url))],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+ const identity={role_code:'OPERATOR',permissions:{'demo-managed-router-write':{can_view:true,can_manage_pppoe:true},'demo-managed-router-read':{can_view:true}}};
+ const react={...hooks,useContext:()=>identity,useCallback:fn=>fn,useState:initial=>{const value=typeof initial==='function'?initial():initial;return [value?.path?{...value,loading:false,data:value.path.includes('/options')?{plans:['Scoped Profile']}:{items:[{id:'demo-managed-router-write',fields:{name:'Allowed'}},{id:'demo-managed-router-read',fields:{name:'Read only'}}],total:2}}:value,()=>{}];}};
+ const mod={exports:{}};new Function('require','module','exports',built)(name=>name==='react'?react:require(name),mod,mod.exports);
+ const tree=mod.exports.SyntheticSubscriberEditor({onClose(){},onSaved(){}});
+ const html=renderToStaticMarkup(tree);assert.match(html,/Başlangıç tarihi/);assert.match(html,/Scoped Profile/);
+ const routerSelect=nodes(tree).find(n=>n.type==='select'&&n.props.required);
+ assert.deepEqual(nodes(routerSelect).filter(n=>n.type==='option').map(n=>n.props.value),['','demo-managed-router-write']);
 });

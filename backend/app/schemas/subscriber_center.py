@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Literal
 from uuid import UUID
-from pydantic import BaseModel,ConfigDict,Field,field_validator
+from pydantic import BaseModel,ConfigDict,Field,field_validator,model_validator
 from app.schemas.subscriber_events import ExpiryChange
 
 class SyntheticSubscriberFields(BaseModel):
@@ -13,13 +13,18 @@ class SyntheticSubscriberFields(BaseModel):
     source:Literal['LOCAL','RADIUS']
     plan:str=Field(min_length=1,max_length=120)
     status:Literal['ACTIVE','PAUSED']='PAUSED'
+    started_on:date|None=None
     expires_on:date|None=None
     @field_validator('customer_name','plan')
     @classmethod
     def printable(cls,value):
         if not value.isprintable():raise ValueError('Yazdırılabilir metin gerekli.')
         return value
-    _date=field_validator('expires_on',mode='before')(ExpiryChange.calendar_date_only.__func__)
+    @model_validator(mode='after')
+    def ordered_dates(self):
+        if self.started_on and self.expires_on and self.expires_on<self.started_on:raise ValueError('Bitiş tarihi başlangıç tarihinden önce olamaz.')
+        return self
+    _date=field_validator('started_on','expires_on',mode='before')(ExpiryChange.calendar_date_only.__func__)
 
 class SyntheticSubscriberCommand(BaseModel):
     model_config=ConfigDict(extra='forbid')
@@ -34,6 +39,7 @@ class SyntheticSubscriberCommand(BaseModel):
         return value
 
 class CenterSubscriber(BaseModel):
+    can_manage:bool=False
     id:str
     customer_name:str
     username:str
@@ -46,6 +52,7 @@ class CenterSubscriber(BaseModel):
     source:Literal['LOCAL','RADIUS']|None=None
     plan:str
     status:str
+    started_on:date|None=None
     expires_on:date|None=None
     revision:int
     ip_address:str|None=None
@@ -61,6 +68,7 @@ class CenterSubscriberEvent(BaseModel):
     actor_id:str
     revision:int|None=None
     previous_expires_on:date|None=None
+    started_on:date|None=None
     expires_on:date|None=None
     date_changed:bool=False
     result:Literal['APPLIED','FAILED']='APPLIED'

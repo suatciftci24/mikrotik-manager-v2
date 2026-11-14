@@ -38,7 +38,7 @@ test('preview rejects unsupported authority, router, revision, dates and unchang
 });
 test('bulk preview requires explicit consent and does not resend resolved mixed-result requests',async()=>{
  const require=createRequire(import.meta.url),slots=[];let cursor=0;const calls=[];
- const hooks={...React,useEffect:()=>{},useCallback:fn=>fn,useRef:value=>{const i=cursor++;slots[i]??={current:value};return slots[i];},useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;const value=slots[i];if(value?.path)return [{...value,loading:false,data:{items:[]}},()=>{}];return [value,next=>{slots[i]=typeof next==='function'?next(slots[i]):next;}];}};
+ const hooks={...React,useContext:()=>({role_code:'ADMIN',can_manage_users:true}),useEffect:()=>{},useCallback:fn=>fn,useRef:value=>{const i=cursor++;slots[i]??={current:value};return slots[i];},useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;const value=slots[i];if(value?.path)return [{...value,loading:false,data:{items:[]}},()=>{}];return [value,next=>{slots[i]=typeof next==='function'?next(slots[i]):next;}];}};
  const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/SubscriberDailyActions.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
  const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
  const previousFetch=globalThis.fetch,previousWindow=globalThis.window;globalThis.window={dispatchEvent:()=>{}};

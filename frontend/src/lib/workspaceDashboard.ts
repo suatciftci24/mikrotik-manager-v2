@@ -5,7 +5,7 @@ import type {DashboardSummary} from './dashboardOverview.ts';
 import type {CenterSubscriber} from './subscriberCenter.ts';
 
 type WorkspaceRouter={id:string;kind:'DEMO_ROUTER';is_demo:true;device_connected:false;fields:{name:string;management_address:string;site?:string;model:string}};
-async function allPages<T>(path:string,init?:RequestInit):Promise<T[]>{
+export async function allPages<T>(path:string,init?:RequestInit):Promise<T[]>{
  const items:T[]=[];
  for(let page=1;;page++){
   const data=await api<{items:T[];total:number}>(`${path}?page=${page}&page_size=100`,init);
@@ -41,3 +41,5 @@ export async function loadWorkspaceRouterSummary(_path:string,init?:RequestInit)
  const routers:Router[]=records.map(row=>({id:row.id,...row.fields,site:row.fields.site??'',is_demo:true,status:'UNKNOWN',cpu_percent:null,memory_percent:null,subscriber_count:0,routeros_version:'',uptime:'',last_seen:''}));
  return {...buildDailySummary(routers,[]),history_available:false};
 }
+
+export async function loadWorkspaceRouterChoices(_path:string,init?:RequestInit){return {items:await allPages<WorkspaceRouter>('/router-workspace/routers',init)};}
