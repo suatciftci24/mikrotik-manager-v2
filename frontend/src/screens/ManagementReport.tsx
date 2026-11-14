@@ -53,6 +53,12 @@ export function ManagementReport({onBack}:{onBack:()=>void}){
     <a className="button-secondary" href="#module=routers&source=V1_INVENTORY">Router Merkezi · Gerçek V1 sağlık verisi</a>
   </div>}</div>;
 }
+
+function ManagedSubscriberAction({item,action,onClose}:{item:CenterSubscriber;action:'EXTEND'|'PLAN'|'STATUS';onClose:()=>void}){
+  if(action==='EXTEND')return <SubscriberRenewal item={item} onClose={onClose}/>;
+  return <SubscriberDailyActions rows={[item]} initialAction={action} onClose={onClose}/>;
+}
+
 export function SyntheticManagementReport({onBack,center='dashboard'}:{onBack:()=>void;center?:'dashboard'|'operations'}){
   const [quick,setQuick]=useState<{detail:SubscriberDetailData;action:QuickAction}|null>(null);
   const [managed,setManaged]=useState<{item:CenterSubscriber;action:'EXTEND'|'PLAN'|'STATUS'}|null>(null);
@@ -89,7 +95,7 @@ export function SyntheticManagementReport({onBack,center='dashboard'}:{onBack:()
   return <div className={'screen-stack management-report'+(center==='operations'?' compact-operations':'')}>
     <button className="button-secondary detail-back" onClick={onBack}><ArrowLeft size={16}/>Dashboard’a dön</button>
     {quick&&<QuickActions rows={[quick.detail.item]} today={turkeyToday(now)} initialAction={quick.action} onClose={()=>setQuick(null)}/>}
-    {managed&&(managed.action==='EXTEND'?<SubscriberRenewal item={managed.item} onClose={()=>setManaged(null)}/>:<SubscriberDailyActions rows={[managed.item]} initialAction={managed.action} onClose={()=>setManaged(null)}/>)}
+    {managed&&<ManagedSubscriberAction item={managed.item} action={managed.action} onClose={()=>setManaged(null)}/>}
     <PageHeading title={center==='operations'?'Operasyon Merkezi · Günlük Yönetim':'Günlük Yönetim Merkezi'} eyebrow="SENTETİK DEMO · EUROPE/ISTANBUL" description="Sentetik demo kayıtları · Türkiye saati" headingRef={heading} actions={<button className="button-secondary" disabled={resource.loading} onClick={()=>{setSelected(null);resource.retry();}}><RefreshCw size={16}/>Raporu yenile</button>}/>
     <div className="management-period-shortcuts" role="group" aria-label="Hızlı dönem seçimi">{(['LAST_24','TODAY','LAST_7','LAST_30'] as const).map(period=><button key={period} className="button-secondary" aria-pressed={filter.period===period} onClick={()=>change({...filter,period})}>{reportPeriods[period]}</button>)}</div>
     <OperationsDisclosure enabled={center==='operations'} label="Filtreler"><section className="panel management-filters"><div className="router-report-controls"><label className="form-label operations-mobile-only">Listelerde ara<input maxLength={120} value={filter.query??''} onChange={e=>change({...filter,query:e.target.value})} placeholder="İşlem, abone veya router…"/><small>Arama listeleri daraltır; özet seçili döneme aittir.</small></label><label className="form-label operations-mobile-only">Abonelik bitişi<select value={filter.expiry??'TODAY'} onChange={e=>change({...filter,expiry:e.target.value as ManagementFilter['expiry']})}>{expiryChoices.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
