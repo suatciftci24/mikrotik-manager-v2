@@ -1,3 +1,4 @@
+import "./styles/subscriber-list-compact.css";
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';

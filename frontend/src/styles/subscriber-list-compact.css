@@ -1,0 +1,24 @@
+
+.subscriber-list-help {
+  margin: 8px 0;
+  font-size: 12px;
+}
+.subscriber-list-help summary {
+  cursor: pointer;
+  padding: 5px 0;
+}
+.subscriber-list-help p {
+  margin: 6px 0;
+}
+.subscriber-table td {
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+.subscriber-table .subscriber-avatar {
+  width: 28px;
+  height: 28px;
+}
+.subscriber-table .table-main small,
+.subscriber-table .plan-cell small {
+  font-size: 11px;
+}
