@@ -23,7 +23,7 @@ export function useSubscriberSave<T>(onSaved:(result:T)=>void){
   let result:T|undefined,success=false;
   try{
    if(query){
-    const receipt=await api<{request_id:string;status:'SUCCESS'|'FAILED'|'UNKNOWN';response:T|null}>(frozen.resultPath,{signal:controller.signal});
+    const receipt=await api<{request_id:string;status:'SUCCESS'|'UNKNOWN';response:T|null}>(frozen.resultPath,{signal:controller.signal});
     if(receipt?.request_id!==frozen.requestId)throw new Error('İşlem sonucu kimliği doğrulanamadı.');
     if(receipt.status==='UNKNOWN')throw new Error('Kayıtlı sonuç henüz bulunamadı. Bu, işlemin uygulanmadığını kanıtlamaz.');
     if(receipt.status!=='SUCCESS'||receipt.response===null)throw new Error('İşlem sonucu doğrulanamadı.');
