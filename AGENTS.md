@@ -111,11 +111,11 @@ regresyonda doğrula. Sunucu yetkilerini veya kaynak güvenliğini gevşetme.
 
 ## V2.6 Zorunlu Saglik Kontrolu
 
-- Her gelistirme veya degisiklik komutundan once ve sonra
-  https://v26.mikmanager.com.tr/ kontrol edilir.
-- HTTPS erisimi, API ve ilgili servislerin sagligi dogrulanir.
+- Yerel gelistirme ve sentetik testlerde kullanilmayan uzak DNS adresi zorunlu degildir.
+- Yerel degisikliklerde ilgili hedefli testler ve frontend build dogrulanir.
+- Canli dagitim veya uzak servis degisikliginde gercek hedefin HTTPS, API ve servis sagligi once ve sonra dogrulanir.
+- Hedef erisilemiyorsa canli islem durdurulur; guvenli geri alma degerlendirilir.
 - Yalnizca gercek ve dogrulanmis API endpointleri kullanilir.
-- Hata varsa islem durdurulur; guvenli geri alma degerlendirilir.
 - Dogrulanmayan islem basarili olarak bildirilmez.
 - Gereksiz tekrar testleri yapilmaz; hedefli kontroller uygulanir.
 - V1, V2.5, gercek routerlar, RADIUS ve mevcut veriler korunur.
