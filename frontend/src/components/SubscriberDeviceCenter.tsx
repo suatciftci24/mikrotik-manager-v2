@@ -64,7 +64,7 @@ export function SubscriberDeviceCenterView({data,tab,onTab,onEdit,onRenew,onMana
  <section className="inventory-toolbar" aria-label="Abone işlemleri">
  {data.source==='LEGACY_DEMO'&&<LegacySubscriberActions key={r.id} id={r.id} onHistory={()=>onTab('history')} onSelect={onLegacyAction}/>}
  {data.source==='PERSISTENT_WORKSPACE'&&<div className="subscriber-actions-menu">
- <SubscriberQuickButtons status={r.status} onHistory={()=>onTab('history')} onEdit={writable&&onEdit?()=>onEdit(r):undefined} available={[...(onRenew?['EXTEND' as const]:[]),...(onManage?['PLAN' as const,'STATUS' as const]:[])]} onAction={writable?action=>{if(action==='EXTEND')onRenew?.(r);else onManage?.(r,action);}:undefined}/>
+ <SubscriberQuickButtons compact status={r.status} onHistory={()=>onTab('history')} onEdit={writable&&onEdit?()=>onEdit(r):undefined} available={[...(onRenew?['EXTEND' as const]:[]),...(onManage?['PLAN' as const,'STATUS' as const]:[])]} onAction={writable?action=>{if(action==='EXTEND')onRenew?.(r);else onManage?.(r,action);}:undefined}/>
  </div>}
  {data.source==='PERSISTENT_WORKSPACE'&&!writable&&<p role="status">İşlemler için merkezi yönetim yetkisi, kalıcı demo deposu ve doğrulanmış kaynak/router bağı gerekli.</p>}
  </section><SubscriberAaaDemo key={r.id+':'+r.revision+':'+r.source} source={r.source}/>{supplementary}</>
