@@ -31,7 +31,7 @@ import { can,useIdentity } from '../lib/permissions';
 import { V1Inventory } from '../components/V1Inventory';
 import { expiryDate, expiryInfo, remainingDays, turkeyToday } from '../lib/expiry';
 
-function OperationsDisclosure({enabled,label,children}:{enabled:boolean;label:string;children:ReactNode}){return enabled?<SubscriberDisclosure label={label}>{children}</SubscriberDisclosure>:<>{children}</>;}
+function OperationsDisclosure({enabled,label,children}:{enabled:boolean;label:string;children:ReactNode}){return enabled?<details className="subscriber-disclosure operations-disclosure"><summary>{label}</summary>{children}</details>:<>{children}</>;}
 
 const dependencies=['/routers','/subscribers','/router-events','/subscriber-workspace','/router-workspace/routers'] as const;
 const number=(value:number|null)=>value===null?'Veri yok':value.toLocaleString('tr-TR');
