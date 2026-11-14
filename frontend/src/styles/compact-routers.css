@@ -84,3 +84,40 @@
   width: auto;
   white-space: nowrap;
 }
+
+
+/* Router subscriber identity: two distinct readable lines */
+.router-subscriber-table td:first-child {
+  min-width: 260px;
+  width: 260px;
+  vertical-align: middle;
+}
+
+.router-subscriber-table td:first-child .record-link {
+  display: block;
+  width: 100%;
+  margin: 0 0 5px;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.router-subscriber-table td:first-child .router-subscriber-username {
+  display: block;
+  width: 100%;
+  margin: 0;
+  line-height: 1.45;
+  font-size: 12px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.router-subscriber-table tbody tr {
+  height: auto;
+}
+
+.router-subscriber-table tbody td {
+  height: auto;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
