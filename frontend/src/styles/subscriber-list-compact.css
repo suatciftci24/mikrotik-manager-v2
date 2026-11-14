@@ -75,3 +75,34 @@
     margin-top: 3px;
   }
 }
+
+
+/* Operasyon Merkezi: abonelik bitiş filtreleri */
+.compact-operations .management-expiries .panel-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+.compact-operations .management-expiries .panel-title h2 {
+  margin-right: auto;
+}
+.compact-operations .management-expiry-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0;
+}
+.compact-operations .management-expiry-filters button {
+  min-height: 32px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+.compact-operations .management-expiries .operations-disclosure {
+  margin: 8px 0;
+}
+.compact-operations .management-expiries .operations-disclosure summary {
+  cursor: pointer;
+  padding: 6px 0;
+}
