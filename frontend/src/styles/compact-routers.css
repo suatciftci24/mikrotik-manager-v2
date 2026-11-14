@@ -52,3 +52,35 @@
  .router-device-center .detail-back{min-height:44px}
  .router-center-list~dialog,.router-center-list dialog{max-width:calc(100vw - 24px);box-sizing:border-box}
 }
+
+
+/* Router subscriber table readability */
+.router-device-center .table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.router-subscriber-table {
+  min-width: 850px;
+  table-layout: auto;
+}
+.router-subscriber-table th,
+.router-subscriber-table td {
+  min-width: 105px;
+  word-break: normal;
+  overflow-wrap: normal;
+  vertical-align: middle;
+}
+.router-subscriber-table th:first-child,
+.router-subscriber-table td:first-child {
+  min-width: 220px;
+}
+.router-subscriber-table td:first-child .record-link,
+.router-subscriber-table td:first-child small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.router-device-center .table-footer button {
+  min-width: 82px;
+  width: auto;
+  white-space: nowrap;
+}
