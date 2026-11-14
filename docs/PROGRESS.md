@@ -5748,3 +5748,25 @@ Her iki ilerleme kaydi korunmustur:
 - GitHub remote DNS hatası; push yapılmadı. Yerel commit sonrası somut adım,
   bağlantı sağlanınca normal push ve ayrı onayla backend/frontend deploy'dur.
   V1/V2.5/VDS/DB/hesap/parola/cihaz/RADIUS/IPsec, migration/restart/veri silme yok.
+
+## V26 Paket Yönetimi ve PPPoE paket atama — 2026-11-14 — yerel PASS / push BLOCKED
+
+- Temiz main-guncel/4f340a7 esas alındı. Kök neden bağımsız katalog/model/ekran
+  olmamasıydı; mevcut plan metni/profil önerileri paket oluşturma değildi.
+- ADMIN Paket Yönetimi ad, hızlar, profil etiketi, opsiyonel TRY ücret, süre,
+  aktif/pasif, düzenleme/revizyon ve audit ile eklendi. Abone Merkezi doğrudan
+  bağlantı verir. Katalog ticari pakettir; gerçek MikroTik profili oluşturulmaz.
+- PostgreSQL ORM katalog/audit tabloları, atomik UUID/revision kaydı, aktif katalog
+  okuma yetkisi ve ADMIN-only katalog yazımı; router grant'li paket atama tamam.
+  Abone ID/sürüm/snapshot saklar; paket değişimi tarihi değiştirmez, katalog
+  güncellemesi eski atamayı bozmaz. Eski metin paket/UUID akışı korunur.
+- Beş yeni ASGI/SQL senaryosu, mevcut ilgili backend testleri; yeni 4 frontend
+  kontrolü ve 3 ilgili frontend dosyası + son build/diff PASS. Paket → V26 Test
+  Router → abone → tarihler → yenileme → paket değişimi → audit/Dashboard doğrulandı.
+  Testler yalnız izole SQLite/sentetik fixture; canlı PG/browser kabulü yok.
+- Katalog için migration gerekir: yalnız docs/V26_PACKAGE_CATALOG_MIGRATION_PLAN.md
+  planlandı. Canlı veya otomatik migration/seed yok; mevcut abone/router şeması
+  ALTER edilmedi. Plan ayrı onayla uygulanıp backend/frontend yayınlanmalıdır.
+- Kabul: docs/V26_PACKAGE_SUBSCRIPTION_ACCEPTANCE.md. V1/V2.5/VDS/DB/kullanıcı/
+  parola/cihaz/RADIUS/IPsec, deploy/restart/veri silme yok. Remote DNS hatası;
+  push yapılmadı. Yerel commit teslim edilir.

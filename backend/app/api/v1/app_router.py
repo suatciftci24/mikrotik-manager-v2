@@ -9,3 +9,6 @@ for feature in (auth.router, dashboard.router, routers.router, subscribers.route
 
 from app.api.v1 import aaa_demo
 api_router.include_router(aaa_demo.router)
+
+from app.api.v1 import packages
+api_router.include_router(packages.router)

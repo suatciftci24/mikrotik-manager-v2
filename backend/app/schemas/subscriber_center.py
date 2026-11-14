@@ -3,6 +3,7 @@ from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel,ConfigDict,Field,field_validator,model_validator
 from app.schemas.subscriber_events import ExpiryChange
+from app.schemas.package import PackageFields
 
 class SyntheticSubscriberFields(BaseModel):
     model_config=ConfigDict(extra='forbid',str_strip_whitespace=True)
@@ -11,6 +12,8 @@ class SyntheticSubscriberFields(BaseModel):
     router_id:str=Field(pattern=r'^demo-managed-router-[0-9a-f-]{36}$')
     access_type:Literal['PPPOE','HOTSPOT']
     source:Literal['LOCAL','RADIUS']
+    package_id:str|None=Field(default=None,pattern=r'^demo-package-[0-9a-f-]{36}$')
+    package_revision:int|None=Field(default=None,ge=1)
     plan:str=Field(min_length=1,max_length=120)
     status:Literal['ACTIVE','PAUSED']='PAUSED'
     started_on:date|None=None
@@ -22,6 +25,7 @@ class SyntheticSubscriberFields(BaseModel):
         return value
     @model_validator(mode='after')
     def ordered_dates(self):
+        if bool(self.package_id)!=(self.package_revision is not None):raise ValueError('Paket kimliği ve revizyonu birlikte gerekli.')
         if self.started_on and self.expires_on and self.expires_on<self.started_on:raise ValueError('Bitiş tarihi başlangıç tarihinden önce olamaz.')
         return self
     _date=field_validator('started_on','expires_on',mode='before')(ExpiryChange.calendar_date_only.__func__)
@@ -50,6 +54,9 @@ class CenterSubscriber(BaseModel):
     router_source:Literal['PERSISTENT_DEMO','STATIC_DEMO','UNKNOWN']='UNKNOWN'
     access_type:Literal['PPPOE','HOTSPOT']|None=None
     source:Literal['LOCAL','RADIUS']|None=None
+    package_id:str|None=None
+    package_revision:int|None=None
+    package_snapshot:PackageFields|None=None
     plan:str
     status:str
     started_on:date|None=None

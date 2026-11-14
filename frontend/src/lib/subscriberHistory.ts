@@ -7,7 +7,7 @@ export function operationLabel(operation: SubscriberHistoryEvent['operation']) {
 export function statusText(value: unknown): string {
   return value==='ACTIVE'?'Etkin':value==='PAUSED'?'Devre dışı (duraklatıldı)':value==='PENDING'?'Bekliyor':'Veri yok';
 }
-const fields: Record<string,string> = {router_id:'Router kimliği',username:'Kullanıcı adı', customer_name:'Abone adı', router_name:'Router', source:'Yetkili kaynak', plan:'Paket/profil', monthly_price:'Aylık tutar', status:'Durum', started_on:'Başlangıç', expires_on:'Bitiş', access_type:'Erişim türü'};
+const fields: Record<string,string> = {router_id:'Router kimliği',username:'Kullanıcı adı', customer_name:'Abone adı', router_name:'Router', source:'Yetkili kaynak', plan:'Paket/profil', monthly_price:'Aylık tutar', status:'Durum', package_id:'Paket kimliği',package_revision:'Paket sürümü',started_on:'Başlangıç', expires_on:'Bitiş', access_type:'Erişim türü'};
 export function valuesText(values: Record<string,string|number|null> | undefined) {
   if (!values || Object.keys(values).length===0) return 'Veri yok';
   return Object.entries(values).map(([key,value])=>{

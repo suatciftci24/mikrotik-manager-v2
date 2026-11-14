@@ -14,7 +14,7 @@ export function operationReceiptMatches(entry:DailyEntry,receipt:OperationReceip
  }
  if(receipt.revision!==entry.expected_revision+1||receipt.previous_router_id!==entry.expected_router_id||receipt.router_id!==(entry.operation==='ROUTER'?entry.value:entry.expected_router_id)||receipt.error!==null)return false;
  const field={EDIT:'customer_name',PLAN:'plan',STATUS:'status',EXPIRE:'expires_on',EXTEND:'expires_on',ROUTER:'router_id'}[entry.operation];
- return receipt.values[field]===entry.value;
+ return receipt.values[field]===entry.value&&(!entry.package_id||receipt.values.package_id===entry.package_id&&receipt.values.package_revision===String(entry.package_revision));
 }
 export function unknownOperation(entry:DailyEntry):OperationReceipt{
  return {item_id:entry.item_id,request_id:entry.request_id,operation:entry.operation,success:false,recorded:false,actor_id:'',router_id:null,previous_router_id:null,previous:{},values:{},occurred_at:'',revision:0,error:'Kalıcı sonuç henüz doğrulanamadı; bu kayıt için aynı UUID ile sorgulayın.'};

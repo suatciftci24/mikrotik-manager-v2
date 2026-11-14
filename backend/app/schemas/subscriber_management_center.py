@@ -12,10 +12,17 @@ class SubscriberOperation(BaseModel):
     expected_router_id:str=Field(pattern=r'^demo-managed-router-[0-9a-f-]{36}$')
     expected_source:Literal['LOCAL','RADIUS']
     operation:Literal['EDIT','PLAN','STATUS','EXPIRE','EXTEND','ROUTER']
+    package_id:str|None=Field(default=None,pattern=r'^demo-package-[0-9a-f-]{36}$')
+    package_revision:int|None=Field(default=None,ge=1)
     value:str|None=Field(default=None,max_length=160)
     days:Literal[30,60,90]|None=None
     expected_expires_on:str|None=Field(default=None,max_length=10)
     confirmed:Literal[True]
+    @model_validator(mode='after')
+    def package_selection(self):
+        if bool(self.package_id)!=(self.package_revision is not None):raise ValueError('Paket kimliği ve revizyonu birlikte gerekli.')
+        if self.package_id and self.operation!='PLAN':raise ValueError('Paket seçimi yalnız PLAN işleminde kullanılır.')
+        return self
     _confirmed=field_validator('confirmed',mode='before')(SyntheticSubscriberCommand.explicit.__func__)
 
 class SubscriberOperations(BaseModel):

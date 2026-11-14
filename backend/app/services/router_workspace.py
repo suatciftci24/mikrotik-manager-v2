@@ -34,6 +34,8 @@ def storage_error_detail(error):
         statement=(getattr(error,'statement',None) or '').replace('"','')
         if 'v2_subscriber_workspace.' in statement and 'v2_router_workspace.' in statement:
             return 'Yerel çalışma alanı sorgusunda şema veya tablo bulunamadı. Sorgu 007 ve 008 kapsamını birlikte kullanıyor; eksik nesne salt okunur katalog kontrolüyle belirlenmeli. Otomatik migration yapılmadı.'
+        if 'v2_subscriber_workspace.packages' in statement or 'v2_subscriber_workspace.package_events' in statement:
+            return 'Paket kataloğu tabloları hazır değil. Paket Yönetimi migration planı hedef şema ve izinler için doğrulanmalı; otomatik migration veya veri değişikliği yapılmadı.'
         if 'v2_subscriber_workspace.' in statement:
             return 'Yerel abone çalışma alanı tablosu bulunamadı. Hedef veritabanında migration 008 ve bağımlılığı 007 salt okunur doğrulanmalı; otomatik migration yapılmadı.'
         if 'v2_router_workspace.' in statement:

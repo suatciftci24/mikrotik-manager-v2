@@ -9,13 +9,16 @@ from app.models.subscriber_workspace import SyntheticSubscriber as Account,Synth
 from app.services.subscriber_center import SubscriberWorkspace,request_audit,event_scope
 from app.services.router_workspace import guard,boundary,WorkspaceError
 
-PUBLIC_FIELDS={'customer_name','plan','status','expires_on','started_on','router_id','username','access_type','source'}
+PUBLIC_FIELDS={'customer_name','plan','status','expires_on','started_on','router_id','username','access_type','source','package_id','package_revision'}
 
 def fingerprint(command,actor):
-    return hashlib.sha256(json.dumps([actor,command.model_dump(mode='json')],sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    values=command.model_dump(mode='json')
+    for key in ('package_id','package_revision'):
+        if key not in command.model_fields_set:values.pop(key,None)
+    return hashlib.sha256(json.dumps([actor,values],sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
 def public_changes(changes,key):
-    return {name:change.get(key) for name,change in changes.items() if name in PUBLIC_FIELDS and isinstance(change,dict)}
+    return {name:(None if change.get(key) is None else str(change[key])) for name,change in changes.items() if name in PUBLIC_FIELDS and isinstance(change,dict)}
 
 def event_receipt(event):
     stored=event.changes.get('_management',{}).get('receipt')
@@ -96,18 +99,31 @@ class SubscriberOperationsService:
                 except (ValueError,OverflowError):raise WorkspaceError(422,'Kayıtlı tarih veya uzatma aralığı geçersiz.') from None
                 if value!=expected:raise WorkspaceError(409,'Türkiye gününe göre uzatma önizlemesi değişti; yeniden inceleyin.')
             if field=='expires_on' and value and row.fields.get('started_on') and value<row.fields['started_on']:raise WorkspaceError(422,'Bitiş tarihi başlangıçtan önce olamaz.')
+            package_values={}
+            if field=='plan':
+                if command.package_id:
+                    from app.services.packages import binding
+                    package_values=binding(session,command.package_id,command.package_revision)
+                    value=package_values['plan']
+                else:package_values=dict(package_id=None,package_revision=None,package_snapshot=None)
             old=row.fields.get(field)
-            if old==value:raise WorkspaceError(422,'Yeni değer mevcut değerden farklı olmalı.')
+            if old==value and all(row.fields.get(key)==val for key,val in package_values.items()):raise WorkspaceError(422,'Yeni değer mevcut değerden farklı olmalı.')
             before=row.fields
-            previous_router=row.router_id;row.fields={**row.fields,field:value}
+            previous_router=row.router_id;row.fields={**row.fields,**package_values,field:value}
             if field=='router_id':row.router_id=value
             row.revision+=1;stamp=datetime.now(timezone.utc).isoformat()
             previous={field:old};values={field:value}
             if field in ('plan','expires_on'):
                 previous.update({key:before.get(key) for key in ('plan','expires_on')})
                 values.update({key:row.fields.get(key) for key in ('plan','expires_on')})
+            if field=='plan':
+                for key in ('package_id','package_revision'):
+                    previous[key]=None if before.get(key) is None else str(before[key])
+                    values[key]=None if row.fields.get(key) is None else str(row.fields[key])
             receipt=dict(item_id=row.id,request_id=str(command.request_id),success=True,recorded=True,operation=command.operation,actor_id=actor,router_id=row.router_id,previous_router_id=previous_router,previous=previous,values=values,occurred_at=stamp,revision=row.revision,error=None)
-            self.audit(session,command,actor,row.revision,{key:{'previous':previous[key],'new':values[key]} for key in values},receipt,row.source)
+            changes={key:{'previous':previous[key],'new':values[key]} for key in values}
+            if field=='plan':changes['_package_snapshot']={'previous':before.get('package_snapshot'),'new':row.fields.get('package_snapshot')}
+            self.audit(session,command,actor,row.revision,changes,receipt,row.source)
             return receipt
     @staticmethod
     def audit(session,command,actor,revision,changes,receipt,source=None):
@@ -176,7 +192,7 @@ class SubscriberOperationsService:
             elif receipt.get('router_id')!=receipt.get('previous_router_id'):return result
             evidence=request_audit(prior,account,receipt.get('router_id'),account.source if account else None,receipt['success'])
             if not evidence:return result
-            if account.revision==prior.revision and receipt['success'] and any(account.fields.get(key)!=value for key,value in receipt['values'].items()):return result
+            if account.revision==prior.revision and receipt['success'] and any((None if account.fields.get(key) is None else str(account.fields[key]))!=value for key,value in receipt['values'].items()):return result
             return {**result,'status':'SUCCESS' if receipt['success'] else 'FAILED','response':receipt,'audit':evidence}
 
     @boundary

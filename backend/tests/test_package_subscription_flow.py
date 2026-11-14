@@ -1,0 +1,122 @@
+"""Catalog + subscriber API acceptance; only disposable synthetic SQLite fixtures."""
+from unittest import TestCase
+from unittest.mock import patch
+from uuid import uuid4
+from datetime import date,timedelta
+from decimal import Decimal
+from sqlalchemy import select,func,event
+from sqlalchemy.exc import SQLAlchemyError
+from backend.tests import test_pppoe_workspace_access as base
+from app.api.v1 import packages as routes
+from app.models.package import Package,PackageEvent
+from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as SubscriberAudit
+from app.services.packages import Packages
+from app.services.subscriber_center import SubscriberWorkspace
+
+class PackageSubscription(TestCase):
+    command=base.PppoeWorkspace.command
+    create=base.PppoeWorkspace.create
+    post=base.PppoeWorkspace.post
+    operation=base.PppoeWorkspace.operation
+    counts=base.PppoeWorkspace.counts
+    def setUp(self):
+        base.PppoeWorkspace.setUp(self)
+        self.engine=self.sessions.kw['bind']
+        Package.__table__.create(self.engine);PackageEvent.__table__.create(self.engine)
+        self.packages=Packages(self.sessions,lambda session:None)
+        p=patch.object(routes,'packages',self.packages);p.start();self.addCleanup(p.stop)
+        self.client.app.include_router(routes.router,prefix='/api/v1')
+        self.pkg_headers={'X-V2-Demo-Action':'package-workspace'}
+    def admin(self):self.user.update(role_code='ADMIN',can_manage_users=True)
+    def operator(self):self.user.update(role_code='OPERATOR',can_manage_users=False)
+    def package_command(self,name='Business 100',revision=0,**fields):
+        return dict(request_id=str(uuid4()),expected_revision=revision,confirmed=True,fields={**dict(name=name,download_mbps=100,upload_mbps=20,router_profile='pppoe-profile-label',monthly_price='499.90',duration_days=30,active=True),**fields})
+    def package_post(self,command,id=None):return self.client.post('/api/v1/packages'+('/'+id if id else ''),json=command,headers=self.pkg_headers)
+    def make_package(self,name='Business 100',**fields):
+        self.admin();command=self.package_command(name,**fields);response=self.package_post(command);self.assertEqual(response.status_code,200,response.text);return command,response.json()
+    def package_counts(self):
+        with self.sessions() as s:return s.scalar(select(func.count()).select_from(Package)),s.scalar(select(func.count()).select_from(PackageEvent))
+    def test_catalog_to_router_subscription_renew_package_change_audit_dashboard(self):
+        first,a=self.make_package();_,b=self.make_package('Business 500',download_mbps=500,monthly_price='799.90',duration_days=60)
+        self.assertEqual(self.package_post(first).json(),a);self.assertEqual(self.package_counts(),(2,2))
+        self.operator()
+        options=self.client.get('/api/v1/packages').json();self.assertEqual(options['total'],2)
+        routers=self.client.get('/api/v1/router-workspace/routers').json();self.assertEqual([r['id'] for r in routers['items']],[self.allowed]);self.assertEqual(routers['items'][0]['fields']['name'],'V26 Test Router')
+        command=self.command();command['fields'].update(package_id=a['id'],package_revision=a['revision'],plan='client cannot forge package name',started_on='2030-01-01',expires_on=None)
+        _,item=self.create(command);self.assertEqual(item['plan'],a['fields']['name']);self.assertEqual(item['expires_on'],'2030-01-30');self.assertEqual(item['package_snapshot']['router_profile'],'pppoe-profile-label');self.assertEqual(item['package_snapshot']['monthly_price'],'499.90')
+        self.assertEqual(self.post('/subscriber-workspace',command).json(),item);self.assertEqual(self.counts(),(1,1))
+        expires=(date.fromisoformat(item['expires_on'])+timedelta(days=30)).isoformat()
+        renewal=dict(request_id=str(uuid4()),expected_revision=1,expected_source='LOCAL',expected_expires_on=item['expires_on'],expires_on=expires,days=30,confirmed=True)
+        response=self.post('/subscriber-workspace/'+item['id']+'/renew',renewal);self.assertEqual(response.status_code,200,response.text)
+        item=response.json();change={**self.operation(item,'PLAN',b['fields']['name']),'package_id':b['id'],'package_revision':b['revision']}
+        response=self.post('/subscriber-workspace/management/execute',{'entries':[change]});self.assertEqual(response.status_code,200,response.text);self.assertTrue(response.json()['results'][0]['success'],response.text)
+        self.assertEqual(self.post('/subscriber-workspace/management/execute',{'entries':[change]}).json(),response.json());self.assertEqual(self.counts(),(1,3))
+        receipt=self.client.get('/api/v1/subscriber-workspace/management/requests/'+change['request_id']).json();self.assertEqual(receipt['status'],'SUCCESS');self.assertEqual(receipt['response']['values']['package_id'],b['id'])
+        detail=self.client.get('/api/v1/subscriber-center/'+item['id']).json();self.assertEqual(detail['item']['expires_on'],expires);self.assertEqual(detail['item']['package_id'],b['id']);self.assertEqual(len(detail['history']),3)
+        self.assertEqual(detail['history'][0]['new_values']['package_revision'],'1');self.assertEqual(detail['history'][0]['previous_values']['package_id'],a['id'])
+        self.assertEqual(self.client.get('/api/v1/dashboard/summary').json()['summary']['subscribers_total'],self.client.get('/api/v1/subscriber-workspace').json()['total'])
+        self.assertEqual(SubscriberWorkspace(self.sessions,lambda s:None).detail(item['id'],user=self.user).item.package_snapshot.monthly_price,Decimal('799.90'))
+        self.assertEqual(Packages(self.sessions,lambda s:None).list()['total'],2)
+        self.admin();history=self.client.get('/api/v1/packages/'+a['id']+'/audit').json();self.assertEqual(history['items'][0]['values']['monthly_price'],'499.90')
+    def test_catalog_revision_passive_assignment_and_snapshot_preservation(self):
+        _,package=self.make_package()
+        self.operator();command=self.command();command['fields'].update(package_id=package['id'],package_revision=1,plan=package['fields']['name'])
+        _,item=self.create(command)
+        self.admin();update=self.package_command('Renamed Business',revision=1,active=False,monthly_price='899.00');response=self.package_post(update,package['id']);self.assertEqual(response.status_code,200,response.text)
+        self.operator();self.assertEqual(self.client.get('/api/v1/packages').json()['total'],0)
+        detail=self.client.get('/api/v1/subscriber-center/'+item['id']).json()['item'];self.assertEqual(detail['package_revision'],1);self.assertEqual(detail['package_snapshot']['monthly_price'],'499.90');self.assertEqual(detail['plan'],package['fields']['name'])
+        edit={**command,'request_id':str(uuid4()),'expected_revision':1,'fields':{**command['fields'],'customer_name':'Edited Subscriber'}}
+        self.assertEqual(self.post('/subscriber-workspace/'+item['id'],edit).status_code,200)
+        before=self.counts()
+        for revision in (1,2):
+            new=self.command();new['fields'].update(package_id=package['id'],package_revision=revision)
+            self.assertEqual(self.post('/subscriber-workspace',new).status_code,409)
+        self.assertEqual(self.counts(),before)
+    def test_catalog_permission_boundaries_and_subscription_write_scope(self):
+        command=self.package_command()
+        self.assertEqual(self.package_post(command).status_code,403)
+        _,package=self.make_package();self.operator()
+        self.assertEqual(self.package_post(self.package_command('Attack',revision=1),package['id']).status_code,403)
+        self.assertEqual(self.client.get('/api/v1/packages?include_inactive=true').status_code,403)
+        self.assertEqual(self.client.get('/api/v1/packages/'+package['id']+'/audit').status_code,403)
+        command=self.command();command['fields'].update(package_id=package['id'],package_revision=1)
+        self.user['permissions'][self.allowed]['can_manage_pppoe']=False
+        self.assertEqual(self.post('/subscriber-workspace',command).status_code,403)
+        self.user['permissions'][self.allowed]['can_manage_pppoe']=True;command['fields']['router_id']=self.hidden
+        self.assertEqual(self.post('/subscriber-workspace',command).status_code,404);self.assertEqual(self.counts(),(0,0))
+        self.user['role_code']='VIEWER';command['fields']['router_id']=self.allowed
+        self.assertEqual(self.post('/subscriber-workspace',command).status_code,403)
+        self.user['permissions']={};self.assertEqual(self.client.get('/api/v1/packages').status_code,403)
+    def test_duplicate_uuid_conflict_validation_and_atomic_catalog_rollback(self):
+        original,package=self.make_package();self.assertEqual(self.package_post(self.package_command('BUSINESS 100')).status_code,409)
+        conflict={**original,'fields':{**original['fields'],'download_mbps':200}}
+        self.assertEqual(self.package_post(conflict).status_code,409)
+        for fields in ({'monthly_price':'-1'},{'monthly_price':'0.001'},{'duration_days':0},{'active':'true'}):
+            self.assertEqual(self.package_post(self.package_command('Invalid',**fields)).status_code,422)
+        self.assertEqual(self.client.post('/api/v1/packages',json=self.package_command('No CSRF')).status_code,403)
+        def fail(mapper,connection,target):raise SQLAlchemyError('synthetic catalog audit failure')
+        event.listen(PackageEvent,'before_insert',fail)
+        try:
+            create=self.package_command('Rollback');self.assertEqual(self.package_post(create).status_code,503)
+            self.assertEqual(self.package_post(self.package_command('Changed',revision=1),package['id']).status_code,503)
+        finally:event.remove(PackageEvent,'before_insert',fail)
+        self.assertEqual(self.package_counts(),(1,1));self.assertEqual(self.client.get('/api/v1/packages').json()['items'][0]['revision'],1)
+        self.assertEqual(self.package_post(create).status_code,200)
+        self.operator();command=self.command();command['fields'].update(package_id=package['id'],package_revision=1,started_on='2030-02-01',expires_on='2030-01-01')
+        self.assertEqual(self.post('/subscriber-workspace',command).status_code,422);self.assertEqual(self.counts(),(0,0))
+
+    def test_explicit_same_name_version_upgrade_and_subscriber_audit_rollback(self):
+        _,package=self.make_package()
+        self.operator();command=self.command();command['fields'].update(package_id=package['id'],package_revision=1,plan=package['fields']['name'])
+        def fail(mapper,connection,target):raise SQLAlchemyError('synthetic subscriber audit failure')
+        event.listen(SubscriberAudit,'before_insert',fail)
+        try:self.assertEqual(self.post('/subscriber-workspace',command).status_code,503)
+        finally:event.remove(SubscriberAudit,'before_insert',fail)
+        self.assertEqual(self.counts(),(0,0));self.assertEqual(self.package_counts(),(1,1))
+        _,item=self.create(command)
+        self.assertEqual(self.client.get('/api/v1/subscriber-workspace/requests/'+command['request_id']).json()['status'],'SUCCESS')
+        self.admin();response=self.package_post(self.package_command(revision=1,monthly_price='599.90'),package['id']);self.assertEqual(response.status_code,200,response.text)
+        self.operator();detail=self.client.get('/api/v1/subscriber-center/'+item['id']).json()['item'];self.assertEqual(detail['package_revision'],1);self.assertEqual(detail['package_snapshot']['monthly_price'],'499.90')
+        upgrade={**self.operation(item,'PLAN',package['fields']['name']),'package_id':package['id'],'package_revision':2}
+        response=self.post('/subscriber-workspace/management/execute',{'entries':[upgrade]});self.assertTrue(response.json()['results'][0]['success'],response.text)
+        detail=self.client.get('/api/v1/subscriber-center/'+item['id']).json()['item'];self.assertEqual(detail['package_revision'],2);self.assertEqual(detail['package_snapshot']['monthly_price'],'599.90');self.assertEqual(detail['expires_on'],item['expires_on'])

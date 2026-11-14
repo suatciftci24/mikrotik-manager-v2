@@ -10,10 +10,11 @@ const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.chil
 const compile=name=>buildSync({entryPoints:[fileURLToPath(new URL('../src/'+name,import.meta.url))],bundle:true,loader:{'.css':'empty'},write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
 const codes={workspace:compile('components/SyntheticSubscribers.tsx'),legacy:compile('components/SubscriberEditor.tsx'),hook:compile('lib/useSubscriberSave.ts')};
 const router='demo-managed-router-11111111-1111-4111-8111-111111111111';
+const pkg={id:'demo-package-22222222-2222-4222-8222-222222222222',revision:1,is_demo:true,fields:{name:'New',download_mbps:100,upload_mbps:20,duration_days:30,active:true,router_profile:null,monthly_price:'100.00'}};
 function harness(kind,mode){
  const slots=[];let cursor=0;const events=[],saved=[];
  const options={routers:[{id:'demo-router-one',name:'Synthetic Router'}],plans:[{name:'Old',monthly_price:100},{name:'New',monthly_price:200}],persistence:'local-postgresql-demo',is_demo:true};
- const hooks={...React,useContext:()=>({role_code:'ADMIN',can_manage_users:true}),useEffect(){},useCallback:fn=>fn,useRef:value=>{const i=cursor++;slots[i]??={current:value};return slots[i];},useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;const value=slots[i];if(value?.path)return [{...value,loading:false,data:value.path.includes('demo-options')?options:{items:[{id:router,fields:{name:'Synthetic Router'}}]}},()=>{}];return [value,next=>{slots[i]=typeof next==='function'?next(slots[i]):next;}];}};
+ const hooks={...React,useContext:()=>({role_code:'ADMIN',can_manage_users:true}),useEffect(){},useCallback:fn=>fn,useRef:value=>{const i=cursor++;slots[i]??={current:value};return slots[i];},useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;const value=slots[i];if(value?.path)return [{...value,loading:false,data:value.path==='/packages'?{items:[pkg]}:value.path.includes('demo-options')?options:{items:[{id:router,fields:{name:'Synthetic Router'}}]}},()=>{}];return [value,next=>{slots[i]=typeof next==='function'?next(slots[i]):next;}];}};
  const module={exports:{}};new Function('require','module','exports',codes[kind])(name=>name==='react'?hooks:require(name),module,module.exports);
  const original={id:kind==='workspace'?'demo-managed-sub-existing':'demo-sub-existing',customer_name:'Synthetic User',username:'synthetic.test',router_id:kind==='workspace'?router:'demo-router-one',router_name:'Synthetic Router',access_type:'PPPOE',source:'LOCAL',plan:'Old',status:'PAUSED',expires_on:null,revision:3,monthly_price:100,is_demo:true};
  let item={...original};
@@ -25,6 +26,7 @@ function harness(kind,mode){
     control(n=>n.type==='input'&&n.props.maxLength===160,'Synthetic User');
     control(n=>n.type==='input'&&n.props.maxLength===96,'synthetic.test');
     control(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===router),router);
+    control(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===pkg.id),pkg.id);
    }
    control(n=>n.type==='input'&&n.props.maxLength===120,'New');
   }else{

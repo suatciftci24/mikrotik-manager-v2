@@ -1,3 +1,4 @@
+import {packagePrice} from '../lib/packages';
 import {SubscriberAaaDemo} from './SubscriberAaaDemo';
 import {SourceBadge} from './Status';
 import {sourceDescription,sourceLabels,subscriberSource} from '../lib/source';
@@ -47,7 +48,7 @@ export function SubscriberDeviceCenterView({data,tab,onTab,onEdit,onRenew,onMana
  return <><section className="panel registry-detail router-device-summary subscriber-summary" aria-label="Abone özeti">
  <div className="subscriber-summary-title"><div><span className="eyebrow">SENTETİK ABONE · Güncel yetkili kaynak: {subscriberSource(r.source)==='UNKNOWN'?'BELİRSİZ':sourceLabels[subscriberSource(r.source)]} · Erişim türü: {r.access_type??'Bilinmiyor'}</span><h2>{detailText(r.customer_name)}</h2></div><span className="demo-chip">{accountStatus(r.status)}</span></div>
  <Facts items={[
- ['Kullanıcı adı',detailText(r.username)],['Paket',detailText(r.plan)],
+ ['Kullanıcı adı',detailText(r.username)],['Paket',detailText(r.plan)],...(r.package_snapshot?[["Paket sürümü",String(r.package_revision)],["Paket hızı",`${r.package_snapshot.download_mbps}/${r.package_snapshot.upload_mbps} Mbps`],["Aylık ücret",packagePrice(r.package_snapshot.monthly_price)],["Profil eşleme etiketi",r.package_snapshot.router_profile??'Yok · cihazda uygulanmadı']] as [string,string][]:[]),
  ['Router',detailText(r.router_name)],['Veri kaynağı',data.source==='PERSISTENT_WORKSPACE'?'Kalıcı sentetik çalışma alanı':'Mevcut sentetik demo'],
  ['Başlangıç tarihi',r.started_on?expiryDate(r.started_on):'Veri yok'],['Bitiş tarihi',expiry.days===null?'Veri yok':expiryDate(r.expires_on)],['Kalan gün',expiry.days===null?'Veri yok':remainingDays(expiry.days)]
  ]}/><p className="subscriber-connection-note">Oturum: Bilinmiyor · canlı bağlantı ölçülmedi.</p>{subscriberSource(r.source)==='UNKNOWN'&&<p role="status">{sourceDescription(r.source)}</p>}{!r.access_type&&<p>Erişim türü kayıtlı değil; PPPoE/Hotspot türü yetkili kaynaktan veya router atamasından tahmin edilmez.</p>}</section>

@@ -95,7 +95,8 @@ class SubscriberWorkspace:
         values=command.fields.model_dump(mode='json');target=id or 'demo-managed-sub-'+str(command.request_id)
         canonical=command.model_dump(mode='json')
         # Keep pre-started_on UUID fingerprints valid for older clients.
-        if 'started_on' not in command.fields.model_fields_set:canonical['fields'].pop('started_on',None)
+        for key in ('started_on','package_id','package_revision'):
+            if key not in command.fields.model_fields_set:canonical['fields'].pop(key,None)
         fingerprint=hashlib.sha256(json.dumps([actor,id,canonical],sort_keys=True,separators=(',',':')).encode()).hexdigest()
         with self.sessions.begin() as session:
             self.check(session)
@@ -118,6 +119,20 @@ class SubscriberWorkspace:
             if row and not id:
                 if row.fields==values:return account_view(row,router)
                 raise WorkspaceError(409,'İstek kimliği başka kayda ait.')
+            package_keys=('package_id','package_revision','package_snapshot')
+            unchanged=row and values['plan']==row.fields['plan'] and (
+                'package_id' not in command.fields.model_fields_set or
+                all(values.get(key)==row.fields.get(key) for key in ('package_id','package_revision')))
+            if unchanged:
+                values.update({key:row.fields.get(key) for key in package_keys})
+            elif values.get('package_id'):
+                from app.services.packages import binding
+                values.update(binding(session,values['package_id'],values['package_revision']))
+                if not values.get('expires_on') and values.get('started_on'):
+                    try:values['expires_on']=(date.fromisoformat(values['started_on'])+timedelta(days=values['package_snapshot']['duration_days']-1)).isoformat()
+                    except (ValueError,OverflowError):raise WorkspaceError(422,'Paket süresi tarih aralığını aşıyor.') from None
+            else:
+                values.update({key:None for key in package_keys})
             if command.expected_revision!=(row.revision if row else 0):raise WorkspaceError(409,'Abone değişti. Güncel detayı açın.')
             if row and any(row.fields[key]!=values[key] for key in ('router_id','access_type','source','username')):raise WorkspaceError(409,'Router ID, kullanıcı adı, erişim türü ve yetkili kaynak düzenleme ile değiştirilemez.')
             duplicate=session.scalar(select(Account.id).where(Account.username_key==values['username'].casefold(),Account.id!=target))
