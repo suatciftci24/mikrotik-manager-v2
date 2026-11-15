@@ -1,0 +1,20 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {buildSync} from 'esbuild';
+import * as React from 'react';
+const require=createRequire(import.meta.url);
+const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.children).flatMap(nodes)]:[];
+test('mobile header tools open on demand; desktop retains the same theme/search/notification controls',()=>{
+ let cursor=0,states=[true,false];
+ const hooks={...React,useEffect(){},useSyncExternalStore:(_a,_b,server)=>server(),useState:initial=>{const i=cursor++;return [states[i]??initial,value=>{states[i]=value;}];}};
+ const code=buildSync({entryPoints:['src/components/Header.tsx'],bundle:true,write:false,format:'cjs',platform:'node',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+ const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
+ const calls=[],props={active:'subscribers',user:{name:'Test User'},onOpenSearch:()=>calls.push('search'),onOpenNotifications:()=>calls.push('notice'),runtimeProfile:'v26-isolated-acceptance'};
+ const render=()=>{cursor=0;return module.exports.Header(props);};
+ let tree=render(),details=nodes(tree).find(n=>n.type==='details');assert.equal(details.props.open,false);
+ details.props.onToggle({currentTarget:{open:true}});details=nodes(render()).find(n=>n.type==='details');assert.equal(details.props.open,true);
+ states=[false,false];tree=render();assert.equal(nodes(tree).find(n=>n.type==='details').props.open,true);
+ nodes(tree).find(n=>n.props?.className==='search-trigger').props.onClick();nodes(tree).find(n=>n.props?.['aria-label']==='Bildirimler').props.onClick();assert.deepEqual(calls,['search','notice']);
+ const banner=module.exports.DemoBanner({runtimeProfile:'v26-isolated-acceptance'});assert.ok(nodes(banner).some(n=>n.type==='strong'));assert.ok(React.Children.toArray(banner.props.children).some(n=>n.props?.children==='SENTETİK'));
+});

@@ -60,7 +60,8 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
   const routers=(params:Record<string,string>={})=>onNavigate('routers',{source:persistent?'MANAGED_DEMO':'DEMO',...params});
   const daily=(kind:string)=>{onNavigate('dashboard',{view:'DAILY_REPORT',report_source:'DEMO',period:'TODAY',kind});};
   const fullDate=data?new Intl.DateTimeFormat('tr-TR',{dateStyle:'full',timeZone:'UTC'}).format(new Date(data.as_of_date+'T00:00:00Z')):'Türkiye takvim günü';
-  return <div className="screen-stack dashboard-overview">
+  const dailyTile=<SummaryTile title="PPPoE işlemleri" value={data&&!resource.error?dashboardToday(data,null).pppoe:null} note={resource.loading?'Özet yenileniyor':reports?(persistent?'Kalıcı workspace audit · Bugün':'Mevcut demo geçmişi'):'Geçmiş için rapor yetkisi gerekli'} icon={<Activity size={18}/>} label="Bugünün PPPoE işlemlerini aç" disabled={!reports} onClick={()=>daily('PPPOE')}/>;
+  return <div className={'screen-stack dashboard-overview'+(persistent?' workspace-overview':'')}>
     <PageHeading title="Merkezi Dashboard" eyebrow={fullDate} description={persistent?"V2.6 çalışma alanı":"V2 sentetik kayıtları"} actions={<button className="button-secondary" disabled={resource.loading} onClick={refresh}><RefreshCw size={15}/>Özeti yenile</button>}/>
     <section aria-labelledby="overview-status-title" className="overview-section"><div className="overview-section-heading"><h2 id="overview-status-title">Genel durum</h2><span className="demo-chip">SENTETİK V2</span></div>
       <ResourceState {...resource} retry={refresh}/>
@@ -68,16 +69,17 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
       <div className="overview-status-grid">
       {data&&!resource.error&&<>
         <SummaryTile title="Routerlar" value={data.router_counts.total} note="Son kayıtlı envanter" icon={<RouterIcon size={18}/>} label="Tüm routerları göster" onClick={()=>routers()}/>
-        <SummaryTile title="Toplam aboneler" value={data.subscribers.total} note="Mevcut demo aboneleri" icon={<Users size={18}/>} label="Tüm aboneleri göster" onClick={()=>subscribers()}/>
-        <SummaryTile title="Süresi dolmuş" value={data.expiry.expired} note="Bitiş tarihi bugünden önce" icon={<AlertTriangle size={18}/>} label="Süresi dolmuş aboneleri göster" onClick={()=>subscribers({expiry:'EXPIRED'})}/>
+        <SummaryTile title="Toplam aboneler" value={data.subscribers.total} note={persistent?"Kalıcı çalışma alanı":"Mevcut demo aboneleri"} icon={<Users size={18}/>} label="Tüm aboneleri göster" onClick={()=>subscribers()}/>
+        {!persistent&&<SummaryTile title="Süresi dolmuş" value={data.expiry.expired} note="Bitiş tarihi bugünden önce" icon={<AlertTriangle size={18}/>} label="Süresi dolmuş aboneleri göster" onClick={()=>subscribers({expiry:'EXPIRED'})}/>}
         <SummaryTile title="Yaklaşan bitişler" value={data.expiry.within_7} note="Bugün dahil · 7 gün" icon={<CalendarClock size={18}/>} label="7 gün içinde bitecek aboneleri göster" onClick={()=>subscribers({expiry:'WITHIN_7'})}/>
       </>}
-      <CriticalAlarmTile onNavigate={onNavigate}/>
+      {persistent?dailyTile:<CriticalAlarmTile onNavigate={onNavigate}/>}
       </div>
+      <details className="overview-secondary technical-info" open={!persistent}><summary>Durum ve bitiş ayrıntıları</summary>{persistent&&<><CriticalAlarmTile onNavigate={onNavigate}/>{reports&&<DailyEventTile data={data} onOpen={()=>daily('ALL')}/>}</>}
       {data&&!resource.error&&<>
         <div className="overview-router-status" role="group" aria-label="Son kaydedilmiş router durumları"><span>Son durum kaydı · canlı değil:</span>{([['ONLINE','Online',data.router_counts.online],['OFFLINE','Offline',data.router_counts.offline],['DEGRADED','Dikkat',data.router_counts.degraded],['UNKNOWN','Bilinmiyor',data.router_counts.unknown]] as const).map(([status,label,count])=><button key={status} className="button-secondary" onClick={()=>routers({status})}>{label} <strong>{count}</strong></button>)}</div>
         <p className="daily-description">En yeni router ölçüm kaydı: {dateTime(latestRouterObservation(data.routers))} · Zaman her router için farklı olabilir; ayrıntı router detayında.</p>
-        <div className="overview-router-status" role="group" aria-label="Abonelik bitiş kapsamı">
+        <div className="overview-router-status" role="group" aria-label="Abonelik bitiş kapsamı">{persistent&&<button className="button-secondary" onClick={()=>subscribers({expiry:'EXPIRED'})}>Süresi dolmuş: {data.expiry.expired}</button>}
           <button className="button-secondary" onClick={()=>subscribers({expiry:'TODAY'})}>Bugün: {data.expiry_today??'Veri yok'}</button>
           <button className="button-secondary" onClick={()=>subscribers({expiry:'WITHIN_3'})}>3 gün içinde: {data.within_3??'Veri yok'}</button>
           <button className="button-secondary" onClick={()=>subscribers({expiry:'WITHIN_7'})}>7 gün içinde: {data.expiry.within_7}</button>
@@ -86,18 +88,19 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
         </div><details className="technical-info"><summary>Teknik bilgiler</summary><p className="daily-description">Bugün, 3, 7 ve 30 gün aralıkları iç içedir; sayıları toplanmaz. Bilinmeyen tarihler geçerli veya dolmuş sayılmaz. LOCAL/RADIUS hesapları tekil kayıt kimliğiyle sayılır.</p></details>
         {data.router_counts.total===0&&data.subscribers.total===0&&<p className="daily-description">Henüz kayıtlı demo router veya abone yok.</p>}
       </>}
+      </details>
     </section>
-    <section aria-labelledby="overview-daily-title" className="overview-section"><div className="overview-section-heading"><h2 id="overview-daily-title">Günlük işlemler</h2><span className="daily-description">Bugün · Türkiye saati</span></div>
+    {!persistent&&<section aria-labelledby="overview-daily-title" className="overview-section"><div className="overview-section-heading"><h2 id="overview-daily-title">Günlük işlemler</h2><span className="daily-description">Bugün · Türkiye saati</span></div>
       <div className="overview-daily-grid">
-        <SummaryTile title="PPPoE işlemleri" value={data&&!resource.error?dashboardToday(data,null).pppoe:null} note={resource.loading?'Özet yenileniyor':reports?(persistent?'Kalıcı workspace audit · Bugün':'Mevcut demo geçmişi'):'Geçmiş için rapor yetkisi gerekli'} icon={<Activity size={18}/>} label="Bugünün PPPoE işlemlerini aç" disabled={!reports} onClick={()=>daily('PPPOE')}/>
+        {dailyTile}
         <SummaryTile title="Yaklaşan abonelikler" value={data&&!resource.error?data.within_3??null:null} note="Bugün dahil · 3 gün" icon={<CalendarClock size={18}/>} label="3 gün içinde bitecek aboneleri göster" onClick={()=>subscribers({expiry:'WITHIN_3'})}/>
         {reports?<DailyEventTile data={data} onOpen={()=>daily('ALL')}/>:<SummaryTile title="İnternet / WAN olayları" value={null} note="Rapor yetkisi gerekli" icon={<WifiOff size={18}/>} label="İnternet ve WAN olayları için rapor yetkisi gerekli" disabled onClick={()=>{}}/>}
       </div>
-    </section>
+    </section>}
     <section aria-labelledby="overview-quick-title" className="overview-section"><div className="overview-section-heading"><h2 id="overview-quick-title">Hızlı erişim</h2></div>
       <div className="overview-quick-grid">
-        <button className="button-secondary" onClick={()=>routers()}><RouterIcon size={17}/>Router Merkezi<ArrowRight size={14}/></button>
-        <button className="button-secondary" onClick={()=>subscribers()}><Users size={17}/>Abone Merkezi<ArrowRight size={14}/></button>
+        {!persistent&&<button className="button-secondary" onClick={()=>routers()}><RouterIcon size={17}/>Router Merkezi<ArrowRight size={14}/></button>}
+        {!persistent&&<button className="button-secondary" onClick={()=>subscribers()}><Users size={17}/>Abone Merkezi<ArrowRight size={14}/></button>}
         <button className="button-secondary" aria-label="Günlük Yönetim Merkezi" disabled={!reports} onClick={onReport}><LayoutDashboard size={17}/>Günlük Yönetim Merkezi<ArrowRight size={14}/></button>
         <button className="button-secondary" disabled={!reports} onClick={()=>{onNavigate('dashboard',{view:'DAILY_REPORT',report_source:'DEMO',period:'LAST_24',kind:'OPERATIONS',section:'recent-operations'});}}><Activity size={17}/>Son 24 saat yönetim işlemleri<ArrowRight size={14}/></button>
         <button className="button-secondary" onClick={()=>onNavigate('operations')}><AlertTriangle size={17}/>Alarm Merkezi<ArrowRight size={14}/></button>

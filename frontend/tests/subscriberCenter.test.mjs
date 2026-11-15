@@ -256,3 +256,11 @@ test('subscriber summary links to its exact workspace router before opening any 
   assert.doesNotMatch(missing,/aria-label="İlgili routerı aç"/);
  }finally{globalThis.window=prior;}
 });
+
+test('subscriber primary summary keeps package speed and expiry ahead of technical metadata',()=>{
+ const item={...data.item,package_revision:4,package_snapshot:{name:'Plan',download_mbps:100,upload_mbps:20,monthly_price:200,router_profile:'technical-profile'},expires_on:'2099-01-01'};
+ const tree=module.exports.SubscriberDeviceCenterView({data:{...data,item},tab:'overview',onTab(){}}),summary=nodes(tree).find(n=>n.props?.['aria-label']==='Abone özeti'),facts=nodes(summary).find(n=>n.type?.name==='Facts');
+ assert.deepEqual(facts.props.items.map(([label])=>label),['Kullanıcı adı','Paket','Paket hızı','Router','Bitiş tarihi','Kalan gün']);assert.equal(facts.props.items[2][1],'100/20 Mbps');
+ const visible=renderToStaticMarkup(summary);assert.doesNotMatch(visible,/technical-profile|Paket sürümü|Veri deposu/);
+ const html=renderToStaticMarkup(tree);assert.match(html,/<details class="technical-info"><summary>Teknik bilgiler/);assert.match(html,/technical-profile/);
+});

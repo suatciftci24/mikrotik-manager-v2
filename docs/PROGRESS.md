@@ -5845,3 +5845,22 @@ Her iki ilerleme kaydi korunmustur:
 - Backend/DB/kullanıcı/şema/migration, VDS deploy/restart veya V1/V2.5/gerçek
   router/RADIUS/IPsec işlemi yok. Ayrı onaylı frontend yayını gerekir; yeni
   backend/migration gerekmez. Tek commit/normal push sonucu teslimde.
+
+## V26 Abone/Dashboard odaklı sadeleştirme — 2026-11-15 — yerel PASS / görsel BLOCKED
+
+- Temiz main-guncel/3d57942 ve GitHub SHA eşitliği doğrulandı; Altın Kurallar,
+  güncel ilerleme ve son responsive kabul esas alındı.
+- Abone listesi arama/ekle/yenile hizalandı; tekrar açıklamalar azaltıldı. Detayda
+  paket/hız/durum/bitiş/kalan gün önde; teknik paket/depo/audit/bağlantı bilgileri
+  açılır alanlarda. Router linkleri, filtreler, ortak işlem menüsü korunur.
+- Workspace Dashboard dört ana karta indirildi; ek izleme/bitiş bilgileri açılır
+  alanda. Audit/SQL yükleyicisi ve tarih/sayım hesapları değişmedi. Mobil üst bar
+  araçları isteğe bağlı açılır; görünür SENTETİK işareti ve kontroller korunur.
+- Hedefli arayüz/gezinme/audit/dönem ve paket/PPPoE/receipt regresyonları, son
+  production build/diff PASS. Dashboard harness CSS/callback varsayımı düzeltildi;
+  kaynak etiketi korundu. Ayrıntı: V26_SUBSCRIBER_DASHBOARD_SIMPLIFICATION_ACCEPTANCE.md.
+- Chromium crashpad setsockopt/SIGTRAP: 320–430px/masaüstü görsel kabul BLOCKED.
+  Gerçek taşmasızlık PASS iddiası yok; sandbox gevşetilmedi.
+- Backend/PG/kullanıcı/şema/migration, VDS deploy/restart, V1/V2.5/gerçek router/
+  RADIUS/IPsec işlemi yok. Ayrı onaylı frontend yayını yeterli; yeni migration yok.
+  Tek commit ve normal push sonucu teslimde.

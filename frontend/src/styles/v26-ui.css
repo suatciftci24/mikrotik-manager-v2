@@ -92,3 +92,40 @@
  .v26-ui .technical-info{overflow-wrap:anywhere}
  .v26-ui .registry-consent{min-width:0;white-space:normal;align-items:flex-start}
 }
+/* Daily subscriber management: primary data first, optional tools stay available. */
+.topbar-tools{border:0;padding:0;min-width:0}
+.topbar-tools>summary{display:none}
+.v26-ui .workspace-overview .overview-status-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.v26-ui .overview-secondary[open]{display:block}
+.v26-ui .overview-secondary .overview-source-tile{margin:8px 0;max-width:420px}
+.v26-ui .synthetic-subscriber-list>.workspace-list-heading{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin:0 0 8px}
+.v26-ui .workspace-list-heading>.form-label{flex:1 1 240px;min-width:0;margin:0}
+.v26-ui .workspace-list-heading>.form-label input{width:100%;box-sizing:border-box}
+.v26-ui .synthetic-subscriber-list .subscriber-disclosure>.inventory-toolbar{align-items:flex-end;gap:10px;padding:8px 0}
+.v26-ui .synthetic-subscriber-list .subscriber-disclosure .form-label{min-width:0;margin:0;flex:1 1 150px}
+.v26-ui .subscriber-summary .detail-facts{grid-template-columns:repeat(3,minmax(0,1fr))}
+.v26-ui .subscriber-summary .eyebrow{font-size:11px}
+.v26-ui .subscriber-summary-title h2{margin-bottom:8px}
+@media(max-width:650px){
+ .v26-ui .topbar .breadcrumbs{display:none}
+ .v26-ui .topbar{padding:0 12px;min-height:0}
+ .v26-ui .topbar-tools{width:100%}
+ .v26-ui .topbar-tools>summary{display:flex;align-items:center;min-height:44px;cursor:pointer;font-size:12px;color:var(--text-secondary)}
+ .v26-ui .topbar-tools .topbar-actions{justify-content:flex-start;padding-bottom:8px;margin:0}
+ .v26-ui .mobile-header{min-height:44px;padding-top:0;padding-bottom:0}
+ .v26-ui .demo-banner{gap:4px;margin-bottom:8px}
+ .v26-ui .demo-banner .technical-info{flex:0 1 auto;margin-left:auto}
+ .v26-ui .workspace-overview .overview-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .v26-ui .workspace-list-heading{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important}
+ .v26-ui .workspace-list-heading>.form-label,.v26-ui .workspace-list-heading>.record-link{grid-column:1/-1}
+ .v26-ui .workspace-list-heading>button{width:100%;white-space:normal}
+ .v26-ui .subscriber-summary .detail-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .v26-ui .subscriber-summary .detail-facts>div{padding:4px 0;gap:4px;display:block}
+ .v26-ui .subscriber-summary dt{font-size:11px}
+ .v26-ui .subscriber-summary dd{margin-top:4px;font-size:13px;text-align:left}
+ .v26-ui .subscriber-actions-menu .subscriber-row-actions>button{min-width:120px}
+ .v26-ui .compact-subscriber-content{display:grid;gap:2px}
+ .v26-ui .compact-subscriber-meta{font-size:11px}
+}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
