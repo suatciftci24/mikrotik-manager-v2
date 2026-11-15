@@ -6,7 +6,7 @@ import json
 import os
 from uuid import uuid4
 from pathlib import Path
-from sqlalchemy import text
+from sqlalchemy import text, bindparam
 from app.services.identity_setup import inspect_setup, schema_name
 from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 from typing import Literal
@@ -84,6 +84,25 @@ def find_user(key,by_username=False):
         if state.closed and (row['id']=='demo-user' or row.get('account_origin')!='LOCAL'):return None
         if row.get('account_origin')=='LOCAL' and not state.closed:raise DemoStorageUnavailable()
         return {**row,'bootstrap_closed':state.closed}
+
+
+@storage_errors
+def audit_actor_usernames(actor_ids):
+    """Names only for actors in an already-authorized audit response; never a directory."""
+    ids=set(actor_ids)
+    if not ids:return {}
+    if len(ids)>50:raise ValueError('Subscriber history actor limit exceeded')
+    store=adapter();schema=schema_name(store.schema)
+    if os.environ.get('V2_DEPLOYMENT_PROFILE')=='v26-isolated-acceptance' and schema!='v26_acceptance':return {}
+    with store.engine.connect() as connection:
+        store._verify(connection)
+        state=inspect_setup(connection,schema)
+        if not state.users_ready:return {}
+        if (schema=='v26_acceptance' or 'V2_DEPLOYMENT_PROFILE' in os.environ) and not state.closed:return {}
+        origin=" AND account_origin='LOCAL' AND id<>'demo-user'" if state.closed else ''
+        statement=text(f'SELECT id,username FROM {schema}.users WHERE id IN :ids'+origin).bindparams(bindparam('ids',expanding=True))
+        rows=connection.execute(statement,{'ids':sorted(ids)}).mappings()
+        return {row['id']:row['username'] for row in rows if isinstance(row['username'],str) and 3<=len(row['username'])<=64}
 
 
 

@@ -229,3 +229,15 @@ test('history disclosure hides technical fields and unchanged snapshots from the
  const disclosure=html.match(/<details>([\s\S]*?)<\/details>/)[0];assert.doesNotMatch(disclosure,/<details open/);assert.match(disclosure,/Teknik detaylar/);assert.match(disclosure,/audit-uuid/);assert.match(disclosure,/Same plan/);
  const visible=html.replace(disclosure,'');assert.match(visible,/Before → After/);assert.match(visible,/operator/);assert.doesNotMatch(visible,/Same plan|audit-uuid|old-id|new-id|İşlem revizyonu|demo-managed-router/);
 });
+
+test('actor username is read projection; unresolved long identities stay short outside technical details',()=>{
+ const actor_id='v2-user-12345678-1234-4234-8234-123456789abc';
+ const event={actor_id,actor_username:'known.operator',operation:'UPDATE',result:'APPLIED',occurred_at:'2026-11-05T21:30:00Z',revision:2,previous_values:{customer_name:'Before',plan:'Unchanged'},new_values:{customer_name:'After',plan:'Unchanged'}};
+ const render=actor_username=>renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,history:[{...event,actor_username}]},tab:'history',onTab(){}}));
+ for(const username of ['known.operator',null]){
+  const html=render(username),technical=html.match(/<details>[\s\S]*?<\/details>/)[0],visible=html.replace(technical,'');
+  assert.match(technical,new RegExp(actor_id));assert.doesNotMatch(technical,/<details open/);
+  assert.doesNotMatch(visible,/Uygulandı · Sentetik kayıt|Unchanged|12345678-1234-4234/);
+  assert.match(visible,/Before → After/);assert.ok(visible.includes(username??'Kullanıcı (v2-user-…9abc)'));
+ }
+});

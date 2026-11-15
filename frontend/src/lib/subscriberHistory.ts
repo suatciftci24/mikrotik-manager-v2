@@ -27,3 +27,11 @@ export function changedHistoryValues(event: {previous_values?:Record<string,unkn
  if(event.date_changed){if(!Object.hasOwn(previous,'expires_on'))previous.expires_on=event.previous_expires_on;if(!Object.hasOwn(next,'expires_on'))next.expires_on=event.expires_on;}
  return [...new Set([...Object.keys(previous),...Object.keys(next)])].filter(key=>Object.hasOwn(fields,key)&&!['router_id','package_id','package_revision'].includes(key)&&JSON.stringify(previous[key])!==JSON.stringify(next[key])).map(key=>({key,label:fields[key],previous:valuesText({[key]:previous[key] as string|number|null}).split(': ').slice(1).join(': '),next:valuesText({[key]:next[key] as string|number|null}).split(': ').slice(1).join(': ')}));
 }
+
+export function historyActor(event:{actor_id?:string|null;actor_username?:string|null}){
+ const username=event.actor_username?.trim();
+ if(username&&username.length<=64)return username;
+ const id=event.actor_id?.trim();
+ if(!id)return 'Bilinmiyor';
+ return id.length>24?`Kullanıcı (${id.slice(0,8)}…${id.slice(-4)})`:id;
+}

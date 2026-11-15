@@ -22,6 +22,8 @@ class PppoeWorkspace(TestCase):
         for target,value in [('app.services.subscriber_center.workspace',self.accounts),('app.api.v1.subscriber_center.workspace',self.accounts),('app.api.v1.subscriber_center.operations',self.ops)]:
             p=patch(target,value);p.start();self.addCleanup(p.stop)
         self.user['permissions']={self.allowed:{'can_view':True,'can_manage_pppoe':True},self.hidden:{'can_view':False,'can_manage_pppoe':True}}
+        names_patch=patch('app.services.identity.audit_actor_usernames',return_value={})
+        self.names=names_patch.start();self.addCleanup(names_patch.stop)
         self.headers={'X-V2-Demo-Action':'subscriber-workspace'}
     def command(self,router=None,**fields):
         return dict(request_id=str(uuid4()),fields=dict(customer_name='Synthetic Subscriber',username='fixture.'+uuid4().hex,router_id=router or self.allowed,access_type='PPPOE',source='LOCAL',plan='Plan 100',status='ACTIVE',started_on='2026-01-01',expires_on='2030-01-01',**fields),expected_revision=0,confirmed=True)
@@ -174,3 +176,26 @@ class PppoeWorkspace(TestCase):
         self.assertEqual(result.json()['items'][0]['item_id'],item['id'])
         self.user['permissions'][self.allowed]['can_view']=False
         self.assertEqual(self.client.get(path).status_code,403)
+
+    def test_actor_names_enrich_only_authorized_history_and_preserve_raw_audit(self):
+        _,item=self.create()
+        self.names.return_value={self.user['id']:'existing.operator'}
+        path='/api/v1/subscriber-center/'+item['id']
+        response=self.client.get(path)
+        self.assertEqual(response.status_code,200,response.text)
+        history=response.json()['history']
+        self.assertEqual(history[0]['actor_username'],'existing.operator')
+        self.assertEqual(history[0]['actor_id'],self.user['id'])
+        self.names.assert_called_once_with({self.user['id']})
+        self.assertNotIn('actor_username',self.accounts.detail(item['id']).history[0].model_dump(exclude_none=True))
+        self.names.reset_mock()
+        self.user['permissions'][self.allowed]['can_view']=False
+        self.assertEqual(self.client.get(path).status_code,404)
+        self.names.assert_not_called()
+        self.user['permissions'][self.allowed]['can_view']=True
+        from app.services.demo_subscriptions import DemoStorageUnavailable
+        self.names.side_effect=DemoStorageUnavailable()
+        fallback=self.client.get(path)
+        self.assertEqual(fallback.status_code,200,fallback.text)
+        self.assertIsNone(fallback.json()['history'][0]['actor_username'])
+        self.assertEqual(fallback.json()['history'][0]['actor_id'],history[0]['actor_id'])

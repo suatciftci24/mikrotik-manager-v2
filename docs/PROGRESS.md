@@ -5789,3 +5789,20 @@ Her iki ilerleme kaydi korunmustur:
 - DB verisi/kullanıcı/model/şema veya migration, deploy/restart, V1/V2.5,
   router/RADIUS/IPsec işlemi yok. Yeni migration gerekmez; etkinleşmesi için
   ayrı onaylı backend/frontend yayını gerekir. Commit/normal push teslimde.
+
+## V26 Abone Geçmiş aktör adı ve sade sonuç — 2026-11-15 — yerel PASS
+
+- Temiz main-guncel/70226cf ve GitHub SHA eşitliği doğrulandı; Altın Kurallar,
+  güncel kabul ve özellik koruma envanteri okundu.
+- Yetkili audit yanıtındaki aktörler mevcut identity deposundan toplu id/username
+  okumasıyla çözülür. V26/legacy/origin sınırları korunur; yetkisiz kayıtta sorgu
+  yapılmaz. İsim yoksa kısa kimlik, tam kimlik kapalı Teknik detaylar'dadır.
+- Başarılı satırların tekrar sonuç metni teknik bölüme taşındı; işlem/tarih/aktör
+  ve yalnız farklı eski→yeni değerler önde, başarısızlık/belirsizlik görünür.
+  Audit/UUID/revizyon/snapshot ve iş kuralları değişmedi.
+- 15 backend hedef testi, 23 frontend senaryosu ve production build/diff PASS.
+  Yalnız hatalı yeni UI assertion düzeltildi ve başarısız senaryo tekrarlandı.
+  Kanıt/sınırlar: docs/V26_SUBSCRIBER_HISTORY_ACTOR_ACCEPTANCE.md.
+- Mevcut PG/veri/kullanıcı/şema veya migration, VDS deploy/restart, V1/V2.5,
+  cihaz/RADIUS/IPsec işlemi yok. Ayrı onaylı backend/frontend yayını gerekir;
+  yeni migration gerekmez. Commit/push sonucu teslimde.

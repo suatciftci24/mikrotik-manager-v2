@@ -14,8 +14,8 @@ def mutator(user:dict=Depends(current_demo_user),x_v2_demo_action:str|None=Heade
 @router.get('/subscriber-center/{id}',response_model=SubscriberCenterData)
 def detail(id:str,user:dict=Depends(current_demo_user)):
     if id.startswith('demo-managed-sub-'):
-        workspace_scope(user);return execute(workspace.detail,id,user=user)
-    try:return legacy_center(public_detail(subscriber_for(user,id),user))
+        workspace_scope(user);return actor_names(execute(workspace.detail,id,user=user))
+    try:return actor_names(legacy_center(public_detail(subscriber_for(user,id),user)))
     except HTTPException as failure:
         if failure.status_code!=404:raise
         # Only a central admin may inspect an orphan; restricted viewers retain 404.
@@ -25,7 +25,16 @@ def detail(id:str,user:dict=Depends(current_demo_user)):
         from app.services.demo_data import ROUTERS
         detail=demo_subscriptions.store.detail(id)
         if not detail or detail['item'].get('is_demo') is not True or detail['item'].get('router_id') in {r['id'] for r in ROUTERS}:raise failure
-        return legacy_center(detail)
+        return actor_names(legacy_center(detail))
+
+def actor_names(detail):
+    # Authorize and scope history first; identity failures must not hide the audit.
+    from app.services import identity
+    from app.services.demo_subscriptions import DemoStorageUnavailable
+    try:names=identity.audit_actor_usernames({event.actor_id for event in detail.history})
+    except DemoStorageUnavailable:names={}
+    return detail.model_copy(update={'history':[event.model_copy(update={'actor_username':names.get(event.actor_id)}) for event in detail.history]})
+
 @router.get('/subscriber-workspace',response_model=SubscriberWorkspaceList)
 def list_subscribers(query:str=Query('',max_length=120),access_type:str=Query('ALL',pattern='^(ALL|PPPOE|HOTSPOT)$'),status:str=Query('ALL',pattern='^(ALL|ACTIVE|PAUSED)$'),router_id:str=Query('',max_length=100),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_demo_user)):
     workspace_scope(user)
