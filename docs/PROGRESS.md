@@ -5770,3 +5770,22 @@ Her iki ilerleme kaydi korunmustur:
 - Kabul: docs/V26_PACKAGE_SUBSCRIPTION_ACCEPTANCE.md. V1/V2.5/VDS/DB/kullanıcı/
   parola/cihaz/RADIUS/IPsec, deploy/restart/veri silme yok. Remote DNS hatası;
   push yapılmadı. Yerel commit teslim edilir.
+
+## V26 Dashboard workspace audit ve sade geçmiş — 2026-11-15 — yerel PASS
+
+- Temiz main-guncel/70eb954; GitHub SHA eşitliği doğrulandı. Altın Kurallar ve
+  ilgili son kabul raporları okundu. Dashboard'ın sabit history_available=false
+  kök nedeni giderildi; kalıcı günlük rapor legacy/V1 kaynaklarını çağırmaz.
+- Mevcut workspace audit, rapor yetkisi + router can_view kesişimiyle SQL count
+  ve sayfalama öncesi filtrelenir. Türkiye günü/dönem, kaynak/revizyon doğrulama,
+  boş/erişilemeyen audit Veri yok ve başarısız sonuç ayrımı korundu.
+- Abone Geçmiş: işlem/tarih/aktör ve yalnız değişen eski→yeni alanlar önde;
+  UUID/revizyon/router ID/tam snapshot/açıklamalar kapalı Teknik detaylar içinde.
+  Audit, mevcut işlem kuralları ve legacy özellikler korunur.
+- 12 backend hedef testi ve beş frontend hedef dosyası ilgili senaryoları,
+  son production build/diff PASS. Sonuçlar sentetik ASGI/SQLite/React kapsamı;
+  gerçek PG/canlı API/browser kabulü değildir. Ayrıntı:
+  docs/V26_DASHBOARD_AUDIT_HISTORY_ACCEPTANCE.md.
+- DB verisi/kullanıcı/model/şema veya migration, deploy/restart, V1/V2.5,
+  router/RADIUS/IPsec işlemi yok. Yeni migration gerekmez; etkinleşmesi için
+  ayrı onaylı backend/frontend yayını gerekir. Commit/normal push teslimde.

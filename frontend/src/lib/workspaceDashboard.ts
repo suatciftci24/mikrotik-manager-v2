@@ -1,3 +1,4 @@
+import {loadManagementReport,buildManagementReport} from './managementReport.ts';
 import {api,type Router} from './api.ts';
 import {buildDailySummary} from './dailySummary.ts';
 import {expiryInfo} from './expiry.ts';
@@ -31,8 +32,15 @@ export async function loadWorkspaceDashboardSummary(_path:string,init?:RequestIn
   if(info.status==='UNKNOWN')summary.expiry.unknown++;else if(info.status==='EXPIRED')summary.expiry.expired++;else if(info.status==='ACTIVE')summary.expiry.active++;
   if(info.days!==null&&info.days>=0){if(info.days===0)expiry_today++;if(info.days<=3)within_3++;if(info.days<=7)summary.expiry.within_7++;if(info.days<=15)summary.expiry.within_15++;if(info.days<=30)summary.expiry.within_30++;}
  }
- // Inventory is not audit history or session evidence.
- return {...summary,within_3,expiry_today,history_available:false};
+ // Inventory never supplies audit or session evidence.
+ let operation_history=summary.operation_history,history_available=false;
+ try{
+  const source=await loadManagementReport('/management/report?persistent=1',init,{accounts,routers:records});
+  const report=buildManagementReport(source,{period:'TODAY',router:'',kind:'PPPOE'});
+  history_available=report.historyAvailable;
+  operation_history=report.operations.filter(row=>row.audit_result==='APPLIED');
+ }catch(error){if(init?.signal?.aborted)throw error;}
+ return {...summary,operation_history,within_3,expiry_today,history_available};
 }
 
 export async function loadWorkspaceRouterSummary(_path:string,init?:RequestInit):Promise<DashboardSummary>{

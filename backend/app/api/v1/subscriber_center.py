@@ -54,8 +54,12 @@ def manage(payload:SubscriberOperations,user:dict=Depends(mutator)):
     return {'results':[execute(operations.execute,entry,user['id'],user=user) for entry in payload.entries],'is_demo':True}
 
 @router.get('/subscriber-workspace/management/history',response_model=OperationHistory)
-def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',pattern='^(ALL|EDIT|PLAN|STATUS|EXPIRE|EXTEND|ROUTER|CREATE|UPDATE|RENEWAL)$'),result:str=Query('ALL',pattern='^(ALL|SUCCESS|FAILED)$'),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_demo_user)):
-    workspace_scope(user)
+def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',pattern='^(ALL|EDIT|PLAN|STATUS|EXPIRE|EXTEND|ROUTER|CREATE|UPDATE|RENEWAL)$'),result:str=Query('ALL',pattern='^(ALL|SUCCESS|FAILED)$'),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),report:bool=False,user:dict=Depends(current_demo_user)):
+    scope=workspace_scope(user)
+    if report and scope is not None:
+        ids={id for id in scope if user.get('permissions',{}).get(id,{}).get('can_view_reports') is True}
+        if not ids:raise HTTPException(403,'Rapor yetkisi gerekli')
+        user={**user,'permissions':{id:user['permissions'][id] for id in ids}}
     return execute(operations.history,item_id,operation,result,page,page_size,user=user)
 
 

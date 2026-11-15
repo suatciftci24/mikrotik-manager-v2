@@ -20,3 +20,10 @@ export function historyValues(event: Pick<SubscriberHistoryEvent,'operation'|'pr
     ? [expiryDate(event.previous_expires_on??null), expiryDate(event.expires_on??null)]
     : [valuesText(event.previous_values), valuesText(event.new_values)];
 }
+
+/** Compare saved snapshots without filling gaps from the current account. */
+export function changedHistoryValues(event: {previous_values?:Record<string,unknown>;new_values?:Record<string,unknown>;date_changed?:boolean;previous_expires_on?:string|null;expires_on?:string|null}){
+ const previous={...event.previous_values},next={...event.new_values};
+ if(event.date_changed){if(!Object.hasOwn(previous,'expires_on'))previous.expires_on=event.previous_expires_on;if(!Object.hasOwn(next,'expires_on'))next.expires_on=event.expires_on;}
+ return [...new Set([...Object.keys(previous),...Object.keys(next)])].filter(key=>Object.hasOwn(fields,key)&&!['router_id','package_id','package_revision'].includes(key)&&JSON.stringify(previous[key])!==JSON.stringify(next[key])).map(key=>({key,label:fields[key],previous:valuesText({[key]:previous[key] as string|number|null}).split(': ').slice(1).join(': '),next:valuesText({[key]:next[key] as string|number|null}).split(': ').slice(1).join(': ')}));
+}

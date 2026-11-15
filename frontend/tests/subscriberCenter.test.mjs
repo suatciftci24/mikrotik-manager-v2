@@ -67,7 +67,7 @@ test('Hotspot edit preserves locked identity and submits only synthetic fields w
 
 test('renewal history shows previous/new dates, time and applied result without secrets',()=>{
  const changed={...data,history:[{operation:'RENEWAL',occurred_at:'2026-10-29T12:00:00Z',actor_id:'demo-user',revision:2,previous_expires_on:'2026-10-01',expires_on:'2026-11-28',date_changed:true,result:'APPLIED'}]};
- const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:changed,tab:'history',onTab:()=>{}}));assert.match(html,/Abonelik uzatıldı/);assert.match(html,/Eski bitiş/);assert.match(html,/Yeni bitiş/);assert.match(html,/Sonuç: Uygulandı/);assert.match(html,/2026/);
+ const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:changed,tab:'history',onTab:()=>{}}));assert.match(html,/Abonelik uzatıldı/);assert.match(html,/Bitiş/);assert.match(html,/1 Eki 2026/);assert.match(html,/28 Kas 2026/);assert.match(html,/Sonuç: Uygulandı/);assert.match(html,/2026/);
 });
 
 test('missing router keeps subscriber detail and renders no invented router link',()=>{
@@ -86,7 +86,7 @@ test('failed per-record audit stays failed and never claims the business value c
 test('history shows package context together with changed expiry and Istanbul actor time',()=>{
  const history=[{operation:'RENEWAL',occurred_at:'2026-11-05T21:30:00Z',actor_id:'synthetic.operator',revision:2,date_changed:true,previous_expires_on:'2026-11-01',expires_on:'2026-12-06',previous_values:{plan:'Historical 100',expires_on:'2026-11-01'},new_values:{plan:'Historical 100',expires_on:'2026-12-06'},result:'APPLIED'}];
  const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,history},tab:'history',onTab(){}}));
- assert.match(html,/Historical 100/);assert.match(html,/synthetic.operator/);assert.match(html,/6 Kas 2026/);assert.match(html,/00:30/);assert.match(html,/İstanbul/);assert.match(html,/Eski bitiş:/);assert.match(html,/Yeni bitiş:/);
+ assert.match(html,/Historical 100/);assert.match(html,/synthetic.operator/);assert.match(html,/6 Kas 2026/);assert.match(html,/00:30/);assert.match(html,/İstanbul/);assert.match(html,/1 Kas 2026 → 6 Ara 2026/);assert.match(html,/<summary>Teknik detaylar<\/summary>/);
 });
 
 const policyCode=buildSync({entryPoints:[fileURLToPath(new URL('../src/lib/subscriberActions.ts',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs'}).outputFiles[0].text;
@@ -221,4 +221,11 @@ test('operator editor filters writable router choices and exposes scoped profile
  const html=renderToStaticMarkup(tree);assert.match(html,/Başlangıç tarihi/);assert.match(html,/Scoped Profile/);
  const routerSelect=nodes(tree).find(n=>n.type==='select'&&n.props.required);
  assert.deepEqual(nodes(routerSelect).filter(n=>n.type==='option').map(n=>n.props.value),['','demo-managed-router-write']);
+});
+
+test('history disclosure hides technical fields and unchanged snapshots from the main view',()=>{
+ const event={operation:'UPDATE',request_id:'audit-uuid',occurred_at:'2026-11-05T21:30:00Z',actor_id:'operator',revision:2,result:'APPLIED',router_id:data.item.router_id,previous_values:{plan:'Same plan',customer_name:'Before',router_id:'old-id'},new_values:{plan:'Same plan',customer_name:'After',router_id:'new-id'}};
+ const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,history:[event]},tab:'history',onTab(){}}));
+ const disclosure=html.match(/<details>([\s\S]*?)<\/details>/)[0];assert.doesNotMatch(disclosure,/<details open/);assert.match(disclosure,/Teknik detaylar/);assert.match(disclosure,/audit-uuid/);assert.match(disclosure,/Same plan/);
+ const visible=html.replace(disclosure,'');assert.match(visible,/Before → After/);assert.match(visible,/operator/);assert.doesNotMatch(visible,/Same plan|audit-uuid|old-id|new-id|İşlem revizyonu|demo-managed-router/);
 });

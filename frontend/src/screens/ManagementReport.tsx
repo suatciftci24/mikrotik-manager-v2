@@ -63,8 +63,9 @@ export function SyntheticManagementReport({onBack,center='dashboard'}:{onBack:()
   const [quick,setQuick]=useState<{detail:SubscriberDetailData;action:QuickAction}|null>(null);
   const [managed,setManaged]=useState<{item:CenterSubscriber;action:'EXTEND'|'PLAN'|'STATUS'}|null>(null);
   const identity=useIdentity();
-  const workspace=identity?.role_code==='ADMIN'&&identity.can_manage_users===true;
-  const resource=useResource('/management/report'+(workspace?'?workspace=1':''),loadManagementReport,dependencies);
+  const persistent=identity?.router_inventory_source==='PERSISTENT_WORKSPACE';
+  const workspace=persistent||(identity?.role_code==='ADMIN'&&identity.can_manage_users===true);
+  const resource=useResource('/management/report'+(persistent?'?persistent=1':workspace?'?workspace=1':''),loadManagementReport,dependencies);
   const [filter,setFilter]=useState(()=>managementFilterFromHash(typeof window==='undefined'?'':window.location.hash));
   const [now,setNow]=useState(()=>new Date());
   const [selected,setSelected]=useState<{kind:'operation'|'event';id:string}|null>(null);
@@ -113,12 +114,12 @@ export function SyntheticManagementReport({onBack,center='dashboard'}:{onBack:()
     {report?.workspaceError&&<p role="alert">Kalıcı kaynak eksik; özet ve abone sayıları yalnız erişilebilen kayıtları kapsar. {report.workspaceError}</p>}
     {report&&!resource.loading&&!error&&<>
       <div className="metric-grid management-metrics" aria-label="Günlük yönetim özeti">
-        <MetricCard title={center==='operations'?'Kayıtlı yönetim işlemleri':'Başarılı PPPoE işlemleri'} value={number(center==='operations'?report.counts.operations:report.pppoeOperations)} note={workspace?'Dönem · demo + kalıcı geçmiş':'Dönem · mevcut demo geçmişi'} icon={<Activity size={18}/>}/>
+        <MetricCard title={center==='operations'?'Kayıtlı yönetim işlemleri':'Başarılı PPPoE işlemleri'} value={number(center==='operations'?report.counts.operations:report.pppoeOperations)} note={persistent?'Dönem · kalıcı workspace audit':workspace?'Dönem · demo + kalıcı geçmiş':'Dönem · mevcut demo geçmişi'} icon={<Activity size={18}/>}/>
         <MetricCard title="Abonelik bitişleri" value={String(report.expiryRows.length)} note={`${expiryChoices.find(([key])=>key===(filter.expiry??'TODAY'))?.[1]} · erişilebilen sentetik aboneler`} icon={<CalendarClock size={18}/>}/>
         <MetricCard title="İnternet kesintileri" value={number(report.counts.outages)} note="Seçili dönem · tekil kesinti" icon={<WifiOff size={18}/>}/>
         <MetricCard title="WAN değişiklikleri" value={number(report.counts.wan)} note="Seçili dönem · kayıtlı olay" icon={<ArrowLeftRight size={18}/>}/>
       </div>
-      <section className="panel central-events management-expiries"><div className="panel-title"><h2>Abonelik bitişleri</h2><a className="record-link" href={linkedCenterHash(managementSubscribersHash(filter),hash)}>İlgili abone listesini aç</a>{!filter.router&&workspace&&<a className="record-link" href={linkedCenterHash(managementSubscribersHash(filter,'PERSISTENT'),hash)}>Kalıcı abone listesini aç</a>}</div>
+      <section className="panel central-events management-expiries"><div className="panel-title"><h2>Abonelik bitişleri</h2><a className="record-link" href={linkedCenterHash(managementSubscribersHash(filter,persistent?'PERSISTENT':undefined),hash)}>İlgili abone listesini aç</a>{!filter.router&&workspace&&<a className="record-link" href={linkedCenterHash(managementSubscribersHash(filter,'PERSISTENT'),hash)}>Kalıcı abone listesini aç</a>}</div>
         <div className="filter-tabs management-expiry-filters" role="group" aria-label="Abonelik bitiş filtresi">{expiryChoices.map(([key,label])=><button key={key} aria-pressed={(filter.expiry??'TODAY')===key} className={(filter.expiry??'TODAY')===key?'selected':''} onClick={()=>change({...filter,expiry:key})}>{label} · {report.expirySummary[({TODAY:'today',WITHIN_3:'within_3',WITHIN_7:'within_7',WITHIN_30:'within_30',EXPIRED:'expired',UNKNOWN:'unknown',VALID:'valid',ALL:'total'} as const)[key]]}</button>)}</div>
         <OperationsDisclosure enabled={true} label={"Uyarı kapsamı · "+report.expirySummary.warning+" tekil uyarı"}>        <p className="daily-description" role="status">Tekil uyarı: {report.expirySummary.warning} (dolmuş veya en fazla 7 gün). Bugün, 3, 7 ve 30 gün aralıkları iç içedir; sayıları toplanmaz. Hesap aktifliği, abonelik geçerliliği ve oturum durumu farklıdır.</p>
         <p className="daily-description">Bugünün Türkiye takvimine göre · erişilebilen demo ve kalıcı aboneler · rapor döneminden bağımsız. Kalıcı abone listesine router/hesap filtresi taşınır; paket, kaynak ve bitiş filtreleri bu ekranda uygulanır.</p>
@@ -146,7 +147,7 @@ export function SyntheticManagementReport({onBack,center='dashboard'}:{onBack:()
       <details className="panel management-notes"><summary>Veri kapsamı ve rapor bilgisi</summary>
         <p>{reportPeriods[filter.period]}: {expiryDate(report.range.start)} – {expiryDate(report.range.end)}. Gelecek ve zamanı doğrulanamayan kayıtlar dönem toplamına alınmaz. Okuma: {dateTime(resource.data?.read_at??null)}.</p>
         <p>Dönem ve olay filtresi işlem/olay listeleri ile kartlarına uygulanır; bitişler router kapsamındaki bugünkü kayıtlardır, geçmişe ait durum tahmini değildir.</p>
-        <p>Mevcut demo geçmişi{workspace?' ve kalıcı çalışma alanının başarılı ve başarısız PPPoE audit kayıtları':' (kalıcı çalışma alanı için merkezi yönetici yetkisi gerekir)'}. Türü belirtilmemiş {number(report.untypedOperations)} işlem PPPoE sayılmaz. Hesap işlemi online oturum kanıtı değildir. Kalıcı abonelerin bitişleri de erişilebilen kayıt kapsamına dahildir.</p>
+        <p>{persistent?'Yalnız rapor yetkili kalıcı workspace audit kayıtları':<>Mevcut demo geçmişi{workspace?' ve kalıcı çalışma alanının başarılı ve başarısız PPPoE audit kayıtları':' (kalıcı çalışma alanı için merkezi yönetici yetkisi gerekir)'}</>}. Türü belirtilmemiş {number(report.untypedOperations)} işlem PPPoE sayılmaz. Hesap işlemi online oturum kanıtı değildir. Kalıcı abonelerin bitişleri de erişilebilen kayıt kapsamına dahildir.</p>
         {report.workspaceError&&<p>Kalıcı geçmiş: {report.workspaceError}</p>}
         <p>Doğrulanmış zaman çifti olmadan kesinti süresi hesaplanmaz. Kesinti ve geri gelme ayrı kayıttır, aynı kesinti iki kez sayılmaz.</p>
         <div className="daily-links"><a className="record-link" href="#module=subscribers&workspace=HISTORY">Merkezi İşlem Geçmişini aç</a><a className="record-link" href={'#'+new URLSearchParams({module:'dashboard',view:'OPERATIONS_REPORT',router_id:filter.router,start:report.range.start,end:report.range.end})}>Operasyon ve audit raporu</a></div>

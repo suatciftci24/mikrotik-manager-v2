@@ -14,7 +14,7 @@ export type ManagementPeriod=keyof typeof reportPeriods;
 export const reportKinds={ALL:'Tüm işlem ve olaylar',OPERATIONS:'Tüm yönetim işlemleri',PPPOE:'PPPoE işlemleri',CREATE:'Abone oluşturma',PLAN_CHANGE:'Paket/profil değiştirme',STATUS_CHANGE:'Hesap durumu değiştirme',RENEWAL:'Abonelik yenileme',DATE_EDIT:'Bitiş tarihi düzenleme',INTERNET_DOWN:'İnternet kesintisi',INTERNET_UP:'Bağlantı geri gelmesi',WAN_CHANGE:'WAN değişikliği'} as const;
 export type ReportOperation=DailyOperation & {router_id:string|null;workspace?:boolean;label?:string};
 export type WorkspaceHistory={accounts:CenterSubscriber[];receipts:OperationReceipt[];routers:{id:string;fields:{name:string}}[]};
-export type ManagementSource={workspace?:WorkspaceHistory|null;workspaceError?:string;read_at?:string;routers:Router[];details:SubscriberDetailData[];events:AlarmEvent[]|null};
+export type ManagementSource={persistent?:boolean;workspace?:WorkspaceHistory|null;workspaceError?:string;read_at?:string;routers:Router[];details:SubscriberDetailData[];events:AlarmEvent[]|null};
 export type ManagementFilter={query?:string;period:ManagementPeriod;router:string;kind:keyof typeof reportKinds;expiry?:ExpiryFilter;source?:SourceFilter;plan?:string;account_status?:'ALL'|'ACTIVE'|'PAUSED'|'PENDING'};
 export const managementExpiryFilters=['ALL','EXPIRED','TODAY','WITHIN_3','WITHIN_7','WITHIN_30','VALID','UNKNOWN'] as const;
 export function managementSourceFromHash(hash:string){return new URLSearchParams(hash.replace(/^#/, '')).get('report_source')==='V1_INVENTORY'?'V1_INVENTORY':'DEMO';}
@@ -96,7 +96,7 @@ export function buildManagementReport(source:ManagementSource,filter:ManagementF
     return records;
   })??null;
   const events=expanded===null?null:uniqueReportRecords(expanded,event=>event.id).filter(event=>(!filter.router||event.router_id===filter.router)&&inRange(event.occurred_at)&&(filter.kind==='ALL'||filter.kind===event.kind)).sort((a,b)=>Date.parse(b.occurred_at!)-Date.parse(a.occurred_at!)||a.id.localeCompare(b.id));
-  const historyAvailable=source.workspace!==null&&scopedDetails.every(detail=>detail.history_available!==false);
+  const historyAvailable=source.workspace!==null&&(!source.persistent||!!source.workspace?.receipts.length)&&scopedDetails.every(detail=>detail.history_available!==false);
   const expiry=filter.expiry??'TODAY';
   if(!managementExpiryFilters.includes(expiry as typeof managementExpiryFilters[number]))throw new Error('Bitiş filtresi geçersiz.');
   const subscribers=[...scopedDetails.map(detail=>detail.item),...uniqueReportRecords(source.workspace?.accounts??[],row=>row.id).filter(row=>(!filter.router||row.router_id===filter.router)&&matchesSource(row.source,filter.source??'ALL')&&currentMatches(row)).map(row=>({...row,is_demo:true as const,router_name:row.router_name??'Veri yok'}))];
@@ -111,20 +111,21 @@ export function buildManagementReport(source:ManagementSource,filter:ManagementF
     undated:{operations:inventory.operation_history.filter(event=>!observationTime(event.occurred_at)).length,events:sourceEvents?.filter(event=>(!filter.router||event.router_id===filter.router)&&!event.started_at).length??null},
   };
 }
-export async function loadManagementReport(_path:string,init?:RequestInit):Promise<ManagementSource>{
-  const [inventory,events]=await Promise.all([loadDailyInventory(init,true),loadRouterEvents('/router-events',init)]);
+export async function loadManagementReport(_path:string,init?:RequestInit,inventorySnapshot?:Pick<WorkspaceHistory,'accounts'|'routers'>):Promise<ManagementSource>{
+  const persistent=_path.includes('persistent=1');
+  const [inventory,events]=persistent?[{routers:[],details:[]},null]:await Promise.all([loadDailyInventory(init,true),loadRouterEvents('/router-events',init)]);
   let workspace:WorkspaceHistory|null|undefined,workspaceError:string|undefined;
-  if(_path.includes('workspace=1')){
+  if(persistent||_path.includes('workspace=1')){
     try{
       const [accounts,receipts,routers]=await Promise.all([
-        reportPages<CenterSubscriber>('/subscriber-workspace',init),
-        reportPages<OperationReceipt>('/subscriber-workspace/management/history',init),
-        reportPages<{id:string;fields:{name:string}}>('/router-workspace/routers',init,true),
+        inventorySnapshot?Promise.resolve(inventorySnapshot.accounts):reportPages<CenterSubscriber>('/subscriber-workspace',init),
+        reportPages<OperationReceipt>('/subscriber-workspace/management/history'+(persistent?'?report=true':''),init),
+        inventorySnapshot?Promise.resolve(inventorySnapshot.routers):reportPages<{id:string;fields:{name:string}}>('/router-workspace/routers',init,true),
       ]);
       workspace={accounts,receipts,routers};
     }catch(error){if(init?.signal?.aborted)throw error;workspace=null;workspaceError=error instanceof Error?error.message:'Kalıcı geçmiş okunamadı.';}
   }
-  return {...inventory,events,workspace,workspaceError,read_at:new Date().toISOString()};
+  return {...inventory,persistent,events,workspace,workspaceError,read_at:new Date().toISOString()};
 }
 
 export function managementFilterFromHash(hash:string):ManagementFilter{
@@ -138,7 +139,7 @@ export function managementReportHash(filter:ManagementFilter,center:'dashboard'|
 async function reportPages<T extends {id?:string;request_id?:string}>(path:string,init?:RequestInit,routerWorkspace=false):Promise<T[]>{
   const rows:T[]=[];const ids=new Set<string>();let expected:number|undefined;
   for(let page=1;page<=1000;page++){
-    const data=await api<{items:T[];total:number;is_demo?:boolean}>(path+'?page_size=100&page='+page,init);
+    const data=await api<{items:T[];total:number;is_demo?:boolean}>(path+(path.includes('?')?'&':'?')+'page_size=100&page='+page,init);
     // WorkspaceList has no envelope is_demo field; synthetic identity is per record.
     // SubscriberWorkspaceList and OperationHistory require the envelope marker.
     if(!Array.isArray(data.items)||!Number.isInteger(data.total)||data.total<0||(!routerWorkspace&&data.is_demo!==true))throw new Error(`Kalıcı kaynak yanıtı doğrulanamadı (${path}).`);

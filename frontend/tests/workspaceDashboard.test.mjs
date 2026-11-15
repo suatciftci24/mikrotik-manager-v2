@@ -7,7 +7,7 @@ test('one saved router and zero accounts; no static inventory reads or invented 
  const calls=[];const controller=new AbortController();
  await withApi((url,init)=>{calls.push(url);assert.equal(init.signal,controller.signal);if(url.includes('/router-workspace/routers?'))return {items:[router],total:1};if(url.includes('/subscriber-workspace?'))return {items:[],total:0};throw Error(url);},async()=>{
   const data=await loadWorkspaceDashboardSummary('',{signal:controller.signal});
-  assert.equal(data.routers[0].name,'V26 Test Router');assert.deepEqual(data.router_counts,{total:1,online:0,offline:0,degraded:0,unknown:1});assert.equal(data.subscribers.total,0);assert.equal(data.routers[0].cpu_percent,null);assert.equal(data.routers[0].last_seen,'');assert.equal(data.history_available,false);assert.equal(calls.length,2);
+  assert.equal(data.routers[0].name,'V26 Test Router');assert.deepEqual(data.router_counts,{total:1,online:0,offline:0,degraded:0,unknown:1});assert.equal(data.subscribers.total,0);assert.equal(data.routers[0].cpu_percent,null);assert.equal(data.routers[0].last_seen,'');assert.equal(data.history_available,false);assert.equal(calls.length,3);
  });
 });
 test('all router pages are read, with account authority and unknown state preserved',async()=>{
@@ -24,4 +24,18 @@ test('operator dashboard reads scoped workspace routers without admin account or
  });
  await withApi(()=>({items:[],total:0}),async()=>assert.equal((await loadWorkspaceRouterSummary('')).router_counts.total,0));
  await withApi(()=>{throw Error('denied');},async()=>assert.rejects(loadWorkspaceRouterSummary(''),/denied/));
+});
+
+test('persistent audit feeds the Turkey-day PPPoE count without legacy requests or invented history',async()=>{
+ const {dashboardToday}=await import('../src/lib/dashboardOverview.ts');const stamp=new Date().toISOString();
+ const account={id:'demo-managed-sub-test',router_id:router.id,source:'LOCAL',access_type:'PPPOE',revision:1,status:'ACTIVE',plan:'P',customer_name:'Test',username:'test',expires_on:null};
+ const receipt={request_id:'audit-1',item_id:account.id,source:'LOCAL',router_id:router.id,revision:1,recorded:true,success:true,operation:'CREATE',actor_id:'actor',occurred_at:stamp,previous:{},values:{plan:'P'}};
+ let receipts=[receipt],denied=false;const calls=[];
+ await withApi(url=>{calls.push(url);if(url.includes('/management/history?report=true&')){if(denied)throw Error('denied');return {items:receipts,total:receipts.length,is_demo:true};}if(url.includes('/router-workspace/'))return {items:[router],total:1};if(url.includes('/subscriber-workspace?'))return {items:[account],total:1};throw Error('unexpected source '+url);},async()=>{
+  assert.equal(dashboardToday(await loadWorkspaceDashboardSummary(''),null).pppoe,1);
+  receipts=[{...receipt,occurred_at:'2000-01-01T00:00:00Z'}];assert.equal(dashboardToday(await loadWorkspaceDashboardSummary(''),null).pppoe,0);
+  receipts=[];assert.equal(dashboardToday(await loadWorkspaceDashboardSummary(''),null).pppoe,null);
+  denied=true;assert.equal(dashboardToday(await loadWorkspaceDashboardSummary(''),null).pppoe,null);
+  assert.ok(calls.every(url=>!url.includes('/subscribers')&&!url.includes('/router-events')));
+ });
 });

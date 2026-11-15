@@ -41,7 +41,7 @@ function DashboardOverview(props:{onNavigate:Navigate;onReport:()=>void;onIntern
 function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigate;onReport:()=>void;onInternet:()=>void}) {
   const identity=useIdentity();
   const grants=Object.values(identity?.permissions??{});
-  const reports=grants.some(grant=>grant.can_view&&grant.can_view_reports);
+  const reports=(identity?.role_code==='ADMIN'&&identity.can_manage_users===true)||grants.some(grant=>grant.can_view&&grant.can_view_reports);
   const mika=grants.some(grant=>grant.can_view&&grant.can_use_mikajani);
   const admin=identity?.role_code==='ADMIN'&&identity.can_manage_users===true;
   const persistent=identity?.router_inventory_source==='PERSISTENT_WORKSPACE';
@@ -89,7 +89,7 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
     </section>
     <section aria-labelledby="overview-daily-title" className="overview-section"><div className="overview-section-heading"><h2 id="overview-daily-title">Günlük işlemler</h2><span className="daily-description">Bugün · Türkiye saati</span></div>
       <div className="overview-daily-grid">
-        <SummaryTile title="PPPoE işlemleri" value={data&&!resource.error?dashboardToday(data,null).pppoe:null} note={resource.loading?'Özet yenileniyor':reports?'Mevcut demo geçmişi':'Geçmiş için rapor yetkisi gerekli'} icon={<Activity size={18}/>} label="Bugünün PPPoE işlemlerini aç" disabled={!reports} onClick={()=>daily('PPPOE')}/>
+        <SummaryTile title="PPPoE işlemleri" value={data&&!resource.error?dashboardToday(data,null).pppoe:null} note={resource.loading?'Özet yenileniyor':reports?(persistent?'Kalıcı workspace audit · Bugün':'Mevcut demo geçmişi'):'Geçmiş için rapor yetkisi gerekli'} icon={<Activity size={18}/>} label="Bugünün PPPoE işlemlerini aç" disabled={!reports} onClick={()=>daily('PPPOE')}/>
         <SummaryTile title="Yaklaşan abonelikler" value={data&&!resource.error?data.within_3??null:null} note="Bugün dahil · 3 gün" icon={<CalendarClock size={18}/>} label="3 gün içinde bitecek aboneleri göster" onClick={()=>subscribers({expiry:'WITHIN_3'})}/>
         {reports?<DailyEventTile data={data} onOpen={()=>daily('ALL')}/>:<SummaryTile title="İnternet / WAN olayları" value={null} note="Rapor yetkisi gerekli" icon={<WifiOff size={18}/>} label="İnternet ve WAN olayları için rapor yetkisi gerekli" disabled onClick={()=>{}}/>}
       </div>

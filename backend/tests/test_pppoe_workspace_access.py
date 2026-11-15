@@ -160,3 +160,17 @@ class PppoeWorkspace(TestCase):
         replay=self.post('/subscriber-workspace',payload);self.assertEqual(replay.status_code,200,replay.text)
         self.assertEqual(replay.json()['id'],item['id']);self.assertEqual(self.counts(),before)
         receipt=self.client.get('/api/v1/subscriber-workspace/requests/'+payload['request_id']);self.assertEqual(receipt.json()['status'],'SUCCESS')
+
+    def test_report_history_requires_report_grant_and_scopes_before_pagination(self):
+        _,item=self.create()
+        self.user['permissions'][self.hidden]={'can_view':True,'can_manage_pppoe':True}
+        self.create(self.command(router=self.hidden))
+        path='/api/v1/subscriber-workspace/management/history?report=true&page_size=1'
+        self.assertEqual(self.client.get(path).status_code,403)
+        self.user['permissions'][self.allowed]['can_view_reports']=True
+        result=self.client.get(path)
+        self.assertEqual(result.status_code,200,result.text)
+        self.assertEqual(result.json()['total'],1)
+        self.assertEqual(result.json()['items'][0]['item_id'],item['id'])
+        self.user['permissions'][self.allowed]['can_view']=False
+        self.assertEqual(self.client.get(path).status_code,403)
