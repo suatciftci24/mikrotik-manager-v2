@@ -64,3 +64,17 @@ test('mobile card labels distinguish account state and expiry while keeping a si
  assert.equal(all.filter(n=>n.props?.className==='compact-subscriber-status'&&n.props['aria-label']==='Hesap durumu').length,5);
  assert.equal(all.filter(n=>n.props?.className==='compact-subscriber-plan').length,5);
 });
+
+test('workspace filter disclosure follows native open and close events on mobile without changing desktop expansion',()=>{
+ let slot=0,values=[true,false];
+ const react={...React,useEffect(){},useState:initial=>{const index=slot++;return [values[index]??initial,next=>{values[index]=typeof next==='function'?next(values[index]):next;}];}};
+ const code=buildSync({entryPoints:['src/components/CompactSubscriberList.tsx'],bundle:true,write:false,loader:{'.css':'empty'},format:'cjs',platform:'node',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+ const exported={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?react:require(name),exported,exported.exports);
+ const fields=React.createElement('div',{className:'inventory-toolbar'},'filters');
+ const draw=()=>{slot=0;return exported.exports.SubscriberDisclosure({className:'workspace-filters',children:fields});};
+ let tree=draw();assert.equal(tree.props.open,false);assert.ok(tree.props.className.includes('workspace-filters'));assert.equal(nodes(tree).find(n=>n.type==='summary').props.children,'Filtreler');
+ tree.props.onToggle({currentTarget:{open:true}});assert.equal(draw().props.open,true);
+ draw().props.onToggle({currentTarget:{open:false}});assert.equal(draw().props.open,false);
+ values=[false,false];assert.equal(draw().props.open,true);
+ const preserved=nodes(draw()).find(n=>n.props?.className==='inventory-toolbar');assert.equal(preserved.type,fields.type);assert.deepEqual(preserved.props,fields.props);
+});

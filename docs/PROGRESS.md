@@ -5880,3 +5880,19 @@ Her iki ilerleme kaydi korunmustur:
   BLOCKED. Ayrıntı: docs/V26_MOBILE_DENSITY_ACCEPTANCE.md.
 - Backend/DB/migration, VDS deploy/restart, V1/V2.5/canlı cihaz/RADIUS/IPsec
   işlemi yok. Ayrı onaylı frontend yayını yeterli; commit/push sonucu teslimde.
+
+## V26 üç mobil disclosure düzeltmesi — 2026-11-15 — yerel PASS / görsel BLOCKED
+
+- Temiz main-guncel/ef28786 ve uzak SHA eşitliği doğrulandı; Altın Kurallar,
+  güncel ilerleme ve son kabul okundu. Korunacak yerel değişiklik yoktu.
+- Yalnız mobil V26 ortam kutusu, Abone görünümü seçici ve workspace Filtreler
+  düzenlendi. Native açılır alanlar/44px kontroller korunur; kapalı toolbar
+  açıkça gizlenir, açık grid ve artı/eksi durumu ayrıdır. Arama/ekle/yenile ile
+  çakışmayan akış düzeni; V2.6/SENTETİK uyarıları görünür.
+- Dört hedef frontend test dosyası kapsamları, tek production build/diff PASS.
+  Yeni testin React key referans varsayımı düzeltildi; başarısız senaryo tekrar
+  geçti. Chromium setsockopt/SIGTRAP nedeniyle gerçek görsel kabul BLOCKED.
+  Ayrıntı: docs/V26_MOBILE_DISCLOSURES_ACCEPTANCE.md.
+- Dashboard/masaüstü/API/yetki/işlemler, backend/PG/migration, VDS deploy/restart,
+  V1/V2.5/cihaz/RADIUS/IPsec değiştirilmedi. Ayrı onaylı frontend yayını yeterli.
+  Tek commit/normal push ve HEAD eşitliği teslimde.

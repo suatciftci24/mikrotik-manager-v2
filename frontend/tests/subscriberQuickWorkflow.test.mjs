@@ -180,3 +180,10 @@ test('V26 workspace navigation exposes no legacy source and history remains work
   if(workspace==='HISTORY'){const history=nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='SubscriberOperationHistory');assert.equal(history.props.workspaceOnly,true);}
  }
 });
+
+test('subscriber view selector retains selection callback and a separate closed technical disclosure',()=>{
+ const h=harness('src/components/SourcePicker.tsx'),calls=[],options=[{value:'PERSISTENT',label:'Aboneler',access:'Yetkili',description:'Sentetik V2.6'},{value:'HISTORY',label:'Geçmiş',access:'Yetkili',description:'Audit'}];
+ const tree=h.render('SourcePicker',{label:'Abone görünümü',value:'PERSISTENT',options,onChange:value=>calls.push(value)});
+ const select=nodes(tree).find(n=>n.type==='select');assert.equal(select.props.value,'PERSISTENT');select.props.onChange({target:{value:'HISTORY'}});assert.deepEqual(calls,['HISTORY']);
+ const detail=nodes(tree).find(n=>n.type==='details');assert.equal(detail.props.open,undefined);assert.equal(nodes(detail).find(n=>n.type==='summary').props.children,'Teknik bilgiler');assert.ok(nodes(detail).some(n=>n.type==='p'));
+});
