@@ -56,3 +56,11 @@ test('mobile subscriber evidence shows authority, router and Turkey-day expiry w
  const unknown=render({...rows[0],expires_on:null,source:null});
  assert.match(unknown,/Kaynak: Bilinmiyor/);assert.match(unknown,/Bitiş tarihi bilinmiyor/);assert.doesNotMatch(unknown,/Çevrimiçi|Online/);
 });
+
+test('mobile card labels distinguish account state and expiry while keeping a single pager',()=>{
+ page=1;const tree=CompactSubscriberList(props),all=nodes(tree);
+ assert.equal(all.filter(n=>n.type==='nav'&&n.props['aria-label']==='Mobil abone sayfaları').length,1);
+ assert.equal(all.filter(n=>n.type==='time'&&n.props['aria-label']==='Bitiş tarihi').length,5);
+ assert.equal(all.filter(n=>n.props?.className==='compact-subscriber-status'&&n.props['aria-label']==='Hesap durumu').length,5);
+ assert.equal(all.filter(n=>n.props?.className==='compact-subscriber-plan').length,5);
+});

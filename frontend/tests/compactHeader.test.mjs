@@ -16,5 +16,5 @@ test('mobile header tools open on demand; desktop retains the same theme/search/
  details.props.onToggle({currentTarget:{open:true}});details=nodes(render()).find(n=>n.type==='details');assert.equal(details.props.open,true);
  states=[false,false];tree=render();assert.equal(nodes(tree).find(n=>n.type==='details').props.open,true);
  nodes(tree).find(n=>n.props?.className==='search-trigger').props.onClick();nodes(tree).find(n=>n.props?.['aria-label']==='Bildirimler').props.onClick();assert.deepEqual(calls,['search','notice']);
- const banner=module.exports.DemoBanner({runtimeProfile:'v26-isolated-acceptance'});assert.ok(nodes(banner).some(n=>n.type==='strong'));assert.ok(React.Children.toArray(banner.props.children).some(n=>n.props?.children==='SENTETİK'));
+ const banner=module.exports.DemoBanner({runtimeProfile:'v26-isolated-acceptance'});const title=nodes(banner).find(n=>n.type==='strong');assert.equal(title.props['aria-label'],'V2.6 İzole Kabul Ortamı');assert.ok(nodes(title).some(n=>n.props?.className==='mobile-context'&&n.props.children==='V2.6'));assert.ok(nodes(title).some(n=>n.props?.className==='desktop-context'));assert.equal(nodes(tree).find(n=>n.props?.className==='search-trigger').props['aria-label'],'Hızlı arama');assert.ok(React.Children.toArray(banner.props.children).some(n=>n.props?.children==='SENTETİK'));
 });

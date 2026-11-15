@@ -5864,3 +5864,19 @@ Her iki ilerleme kaydi korunmustur:
 - Backend/PG/kullanıcı/şema/migration, VDS deploy/restart, V1/V2.5/gerçek router/
   RADIUS/IPsec işlemi yok. Ayrı onaylı frontend yayını yeterli; yeni migration yok.
   Tek commit ve normal push sonucu teslimde.
+
+## V26 tek kapsamlı mobil sıkılaştırma — 2026-11-15 — yerel PASS / görsel BLOCKED
+
+- Temiz main-guncel/0db276e ve GitHub SHA eşitliği doğrulandı; Altın Kurallar,
+  güncel ilerleme ve son kabul okundu.
+- Mobil navigasyon/üst araç bölümü aynı satırda, açılan araçlar tam satırda;
+  tema/arama/bildirim/navigasyon korunur. Ortam kutusu kısa, SENTETİK görünür;
+  masaüstü uzun etiket ve tam erişilebilir ortam adı korunur.
+- Dashboard iki sütun aynı; boşluklar azaltıldı. Filtreler tür/durum iki sütun,
+  router tam satır. Kart ad/paket/durum/tarih/router/İşlemler hizası ve tek mobil
+  kayıt/sayfa göstergesi düzenlendi. API/state/yetki/işlem kodu değişmedi.
+- Beş gerekli frontend hedef dosyası, tek production build/diff PASS. Chromium
+  crashpad setsockopt/SIGTRAP nedeniyle 320–430px/masaüstü gerçek görsel kabul
+  BLOCKED. Ayrıntı: docs/V26_MOBILE_DENSITY_ACCEPTANCE.md.
+- Backend/DB/migration, VDS deploy/restart, V1/V2.5/canlı cihaz/RADIUS/IPsec
+  işlemi yok. Ayrı onaylı frontend yayını yeterli; commit/push sonucu teslimde.
