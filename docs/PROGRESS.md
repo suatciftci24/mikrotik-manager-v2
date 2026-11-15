@@ -5824,3 +5824,24 @@ Her iki ilerleme kaydi korunmustur:
 - Backend/DB verisi/kullanıcı/şema/migration, VDS deploy/restart, V1/V2.5 veya
   cihaz/RADIUS/IPsec işlemi yok. Ayrı onaylı frontend yayını yeterli; yeni
   migration gerekmez. Commit/normal push sonucu teslimde.
+
+## V26 kapsamlı duyarlı arayüz — 2026-11-15 — yerel PASS / görsel BLOCKED
+
+- Temiz main-guncel/704ce45, GitHub SHA eşit. AGENTS/tüm Altın Kurallar, güncel
+  kabul ve özellik koruma envanteri okundu. Atıf yapılan ekran görüntüleri bu
+  oturumda mevcut değildi; istek maddeleri ve kod esas alındı.
+- Router arama/ekle/yenile, kaynak ve üst özet düzenleri sadeleştirildi. Teknik
+  bilgiler kapalı; eksik CPU/RAM/WAN/bağlantı Veri yok. Routera bağlı aboneler
+  mobilde aynı yetkili yanıtla kart, masaüstünde tablo; filtre/linkler korunur.
+- V26 mobil üst bar/sekme/form/dialog/dokunma alanları ve Dashboard aralıkları
+  düzenlendi. Abone ve merkezi geçmiş/işlem detayında teknik kimlikler açılır
+  alanda; mevcut işlem menüsü, onay, paket/receipt/audit/idempotency korunur.
+- Sekiz gezinme/arayüz ve dört ilgili işlem/paket hedef test dosyası ilgili
+  kapsamları, yeni kart/metadata/audit testleri, son production build/diff PASS.
+  Yeni test harness'inin eksik hook stub'ı düzeltildi; başarısız kapsam tekrar geçti.
+- Chromium crashpad setsockopt/SIGTRAP nedeniyle görsel kabul BLOCKED; 320–430px
+  veya masaüstünde gerçek taşmasızlık/görüntü eşitliği PASS sayılmadı. Ayrıntı:
+  docs/V26_RESPONSIVE_UI_ACCEPTANCE.md. Sandbox gevşetilmedi.
+- Backend/DB/kullanıcı/şema/migration, VDS deploy/restart veya V1/V2.5/gerçek
+  router/RADIUS/IPsec işlemi yok. Ayrı onaylı frontend yayını gerekir; yeni
+  backend/migration gerekmez. Tek commit/normal push sonucu teslimde.

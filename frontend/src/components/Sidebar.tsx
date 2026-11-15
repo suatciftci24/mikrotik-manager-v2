@@ -60,7 +60,7 @@ export function Sidebar({ active, onNavigate, user, onLogout, realInventory=fals
 }
 
 export function MobileHeader({ onMenu,runtimeProfile='local-demo' }: { onMenu: () => void;runtimeProfile?:RuntimeProfile }) {
-  return <div className="mobile-header"><button className="icon-button" onClick={onMenu}><Command size={18} /></button>
+  return <div className="mobile-header"><button className="icon-button" aria-label="Ana menüyü aç" onClick={onMenu}><Command size={18} /></button>
     <div className="mobile-brand"><span className="brand-mark"><Network size={16} /></span><strong>mikrotik<span>.</span> <small>{runtimeIdentity(runtimeProfile).manager.replace('MANAGER ','')}</small></strong></div>
     <span className="pulse-dot" /></div>;
 }

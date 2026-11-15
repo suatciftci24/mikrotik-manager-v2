@@ -54,14 +54,14 @@ export function SubscriberDeviceCenterView({data,tab,onTab,onEdit,onRenew,onMana
  ]}/><p className="subscriber-connection-note">Oturum: Bilinmiyor · canlı bağlantı ölçülmedi.</p>{subscriberSource(r.source)==='UNKNOWN'&&<p role="status">{sourceDescription(r.source)}</p>}{!r.access_type&&<p>Erişim türü kayıtlı değil; PPPoE/Hotspot türü yetkili kaynaktan veya router atamasından tahmin edilmez.</p>}</section>
  <div className="filter-tabs router-device-tabs" role="tablist" aria-label="Abone detay bölümleri">{tabs.map(([id,label],index)=><button key={id} ref={node=>{buttons.current[index]=node;}} role="tab" id={'subscriber-tab-'+id} aria-controls={'subscriber-panel-'+id} aria-selected={activeTab===id} tabIndex={activeTab===id?0:-1} onKeyDown={event=>key(event,index)} onClick={()=>onTab(id)} className={activeTab===id?'selected':''}>{label}</button>)}</div>
  <section className="panel registry-detail router-device-panel" role="tabpanel" id={'subscriber-panel-'+activeTab} aria-labelledby={'subscriber-tab-'+activeTab} tabIndex={0}><h2>{tabs.find(([key])=>key===activeTab)?.[1]??'Abone detayı'}</h2>
- {activeTab==='overview'?<><Facts items={[
+ {activeTab==='overview'?<><details className="technical-info"><summary>Teknik bilgiler</summary><Facts items={[
  ['Kayıt kimliği',r.id],['Erişim türü',r.access_type??'Bilinmiyor'],['Güncel yetkili kaynak',<SourceBadge source={r.source}/>],
  ['Veri deposu',data.persistence],['Güncel abonelik revizyonu',r.revision]
- ]}/><p>Bitiş tarihi Türkiye takvim gününe göre hesaplanır; hesap etkinliği çevrimiçi oturum kanıtı değildir.</p>
+ ]}/><p>Bitiş tarihi Türkiye takvim gününe göre hesaplanır; hesap etkinliği çevrimiçi oturum kanıtı değildir.</p></details>
  {supplementary}
  {photosEnabled&&<details className="subscriber-photo-disclosure" open={photosOpen} onToggle={event=>setPhotosOpen(event.currentTarget.open)}><summary>{subscriberPhotoTab[1]}</summary>{photosOpen&&(photoIdentityValid?<SubscriberPhotos id={r.id} source={r.source!} accessType={r.access_type!} canManage={canManagePhotos}/>:<p className="missing-data" role="status">Fotoğraf erişimi için doğrulanmış LOCAL/RADIUS kaynağı, PPPoE/Hotspot türü ve router bağı gerekir.</p>)}</details>}
  </>
- :activeTab==='actions'?<><p>Yalnız yetkili sentetik kayıt işlemleri. Eski → yeni karşılaştırmasını inceleyin ve açıkça onaylayın; gerçek cihaz veya RADIUS hesabı değiştirilmez.</p>
+ :activeTab==='actions'?<><p>İşlemi seçin, eski → yeni değerleri inceleyip onaylayın.</p>
  <section className="inventory-toolbar" aria-label="Abone işlemleri">
  {data.source==='LEGACY_DEMO'&&<LegacySubscriberActions key={r.id} id={r.id} onHistory={()=>onTab('history')} onSelect={onLegacyAction}/>}
  {data.source==='PERSISTENT_WORKSPACE'&&<div className="subscriber-actions-menu">

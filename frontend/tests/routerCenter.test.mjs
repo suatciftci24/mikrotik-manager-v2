@@ -130,3 +130,10 @@ test('persistent router summary opens all scoped subscribers in one click and pr
   for(const source of ['REGISTERED','STATIC_DEMO'])assert.equal(nodes(view('overview',{source})).some(n=>n.props?.children==='Bağlı aboneleri aç'),false);
  }finally{globalThis.window=prior;}
 });
+
+test('persistent missing CPU RAM and WAN stay missing and router metadata is collapsed',()=>{
+ const html=renderToStaticMarkup(view('overview'));assert.match(html,/<dt>CPU<\/dt><dd>Veri yok<\/dd>/);assert.match(html,/<dt>RAM<\/dt><dd>Veri yok<\/dd>/);
+ assert.match(html,/<details class="technical-info"><summary>Teknik bilgiler/);assert.doesNotMatch(html,/<details class="technical-info" open/);
+ const wan=renderToStaticMarkup(view('wan'));for(const label of ['WAN IP','İnternet erişimi','Trafik'])assert.ok(wan.includes(label));
+ assert.match(wan,/<dt>WAN IP<\/dt><dd>Veri yok<\/dd>/);assert.doesNotMatch(wan,/yönetim IP’si|Bu sentetik kayıt için bu bölümde/);
+});

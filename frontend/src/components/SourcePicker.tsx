@@ -6,6 +6,6 @@ export function SourcePicker({label='Veri kaynağı',value,options,onChange,chil
  const id=useId();const selected=options.find(option=>option.value===value);
  return <section className="source-picker panel" aria-label={label}>
   <div className="source-picker-controls"><label className="form-label">{label}<select value={value} onChange={event=>onChange(event.target.value)} aria-describedby={id}>{!selected&&<option value={value} disabled>Yetki gerekli</option>}{options.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{children}</div>
-  {selected&&<p id={id}><strong>{selected.access}</strong> · {selected.description}</p>}
+  {selected&&<details className="technical-info source-technical"><summary>Teknik bilgiler</summary><p id={id}><strong>{selected.access}</strong> · {selected.description}</p></details>}
  </section>;
 }

@@ -183,3 +183,10 @@ test('central history renders authority, UUID, revision, localized status and re
   }
  }finally{globalThis.window=before;globalThis.__navigationResource=previous;}
 });
+
+test('operation UUID and raw actor remain inside a closed technical disclosure',()=>{
+ const actor='v2-user-12345678-1234-4234-8234-123456789abc';
+ const html=renderToStaticMarkup(module.exports.OperationDetails({event:{id:'audit',request_id:'audit-uuid',subscriber_id:'demo-managed-sub-test',operation:'STATUS_CHANGE',access_type:'PPPOE',source:'LOCAL',actor_id:actor,occurred_at:'2026-11-11T12:00:00Z',is_demo:true,audit_result:'APPLIED'},onClose(){},onSubscriber(){}}));
+ const details=html.match(/<details class="technical-info">[\s\S]*?<\/details>/)[0];assert.match(details,/audit-uuid/);assert.ok(details.includes(actor));assert.doesNotMatch(details,/<details[^>]*open/);
+ const visible=html.replace(details,'');assert.ok(!visible.includes(actor));assert.doesNotMatch(visible,/audit-uuid|İşlem revizyonu/);
+});

@@ -71,3 +71,14 @@ test('router subscriber loading, empty, denied and wrong-router responses do not
   const html=renderToStaticMarkup(module.exports.RouterSubscribers({id:router,access:'PPPOE'}));assert.match(html,expected);assert.doesNotMatch(html,/Test Abone/);
  }
 });
+
+test('router subscribers keep a desktop table and mobile cards with identical authorized detail destinations',()=>{
+ const require=createRequire(import.meta.url),hooks={...React,useEffect(){},useRef:value=>({current:value}),useCallback:fn=>fn,useState:initial=>{const value=typeof initial==='function'?initial():initial;return value?.path?[{...value,loading:false,data:listing},()=>{}]:[value,()=>{}];}};
+ const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/RouterSubscribers.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+ const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
+ const html=renderToStaticMarkup(module.exports.RouterSubscribers({id:router,access:'PPPOE'}));
+ const cards=html.match(/<ul class="router-subscriber-cards"[\s\S]*?<\/ul>/)[0];
+ for(const text of ['Test Abone','test.ev','Demo 100','Aktif','Bitiş tarihi','Kalan gün','Detay'])assert.ok(cards.includes(text),text);
+ assert.match(html,/table-scroll router-subscriber-desktop/);assert.match(cards,/workspace=PERSISTENT/);assert.doesNotMatch(cards,/workspace=LEGACY|source=V1/);
+ assert.match(html,/<details class="technical-info"><summary>Teknik bilgiler/);
+});

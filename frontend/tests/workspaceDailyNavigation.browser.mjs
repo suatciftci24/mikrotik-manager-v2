@@ -11,10 +11,10 @@ const root=createRoot(document.getElementById('root'));
 root.render(<div className="subscriber-center-list"><SyntheticSubscriberList onOpen={id=>window.chosen=['detail',id]} onCreate={()=>window.chosen=['create']} onQuick={(item,action)=>window.chosen=[item.id,action]} onHistory={id=>window.chosen=['history',id]}/></div>);`},bundle:true,write:false,format:'iife',platform:'browser',jsx:'automatic',loader:{'.css':'empty'},plugins:[{name:'synthetic-source',setup(b){b.onResolve({filter:/lib\/useResource$/},()=>({path:'fixture',namespace:'fixture'}));b.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:`export function useResource(path){window.sourceCalls??=[];window.sourceCalls.push(path);return {loading:false,retry(){},data:path.startsWith('/subscriber-workspace?')?{is_demo:true,total:1,items:[{id:'demo-managed-sub-test',customer_name:'Sentetik Abone',username:'test.user',router_id:'demo-managed-router-test',router_name:'V26 Test Router',router_source:'PERSISTENT_DEMO',source:'LOCAL',access_type:'PPPOE',plan:'Paket 100',status:'ACTIVE',expires_on:'2099-01-01',revision:1,can_manage:true}]}:{items:[{id:'demo-managed-router-test',fields:{name:'V26 Test Router'}}]}}}`,loader:'js'}));}}]});
 const browser=await chromium.launch({...selectBrowser(chromium),chromiumSandbox:true});
 try{
- const styles=readFileSync('src/styles.css','utf8')+readFileSync('src/styles/compact-subscribers.css','utf8');
- for(const width of [320,390,1280]){
+ const styles=readFileSync('src/styles.css','utf8')+readFileSync('src/styles/compact-subscribers.css','utf8')+readFileSync('src/styles/v26-ui.css','utf8');
+ for(const width of [320,360,390,430,1280]){
   const page=await browser.newPage({viewport:{width,height:900}});await page.route('**/*',route=>route.abort());
-  await page.setContent('<style>'+styles+'</style><div id="root"></div>');
+  await page.setContent('<style>'+styles+'</style><div class="v26-ui"><div id="root"></div></div>');
   await page.evaluate(()=>{location.hash='module=subscribers&workspace=PERSISTENT&workspace_router=demo-managed-router-test';});
   await page.addScriptTag({content:result.outputFiles[0].text});
   const create=page.getByRole('button',{name:'Abone ekle',exact:true});await create.waitFor();await create.click();assert.deepEqual(await page.evaluate(()=>window.chosen),['create']);
@@ -28,5 +28,5 @@ try{
   assert.ok((await page.evaluate(()=>window.sourceCalls)).every(path=>path.startsWith('/subscriber-workspace?')||path.startsWith('/router-workspace/')));
   await page.close();
  }
- console.log('PASS: 320/390/1280px workspace list, one visible menu, create, package callback, scoped router link, no page overflow');
+ console.log('PASS: 320/360/390/430/1280px workspace list, one visible menu, create, package callback, scoped router link, no page overflow');
 }finally{await browser.close();}

@@ -61,7 +61,7 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
   const daily=(kind:string)=>{onNavigate('dashboard',{view:'DAILY_REPORT',report_source:'DEMO',period:'TODAY',kind});};
   const fullDate=data?new Intl.DateTimeFormat('tr-TR',{dateStyle:'full',timeZone:'UTC'}).format(new Date(data.as_of_date+'T00:00:00Z')):'Türkiye takvim günü';
   return <div className="screen-stack dashboard-overview">
-    <PageHeading title="Merkezi Dashboard" eyebrow={fullDate} description="V2 sentetik kayıtları · Mevcut demo çalışma alanı" actions={<button className="button-secondary" disabled={resource.loading} onClick={refresh}><RefreshCw size={15}/>Özeti yenile</button>}/>
+    <PageHeading title="Merkezi Dashboard" eyebrow={fullDate} description={persistent?"V2.6 çalışma alanı":"V2 sentetik kayıtları"} actions={<button className="button-secondary" disabled={resource.loading} onClick={refresh}><RefreshCw size={15}/>Özeti yenile</button>}/>
     <section aria-labelledby="overview-status-title" className="overview-section"><div className="overview-section-heading"><h2 id="overview-status-title">Genel durum</h2><span className="demo-chip">SENTETİK V2</span></div>
       <ResourceState {...resource} retry={refresh}/>
       {resource.loading&&<p role="status" className="daily-description">Güncel kayıtlar doğrulanıyor; önceki özet gösterilmez.</p>}
@@ -83,7 +83,7 @@ function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigat
           <button className="button-secondary" onClick={()=>subscribers({expiry:'WITHIN_7'})}>7 gün içinde: {data.expiry.within_7}</button>
           <button className="button-secondary" onClick={()=>subscribers({expiry:'WITHIN_30'})}>30 gün içinde: {data.expiry.within_30}</button>
           <button className="button-secondary" onClick={()=>subscribers({expiry:'UNKNOWN'})}>Bitişi bilinmeyen: {data.expiry.unknown}</button>
-        </div><p className="daily-description">Bugün, 3, 7 ve 30 gün aralıkları iç içedir; sayıları toplanmaz. Bilinmeyen tarihler geçerli veya dolmuş sayılmaz. LOCAL/RADIUS hesapları tekil kayıt kimliğiyle sayılır.</p>
+        </div><details className="technical-info"><summary>Teknik bilgiler</summary><p className="daily-description">Bugün, 3, 7 ve 30 gün aralıkları iç içedir; sayıları toplanmaz. Bilinmeyen tarihler geçerli veya dolmuş sayılmaz. LOCAL/RADIUS hesapları tekil kayıt kimliğiyle sayılır.</p></details>
         {data.router_counts.total===0&&data.subscribers.total===0&&<p className="daily-description">Henüz kayıtlı demo router veya abone yok.</p>}
       </>}
     </section>
