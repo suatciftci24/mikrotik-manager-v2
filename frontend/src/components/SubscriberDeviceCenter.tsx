@@ -6,7 +6,7 @@ import {QuickActions,type QuickAction} from './QuickActions';
 import type {SubscriberDetailData} from '../lib/api';
 import {linkedDetailHash} from '../lib/detailLinks';
 import {SubscriberQuickButtons} from './SubscriberQuickButtons';
-import {canChangeWorkspace} from '../lib/subscriberActions';
+import {canChangeWorkspace,workspaceActionUnavailableReason} from '../lib/subscriberActions';
 import {LegacySubscriberActions} from './LegacySubscriberActions';
 import {dailyLabels} from '../lib/subscriberManagementCenter';
 import {expiryDate,expiryInfo,remainingDays} from '../lib/expiry';
@@ -44,9 +44,12 @@ export function SubscriberDeviceCenterView({data,tab,onTab,onEdit,onRenew,onMana
  const photoPermission=r.access_type==='HOTSPOT'?'can_manage_hotspot':'can_manage_pppoe';
  const photoIdentityValid=!!r.router_id&&!r.router_missing&&r.router_source!=='UNKNOWN'&&(r.source==='LOCAL'||r.source==='RADIUS')&&(r.access_type==='PPPOE'||r.access_type==='HOTSPOT');
  const canManagePhotos=photoIdentityValid&&(data.source==='PERSISTENT_WORKSPACE'?identity?.role_code==='ADMIN'&&identity.can_manage_users===true:can(identity,r.router_id,photoPermission));
+ const workspaceMenu=data.source==='PERSISTENT_WORKSPACE'?<div className="subscriber-actions-menu">
+ <SubscriberQuickButtons compact label={r.customer_name} unavailableReason={writable?undefined:workspaceActionUnavailableReason(r)} status={r.status} onHistory={()=>onTab('history')} onEdit={writable&&onEdit?()=>onEdit(r):undefined} available={[...(onRenew?['EXTEND' as const]:[]),...(onManage?['PLAN' as const,'STATUS' as const]:[])]} onAction={writable?action=>{if(action==='EXTEND')onRenew?.(r);else onManage?.(r,action);}:undefined}/>
+ </div>:null;
  function key(event:KeyboardEvent,index:number){let next=index;if(event.key==='ArrowRight')next=(index+1)%tabs.length;else if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;else return;event.preventDefault();onTab(tabs[next][0]);buttons.current[next]?.focus();}
  return <><section className="panel registry-detail router-device-summary subscriber-summary" aria-label="Abone özeti">
- <div className="subscriber-summary-title"><div><span className="eyebrow">SENTETİK · Güncel yetkili kaynak: {subscriberSource(r.source)==='UNKNOWN'?'BELİRSİZ':sourceLabels[subscriberSource(r.source)]} · Erişim türü: {r.access_type??'Bilinmiyor'}</span><h2>{detailText(r.customer_name)}</h2></div><span className="demo-chip">{accountStatus(r.status)}</span></div>
+ <div className="subscriber-summary-title"><div><span className="eyebrow">SENTETİK · Güncel yetkili kaynak: {subscriberSource(r.source)==='UNKNOWN'?'BELİRSİZ':sourceLabels[subscriberSource(r.source)]} · Erişim türü: {r.access_type??'Bilinmiyor'}</span><h2>{detailText(r.customer_name)}</h2></div><div className="subscriber-summary-actions"><span className="demo-chip">{accountStatus(r.status)}</span>{workspaceMenu}</div></div>
  <Facts items={[
  ['Kullanıcı adı',detailText(r.username)],['Paket',detailText(r.plan)],['Paket hızı',r.package_snapshot?`${r.package_snapshot.download_mbps}/${r.package_snapshot.upload_mbps} Mbps`:'Veri yok'],
  ['Router',routerHash?<a className="record-link" aria-label="İlgili routerı aç" href={routerHash}>{r.router_name||'Routerı aç'}</a>:detailText(r.router_name)],
@@ -61,12 +64,10 @@ export function SubscriberDeviceCenterView({data,tab,onTab,onEdit,onRenew,onMana
  {supplementary}
  {photosEnabled&&<details className="subscriber-photo-disclosure" open={photosOpen} onToggle={event=>setPhotosOpen(event.currentTarget.open)}><summary>{subscriberPhotoTab[1]}</summary>{photosOpen&&(photoIdentityValid?<SubscriberPhotos id={r.id} source={r.source!} accessType={r.access_type!} canManage={canManagePhotos}/>:<p className="missing-data" role="status">Fotoğraf erişimi için doğrulanmış LOCAL/RADIUS kaynağı, PPPoE/Hotspot türü ve router bağı gerekir.</p>)}</details>}
  </>
- :activeTab==='actions'?<><p>İşlemi seçin, eski → yeni değerleri inceleyip onaylayın.</p>
+ :activeTab==='actions'?<><p>İşlemler menüsünden seçim yapın; önizlemedeki değişikliği onaylayın.</p>
  <section className="inventory-toolbar" aria-label="Abone işlemleri">
  {data.source==='LEGACY_DEMO'&&<LegacySubscriberActions key={r.id} id={r.id} onHistory={()=>onTab('history')} onSelect={onLegacyAction}/>}
- {data.source==='PERSISTENT_WORKSPACE'&&<div className="subscriber-actions-menu">
- <SubscriberQuickButtons compact status={r.status} onHistory={()=>onTab('history')} onEdit={writable&&onEdit?()=>onEdit(r):undefined} available={[...(onRenew?['EXTEND' as const]:[]),...(onManage?['PLAN' as const,'STATUS' as const]:[])]} onAction={writable?action=>{if(action==='EXTEND')onRenew?.(r);else onManage?.(r,action);}:undefined}/>
- </div>}
+
  {data.source==='PERSISTENT_WORKSPACE'&&!writable&&<p role="status">İşlemler için ilgili routerda abone yönetim izni, kalıcı demo deposu ve doğrulanmış kaynak/router bağı gerekli.</p>}
  </section><details className="technical-info"><summary>Teknik önizlemeler</summary><SubscriberAaaDemo key={r.id+':'+r.revision+':'+r.source} source={r.source}/></details>{supplementary}</>
  :activeTab==='history'?<>{data.history.length?<ol className="registry-history">{data.history.map((e,index)=><li key={index} style={{padding:"18px",marginBottom:"16px",border:"1px solid var(--border-color, #354154)",borderRadius:"10px"}}><strong>{dailyLabels[e.operation]??({DATE_EDIT:'Bitiş tarihi düzenlendi',PLAN_CHANGE:'Paket değiştirildi',STATUS_CHANGE:'Hesap durumu değiştirildi'} as Record<string,string>)[e.operation]??detailText(e.operation)}</strong><span>{observationTime(e.occurred_at)?dateTime(e.occurred_at):'Veri yok'} · İşlemi yapan: {historyActor(e)}</span>{e.result==='FAILED'&&<span>Başarısız · Kayıt değiştirilmedi</span>}{e.result!=='FAILED'&&e.result!=='APPLIED'&&<span>Sonuç bilinmiyor</span>}{e.result!=='FAILED'&&<ul aria-label="Değişen alanlar">{changedHistoryValues(e).map(change=><li key={change.key}><strong>{change.label}</strong>: {change.previous} → {change.next}</li>)}</ul>}<details><summary>Teknik detaylar</summary><span>Aktör kimliği: {detailText(e.actor_id)}</span><span>Sonuç: {e.result==='FAILED'?'Başarısız · Kayıt değiştirilmedi':e.result==='APPLIED'?'Uygulandı · Sentetik kayıt':'Veri yok'}</span><span>İşlem UUID: {detailText(e.request_id)}</span><span>İşlem revizyonu: {e.revision??'Veri yok'} · Güncel abonelik revizyonu: {r.revision}</span><span>İşlem anındaki yetkili kaynak: {sourceLabels[subscriberSource(e.source)]}</span>{e.router_id&&<span>İşlemdeki router: <a className="record-link" href={linkedDetailHash({module:'routers',id:e.router_id,source:data.source==='PERSISTENT_WORKSPACE'?'MANAGED_DEMO':'DEMO'},typeof window==='undefined'?'':window.location.hash)}>{e.router_id}</a></span>}<p>Önceki değerler: {valuesText(e.previous_values)}</p><p>Yeni değerler: {valuesText(e.new_values)}</p>{e.error&&<p>{e.error}</p>}</details></li>)}</ol>:<p className="missing-data">Veri yok. Kayıtlı işlem geçmişi bulunmuyor.</p>}<p>Son 50 işlem · Türkiye saati (Europe/Istanbul).</p></>

@@ -199,3 +199,14 @@
  .v26-ui .synthetic-subscriber-list>.workspace-filters:not([open])>.inventory-toolbar{display:none}
  .v26-ui .synthetic-subscriber-list>.workspace-filters[open]>.inventory-toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 0 8px;margin:0;height:auto;min-height:0}
 }
+.subscriber-summary-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.subscriber-operation-preview dl{display:grid;gap:8px;margin:12px 0}
+.subscriber-operation-preview dl>div{min-width:0}
+.subscriber-operation-preview dt{font-size:12px;color:var(--text-secondary)}
+.subscriber-operation-preview dd{margin:4px 0 0;overflow-wrap:anywhere}
+.subscriber-operation-preview .subscriber-expected-outcome{font-size:13px;padding-top:8px;border-top:1px solid var(--line)}
+@media(max-width:650px){
+ .v26-ui .subscriber-summary-actions{width:100%;justify-content:space-between;gap:8px}
+ .subscriber-operation-preview{padding:10px;min-width:0}
+ .subscriber-operation-preview p,.subscriber-operation-preview dd{overflow-wrap:anywhere;white-space:normal}
+}

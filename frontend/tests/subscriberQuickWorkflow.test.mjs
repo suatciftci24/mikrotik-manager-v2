@@ -64,9 +64,9 @@ test('legacy row action opens a canonical preset loader without losing filters o
 });
 test('workspace row forwards each action and denies unknown source/router bindings',t=>{
  stubGlobals(t);const calls=[],h=harness('src/components/SyntheticSubscribers.tsx',path=>path.startsWith('/subscriber-workspace?')?{data:{items:[workspace],total:1,is_demo:true}}:{data:{items:[]}});
- const tree=h.render('SyntheticSubscriberList',{onOpen:id=>calls.push(['detail',id]),onCreate:quiet,onQuick:(r,a)=>calls.push([r,a]),onHistory:id=>calls.push(['history',id])});
+ const tree=h.render('SyntheticSubscriberList',{onOpen:id=>calls.push(['detail',id]),onCreate:quiet,onEdit:r=>calls.push(['edit',r]),onQuick:(r,a)=>calls.push([r,a]),onHistory:id=>calls.push(['history',id])});
  const surface=nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='SubscriberQuickButtons');assert.ok(surface);
- for(const action of ['EXTEND','PLAN','STATUS']){surface.props.onAction(action);assert.deepEqual(calls.at(-1),[workspace,action]);}surface.props.onHistory();assert.deepEqual(calls.at(-1),['history',workspace.id]);
+ for(const action of ['EXTEND','PLAN','STATUS']){surface.props.onAction(action);assert.deepEqual(calls.at(-1),[workspace,action]);}surface.props.onHistory();assert.deepEqual(calls.at(-1),['history',workspace.id]);surface.props.onEdit();assert.deepEqual(calls.at(-1),['edit',workspace]);
  for(const patch of [{source:null},{router_missing:true},{router_source:'UNKNOWN'},{id:'registered-live'}])assert.equal(canChangeWorkspaceItem({...workspace,...patch},true),false);
  for(const patch of [{source:null},{can_manage_pppoe:false},{is_demo:false},{router_id:null},{id:'registered-live'}])assert.equal(canSelectLegacyAction({...row,...patch}),false);
 });
@@ -97,7 +97,7 @@ test('workspace PLAN preset compares old and typed package and still requires ex
  stubGlobals(t);const h=harness('src/components/SubscriberDailyActions.tsx',()=>({data:{items:[]}})),props={rows:[workspace],initialAction:'PLAN',onClose:quiet};let tree=h.render('SubscriberDailyActions',props);
  assert.ok(nodes(tree).some(n=>n.type==='select'&&n.props.value==='PLAN'));nodes(tree).find(n=>n.type==='input'&&n.props.type==='text').props.onChange({target:{value:'Paket 200'}});
  tree=h.render('SubscriberDailyActions',props);const html=renderToStaticMarkup(tree);assert.match(html,/Mevcut paket/);assert.match(html,/Paket 100/);assert.match(html,/Yeni paket: Paket 200/);
- nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:quiet});tree=h.render('SubscriberDailyActions',props);const confirm=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula');assert.equal(confirm.props.disabled,true);assert.match(renderToStaticMarkup(tree),/Eski: Paket 100 → Yeni: Paket 200/);
+ nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:quiet});tree=h.render('SubscriberDailyActions',props);const confirm=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula');assert.equal(confirm.props.disabled,true);assert.match(renderToStaticMarkup(tree),/Paket 100 → Paket 200/);
 });
 
 test('a double click posts once, keeps the current page and refreshes detail/list/Dashboard/history',async t=>{
@@ -160,9 +160,9 @@ test('workspace mobile cards reuse the single row menu and creation stays outsid
  const location=stubGlobals(t);location.hash='#module=subscribers&workspace=PERSISTENT&workspace_router='+workspace.router_id;
  for(const can_manage of [true,false]){
   const item={...workspace,can_manage},h=harness('src/components/SyntheticSubscribers.tsx',path=>path.startsWith('/subscriber-workspace?')?{data:{items:[item],total:1,is_demo:true}}:{data:{items:[]}}),calls=[];
-  const tree=h.render('SyntheticSubscriberList',{onOpen(){},onCreate:()=>calls.push('create'),onQuick:(r,a)=>calls.push([r.id,a]),onHistory:quiet});
+  const tree=h.render('SyntheticSubscriberList',{onOpen(){},onCreate:()=>calls.push('create'),onEdit:r=>calls.push([r.id,'edit']),onQuick:(r,a)=>calls.push([r.id,a]),onHistory:quiet});
   const compact=nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='CompactSubscriberList');assert.equal(compact.props.quiet,true);
-  const mobile=compact.props.actions(item);assert.equal(mobile.type.name,'SubscriberQuickButtons');assert.equal(!!mobile.props.onAction,can_manage);
+  const mobile=compact.props.actions(item);assert.equal(mobile.type.name,'SubscriberQuickButtons');assert.equal(!!mobile.props.onAction,can_manage);assert.equal(!!mobile.props.onEdit,can_manage);
   if(can_manage){mobile.props.onAction('PLAN');assert.deepEqual(calls.at(-1),[item.id,'PLAN']);}
   const link=compact.props.routerLink(item);assert.equal(new URLSearchParams(link.props.href.slice(1)).get('source'),'MANAGED_DEMO');
   const header=nodes(tree).find(n=>n.props?.className==='workspace-list-heading');nodes(header).find(n=>n.type==='button').props.onClick();assert.equal(calls.at(-1),'create');

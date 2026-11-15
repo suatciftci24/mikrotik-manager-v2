@@ -113,7 +113,7 @@ test('workspace actions keep direct preset callbacks and history navigation in t
  }
  buttons.find(n=>n.props.children==='İşlem Geçmişi').props.onClick(event);assert.equal(selected,'history');
  shared.props.onEdit();assert.deepEqual(calls.at(-1),['edit',data.item]);
- for(const tab of ['overview','history','connections'])assert.equal(nodes(module.exports.SubscriberDeviceCenterView({...props,tab})).some(n=>n.props?.className==='subscriber-actions-menu'),false);
+ for(const tab of ['overview','actions','history','connections'])assert.equal(nodes(module.exports.SubscriberDeviceCenterView({...props,tab})).filter(n=>n.props?.className==='subscriber-actions-menu').length,1);
  for(const patch of [{source:null},{router_missing:true},{router_source:'UNKNOWN'}]){
   const denied=module.exports.SubscriberDeviceCenterView({...props,data:{...data,item:{...data.item,...patch}},tab:'actions'});
   const surface=nodes(denied).find(n=>typeof n.type==='function'&&n.type.name==='SubscriberQuickButtons');
@@ -163,7 +163,7 @@ test('summary preserves exact account values and keeps expiry independent of acc
  const item={...data.item,customer_name:'Örnek Abone',username:'pppoe.example',plan:'Paket 200',status:'PAUSED',expires_on:'2099-12-31'};
  const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,item},tab:'overview',onTab(){}}));
  for(const value of ['Örnek Abone','pppoe.example','Paket 200','Hesap pasif','31 Ara 2099','gün kaldı'])assert.ok(html.includes(value),value);
- assert.doesNotMatch(html,/canlı oturum ölçülmedi|Oturum durumu|subscriber-actions-menu/);
+ assert.doesNotMatch(html,/canlı oturum ölçülmedi|Oturum durumu/);assert.equal((html.match(/class="subscriber-actions-menu"/g)??[]).length,1);
 });
 
 test('connection panel labels saved IP and times as synthetic and never infers a session',()=>{

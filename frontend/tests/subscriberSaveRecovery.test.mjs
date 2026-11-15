@@ -20,7 +20,7 @@ function harness(kind,mode){
  let item={...original};
  const render=()=>{cursor=0;return kind==='hook'?module.exports.useSubscriberSave(value=>saved.push(value)):kind==='workspace'?module.exports.SyntheticSubscriberEditor({item:mode==='edit'?item:undefined,onClose(){},onSaved:id=>saved.push(id)}):module.exports.SubscriberEditor({mode:mode==='edit'?'PLAN_CHANGE':'CREATE',subscriber:mode==='edit'?item:undefined,onClose(){},onSaved:id=>saved.push(id)});};
  const control=(predicate,value)=>{const node=nodes(render()).find(predicate);assert.ok(node,'control exists');node.props.onChange({target:{value,checked:value}});};
- const prepare=()=>{
+ const prepare=(withConsent=true)=>{
   if(kind==='workspace'){
    if(mode==='create'){
     control(n=>n.type==='input'&&n.props.maxLength===160,'Synthetic User');
@@ -38,7 +38,7 @@ function harness(kind,mode){
    control(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value==='New'),'New');
   }
   nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
-  if(kind==='workspace')control(n=>n.type==='input'&&n.props.type==='checkbox',true);
+  if(kind==='workspace'&&withConsent)control(n=>n.type==='input'&&n.props.type==='checkbox',true);
  };
  const send=()=>kind==='workspace'?nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}}):nodes(render()).find(n=>n.type==='button'&&n.props.className==='button-primary').props.onClick();
  return {render,prepare,send,saved,events,original,refreshProps(){item={...item,revision:99,plan:'Later'};}};
@@ -110,4 +110,16 @@ test('timeout aborts the POST but only a later GET resolves its result',async()=
   assert.equal(h.render().state,'UNCERTAIN');await h.render().send(input);
   assert.deepEqual(calls,['POST','GET']);assert.equal(h.saved.length,1);
  }finally{globalThis.fetch=oldFetch;globalThis.window=oldWindow;globalThis.setTimeout=oldTimer;globalThis.clearTimeout=oldClear;}
+});
+
+test('workspace create review cannot write before explicit consent and refreshes every dependent view after verified save',async()=>{
+ const h=harness('workspace','create'),calls=[],beforeFetch=globalThis.fetch,beforeWindow=globalThis.window,events=[];
+ globalThis.window={dispatchEvent:event=>events.push(event)};globalThis.fetch=async(url,init)=>{calls.push({url,init});const payload=JSON.parse(init.body);return {ok:true,json:async()=>({id:'demo-managed-sub-'+payload.request_id,...payload.fields,revision:1})};};
+ try{
+  h.prepare(false);assert.equal(calls.length,0);await h.send();assert.equal(calls.length,0);
+  const review=nodes(h.render()).find(n=>n.type?.name==='SubscriberOperationPreview');assert.equal(review.props.router,'Synthetic Router');assert.ok(review.props.changes.some(change=>change.label==='Paket / profil'));
+  nodes(h.render()).find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});await h.send();await new Promise(setImmediate);
+  assert.equal(calls.length,1);assert.equal(h.saved.length,1);
+  for(const prefix of ['/subscriber-workspace','/subscriber-center','/dashboard','/reports'])assert.ok(events.some(event=>event.detail.includes(prefix)),prefix);
+ }finally{globalThis.fetch=beforeFetch;globalThis.window=beforeWindow;}
 });

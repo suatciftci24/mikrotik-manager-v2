@@ -5896,3 +5896,21 @@ Her iki ilerleme kaydi korunmustur:
 - Dashboard/masaüstü/API/yetki/işlemler, backend/PG/migration, VDS deploy/restart,
   V1/V2.5/cihaz/RADIUS/IPsec değiştirilmedi. Ayrı onaylı frontend yayını yeterli.
   Tek commit/normal push ve HEAD eşitliği teslimde.
+
+## V26 ortak abone işlem yönetimi — 2026-11-15 — yerel PASS / görsel BLOCKED
+
+- Temiz main-guncel/802e0c0 ve uzak SHA eşitliği doğrulandı; Altın Kurallar,
+  son kabul ve özellik koruma envanteri okundu. Mevcut iş mantığı esas alındı.
+- Kart/detay aynı İşlemler menüsü; detayda tek menü özet alanında. Liste
+  düzenleme girişi aynı kaynak/router/can_manage kontrolüne bağlıdır.
+- Mevcut oluşturma/paket/durum/uzatma diyalogları ortak kısa önizlemeyi kullanır:
+  abone, router, eski→yeni ve beklenen sonuç. Form tekrarı azaltıldı. Açık onay,
+  aynı UUID/receipt, red/belirsizlik ve doğrulanmış başarı mantığı korunur.
+- Sekiz hedef frontend dosyası ilgili kapsamları, onaysız CREATE/tek POST ve
+  liste/detay/Dashboard/geçmiş yenileme kontrolü, son production build/diff PASS.
+  Eski menü konumu/metin seçicileri yeni davranışla doğrulandı; başarısız kapsam
+  tekrar geçti. Ayrıntı: V26_UNIFIED_SUBSCRIBER_OPERATIONS_ACCEPTANCE.md.
+- Chromium setsockopt/SIGTRAP: gerçek mobil/masaüstü görsel kabul BLOCKED.
+  Backend/PG/kullanıcı/şema/migration/veri taşıma/silme, VDS deploy/restart,
+  V1/V2.5/MikroTik/RADIUS/IPsec işlemi yok. Ayrı frontend yayını gerekir;
+  backend/migration gerekmez. Tek commit/normal push teslimde.
