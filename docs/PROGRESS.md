@@ -5949,3 +5949,24 @@ Her iki ilerleme kaydi korunmustur:
   kabul BLOCKED. Ayrıntı: docs/V26_FIXED_SUBSCRIBER_OPERATION_ACCEPTANCE.md.
 - Backend/PG/migration/VDS deploy/restart/V1/V2.5/cihaz/RADIUS/IPsec/canlı veri
   işlemi yok. Ayrı onaylı frontend yayını gerekir; tek commit/push teslimde.
+
+## V26 sentetik abone ekleme akışı — 2026-11-15 — yerel PASS / görsel BLOCKED
+
+- Temiz main-guncel/cd1de72 esas alındı; AGENTS/Altın Kurallar, güncel PROGRESS,
+  son işlem kabulü ve paket/workspace sözleşmeleri okundu. Yerel veri değiştirilmedi.
+- Tek create formunda yetkili sentetik router ve aktif katalog paketi doğrulanır;
+  paket adı/hız/süre görünür. Başlangıç ve elle girilmemiş bitiş, mevcut Türkiye
+  günü + inclusive packageEnd kuralını izler. Önizleme abone/kullanıcı/router,
+  paket/hız/süre, durum ve tarihleri içerir; kimlikler Teknik bilgiler altında.
+- Create POST/GET receipt, idempotency, explicit consent, audit transaction,
+  merkezi yetki ve kullanıcı adı tekillik kontrolü backend'de aynen korundu.
+  Duplicate/iş kuralı hatası başarı göstermez; doğrulanmış kayıt detayını açar.
+  Var olan abonede paket değişimi/bitiş koruması regresyonla denetlendi.
+- PASS: subscriberSaveRecovery 38, subscriberCenter 25 ve packages 5 hedefli
+  test; TypeScript/Vite production build ve diff kontrolü. Ayrıntı:
+  V26_SUBSCRIBER_CREATE_FLOW_ACCEPTANCE.md.
+- Gerçek mobil/masaüstü görsel kabul BLOCKED: Chromium'un bilinen crashpad
+  setsockopt/SIGTRAP sandbox engeli; PASS iddiası yok.
+- Yalnız frontend/dokümantasyon değişti. Backend/PG/migration/veri, VDS
+  deploy/restart, V1/V2.5/cihaz/RADIUS/IPsec işlemi yok; ayrı onaylı frontend
+  yayını gerekir. Commit/push durumu teslimde bildirilecek.

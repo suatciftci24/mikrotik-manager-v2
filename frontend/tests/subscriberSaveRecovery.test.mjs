@@ -11,13 +11,13 @@ const compile=name=>buildSync({entryPoints:[fileURLToPath(new URL('../src/'+name
 const codes={workspace:compile('components/SyntheticSubscribers.tsx'),legacy:compile('components/SubscriberEditor.tsx'),hook:compile('lib/useSubscriberSave.ts')};
 const router='demo-managed-router-11111111-1111-4111-8111-111111111111';
 const pkg={id:'demo-package-22222222-2222-4222-8222-222222222222',revision:1,is_demo:true,fields:{name:'New',download_mbps:100,upload_mbps:20,duration_days:30,active:true,router_profile:null,monthly_price:'100.00'}};
-function harness(kind,mode){
+function harness(kind,mode,initial={}){
  const slots=[];let cursor=0;const events=[],saved=[];
  const options={routers:[{id:'demo-router-one',name:'Synthetic Router'}],plans:[{name:'Old',monthly_price:100},{name:'New',monthly_price:200}],persistence:'local-postgresql-demo',is_demo:true};
  const hooks={...React,useContext:()=>({role_code:'ADMIN',can_manage_users:true}),useEffect(){},useCallback:fn=>fn,useRef:value=>{const i=cursor++;slots[i]??={current:value};return slots[i];},useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;const value=slots[i];if(value?.path)return [{...value,loading:false,data:value.path==='/packages'?{items:[pkg]}:value.path.includes('demo-options')?options:{items:[{id:router,fields:{name:'Synthetic Router'}}]}},()=>{}];return [value,next=>{slots[i]=typeof next==='function'?next(slots[i]):next;}];}};
  const module={exports:{}};new Function('require','module','exports',codes[kind])(name=>name==='react'?hooks:require(name),module,module.exports);
  const original={id:kind==='workspace'?'demo-managed-sub-existing':'demo-sub-existing',customer_name:'Synthetic User',username:'synthetic.test',router_id:kind==='workspace'?router:'demo-router-one',router_name:'Synthetic Router',access_type:'PPPOE',source:'LOCAL',plan:'Old',status:'PAUSED',expires_on:null,revision:3,monthly_price:100,is_demo:true};
- let item={...original};
+ let item={...original,...initial};
  const render=()=>{cursor=0;return kind==='hook'?module.exports.useSubscriberSave(value=>saved.push(value)):kind==='workspace'?module.exports.SyntheticSubscriberEditor({item:mode==='edit'?item:undefined,onClose(){},onSaved:id=>saved.push(id)}):module.exports.SubscriberEditor({mode:mode==='edit'?'PLAN_CHANGE':'CREATE',subscriber:mode==='edit'?item:undefined,onClose(){},onSaved:id=>saved.push(id)});};
  const control=(predicate,value)=>{const node=nodes(render()).find(predicate);assert.ok(node,'control exists');node.props.onChange({target:{value,checked:value}});};
  const prepare=(withConsent=true)=>{
@@ -41,7 +41,7 @@ function harness(kind,mode){
   if(kind==='workspace'&&withConsent)control(n=>n.type==='input'&&n.props.type==='checkbox',true);
  };
  const send=()=>kind==='workspace'?nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}}):nodes(render()).find(n=>n.type==='button'&&n.props.className==='button-primary').props.onClick();
- return {render,prepare,send,saved,events,original,refreshProps(){item={...item,revision:99,plan:'Later'};}};
+ return {render,prepare,send,control,saved,events,original,refreshProps(){item={...item,revision:99,plan:'Later'};}};
 }
 const tick=()=>new Promise(setImmediate);
 for(const kind of ['workspace','legacy'])for(const mode of ['create','edit'])for(const fault of ['lost-response','truncated-json','wrong-response','wrong-router','wrong-source','wrong-expiry','wrong-status',...(kind==='legacy'?['wrong-price']:[])]){
@@ -117,9 +117,54 @@ test('workspace create review cannot write before explicit consent and refreshes
  globalThis.window={dispatchEvent:event=>events.push(event)};globalThis.fetch=async(url,init)=>{calls.push({url,init});const payload=JSON.parse(init.body);return {ok:true,json:async()=>({id:'demo-managed-sub-'+payload.request_id,...payload.fields,revision:1})};};
  try{
   h.prepare(false);assert.equal(calls.length,0);await h.send();assert.equal(calls.length,0);
-  const review=nodes(h.render()).find(n=>n.type?.name==='SubscriberOperationPreview');assert.equal(review.props.router,'Synthetic Router');assert.ok(review.props.changes.some(change=>change.label==='Paket / profil'));
+  const review=nodes(h.render()).find(n=>n.type?.name==='SubscriberOperationPreview');assert.equal(review.props.router,'Synthetic Router');assert.ok(review.props.changes.some(change=>change.label==='Paket'&&change.next==='New · 100/20 Mbps'));assert.ok(review.props.changes.some(change=>change.label==='Abonelik süresi'&&change.next==='30 gün'));assert.ok(review.props.changes.some(change=>change.label==='Hesap durumu'&&change.next==='Pasif'));assert.ok(review.props.changes.some(change=>change.label==='Bitiş tarihi'&&change.next!=='Belirtilmemiş'));
   nodes(h.render()).find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});await h.send();await new Promise(setImmediate);
   assert.equal(calls.length,1);assert.equal(h.saved.length,1);
   for(const prefix of ['/subscriber-workspace','/subscriber-center','/dashboard','/reports'])assert.ok(events.some(event=>event.detail.includes(prefix)),prefix);
+ }finally{globalThis.fetch=beforeFetch;globalThis.window=beforeWindow;}
+});
+
+test('workspace create displays selected package speed and term; derived expiry follows start date unless manually changed',()=>{
+ const h=harness('workspace','create');
+ h.control(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===pkg.id),pkg.id);
+ const summary=nodes(h.render()).find(n=>n.props?.id==='synthetic-package-summary');assert.ok(summary);assert.equal(summary.props.role,'status');assert.match(renderToStaticMarkup(summary),/New[\s\S]*100\/20 Mbps · 30 gün/);
+ const dates=()=>nodes(h.render()).filter(n=>n.type==='input'&&n.props.type==='date');
+ const start='2030-04-12';dates()[0].props.onChange({target:{value:start}});
+ assert.equal(dates()[1].props.value,'2030-05-11');
+ dates()[1].props.onChange({target:{value:'2030-06-01'}});
+ dates()[0].props.onChange({target:{value:'2030-04-20'}});
+ assert.equal(dates()[1].props.value,'2030-06-01','an explicit expiry stays intact');
+});
+
+test('editing an assigned package keeps the existing expiry date',()=>{
+ const h=harness('workspace','edit',{package_id:pkg.id,package_revision:pkg.revision,plan:pkg.fields.name,started_on:'2030-01-01',expires_on:'2030-02-15'});
+ h.control(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===pkg.id),pkg.id);
+ const dates=nodes(h.render()).filter(n=>n.type==='input'&&n.props.type==='date');
+ dates[0].props.onChange({target:{value:'2030-01-10'}});
+ assert.equal(nodes(h.render()).filter(n=>n.type==='input'&&n.props.type==='date')[1].props.value,'2030-02-15');
+});
+
+test('workspace create rejects missing authorized router and invalid dates before preview or write',()=>{
+ const h=harness('workspace','create');
+ h.control(n=>n.type==='input'&&n.props.maxLength===160,'Synthetic User');
+ h.control(n=>n.type==='input'&&n.props.maxLength===96,'synthetic.test');
+ h.control(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===pkg.id),pkg.id);
+ nodes(h.render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
+ assert.match(renderToStaticMarkup(h.render()),/yetkili sentetik router seçin/);
+ h.control(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===router),router);
+ h.control(n=>n.type==='input'&&n.props.type==='date'&&n.props.value!=='','2030-02-31');
+ nodes(h.render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
+ assert.match(renderToStaticMarkup(h.render()),/geçerli tarih seçin/);
+ assert.equal(h.saved.length,0);
+});
+
+test('workspace duplicate username conflict remains a failure without a success result',async()=>{
+ const h=harness('workspace','create'),beforeFetch=globalThis.fetch,beforeWindow=globalThis.window;globalThis.window={dispatchEvent(){}};
+ globalThis.fetch=async()=>({ok:false,status:409,json:async()=>({detail:'Bu sentetik kullanıcı adı zaten kullanılıyor.'})});
+ try{
+  h.prepare();await h.send();await tick();
+  assert.equal(h.saved.length,0);
+  assert.match(renderToStaticMarkup(h.render()),/kullanıcı adı zaten kullanılıyor/);
+  assert.doesNotMatch(renderToStaticMarkup(h.render()),/Abone kaydedildi/);
  }finally{globalThis.fetch=beforeFetch;globalThis.window=beforeWindow;}
 });

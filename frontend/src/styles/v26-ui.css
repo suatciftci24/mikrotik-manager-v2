@@ -228,3 +228,16 @@
 .fixed-subscriber-operation form>.form-label{margin:0;min-width:0}
 .fixed-subscriber-operation .package-choice-summary{padding:4px 0}
 @media(max-width:650px){.fixed-subscriber-operation h2{font-size:18px;overflow-wrap:anywhere}}
+.synthetic-subscriber-editor .onboarding-fields{gap:10px;margin:10px 0}
+.synthetic-subscriber-editor .onboarding-fields legend{margin-bottom:0}
+.synthetic-subscriber-editor .form-label{gap:4px}
+.synthetic-subscriber-editor .form-label small{font-size:12px;line-height:1.4}
+.synthetic-subscriber-editor .synthetic-package-summary{grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:-6px 0 0;padding:4px 0;font-size:13px}
+.synthetic-subscriber-editor form>.button-primary,.synthetic-subscriber-editor form>.button-secondary{min-height:44px}
+@media(max-width:650px){
+ .synthetic-subscriber-editor{padding:12px!important}
+ .synthetic-subscriber-editor h2{margin:0 0 6px;font-size:18px}
+ .synthetic-subscriber-editor>p{margin:4px 0 8px;font-size:12px}
+ .synthetic-subscriber-editor .onboarding-fields{gap:8px;margin:8px 0}
+ .synthetic-subscriber-editor .synthetic-package-summary{align-items:flex-start;flex-direction:column;gap:2px}
+}
