@@ -56,7 +56,7 @@ export function ManagementReport({onBack}:{onBack:()=>void}){
 
 function ManagedSubscriberAction({item,action,onClose}:{item:CenterSubscriber;action:'EXTEND'|'PLAN'|'STATUS';onClose:()=>void}){
   if(action==='EXTEND')return <SubscriberRenewal item={item} onClose={onClose}/>;
-  return <SubscriberDailyActions rows={[item]} initialAction={action} onClose={onClose}/>;
+  return <SubscriberDailyActions rows={[item]} initialAction={action} fixedAction={action} onClose={onClose}/>;
 }
 
 export function SyntheticManagementReport({onBack,center='dashboard'}:{onBack:()=>void;center?:'dashboard'|'operations'}){

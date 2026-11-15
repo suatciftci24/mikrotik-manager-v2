@@ -205,3 +205,41 @@ test('registered package assignment rejects passive IDs, preserves mapping paylo
  const html=renderToStaticMarkup(tree),visible=html.replace(/<details class="technical-info">[\s\S]*?<\/details>/g,'');assert.match(visible,/Başarılı: 1/);assert.match(visible,/Sentetik Abone/);assert.match(visible,/Paket 200/);assert.doesNotMatch(visible,/demo-package-selected|request_id|package_revision|Aynı UUID/);assert.ok(html.includes(receipt.request_id));
  assert.equal(nodes(tree).some(n=>n.type==='button'&&n.props.children==='Aynı UUID ile sonuçları sorgula'),false);
 });
+
+test('single menu entries have fixed operation titles and no operation selector',t=>{
+ stubGlobals(t);
+ for(const [action,status,title] of [['PLAN','ACTIVE','Paket Değiştir'],['STATUS','ACTIVE','Hesabı Kapat'],['STATUS','PAUSED','Hesabı Aç'],['EXTEND','ACTIVE','Abonelik Uzat']]){
+  const h=harness('src/components/SubscriberDailyActions.tsx',()=>({data:{items:[]}})),tree=h.render('SubscriberDailyActions',{rows:[{...workspace,status}],fixedAction:action,onClose:quiet});
+  const heading=nodes(tree).find(n=>n.type==='h2');assert.ok(renderToStaticMarkup(heading).includes(title));
+  assert.equal(nodes(tree).some(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value==='STATUS')),false);
+  assert.match(renderToStaticMarkup(tree),/SENTETİK/);
+  if(action==='STATUS'){assert.equal(nodes(tree).some(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value==='ACTIVE')),false);assert.ok(renderToStaticMarkup(tree).includes(status==='ACTIVE'?'Pasif hesap':'Aktif hesap'));}
+ }
+});
+test('fixed package entry cannot drift into another operation after parent refresh and still needs consent',async t=>{
+ stubGlobals(t);const pkg={id:'demo-package-fixed',revision:2,is_demo:true,fields:{name:'Paket 200',download_mbps:200,upload_mbps:40,duration_days:30,active:true,router_profile:null}},calls=[];
+ const h=harness('src/components/SubscriberDailyActions.tsx',path=>({data:{items:path==='/packages'?[pkg]:[]}}));let props={rows:[workspace],fixedAction:'PLAN',onClose:quiet};
+ const draw=()=>h.render('SubscriberDailyActions',props);let tree=draw();nodes(tree).find(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===pkg.id)).props.onChange({target:{value:pkg.id}});
+ props={...props,fixedAction:'STATUS',initialAction:'STATUS'};tree=draw();assert.ok(renderToStaticMarkup(nodes(tree).find(n=>n.type==='h2')).includes('Paket Değiştir'));
+ nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:quiet});tree=draw();const apply=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula');assert.equal(apply.props.disabled,true);assert.equal(calls.length,0);
+ globalThis.fetch=async(url,init)=>{calls.push(JSON.parse(init.body));const e=calls[0].entries[0];return {ok:true,json:async()=>({results:[{item_id:e.item_id,request_id:e.request_id,operation:e.operation,actor_id:'test.actor',revision:e.expected_revision+1,router_id:e.expected_router_id,previous_router_id:e.expected_router_id,recorded:true,success:true,occurred_at:'2026-11-15T10:00:00Z',error:null,previous:{plan:workspace.plan},values:{plan:e.value,package_id:e.package_id,package_revision:String(e.package_revision)}}]})};};
+ nodes(tree).find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});nodes(draw()).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();await new Promise(setImmediate);
+ assert.equal(calls.length,1);assert.equal(calls[0].entries[0].operation,'PLAN');assert.equal(calls[0].entries[0].package_id,pkg.id);
+});
+test('selection-based bulk flow keeps its operation selector for one or multiple subscribers',t=>{
+ stubGlobals(t);
+ for(const rows of [[workspace],[workspace,{...workspace,id:'demo-managed-sub-second'}]]){
+  const h=harness('src/components/SubscriberDailyActions.tsx',()=>({data:{items:[]}})),props={rows,onClose:quiet},draw=()=>h.render('SubscriberDailyActions',props);let tree=draw();
+  const selector=nodes(tree).find(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value==='STATUS'));assert.ok(selector);selector.props.onChange({target:{value:'STATUS'}});
+  tree=draw();nodes(tree).find(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value==='PAUSED')).props.onChange({target:{value:'PAUSED'}});nodes(draw()).find(n=>n.type==='form').props.onSubmit({preventDefault:quiet});
+  tree=draw();assert.equal(nodes(tree).filter(n=>n.type?.name==='SubscriberOperationPreview').length,rows.length);assert.equal(nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.disabled,true);
+ }
+});
+test('subscriber list distinguishes menu action from selection action and uses dedicated renewal',t=>{
+ const location=stubGlobals(t);location.hash='#module=subscribers&workspace=PERSISTENT';const identity={role_code:'ADMIN',can_manage_users:true,router_inventory_source:'PERSISTENT_WORKSPACE',permissions:{}};
+ const h=harness('src/screens/Subscribers.tsx',()=>({data:{items:[]}}),identity),draw=()=>h.render('Subscribers',{onToast:quiet}),list=tree=>nodes(tree).find(n=>n.type?.name==='SyntheticSubscriberList'),modal=tree=>nodes(tree).find(n=>n.type?.name==='SubscriberDailyActions');
+ list(draw()).props.onQuick(workspace,'PLAN');assert.equal(modal(draw()).props.fixedAction,'PLAN');modal(draw()).props.onClose();
+ list(draw()).props.onDaily([workspace]);assert.equal(modal(draw()).props.fixedAction,undefined);modal(draw()).props.onClose();
+ list(draw()).props.onQuick(workspace,'STATUS');assert.equal(modal(draw()).props.fixedAction,'STATUS');modal(draw()).props.onClose();
+ list(draw()).props.onQuick(workspace,'EXTEND');assert.ok(nodes(draw()).some(n=>n.type?.name==='SubscriberRenewal'));assert.equal(modal(draw()),undefined);
+});

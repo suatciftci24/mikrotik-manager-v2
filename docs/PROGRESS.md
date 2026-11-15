@@ -5933,3 +5933,19 @@ Her iki ilerleme kaydi korunmustur:
 - Chromium setsockopt/SIGTRAP nedeniyle gerçek modal/mobil/masaüstü görsel kabul
   BLOCKED. Backend/PG/migration/VDS deploy/restart/V1/V2.5/cihaz/RADIUS/IPsec
   işlemi yok. Ayrı onaylı frontend yayını gerekir; tek commit/push teslimde.
+
+## V26 sabit tekli PPPoE işlem girişi — 2026-11-15 — yerel PASS / görsel BLOCKED
+
+- Temiz main-guncel/0368f9a ve uzak SHA eşitliği doğrulandı; Altın Kurallar,
+  güncel ilerleme ve son kabul okundu. Korunacak yerel fark yoktu.
+- Menüden gelen tekli PLAN/STATUS sabit tür parametresiyle açılır; işlem select'i
+  kaldırıldı. Başlık Paket Değiştir/Hesabı Aç-Kapat; status hedefi sabit bilgi.
+  Uzatma mevcut dedicated modalda Abonelik Uzat başlığıyla devam eder.
+- Toplu/genel giriş bir veya çok aboneyle seçiciyi korur. Tür girişte tutulur;
+  parent yenilenmesi başka işlem türüne geçirmez. Paket/hız, önizleme/onay,
+  receipt/GET/idempotency ve API sözleşmesi değişmedi.
+- Beş ilgili frontend hedef dosyası ve yeni sabit/genel akış testleri, son
+  production build/diff PASS. Chromium setsockopt/SIGTRAP nedeniyle görsel
+  kabul BLOCKED. Ayrıntı: docs/V26_FIXED_SUBSCRIBER_OPERATION_ACCEPTANCE.md.
+- Backend/PG/migration/VDS deploy/restart/V1/V2.5/cihaz/RADIUS/IPsec/canlı veri
+  işlemi yok. Ayrı onaylı frontend yayını gerekir; tek commit/push teslimde.

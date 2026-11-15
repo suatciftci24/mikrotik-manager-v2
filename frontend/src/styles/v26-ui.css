@@ -222,3 +222,9 @@
  .subscriber-operation-results .technical-info button{width:100%}
  .operation-receipt{max-height:180px}
 }
+/* A single-action entry needs no second operation selector. */
+.fixed-subscriber-operation h2{margin:0 0 8px;line-height:1.3}
+.fixed-subscriber-operation form{display:grid;gap:8px;min-width:0}
+.fixed-subscriber-operation form>.form-label{margin:0;min-width:0}
+.fixed-subscriber-operation .package-choice-summary{padding:4px 0}
+@media(max-width:650px){.fixed-subscriber-operation h2{font-size:18px;overflow-wrap:anywhere}}
