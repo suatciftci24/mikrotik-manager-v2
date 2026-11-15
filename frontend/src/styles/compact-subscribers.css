@@ -76,3 +76,20 @@
  .expiry-dialog{max-width:calc(100vw - 24px);box-sizing:border-box;overflow-wrap:anywhere}
  .daily-review{max-height:45vh;overflow-y:auto}
 }
+
+.workspace-list-heading{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px}
+.workspace-list-heading h2{margin:0;margin-right:auto}
+.workspace-list-heading .button-primary{min-height:44px}
+@media(max-width:600px){
+ .workspace-list-heading{gap:8px}
+ .workspace-list-heading h2{font-size:16px}
+ .workspace-list-heading a{font-size:12px}
+ .compact-subscribers li{flex-wrap:wrap}
+ .compact-subscriber-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:1 1 100%;min-width:0;padding:4px 0 8px 44px}
+ .compact-subscriber-actions>a{min-width:0;overflow-wrap:anywhere}
+ .compact-subscriber-actions .subscriber-row-actions{flex-shrink:0}
+ .compact-subscriber-actions button,.compact-subscriber-actions>a{min-height:44px;display:inline-flex;align-items:center}
+ .subscriber-summary .record-link{display:inline-flex;align-items:center;min-height:44px;overflow-wrap:anywhere}
+ .router-device-summary .heading-actions{width:100%}
+ .router-device-summary .heading-actions>a{min-height:44px;white-space:normal;box-sizing:border-box}
+}

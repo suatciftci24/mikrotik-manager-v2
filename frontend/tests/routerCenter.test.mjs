@@ -115,3 +115,18 @@ test('restricted persistent detail does not mount subscriber or provider request
  const html=renderToStaticMarkup(view('pppoe',{sections:{...data.sections,pppoe:'PREPARING',hotspot:'PREPARING'},events:[]}));
  assert.match(html,/Hazırlanıyor/);assert.doesNotMatch(html,/PPPoE gözlemleri|Aboneler yükleniyor/);
 });
+
+test('persistent router summary opens all scoped subscribers in one click and preserves return filters',()=>{
+ const prior=globalThis.window;
+ const source='#'+new URLSearchParams({module:'routers',id:data.item.id,source:'MANAGED_DEMO',router_tab:'overview',router_sub_query:'Ali & Ayşe',router_sub_status:'PAUSED',return_to:'#module=subscribers&workspace=PERSISTENT&workspace_query=old&workspace_status=ACTIVE&workspace_page=4'});
+ globalThis.window={location:{hash:source}};
+ try{
+  const link=nodes(view('overview')).find(n=>n.type==='a'&&n.props.children==='Bağlı aboneleri aç');assert.ok(link);
+  const params=new URLSearchParams(link.props.href.slice(1));
+  assert.equal(params.get('workspace'),'PERSISTENT');assert.equal(params.get('workspace_router'),data.item.id);assert.equal(params.get('workspace_access'),'ALL');
+  assert.equal(params.get('workspace_query'),'Ali & Ayşe');assert.equal(params.get('workspace_status'),'PAUSED');assert.equal(params.has('workspace_page'),false);
+  assert.equal(new URLSearchParams(params.get('return_to').slice(1)).get('id'),data.item.id);
+  assert.equal(new URLSearchParams(params.get('return_to').slice(1)).has('return_to'),false);
+  for(const source of ['REGISTERED','STATIC_DEMO'])assert.equal(nodes(view('overview',{source})).some(n=>n.props?.children==='Bağlı aboneleri aç'),false);
+ }finally{globalThis.window=prior;}
+});

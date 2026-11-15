@@ -227,7 +227,7 @@ test('history disclosure hides technical fields and unchanged snapshots from the
  const event={operation:'UPDATE',request_id:'audit-uuid',occurred_at:'2026-11-05T21:30:00Z',actor_id:'operator',revision:2,result:'APPLIED',router_id:data.item.router_id,previous_values:{plan:'Same plan',customer_name:'Before',router_id:'old-id'},new_values:{plan:'Same plan',customer_name:'After',router_id:'new-id'}};
  const html=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,history:[event]},tab:'history',onTab(){}}));
  const disclosure=html.match(/<details>([\s\S]*?)<\/details>/)[0];assert.doesNotMatch(disclosure,/<details open/);assert.match(disclosure,/Teknik detaylar/);assert.match(disclosure,/audit-uuid/);assert.match(disclosure,/Same plan/);
- const visible=html.replace(disclosure,'');assert.match(visible,/Before → After/);assert.match(visible,/operator/);assert.doesNotMatch(visible,/Same plan|audit-uuid|old-id|new-id|İşlem revizyonu|demo-managed-router/);
+ const visible=html.replace(disclosure,'');assert.match(visible,/Before → After/);assert.match(visible,/operator/);assert.doesNotMatch(visible.replace(/<[^>]+>/g,''),/Same plan|audit-uuid|old-id|new-id|İşlem revizyonu|demo-managed-router/);
 });
 
 test('actor username is read projection; unresolved long identities stay short outside technical details',()=>{
@@ -240,4 +240,19 @@ test('actor username is read projection; unresolved long identities stay short o
   assert.doesNotMatch(visible,/Uygulandı · Sentetik kayıt|Unchanged|12345678-1234-4234/);
   assert.match(visible,/Before → After/);assert.ok(visible.includes(username??'Kullanıcı (v2-user-…9abc)'));
  }
+});
+
+test('subscriber summary links to its exact workspace router before opening any tab',()=>{
+ const prior=globalThis.window,hash='#module=subscribers&workspace=PERSISTENT&workspace_query=Ali&workspace_status=PAUSED&workspace_page=3&id='+data.item.id;
+ globalThis.window={location:{hash}};
+ try{
+  const tree=module.exports.SubscriberDeviceCenterView({data,tab:'overview',onTab(){}});
+  const summary=nodes(tree).find(n=>n.props?.['aria-label']==='Abone özeti');
+  const facts=nodes(summary).find(n=>typeof n.type==='function'&&n.type.name==='Facts');
+  const link=facts.props.items.find(([label])=>label==='Router')[1];assert.equal(link.type,'a');
+  const params=new URLSearchParams(link.props.href.slice(1));assert.equal(params.get('source'),'MANAGED_DEMO');assert.equal(params.get('id'),data.item.router_id);
+  assert.equal(new URLSearchParams(params.get('return_to').slice(1)).get('workspace_page'),'3');
+  const missing=renderToStaticMarkup(module.exports.SubscriberDeviceCenterView({data:{...data,item:{...data.item,router_missing:true}},tab:'overview',onTab(){}}));
+  assert.doesNotMatch(missing,/aria-label="İlgili routerı aç"/);
+ }finally{globalThis.window=prior;}
 });

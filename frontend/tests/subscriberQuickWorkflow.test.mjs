@@ -155,3 +155,28 @@ test('LOCAL active/paused and authorized RADIUS expose identical actions irrespe
   assert.ok(renderToStaticMarkup(tree).includes(reason));
  }
 });
+
+test('workspace mobile cards reuse the single row menu and creation stays outside advanced filters',t=>{
+ const location=stubGlobals(t);location.hash='#module=subscribers&workspace=PERSISTENT&workspace_router='+workspace.router_id;
+ for(const can_manage of [true,false]){
+  const item={...workspace,can_manage},h=harness('src/components/SyntheticSubscribers.tsx',path=>path.startsWith('/subscriber-workspace?')?{data:{items:[item],total:1,is_demo:true}}:{data:{items:[]}}),calls=[];
+  const tree=h.render('SyntheticSubscriberList',{onOpen(){},onCreate:()=>calls.push('create'),onQuick:(r,a)=>calls.push([r.id,a]),onHistory:quiet});
+  const compact=nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='CompactSubscriberList');assert.equal(compact.props.quiet,true);
+  const mobile=compact.props.actions(item);assert.equal(mobile.type.name,'SubscriberQuickButtons');assert.equal(!!mobile.props.onAction,can_manage);
+  if(can_manage){mobile.props.onAction('PLAN');assert.deepEqual(calls.at(-1),[item.id,'PLAN']);}
+  const link=compact.props.routerLink(item);assert.equal(new URLSearchParams(link.props.href.slice(1)).get('source'),'MANAGED_DEMO');
+  const header=nodes(tree).find(n=>n.props?.className==='workspace-list-heading');nodes(header).find(n=>n.type==='button').props.onClick();assert.equal(calls.at(-1),'create');
+  const filters=nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='SubscriberDisclosure');assert.equal(nodes(filters).some(n=>n.props?.children==='Abone ekle'),false);
+  assert.equal(nodes(tree).some(n=>n.props?.children==='Detay'),false);
+ }
+});
+
+test('V26 workspace navigation exposes no legacy source and history remains workspace-only',t=>{
+ const location=stubGlobals(t),identity={role_code:'ADMIN',can_manage_users:true,router_inventory_source:'PERSISTENT_WORKSPACE',permissions:{}};
+ for(const workspace of ['PERSISTENT','HISTORY']){
+  location.hash='#module=subscribers&workspace='+workspace;
+  const h=harness('src/screens/Subscribers.tsx',()=>({data:{items:[]}}),identity),tree=h.render('Subscribers',{onToast:quiet,runtimeProfile:'v26-isolated-acceptance'});
+  const picker=nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='SourcePicker');assert.deepEqual(picker.props.options.map(o=>o.value),['PERSISTENT','HISTORY']);
+  if(workspace==='HISTORY'){const history=nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='SubscriberOperationHistory');assert.equal(history.props.workspaceOnly,true);}
+ }
+});

@@ -1,3 +1,4 @@
+import {linkedCenterHash,centerReturnHash} from './detailLinks.ts';
 import type {PilotReadSnapshot} from './cebeciPilot';
 import {connectionError} from './routerRegistry.ts';
 export const routerSectionTabs=[['overview','Genel Bakış'],['interfaces','Ağ Arayüzleri'],['wan','WAN ve İnternet'],['pppoe','PPPoE'],['hotspot','Hotspot'],['events','Olay Geçmişi'],['security','Güvenli Bağlantı']] as const;
@@ -5,9 +6,17 @@ export const routerCenterTabs=[['overview','Genel Durum'],['wan','WAN/Bağlantı
 export type RouterCenterTab=typeof routerSectionTabs[number][0]|'subscribers';
 export const routerCenterTabKeys=[...routerCenterTabs.map(([key])=>key),'interfaces','pppoe','hotspot','security'] as const;
 export function primaryRouterTab(tab:RouterCenterTab){return tab==='pppoe'||tab==='hotspot'?'subscribers':tab==='interfaces'?'wan':tab==='security'?'overview':tab;}
-export function routerSubscriberListHash(id:string,access:'PPPOE'|'HOTSPOT'='PPPOE'){
+export function routerSubscriberListHash(id:string,access:'PPPOE'|'HOTSPOT'|'ALL'='PPPOE',fromHash=''){
  const persistent=id.startsWith('demo-managed-router-');
- return '#'+new URLSearchParams({module:'subscribers',workspace:persistent?'PERSISTENT':'LEGACY',[persistent?'workspace_router':'router_id']:id,...(persistent?{workspace_access:access}:{})});
+ const params=new URLSearchParams({module:'subscribers',workspace:persistent?'PERSISTENT':'LEGACY',[persistent?'workspace_router':'router_id']:id,...(persistent?{workspace_access:access}:{})});
+ if(persistent&&fromHash){
+  const current=new URLSearchParams(fromHash.replace(/^#/,''));
+  const back=new URLSearchParams((centerReturnHash(fromHash)??'').replace(/^#/,''));
+  if(back.get('module')==='subscribers'&&back.get('workspace')==='PERSISTENT')for(const key of ['workspace_query','workspace_status'])if(back.has(key))params.set(key,back.get(key)!);
+  if(current.has('router_sub_query'))params.set('workspace_query',current.get('router_sub_query')!);
+  if(['ALL','ACTIVE','PAUSED'].includes(current.get('router_sub_status')??''))params.set('workspace_status',current.get('router_sub_status')!);
+ }
+ return fromHash?linkedCenterHash('#'+params,fromHash):'#'+params;
 }
 export type RouterCenterData={source:'PERSISTENT_DEMO'|'STATIC_DEMO'|'REGISTERED';is_demo:boolean;device_connection_started:false;
  item:{id:string;name:string;identity:string|null;model:string|null;routeros_version:string|null;management_address:string;site:string|null;inventory_description?:string|null;status:string;last_success_at:string|null;last_seen_at:string|null;cpu_percent:number|null;memory_percent:number|null;uptime:string|null};

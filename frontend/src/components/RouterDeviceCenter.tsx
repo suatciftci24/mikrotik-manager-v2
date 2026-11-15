@@ -54,7 +54,7 @@ export function RouterDeviceCenterView({data,tab,onTab,actions,legacy,security}:
  }
  const section=(key:Exclude<RouterCenterTab,'subscribers'>)=><RouterSection data={data} tab={key} legacy={key==='overview'?legacy:undefined} security={security}/>;
  const disclosure=(key:Exclude<RouterCenterTab,'subscribers'>)=><RouterDisclosure key={key} initiallyOpen={tab===key} label={routerSectionTabs.find(([value])=>value===key)?.[1]??key}>{section(key)}</RouterDisclosure>;
- return <><div className="panel registry-detail router-device-summary"><div className="page-heading-row"><div><span className="eyebrow">{data.is_demo?'SENTETİK DEMO · CİHAZ BAĞLANTISI YOK':'KAYITLI CİHAZ · CANLI SORGULAMA YOK'}</span><h2>{r.name}</h2><p>{routerCenterStatus(data)}</p></div><div className="heading-actions">{actions}</div></div>
+ return <><div className="panel registry-detail router-device-summary"><div className="page-heading-row"><div><span className="eyebrow">{data.is_demo?'SENTETİK DEMO · CİHAZ BAĞLANTISI YOK':'KAYITLI CİHAZ · CANLI SORGULAMA YOK'}</span><h2>{r.name}</h2><p>{routerCenterStatus(data)}</p></div><div className="heading-actions">{data.source==='PERSISTENT_DEMO'&&<a className="button-primary" href={routerSubscriberListHash(r.id,'ALL',typeof window==='undefined'?'':window.location.hash)}>Bağlı aboneleri aç</a>}{actions}</div></div>
  <Facts items={[
  ['Yönetim IP',r.management_address||'Veri yok'],['Model',r.model||'Veri yok'],['CPU',percentText(r.cpu_percent)],['RAM',percentText(r.memory_percent)],
  ['Son görülme / ölçüm',r.last_seen_at?dateTime(r.last_seen_at):'Veri yok'],['Ölçüm güncelliği',observationAge(r.last_seen_at)],['Son başarılı bağlantı',r.last_success_at?dateTime(r.last_success_at):'Veri yok · bağlantı kanıtı yok']

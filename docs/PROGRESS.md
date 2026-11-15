@@ -5806,3 +5806,21 @@ Her iki ilerleme kaydi korunmustur:
 - Mevcut PG/veri/kullanıcı/şema veya migration, VDS deploy/restart, V1/V2.5,
   cihaz/RADIUS/IPsec işlemi yok. Ayrı onaylı backend/frontend yayını gerekir;
   yeni migration gerekmez. Commit/push sonucu teslimde.
+
+## V26 router–abone günlük gezinme — 2026-11-15 — yerel PASS / görsel kabul BLOCKED
+
+- Temiz main-guncel/b4e78a4 ve GitHub SHA eşitliği doğrulandı. Altın Kurallar,
+  güncel kabul ve mevcut özellik koruma kararları esas alındı.
+- Router özetinden exact ID/PERSISTENT/ALL kapsamlı abone listesine; abone
+  özetinden ve liste router adından ilgili routera doğrudan bağlantı eklendi.
+  Arama/durum ve güvenli tek seviyeli geri dönüş bağlamı korunur.
+- Abone ekle filtre dışına alındı; açıklama/Detay tekrarı azaltıldı. Mobil kart
+  aynı mevcut yetkili işlem menüsüne erişir; toplu kontroller seçimde görünür.
+  V26 kaynak seçicisinde eski demo yok; geçmiş ADMIN dahil workspaceOnly'dır.
+- Beş frontend hedef dosyası ilgili regresyonlar, yeni kaynak ayrımı testi,
+  production build/diff PASS. Chromium crashpad setsockopt ortam kısıtı nedeniyle
+  görsel 320/390/1280px kabul BLOCKED; sandbox gevşetilmedi. Hazır senaryo ve
+  ayrıntı: docs/V26_WORKSPACE_DAILY_NAVIGATION_ACCEPTANCE.md.
+- Backend/DB verisi/kullanıcı/şema/migration, VDS deploy/restart, V1/V2.5 veya
+  cihaz/RADIUS/IPsec işlemi yok. Ayrı onaylı frontend yayını yeterli; yeni
+  migration gerekmez. Commit/normal push sonucu teslimde.
