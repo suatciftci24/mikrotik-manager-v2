@@ -10,3 +10,11 @@ export function packageEnd(start:string,days:number){
  return /^\d{4}-\d{2}-\d{2}$/.test(end)?end:'';
 }
 export const packagePrice=(value:string|null)=>value===null?'Ücret belirtilmedi':new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY'}).format(Number(value));
+
+export function selectablePackage(record:PackageRecord){
+ const f=record?.fields;
+ return record?.is_demo===true&&typeof record.id==='string'&&record.id.startsWith('demo-package-')&&Number.isInteger(record.revision)&&record.revision>0&&f?.active===true&&(f.router_profile===null||typeof f.router_profile==='string')&&typeof f.name==='string'&&!!f.name.trim()&&[f.download_mbps,f.upload_mbps].every(v=>typeof v==='number'&&Number.isFinite(v)&&v>0)&&Number.isInteger(f.duration_days)&&f.duration_days>=1&&f.duration_days<=3660;
+}
+export function packageSpeed(fields:Pick<PackageFields,'download_mbps'|'upload_mbps'>|null|undefined){
+ return fields&&[fields.download_mbps,fields.upload_mbps].every(v=>typeof v==='number'&&Number.isFinite(v)&&v>0)?`${fields.download_mbps}/${fields.upload_mbps} Mbps`:'Veri yok';
+}

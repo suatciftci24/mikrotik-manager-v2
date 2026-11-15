@@ -49,6 +49,6 @@ test('bulk preview requires explicit consent and does not resend resolved mixed-
   let button=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula');assert.equal(button.props.disabled,true);
   nodes(tree).find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=render();nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();await new Promise(setImmediate);tree=render();
   assert.match(renderToStaticMarkup(tree),/Başarılı: 1/);assert.match(renderToStaticMarkup(tree),/Başarısız: 1/);assert.match(renderToStaticMarkup(tree),/Revizyon değişti/);
-  const resolved=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Aynı UUID ile sonuçları sorgula');assert.equal(resolved.props.disabled,true);resolved.props.onClick();await new Promise(setImmediate);assert.equal(calls.length,1);assert.match(calls[0].url,/management\/execute$/);
+  const resolved=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Aynı UUID ile sonuçları sorgula');assert.equal(resolved,undefined);await new Promise(setImmediate);assert.equal(calls.length,1);assert.match(calls[0].url,/management\/execute$/);
  }finally{globalThis.fetch=previousFetch;globalThis.window=previousWindow;}
 });

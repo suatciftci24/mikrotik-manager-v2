@@ -46,3 +46,9 @@ test('same-name version upgrade is actionable and receipt must match package ID/
  const receipt={...entry,recorded:true,success:true,actor_id:'fixture',revision:3,previous_router_id:item.router_id,router_id:item.router_id,error:null,occurred_at:'2026-11-14T00:00:00Z',previous:{},values:{plan:entry.value,package_id:entry.package_id,package_revision:'2'}};
  assert.equal(operationReceiptMatches(entry,receipt),true);assert.equal(operationReceiptMatches(entry,{...receipt,values:{...receipt.values,package_revision:'1'}}),false);
 });
+
+test('only valid active package records are selectable and missing speeds stay unknown',async()=>{
+ const {selectablePackage,packageSpeed}=await import('../src/lib/packages.ts');
+ const pkg={id:'demo-package-test',revision:1,is_demo:true,fields:{name:'Plan',active:true,download_mbps:100,upload_mbps:20,duration_days:30,router_profile:null}};assert.equal(selectablePackage(pkg),true);assert.equal(packageSpeed(pkg.fields),'100/20 Mbps');assert.equal(packageSpeed(null),'Veri yok');
+ for(const patch of [{id:5},{id:'foreign'},{revision:0},{is_demo:false},{fields:{...pkg.fields,active:false}},{fields:{...pkg.fields,upload_mbps:NaN}},{fields:{...pkg.fields,router_profile:{}}}])assert.equal(selectablePackage({...pkg,...patch}),false);
+});

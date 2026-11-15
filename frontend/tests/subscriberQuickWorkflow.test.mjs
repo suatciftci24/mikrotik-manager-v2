@@ -93,10 +93,11 @@ test('renewal modals provide 30/90/custom selectors before preview without any w
   for(const [label,value] of [['30 gün','30'],['90 gün','90'],['Özel tarih','CUSTOM']]){let tree=h.render(name,props);const button=nodes(tree).find(n=>n.type==='button'&&n.props.children===label);assert.ok(button);button.props.onClick();tree=h.render(name,props);assert.ok(nodes(tree).some(n=>n.type==='select'&&n.props.value===value));if(value==='CUSTOM')assert.ok(nodes(tree).some(n=>n.type==='input'&&n.props.type==='date'));}
  }
 });
-test('workspace PLAN preset compares old and typed package and still requires explicit consent',t=>{
- stubGlobals(t);const h=harness('src/components/SubscriberDailyActions.tsx',()=>({data:{items:[]}})),props={rows:[workspace],initialAction:'PLAN',onClose:quiet};let tree=h.render('SubscriberDailyActions',props);
- assert.ok(nodes(tree).some(n=>n.type==='select'&&n.props.value==='PLAN'));nodes(tree).find(n=>n.type==='input'&&n.props.type==='text').props.onChange({target:{value:'Paket 200'}});
- tree=h.render('SubscriberDailyActions',props);const html=renderToStaticMarkup(tree);assert.match(html,/Mevcut paket/);assert.match(html,/Paket 100/);assert.match(html,/Yeni paket: Paket 200/);
+test('workspace PLAN preset uses only a registered active package and still requires explicit consent',t=>{
+ stubGlobals(t);const pkg={id:'demo-package-current',revision:2,is_demo:true,fields:{name:'Paket 200',download_mbps:200,upload_mbps:40,duration_days:30,router_profile:'mapped-profile',active:true}},h=harness('src/components/SubscriberDailyActions.tsx',path=>({data:{items:path==='/packages'?[pkg]:[]}})),props={rows:[workspace],initialAction:'PLAN',onClose:quiet};let tree=h.render('SubscriberDailyActions',props);
+ assert.equal(nodes(tree).some(n=>n.type==='input'&&n.props.type==='text'),false);
+ const select=nodes(tree).find(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===pkg.id));select.props.onChange({target:{value:pkg.id}});
+ tree=h.render('SubscriberDailyActions',props);const html=renderToStaticMarkup(tree);assert.match(html,/Mevcut paket/);assert.match(html,/Paket 100/);assert.match(html,/200\/40 Mbps/);
  nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:quiet});tree=h.render('SubscriberDailyActions',props);const confirm=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula');assert.equal(confirm.props.disabled,true);assert.match(renderToStaticMarkup(tree),/Paket 100 → Paket 200/);
 });
 
@@ -110,7 +111,7 @@ test('a double click posts once, keeps the current page and refreshes detail/lis
  tree=h.render('SubscriberDailyActions',props);const save=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula');
  save.props.onClick();save.props.onClick();assert.equal(calls.length,1);assert.equal(JSON.parse(calls[0].init.body).entries[0].value,'PAUSED');
  release();await new Promise(setImmediate);tree=h.render('SubscriberDailyActions',props);assert.match(renderToStaticMarkup(tree),/Başarılı: 1/);
- assert.equal(nodes(tree).find(n=>n.type==='button'&&n.props.children==='Aynı UUID ile sonuçları sorgula').props.disabled,true);
+ assert.equal(nodes(tree).find(n=>n.type==='button'&&n.props.children==='Aynı UUID ile sonuçları sorgula'),undefined);
  for(const path of ['/subscribers','/subscriber-workspace','/subscriber-center','/dashboard','/reports'])assert.ok(refreshes.some(paths=>paths.includes(path)),path);
  assert.equal(location.hash,before);
 });
@@ -186,4 +187,21 @@ test('subscriber view selector retains selection callback and a separate closed 
  const tree=h.render('SourcePicker',{label:'Abone görünümü',value:'PERSISTENT',options,onChange:value=>calls.push(value)});
  const select=nodes(tree).find(n=>n.type==='select');assert.equal(select.props.value,'PERSISTENT');select.props.onChange({target:{value:'HISTORY'}});assert.deepEqual(calls,['HISTORY']);
  const detail=nodes(tree).find(n=>n.type==='details');assert.equal(detail.props.open,undefined);assert.equal(nodes(detail).find(n=>n.type==='summary').props.children,'Teknik bilgiler');assert.ok(nodes(detail).some(n=>n.type==='p'));
+});
+
+test('registered package assignment rejects passive IDs, preserves mapping payload and recovers a lost result only inside technical details',async t=>{
+ stubGlobals(t);const pkg={id:'demo-package-selected',revision:3,is_demo:true,fields:{name:'Paket 200',download_mbps:200,upload_mbps:40,duration_days:30,router_profile:'mapped-profile',active:true}},passive={...pkg,id:'demo-package-passive',fields:{...pkg.fields,active:false}},calls=[];
+ const h=harness('src/components/SubscriberDailyActions.tsx',path=>({data:{items:path==='/packages'?[pkg,passive]:[]}})),props={rows:[workspace],initialAction:'PLAN',onClose:quiet};let receipt;
+ globalThis.fetch=async(url,init)=>{calls.push({url,method:init.method??'GET',body:init.body});if(init.method==='POST'){const entry=JSON.parse(init.body).entries[0];assert.equal(entry.package_id,pkg.id);assert.equal(entry.package_revision,pkg.revision);assert.equal(entry.value,pkg.fields.name);assert.equal(entry.confirmed,true);receipt={request_id:entry.request_id,item_id:entry.item_id,operation:'PLAN',recorded:true,success:true,actor_id:'test.actor',revision:entry.expected_revision+1,router_id:entry.expected_router_id,previous_router_id:entry.expected_router_id,occurred_at:'2026-11-15T10:00:00Z',previous:{plan:'Paket 100'},values:{plan:pkg.fields.name,package_id:pkg.id,package_revision:String(pkg.revision)},error:null};throw Error('Yanıt kayboldu');}return {ok:true,json:async()=>({request_id:receipt.request_id,status:'SUCCESS',response:receipt})};};
+ const draw=()=>h.render('SubscriberDailyActions',props);let tree=draw();assert.equal(nodes(tree).some(n=>n.type==='option'&&n.props.value===passive.id),false);
+ const chooser=()=>nodes(draw()).find(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===pkg.id));
+ chooser().props.onChange({target:{value:passive.id}});nodes(draw()).find(n=>n.type==='form').props.onSubmit({preventDefault:quiet});assert.equal(calls.length,0);assert.match(renderToStaticMarkup(draw()),/aktif paket seçin/);
+ chooser().props.onChange({target:{value:pkg.id}});nodes(draw()).find(n=>n.type==='form').props.onSubmit({preventDefault:quiet});tree=draw();
+ nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();assert.equal(calls.length,0);
+ nodes(tree).find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});nodes(draw()).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();await new Promise(setImmediate);tree=draw();
+ const result=nodes(tree).find(n=>n.type?.name==='SubscriberOperationResults'),rendered=result.type(result.props),technical=nodes(rendered).find(n=>n.type==='details');assert.equal(technical.props.open,undefined);
+ assert.ok(nodes(technical).some(n=>n.type==='button'&&n.props.children==='Aynı UUID ile sonuçları sorgula'));
+ nodes(technical).find(n=>n.type==='button').props.onClick();await new Promise(setImmediate);tree=draw();assert.equal(calls.length,2);assert.equal(calls[1].method,'GET');assert.ok(calls[1].url.endsWith('/'+receipt.request_id));
+ const html=renderToStaticMarkup(tree),visible=html.replace(/<details class="technical-info">[\s\S]*?<\/details>/g,'');assert.match(visible,/Başarılı: 1/);assert.match(visible,/Sentetik Abone/);assert.match(visible,/Paket 200/);assert.doesNotMatch(visible,/demo-package-selected|request_id|package_revision|Aynı UUID/);assert.ok(html.includes(receipt.request_id));
+ assert.equal(nodes(tree).some(n=>n.type==='button'&&n.props.children==='Aynı UUID ile sonuçları sorgula'),false);
 });

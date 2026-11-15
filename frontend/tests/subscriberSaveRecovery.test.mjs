@@ -28,7 +28,7 @@ function harness(kind,mode){
     control(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===router),router);
     control(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===pkg.id),pkg.id);
    }
-   control(n=>n.type==='input'&&n.props.maxLength===120,'New');
+   if(mode==='edit')control(n=>n.type==='input'&&n.props.maxLength===120,'New');
   }else{
    if(mode==='create'){
     control(n=>n.type==='input'&&n.props.maxLength===160,'Synthetic User');

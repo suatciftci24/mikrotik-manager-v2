@@ -5914,3 +5914,22 @@ Her iki ilerleme kaydi korunmustur:
   Backend/PG/kullanıcı/şema/migration/veri taşıma/silme, VDS deploy/restart,
   V1/V2.5/MikroTik/RADIUS/IPsec işlemi yok. Ayrı frontend yayını gerekir;
   backend/migration gerekmez. Tek commit/normal push teslimde.
+
+## V26 tek paket seçimi ve sade sonuç — 2026-11-15 — yerel PASS / görsel BLOCKED
+
+- Temiz main-guncel/9583419, uzak SHA eşit. Altın Kurallar, güncel ilerleme ve
+  ortak işlem kabulü okundu; korunacak yerel değişiklik yoktu.
+- PLAN tek aktif katalog seçimiyle çalışır; tekrar metin alanı kaldırıldı.
+  Mevcut/yeni paket ve hız açık, geçersiz/pasif seçim reddedilir. API paket
+  ID/sürüm/ad ve backend profil eşleme sözleşmesi korunur; legacy düzenleme aynı.
+- Sonuçta doğrulanmış sayılar, abone/işlem/yeni değer; tam UUID/receipt/dahili
+  kimlikler kapalı Teknik detaylar'da. Aynı UUID sorgusu yalnız uygun belirsiz
+  sonuçlarda teknik alanda; tamamlananlarda yok. Onay/idempotency/yenileme aynı.
+- Dokuz ilgili frontend hedef dosyası kapsamları, yeni pasif seçim/lost response
+  GET/kimlik gizleme kontrolleri ve son production build/diff PASS. Eski UI
+  seçicileri uyarlandı, TypeScript daraltma/null hataları düzeltildi; yalnız
+  başarısız/etkilenen kapsamlar tekrarlandı. Ayrıntı:
+  docs/V26_PACKAGE_OPERATION_RESULTS_ACCEPTANCE.md.
+- Chromium setsockopt/SIGTRAP nedeniyle gerçek modal/mobil/masaüstü görsel kabul
+  BLOCKED. Backend/PG/migration/VDS deploy/restart/V1/V2.5/cihaz/RADIUS/IPsec
+  işlemi yok. Ayrı onaylı frontend yayını gerekir; tek commit/push teslimde.
