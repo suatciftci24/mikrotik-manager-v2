@@ -6,7 +6,8 @@ import stat
 from uuid import UUID,uuid4
 from app.adapters.cebeci_api_ssl import ApiSslStop
 
-ROOT=Path(__file__).resolve().parents[3]/'.local'/'router-registry'/'secrets'
+from app.core.central_paths import state_root
+ROOT=state_root(Path(__file__).resolve().parents[3]/'.local')/'router-registry'/'secrets'
 
 
 class RouterSecretVault:

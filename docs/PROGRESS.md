@@ -6232,3 +6232,32 @@ Her iki ilerleme kaydi korunmustur:
   Plan uygulanmadı, canlı onay varsayılmadı. Sonraki komut --preflight-only.
 - Canlı deploy/migration/restart/silme yok; VDS stash/yedek/admin ve V1/V2.5,
   diğer korunan sistemler ve üç yerel stash aynı. Commit/push sonucu teslimde.
+
+## V26 merkezi geliştirme sözleşmesi ve idempotent kurucu — 2026-11-16 — BLOCKED
+
+- Tek origin https://v26.mikmanager.com.tr/, tek VDS checkout main-guncel ve
+  mevcut merkezi geliştirme DB için kullanıcı uçtan uca kurulum/yayın yetkisi
+  verdi; tekrar onay istenmedi. Altın Kurallar/README güncel sözleşmeye bağlandı.
+- Tek SSH denemesi EPERM; tekrar yok. VDS'ye bu oturumda kurulum/deploy/restart/
+  migration/veri/stash işlemi yapılmadı. Gerçek kurulum ve ev/ofis kabulü BLOCKED.
+- central-v26-office.py --apply tek SSH protokolü; pinned HEAD/build/source,
+  mevcut stash/DB/systemid+OID/unit scope, yeni private backup/izole restore/011
+  kabulü ve yalnız live read-only schema kontrolü. Sadece iki V26 unit aynı
+  portlarda: immutable API release ve private statik Nginx; dış Nginx değişmez.
+- Tek merkezi dev checkout, ayrı dev-venv ve secret/PG optin temizleyen test
+  runner. Dev.sh normal çağrısı yalnız ortak adresi verir; local-isolated açık
+  sentetik istisna. Immutable runtime mevcut canonical mutable dosyaları kullanır;
+  router/pilot/simulator state guard'ı gevşetilmeden aynı veri yolu korunur.
+- Aynı kurulu sürümde restart/backup/checkout tekrar edilmez. Private profile/
+  identity/receipts retained. Kritik hatada unit/kod rollback; hiçbir otomatik
+  DB restore/silme yok. Eksik/kısmi/drift state ezilmez; BLOCKED.
+- PASS üst durumu yalnız iki farklı makineden gerçek home/office HTTPS, yayın,
+  build ve tüm görünür veri fingerprint'leri eşleşince. Tek ofis/setup doğrulaması
+  PASS sayılmaz; eksik receipt BLOCKED. Private receipts raw kullanıcı verisi içermez.
+- Yerel hedefli 46 test PASS (merkez policy/idempotence/archive/path + mevcut
+  secret/pilot/simulator path regresyonları ve dev bootstrap). Bunlar canlı
+  kurulum/ev-ofis kabulü değildir. App/frontend dependency değişikliği yok;
+  frontend tree aynı kabul edilmiş build ile hash doğrulaması kullanır.
+- V26_CENTRAL_DEVELOPMENT.md tek komut ve kabul sınırlarını içerir. Eski Vite
+  dev üretim sayılmaz; V1/V2.5/router/RADIUS/IPsec, veriler/yedekler/admin ve
+  üç stash korunur. Git commit/push ve kalan engel sonucu teslimde.

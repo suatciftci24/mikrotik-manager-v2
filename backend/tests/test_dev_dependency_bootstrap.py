@@ -40,7 +40,7 @@ fi
             vite.parent.mkdir(parents=True)
             vite.touch(mode=0o700)
             result = subprocess.run(
-                ['/bin/bash', str(root / 'dev.sh')], cwd=root,
+                ['/bin/bash', str(root / 'dev.sh'), '--local-isolated'], cwd=root,
                 env={**os.environ, 'TEST_PILLOW_MISSING': str(int(pillow_missing)),
                      'TEST_INSTALL_FAILS': str(int(install_fails))},
                 capture_output=True, text=True, timeout=5)
@@ -63,7 +63,7 @@ fi
         self.assertEqual(calls, ['probe-pillow', 'verify-existing-db', 'start-owned-api-ui'])
 
     def test_central_and_invalid_arguments_never_bootstrap_local_environment(self):
-        for args, expected in [(['--central'], 0), (['--central', '--prepare-demo'], 1),
+        for args, expected in [([], 0), (['--central'], 0), (['--central', '--prepare-demo'], 1),
                                (['--unknown'], 1), (['--prepare-demo', 'extra'], 1)]:
             with self.subTest(args=args), TemporaryDirectory() as temporary:
                 root = Path(temporary)

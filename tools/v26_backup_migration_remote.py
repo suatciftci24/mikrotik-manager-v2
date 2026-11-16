@@ -13,6 +13,7 @@ BACKUP = Path('/home/mikadmin/v26-predeploy-20261116T061246Z/database.dump')
 DB = 'mikrotik_v26_acceptance'
 ROLE = 'v26_acceptance'
 APP = Path('/srv/mikrotik-v26-next')
+BASELINE = 'b4e78a44685f83e58bb37684712236a33c5ccbaf'
 
 CATALOG = """SELECT json_build_object(
  'columns', (SELECT json_agg(x ORDER BY x.table_name,x.ordinal_position) FROM
@@ -165,7 +166,7 @@ def main():
         if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
             raise RuntimeError('BACKUP_OWNER_OR_TYPE_REJECTED')
         head = run(['git','-C',APP,'rev-parse','HEAD'], stage='VDS_HEAD')
-        if head != 'b4e78a44685f83e58bb37684712236a33c5ccbaf':
+        if head != BASELINE:
             raise RuntimeError('VDS_BASELINE_CHANGED')
         if run(['git','-C',APP,'status','--porcelain=v1'], stage='VDS_WORKTREE'):
             raise RuntimeError('VDS_WORKTREE_DIRTY')

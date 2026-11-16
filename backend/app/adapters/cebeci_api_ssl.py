@@ -28,7 +28,8 @@ class ApiSslStop(RuntimeError):
 
 
 # Dedicated local V2 namespace. Readers never search generic .env, V1 or user stores.
-PILOT_RUNTIME_ROOT=Path(__file__).resolve().parents[3]/'.local'/'cebeci-pilot'
+from app.core.central_paths import state_root
+PILOT_RUNTIME_ROOT=state_root(Path(__file__).resolve().parents[3]/'.local')/'cebeci-pilot'
 
 def _private_directory(path):
     info=path.lstat()
