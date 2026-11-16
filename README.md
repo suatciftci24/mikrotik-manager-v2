@@ -1,6 +1,6 @@
 # MikroTik Manager V2
 
-Güncel V2.6 çalışma modeli: tek merkezi panel https://v26.mikmanager.com.tr/, tek VDS checkout ve mevcut merkezi geliştirme PostgreSQL DB. Ev/ofis istemcidir; yerel demo fazı aşağıda tarihsel olarak korunur. Kurulum ve kabul: [Merkezi geliştirme](docs/V26_CENTRAL_DEVELOPMENT.md).
+A clean, independent local V2 workspace. The first phase uses synthetic records only. No real MikroTik, FreeRADIUS, V1 database, production API, or live service is configured or contacted.
 
 ## Start the local demo
 

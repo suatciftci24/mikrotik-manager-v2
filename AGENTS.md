@@ -1,28 +1,5 @@
 # MikroTik Manager V2 — Codex Altın Kuralları
 
-
-## Güncel merkezi V2.6 çalışma sözleşmesi — 2026-11-16
-
-- Tek panel/yayın origin'i https://v26.mikmanager.com.tr/; ev ve ofis istemcidir.
-- Tek geliştirme checkout'u VDS /srv/mikrotik-v26-next, ortak dal main-guncel.
-  Ev/ofis repo kopyaları kontrol/araç aynasıdır; bağımsız panel/DB çalıştırılmaz.
-- Tek mevcut merkezi geliştirme PostgreSQL hedefi mikrotik_v26_acceptance,
-  127.0.0.1:55433, v26_acceptance; kullanıcı/rol/veri kopyalama veya sıfırlama yok.
-- Geliştirme/test VDS'de ayrı dev-venv ve yeni sentetik/izole test DB'leriyle
-  yapılır. Testlere ortak panelin DB URL'si/secret'ı miras verilmez.
-- Panel Vite dev'den yayımlanmaz. Doğrulanmış commit değişmez API/statik release
-  kopyasıyla, mevcut iki V26 unit/18996-15173 portları korunarak yayımlanır.
-  Mevcut V26 mutable dosyaları aynı canonical .local yolunda korunur.
-- Normal dev.sh yalnız merkezi adresi gösterir; yerel sentetik istisna ancak
-  açık --local-isolated seçeneğidir. Mevcut yerel DB/stash/yedek silinmez.
-- Kullanıcının açık merkezi kurulum/yayın görevi kapsamındaki yetki tekrar
-  sorulmaz; kapsam dışı V1/V2.5/router/RADIUS/IPsec işlemlerine taşınmaz.
-- PASS ancak bağımsız ev/ofis makinelerinin gerçek HTTPS gözlemleri aynı
-  kurulum, yayın/build ve veri özetini gösterdiğinde verilir. Tek ofis veya
-  VDS gözlemi yeterli değildir; eksik kanıtta BLOCKED yazılır.
-- Eski yerel demo/manuel onay faz kayıtları tarihsel kanıttır; güncel açık
-  kullanıcı talimatı ve bu merkezi sözleşmeyle çelişen eski faz varsayımı uygulanmaz.
-
 ## Görev öncesi zorunlu kontrol
 
 Her yeni görev ve oturum başlangıcında, uygulamadan önce sırayla:

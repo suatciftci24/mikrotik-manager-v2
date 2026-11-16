@@ -6,16 +6,13 @@ cd "$PROJECT_ROOT"
 
 # Shared home/office access uses the existing HTTPS origin and its session cookie.
 # Resolve this before dependency bootstrap or any local database lifecycle.
-if [[ $# -eq 0 || "${1:-}" == '--central' ]]; then
-  [[ $# -le 1 ]] || { printf 'Geçersiz dev.sh argümanı.\n' >&2; exit 1; }
+if [[ "${1:-}" == '--central' ]]; then
+  [[ $# -eq 1 ]] || { printf 'Geçersiz dev.sh argümanı.\n' >&2; exit 1; }
   printf 'Ev/ofis ortak panel: https://v26.mikmanager.com.tr/\n'
   printf 'Tarayıcıda bu adresi açın; mevcut yönetici hesabınızla giriş yapın.\n'
   printf 'Yerel demo ile merkezi veriler ayrı; Git eşitliği DB eşitliği değildir.\n'
   exit 0
 fi
-# Local synthetic development is an explicit exception; ordinary use is central.
-if [[ "${1:-}" == '--local-isolated' ]]; then shift; fi
-
 # Reject unknown arguments before installing dependencies or starting a database.
 if [[ $# -gt 0 && "$1" != '--accept-demo' &&
       ( $# -ne 1 || ( "$1" != '--ui-only' && "$1" != '--prepare-demo' && "$1" != '--refresh-owned' ) ) ]]; then

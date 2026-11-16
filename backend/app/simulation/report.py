@@ -9,8 +9,7 @@ from fastapi import HTTPException
 from app.core.authorization import require_router
 from app.simulation.engine import SCENARIOS
 ROOT=Path(__file__).resolve().parents[3]
-from app.core.central_paths import state_root
-DIRECTORY=state_root(ROOT/'.local')/'sync-simulator'
+DIRECTORY=ROOT/'.local/sync-simulator'
 
 class DTO(BaseModel):
     model_config=ConfigDict(extra='forbid')
