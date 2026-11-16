@@ -1,5 +1,17 @@
 # MikroTik Manager V2 — İlerleme
 
+## CEBECI VDS canlı kabul girişimi — 2026-11-16 — BLOCKED
+
+- Başlangıç 7f5f511 / main-guncel temiz; kabul raporu ve kurallar okundu.
+- Kullanıcı yalnız CEBECI salt okunur pilot için deploy/servis/rollback yetkisi verdi.
+- VDS SSH soketi Operation not permitted; oturum/yedek/preflight doğrulanamadı.
+- HTTPS /api/ready erişilebilir, v26-isolated-acceptance ve database_checked=false;
+  gerçek pilot/DB/panel veri kabulü değildir. Başlangıç remote Git DNS hatası.
+- Deploy/restart/migration/router okuma/veri değişikliği yapılmadı; rollback yok.
+- Tek rapor: CEBECI_REAL_PILOT_ACCEPTANCE.md son bölüm. Sonraki adım VDS SSH
+  erişimli ortamda aynı onaylı kapsamın yedek/ön koşul kontrolünden sürdürülmesi.
+
+
 ## CEBECI gerçek pilot hazırlığı — 2026-11-16 — yerel PASS
 
 - V1 kaynak bağlantısı/WAN/poller ve V2 registry/TLS/read-only zinciri incelendi.
