@@ -6078,3 +6078,22 @@ Her iki ilerleme kaydi korunmustur:
   engel VDS'ye SSH socket açılabilen yürütme ortamıdır.
 - V1/V2.5/router/RADIUS/IPsec/hesaplar/ev-ofis DB ve üç stash aynı kimliklerle
   korundu. Bu yalnız görev sonucu kaydıdır; canlı yayın hedefi e4b056d kalır.
+
+## V26 gerçek yedek üzerinden 011 kabul devri — 2026-11-16 — BLOCKED / araç hazır
+
+- Altın Kurallar/son kabul okundu; temel main-guncel/94cfec6 temiz.
+  Kullanıcı database.dump (v26-predeploy-20261116T061246Z) izole restore PASS
+  bildirdi; kabul edildi, yeni bağımsız gözlem olarak sunulmadı.
+- Tek VDS SSH denemesi socket EPERM; tekrar denenmedi. GitHub ilk HEAD sorgusu
+  DNS başarısız. VDS mevcut paket şeması ve gerçek 011/idempotency kabulü bu
+  ortamda doğrulanamadı. Önceki sentetik testler gereksiz tekrarlanmadı.
+- Yeni tek-komut launcher commit-pinned worker/011 gönderir. Live katalog yalnız
+  read-only transaction; HEAD/DB/port/cluster pinli. Yedeğin private yeni kopyası
+  yeni Unix-only test cluster'ına restore edilir; metadata canlıyla karşılaştırılır.
+  Migration iki kez yalnız izole data_directory'de çalışır; bütün mevcut tablo
+  verileri/hash'leri ve ADMIN korunur, sonunda yalnız kendi cluster'ı durdurulur.
+- PASS: dört offline handoff testi ve syntax/diff kontrolü. Worker gerçek VDS'de
+  çalıştırılmadı. Canlı deploy/migration/restart/silme veya DB restore yoktur.
+  V1/V2.5/router/RADIUS/IPsec/hesaplar/yerel veriler/üç stash korunur.
+- Sonraki somut adım ofis WSL'de V26_BACKUP_011_HANDOFF.md tek komutunu çalıştırıp
+  result.json kabulünü almaktır; ardından yalnız yayın hazırlığı, canlı uygulama yok.
