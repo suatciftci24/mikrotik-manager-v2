@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import shlex
 import urllib.request
+from urllib.parse import urlsplit
 
 DOMAIN='v26.mikmanager.com.tr'
 ORIGIN='https://'+DOMAIN
@@ -108,6 +109,22 @@ def nginx_routes(config):
     return dict(domain=DOMAIN,web_port=15173,api_port=18996)
 
 
+class ResponseBody(bytes):
+    def __new__(cls,body,status=200,content_type=''):
+        value=super().__new__(cls,body)
+        value.status=status
+        mime=content_type.split(';',1)[0].strip().lower()
+        value.mime=mime if mime in ('text/html','application/xhtml+xml','text/javascript',
+                                   'application/javascript','application/json','text/plain') else 'OTHER'
+        return value
+
+
+class WebrootFailure(RuntimeError):
+    def __init__(self,code,diagnostics):
+        self.diagnostics=diagnostics
+        super().__init__(code)
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
@@ -116,7 +133,7 @@ def https(path):
     opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
     with opener.open(ORIGIN+path,timeout=10) as response:
         require(response.status==200,'WEBROOT_HTTPS_STATUS_REJECTED')
-        return response.read()
+        return ResponseBody(response.read(),response.status,response.headers.get('Content-Type',''))
 
 
 def loopback(port,path):
@@ -126,7 +143,7 @@ def loopback(port,path):
         connection.request('GET',path)
         response=connection.getresponse()
         require(response.status==200,'WEBROOT_LOOPBACK_STATUS_REJECTED')
-        return response.read()
+        return ResponseBody(response.read(),response.status,response.getheader('Content-Type',''))
     finally:connection.close()
 
 
@@ -155,11 +172,62 @@ def listener_identity(run,unit,port,cwd):
 
 
 class EntryHTML(HTMLParser):
-    def __init__(self):super().__init__();self.scripts=[];self.root=False
+    def __init__(self):super().__init__();self.scripts=[];self.entries=[];self.root=False;self.root_count=0
     def handle_starttag(self,tag,attributes):
         values=dict(attributes)
-        if tag=='script' and 'src' in values:self.scripts.append(values['src'])
-        if tag=='div' and values.get('id')=='root':self.root=True
+        if tag=='script' and 'src' in values:
+            self.scripts.append(values['src'])
+            self.entries.append((values['src'],values.get('type','')))
+        if tag=='div' and values.get('id')=='root':self.root=True;self.root_count+=1
+
+
+def script_identity(src):
+    # Only Vite's documented decimal HMR timestamp may vary. No host/path decoding,
+    # arbitrary query removal, fragments, import/url/raw modes or redirect aliases.
+    try:value=urlsplit(src)
+    except ValueError:return dict(kind='other',valid=False)
+    kinds={'/@vite/client':'vite_client','/src/main.tsx':'source_entry','/theme.js':'theme'}
+    kind=kinds.get(value.path,'built_asset' if value.path.startswith('/assets/') else 'other')
+    valid=(not value.scheme and not value.netloc and not value.fragment and
+           (not value.query or re.fullmatch(r't=[0-9]{1,20}',value.query) is not None))
+    return dict(kind=kind,valid=bool(valid),hmr_timestamp=bool(value.query and valid))
+
+
+def html_identity(page,direct):
+    def body(value):
+        return dict(status=getattr(value,'status',200),content_type=getattr(value,'mime','NOT_CAPTURED'),
+                    bytes=len(value),sha256=hashlib.sha256(value).hexdigest())
+    document=EntryHTML()
+    try:document.feed(page.decode('utf-8'))
+    except UnicodeError:raise WebrootFailure('VITE_HTML_ENCODING_REJECTED',dict(https=body(page),loopback=body(direct))) from None
+    scripts=[]
+    for src,kind in document.entries:
+        info=script_identity(src)
+        info.update(module=kind=='module',url_sha256=hashlib.sha256(src.encode()).hexdigest())
+        scripts.append(info)
+    checks=dict(upstream_bytes_equal=page==direct,
+                html_content_type=all(getattr(value,'mime','NOT_CAPTURED') in ('text/html','NOT_CAPTURED') for value in (page,direct)),
+                unique_root_mount=document.root_count==1,
+                vite_client_module=sum(v['kind']=='vite_client' and v['valid'] and v['module'] for v in scripts)==1,
+                source_entry_module=sum(v['kind']=='source_entry' and v['valid'] and v['module'] for v in scripts)==1,
+                no_built_assets=not any(v['kind']=='built_asset' for v in scripts),
+                valid_identity_urls=all(v['valid'] for v in scripts if v['kind'] in ('vite_client','source_entry')))
+    diagnostics=dict(expected=dict(client='/@vite/client',entry='/src/main.tsx',mount='div#root',type='module',
+                                   allowed_query='optional_single_decimal_t'),
+                     https=body(page),loopback=body(direct),root_count=document.root_count,
+                     script_count=len(scripts),scripts=scripts[:32],scripts_truncated=len(scripts)>32,checks=checks)
+    index=APP/'frontend/index.html'
+    if index.is_file() and index.resolve()==index:
+        local=index.read_bytes()
+        parsed=EntryHTML()
+        try:parsed.feed(local.decode('utf-8'))
+        except UnicodeError:raise WebrootFailure('VITE_LOCAL_INDEX_ENCODING_REJECTED',diagnostics) from None
+        diagnostics['project_index']=dict(sha256=hashlib.sha256(local).hexdigest(),bytes=len(local),
+            root_count=parsed.root_count,source_entries=sum(script_identity(src)['kind']=='source_entry' for src in parsed.scripts),
+            built_assets=sum(script_identity(src)['kind']=='built_asset' for src in parsed.scripts))
+    if not checks['upstream_bytes_equal']:raise WebrootFailure('VITE_HTTPS_UPSTREAM_MISMATCH',diagnostics)
+    if not all(checks.values()):raise WebrootFailure('VITE_DEV_HTML_IDENTITY_REJECTED',diagnostics)
+    return diagnostics
 
 
 def raw_module(body):
@@ -182,10 +250,7 @@ def verify(run,units):
     for unit,api in units:
         listener_identity(run,unit,18996 if api else 15173,APP if api else APP/'frontend')
     page=https('/')
-    require(page==loopback(15173,'/'),'VITE_HTTPS_UPSTREAM_MISMATCH')
-    document=EntryHTML();document.feed(page.decode('utf-8'))
-    require(document.root and '/@vite/client' in document.scripts and '/src/main.tsx' in document.scripts and
-            not any(path.startswith('/assets/') for path in document.scripts),'VITE_DEV_HTML_IDENTITY_REJECTED')
+    html=html_identity(page,loopback(15173,'/'))
     vite_client=https('/@vite/client')
     require(vite_client==loopback(15173,'/@vite/client') and b'createHotContext' in vite_client,
             'VITE_CLIENT_IDENTITY_REJECTED')
@@ -202,4 +267,5 @@ def verify(run,units):
     require(value.get('service')=='mikrotik-manager-v2' and value.get('runtime_profile')=='v26-isolated-acceptance'
             and value.get('api_version')=='v1' and value.get('api_port')==18996,'WEBROOT_API_IDENTITY_REJECTED')
     return dict(mode='vite-dev',project=str(APP/'frontend'),**routes,
-                nginx_sha256=hashlib.sha256(config.encode()).hexdigest(),https='PASS',api='PASS')
+                nginx_sha256=hashlib.sha256(config.encode()).hexdigest(),html_identity=html,
+                https='PASS',api='PASS',production_ready=False)

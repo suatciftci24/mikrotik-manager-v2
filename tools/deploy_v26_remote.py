@@ -216,11 +216,13 @@ def preflight_main():
         head=run(['git','-C',APP,'rev-parse','HEAD'],stage='WEBROOT_GIT_HEAD')
         require(re.fullmatch('[0-9a-f]{40}',head),'WEBROOT_GIT_HEAD_REJECTED')
         require(not run(['git','-C',APP,'status','--porcelain=v1'],stage='WEBROOT_GIT_STATUS'),'VDS_WORKTREE_DIRTY')
+        report['live_commit']=head
         units=services(run)
         report.update(webroot=verified_webroot(run,units),live_commit=head,status='PASS')
     except Exception as error:
         report['reason']=str(error) if isinstance(error,RuntimeError) else type(error).__name__
         if isinstance(error,namespace['CommandFailure']):report.update(error.details)
+        if getattr(error,'diagnostics',None) is not None:report['webroot_diagnostics']=error.diagnostics
     print(json.dumps(report,sort_keys=True))
     return 0 if report['status']=='PASS' else 1
 
@@ -355,6 +357,7 @@ def main():
     except (Exception,KeyboardInterrupt) as error:
         report.update(failed_stage=stage,reason=str(error) if isinstance(error,RuntimeError) else type(error).__name__)
         if isinstance(error,namespace['CommandFailure']):report.update(error.details)
+        if getattr(error,'diagnostics',None) is not None:report['webroot_diagnostics']=error.diagnostics
         if code_changed:
             try:
                 require(git('rev-parse','HEAD')==TARGET and not git('status','--porcelain=v1','--untracked-files=no'),

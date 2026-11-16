@@ -6209,3 +6209,26 @@ Her iki ilerleme kaydi korunmustur:
 - PASS: 9 hedefli test (5 Nginx/Vite, 2 preflight/mode gate, 2 statik regresyon),
   syntax/diff. Gerçek yönlendirme/HTTP kabulü BLOCKED; sonraki somut adım ofis
   WSL'de deploy-v26-office.py --preflight-only. Commit/push sonucu teslimde.
+
+## V26 Vite HTML kimliği / güvenli diagnostics — 2026-11-16 — yerel PASS / VDS BLOCKED
+
+- Temel temiz f72cc67, Altın Kurallar/son preflight raporu okundu. Kullanıcı iki
+  HTML_IDENTITY_REJECTED bildirdi. Önceki rapor alt koşulları içermediğinden
+  VDS olayının gerçek nedeni bilinmiyor. SSH önceki EPERM nedeniyle denenmedi;
+  tek public HTTPS GET DNS curl6 ile engellendi; yanıt/ham HTML elde edilmedi.
+- Yerel Vite 6 processNodeUrl kodu lastHMRTimestamp ile t query'si ekler. Eski
+  script tam-string kontrolü geçerli HMR girişini yanlış reddediyordu. Yalnız
+  tek sayısal t normalizasyonu eklendi; host/path/fragment/raw/diğer query reddi
+  ve module/tek root/compiled asset reddi korunur/sıkılaştırılır.
+- Güvenli diagnostics MIME/status/byte/SHA, script sınıfları/hash'leri ve tekil
+  check'leri raporlar; raw HTML/script URL query/token/cookie/nonce basılmaz.
+  Local index fingerprint'i mod farkını açıklar. Gerçek kaynak/PID/domain/proxy
+  kontrolleri ve Vite-dev production_ready=false / cutover kapısı korunur.
+- PASS: 8 webroot testi + 2 read-only diagnostics/production gate testi. Eski
+  PG/build/geniş kabul tekrarlanmadı. Gerçek VDS nedeni sonraki readonly çıktıda
+  ayrılacak; yeni kod sebebi kanıtlanmış gibi sunulmadı.
+- V26_STATIC_WEB_PLAN.md mevcut 15173'ü tek V26 web unit'iyle statik Nginx'e
+  kontrollü devretme planı sunar; dış Nginx/başka vhost/DB değişikliği yok.
+  Plan uygulanmadı, canlı onay varsayılmadı. Sonraki komut --preflight-only.
+- Canlı deploy/migration/restart/silme yok; VDS stash/yedek/admin ve V1/V2.5,
+  diğer korunan sistemler ve üç yerel stash aynı. Commit/push sonucu teslimde.

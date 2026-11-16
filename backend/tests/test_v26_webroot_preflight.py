@@ -80,3 +80,46 @@ class WebrootPreflight(TestCase):
                 with self.assertRaisesRegex(RuntimeError,'VITE_PROJECT_SOURCE_MISMATCH'):web.verify(lambda *a,**kw:CONFIG,units)
                 response['/']=b'<script src="/assets/compiled.js"></script><div id="root"></div>'
                 with self.assertRaisesRegex(RuntimeError,'VITE_DEV_HTML_IDENTITY_REJECTED'):web.verify(lambda *a,**kw:CONFIG,units)
+
+    def test_only_vite_numeric_hmr_query_is_normalized(self):
+        for query in ['', '?t=1794800000000']:
+            page=('<script type="module" src="/@vite/client'+query+'"></script><div id="root"></div>'
+                  '<script type="module" src="/src/main.tsx'+query+'"></script>').encode()
+            self.assertTrue(all(web.html_identity(page,page)['checks'].values()))
+        for value in ['/src/main.tsx?t=secret','/src/main.tsx?t=123&t=456',
+                      '/src/main.tsx?raw','/src/main.tsx?t=123&token=private',
+                      'https://other.example/src/main.tsx','//other.example/src/main.tsx',
+                      '/src/main.tsx#fragment','/src/%6dain.tsx','/other/main.tsx']:
+            page=('<script type="module" src="/@vite/client"></script><div id="root"></div>'
+                  '<script type="module" src="'+value+'"></script>').encode()
+            with self.subTest(value=value),self.assertRaises(web.WebrootFailure):web.html_identity(page,page)
+
+    def test_html_diagnostics_are_useful_without_leaking_urls_queries_or_html(self):
+        page=web.ResponseBody(b'<div id="root"></div><script src="/assets/app.js?token=private-secret"></script>',
+                              content_type='text/html; charset=utf-8')
+        with self.assertRaises(web.WebrootFailure) as caught:web.html_identity(page,page)
+        result=caught.exception.diagnostics
+        self.assertFalse(result['checks']['source_entry_module'])
+        self.assertFalse(result['checks']['no_built_assets'])
+        self.assertEqual(result['https']['content_type'],'text/html')
+        self.assertEqual(result['https']['sha256'],result['loopback']['sha256'])
+        encoded=json.dumps(result)
+        self.assertNotIn('private-secret',encoded)
+        self.assertNotIn('app.js',encoded)
+        self.assertNotIn('<div',encoded)
+        valid=b'<script type="module" src="/@vite/client"></script><div id="root"></div><script type="module" src="/src/main.tsx"></script>'
+        with self.assertRaises(web.WebrootFailure) as caught:web.html_identity(valid,page)
+        self.assertFalse(caught.exception.diagnostics['checks']['upstream_bytes_equal'])
+        self.assertNotEqual(caught.exception.diagnostics['https']['sha256'],caught.exception.diagnostics['loopback']['sha256'])
+
+    def test_html_markers_require_real_module_scripts_and_one_mount(self):
+        valid='<script type="module" src="/@vite/client"></script><div id="root"></div><script type="module" src="/src/main.tsx"></script>'
+        for value in [valid.replace('type="module"','type="text/plain"'),
+                      valid+'<div id="root"></div>', '<!--'+valid+'-->',
+                      valid+'<script type="module" src="/@vite/client"></script>']:
+            body=value.encode()
+            with self.subTest(value=value),self.assertRaises(web.WebrootFailure):web.html_identity(body,body)
+        body=web.ResponseBody(valid.encode(),content_type='text/plain; private-header=secret')
+        with self.assertRaises(web.WebrootFailure) as caught:web.html_identity(body,body)
+        self.assertFalse(caught.exception.diagnostics['checks']['html_content_type'])
+        self.assertNotIn('private-header',json.dumps(caught.exception.diagnostics))

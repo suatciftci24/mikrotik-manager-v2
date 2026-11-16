@@ -154,3 +154,10 @@ atlanmadı. Eski statik motor regresyonları statik fixture ile korunur.
 PASS: 5 yeni webroot testi + preflight salt-okunur/mode gate ve 2 statik rollback
 regresyonu dahil 4 hedefli kontrol; toplam 9 test. Gerçek HTTP/SSH/DB işlemi
 ve başarılı eski build/PG testlerinin tekrarı yoktur.
+
+## HTML kimlik diagnostics devamı
+
+Sayısal HMR t parametresine bağlı yanlış ret düzeltmesi, güvenli HTTP/HTML alt
+koşul raporu ve üretim için mevcut portu devralan ayrı statik plan:
+[V26_STATIC_WEB_PLAN.md](V26_STATIC_WEB_PLAN.md). Preflight dev kimliği başarılı
+olsa da production_ready=false kalır; statik cutover kapısı kaldırılmadı.

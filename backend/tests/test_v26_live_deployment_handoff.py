@@ -283,3 +283,25 @@ class LiveDeploymentHandoff(TestCase):
         self.assertIn('raise SystemExit(preflight_main())',payload)
         self.assertNotIn('ADMIN =',payload)
         self.assertEqual(command.call_count,1)
+
+    def test_html_diagnostics_propagate_to_read_only_report_without_any_writes(self):
+        import io
+        from types import SimpleNamespace
+        class Failure(RuntimeError):pass
+        class HtmlFailure(RuntimeError):
+            diagnostics={'checks':{'source_entry_module':False},'https':{'sha256':'a'*64}}
+        def inject(source,namespace):
+            namespace.update(run=lambda args,**kw:worker.BASELINE if kw['stage']=='WEBROOT_GIT_HEAD' else '',
+                             CommandFailure=Failure)
+        output=io.StringIO()
+        with patch.object(worker,'HELPER_SOURCE','inert',create=True), \
+             patch.object(worker,'exec',side_effect=inject,create=True),patch.object(worker,'services',return_value=[]), \
+             patch.object(worker,'verified_webroot',side_effect=HtmlFailure('VITE_DEV_HTML_IDENTITY_REJECTED')), \
+             patch.object(worker.os,'open') as write,patch.object(worker,'admin_check') as auth, \
+             redirect_stdout(output):
+            self.assertEqual(worker.preflight_main(),1)
+        value=json.loads(output.getvalue())
+        self.assertEqual(value['live_commit'],worker.BASELINE)
+        self.assertEqual(value['webroot_diagnostics'],HtmlFailure.diagnostics)
+        self.assertFalse(value['live_modified'])
+        write.assert_not_called();auth.assert_not_called()
