@@ -6427,3 +6427,32 @@ Her iki ilerleme kaydi korunmustur:
 - Canlı deploy/restart/migration/DB restore/dosya değişikliği yok; V1/V2.5 ve
   canlı DB korunur. Üç stash hash'i aynı. Sonraki tek işlem, yetkili yayın
   penceresinde yeni HEAD ile central-v26-office.py --apply. Canlı PASS henüz yok.
+
+## evidence_root=null / HTTPError erken baseline tanılaması — 2026-11-16
+
+- Kullanıcı son apply: HTTPError, evidence_root=null. Başlangıç bc7ec07,
+  temiz main-guncel. Yerelde yeni uzak log yok; SSH engeli tekrar denenmedi.
+- Kod yolu doğrulandı: current.json olmayan ilk kurulumda raw L.ready/admin
+  çağrıları attempt oluşturulmadan önce. Hata /api/ready veya auth login/me/
+  logout isteğinden gelebilir; sınıf adına indirgenen eski rapordan hangisi ve
+  HTTP kodu çıkarılamaz. Eski kesin URL/status tahmin edilmedi. Bu yol servis
+  stop, source switch, deploy, yedek/restore/migration'dan önce; ancak private
+  .local/central dizini/identity/lock oluşturulmuş olabilir. Canlı sağlık ayrıca
+  doğrulanmış değildir. Aday API 8/8 eski kanıtı yeni HTTPS hatasını açıklamaz.
+- baseline_accept aynı sıkı HTTPS/ready/admin kapılarını güvenli D.request
+  raporlamasına bağlar: BASELINE_<endpoint> aşaması, canonical allowlist URL,
+  HTTP kodu, body byte/hash; query, credential, redirect URL, response body ve
+  header değerleri yok. Geçici hatalar sessizce tekrarlanmaz. Runtime switch
+  başlangıcı hata çıktısında ayrı boolean; evidence_root yokluğu başarı değildir.
+- --baseline-only setup'a girmez; mkdir/identity/lock/attempt/worktree/backup/
+  stop/start veya receipt yazmaz. Baseline HEAD, servis kimliği, DB fingerprint,
+  stash ve aynı HTTPS ready/admin kabulünü inceler. Auth mevcut güvenli session
+  akışıdır; hesap/parola/DB verisi değiştirilmez. Sonuç BASELINE_VERIFIED veya
+  BLOCKED; canlı yayın PASS'i değildir. Tek SSH, otomatik tekrar yok.
+- Yalnız 3 yeni offline hedefli test PASS: dört baseline endpoint'inin ayrı
+  HTTP/status/stage/URL raporu ve sıfır setup/runtime değişikliği, query/secret
+  sızdırmama, CLI baseline action ve sıfır apply/build/observation. Önceki
+  API/DB/restore testleri tekrarlanmadı; frontend değişmedi.
+- Canlı işlem veya yeni apply yok. V1/V2.5/DB/router/RADIUS/IPsec ve üç stash
+  korunur. Sonraki tek işlem ofis WSL'de --baseline-only; gerçek HTTPS sorunu
+  bu ölçümle belirlenecek, yalnız raporlama kusuru bu görevde düzeltildi.

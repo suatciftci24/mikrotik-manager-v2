@@ -161,3 +161,17 @@ dosyalarıyla birebir doğrulanır. Boş hash tek başına yetmez. Servis kimli�
 metadata, içerik ve kanıt geçiş öncesi tekrar okunur; drift varsa durulur.
 Tanıma dosyaları silmez veya servis değiştirmez; sonraki yetkili apply için
 önceki boş yapılandırmayı güvenli yedek olarak kabul eder.
+
+### Attempt oluşmadan baseline HTTPS hatası
+
+Ofis WSL'de yeni apply başlatmadan:
+
+```bash
+python3 ~/Codex-Projects/mikrotik-manager-v2/tools/central-v26-office.py --baseline-only
+```
+
+Bu mod setup/attempt/identity/lock/backup/worktree veya servis değişikliği yapmaz.
+Mevcut baseline kimliği ve HTTPS ready/admin/session kontrolünü inceler; başarısız
+isteğin güvenli URL, HTTP kodu ve BASELINE aşamasını bildirir. Query/secret/body
+basılmaz. BASELINE_VERIFIED yalnız bu kontrolün sonucudur; yayın PASS'i değildir.
+Eski `HTTPError`+`evidence_root=null` kaydı kaybolan HTTP kodunu geri getirmez.

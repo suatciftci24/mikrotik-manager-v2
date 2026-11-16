@@ -164,12 +164,34 @@ def verify_source(release,commit):
     return dict(expected_files=len(expected_files),actual_files=len(actual_files),verified_cache_files=len(verified_caches))
 
 
-def checked_request(opener,path,body=None):
+def checked_request(opener,path,body=None,*,phase=None):
     labels={'/api/ready':'API_READY','/api/v1/auth/login':'ADMIN_LOGIN','/api/v1/auth/me':'ADMIN_ME',
             '/api/v1/auth/logout':'ADMIN_LOGOUT','/api/v1/dashboard/summary':'DASHBOARD',
             '/api/v1/router-workspace/routers':'ROUTERS','/api/v1/subscriber-workspace':'SUBSCRIBERS',
             '/api/v1/packages':'PACKAGES','/':'STATIC_INDEX'}
-    return D['request'](opener,ORIGIN,path,labels.get(path,'STATIC_ASSET'),body)
+    label=labels.get(path,'STATIC_ASSET')
+    return D['request'](opener,ORIGIN,path,(phase+'_' if phase else '')+label,body)
+
+
+def baseline_accept():
+    original=L['request']
+    L['request']=lambda opener,path,body=None:checked_request(opener,path,body,phase='BASELINE')
+    try:
+        D['step']('BASELINE_READY_CONTRACT',lambda:L['ready'](L['client']()))
+        D['step']('BASELINE_ADMIN_CONTRACT',lambda:L['admin_check'](L['client']()))
+    finally:L['request']=original
+
+
+def baseline_status():
+    # Deliberately bypass setup: no mkdir/lock/identity/backup/worktree or service changes.
+    head=git('rev-parse','HEAD')
+    require(head==BASELINE,'INITIAL_VDS_BASELINE_CHANGED')
+    L['services'](run)
+    fingerprint=db_identity();stash=L['stash_pin'](run)
+    baseline_accept()
+    require(db_identity()==fingerprint and L['stash_pin'](run)==stash,'CENTRAL_BASELINE_BINDING_CHANGED')
+    return dict(status='BASELINE_VERIFIED',mode='BASELINE_ONLY',live_commit=head,
+                database_identity_verified=True,runtime_switch_started=False,db_restore_performed=False)
 
 
 def warm_api():
@@ -330,7 +352,7 @@ def setup(client_accept):
     else:
         require(head==BASELINE,'INITIAL_VDS_BASELINE_CHANGED')
         units=L['services'](run)
-        L['ready'](L['client']());L['admin_check'](L['client']())
+        baseline_accept()
     require(ACTION=='apply','CENTRAL_INSTALL_REQUIRED')
     for unit,api in units:
         props=unit_properties(unit)
@@ -439,6 +461,7 @@ def setup(client_accept):
         if initial_dropins is not None:
             require(verified_initial_dropins(units,head)==initial_dropins,'UNOWNED_CENTRAL_DROPIN_EXISTS')
         stopped=True
+        globals()['RUNTIME_SWITCH_STARTED']=True
         for unit,api in units:run(['sudo','-n','systemctl','stop',unit],stage='CENTRAL_V26_STOP')
         # Quiescent data baseline excludes normal writes during the online backup.
         before=H['snapshot'](query,stage='CENTRAL_DATA_BEFORE')
@@ -613,7 +636,11 @@ def client_acceptance(profile,ready):
 def protocol():
     def interrupted(*args):raise RuntimeError('CENTRAL_OPERATION_INTERRUPTED')
     for number in (signal.SIGHUP,signal.SIGINT,signal.SIGTERM):signal.signal(number,interrupted)
+    globals().update(CURRENT_ATTEMPT=None,RUNTIME_SWITCH_STARTED=False)
     try:
+        if ACTION=='baseline':
+            print(json.dumps(baseline_status(),sort_keys=True),flush=True)
+            return
         if ACTION=='diagnose':
             print(json.dumps(diagnose_attempt(),sort_keys=True),flush=True)
             return
@@ -631,7 +658,8 @@ def protocol():
               backup=profile.get('backup'),db_restore_performed=False)),flush=True)
     except Exception as error:
         report=dict(status='BLOCKED',reason=str(error) if isinstance(error,RuntimeError) else type(error).__name__,
-                    db_restore_performed=False,evidence_root=globals().get('CURRENT_ATTEMPT'))
+                    db_restore_performed=False,evidence_root=globals().get('CURRENT_ATTEMPT'),
+                    runtime_switch_started=globals().get('RUNTIME_SWITCH_STARTED',False))
         if getattr(error,'details',None):report.update(error.details)
         attempt=globals().get('CURRENT_ATTEMPT')
         if attempt and (Path(attempt)/'rollback.json').is_file():
