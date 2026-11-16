@@ -6057,3 +6057,24 @@ Her iki ilerleme kaydi korunmustur:
 - VDS deploy/migration/restart/silme yok. Hesaplar, V1/V2.5/router/RADIUS/IPsec,
   yerel veriler ve üç stash korundu. Sonraki adım erişilebilir VDS oturumunda
   yalnız salt okunur katalog ve workspace envanterinin doğrulanmasıdır.
+
+
+## V26 kontrollü canlı güncelleme — 2026-11-16 — BLOCKED / uygulanmadı
+
+- Kullanıcı yeni yedek + izole restore + 011 provası PASS şartıyla yalnız V26
+  yayın/migration/restart yetkisi verdi. Hedef kaynak e4b056d; ofis ve GitHub
+  tam SHA e4b056d2a1fa942e50bf3f219643d60dd98340a7 doğrulandı, başlangıç temiz.
+- İlk salt okunur VDS HEAD/status/V26 servis envanteri SSH socket EPERM ile
+  engellendi: Operation not permitted. VDS b4e78a4 güncel gözlem sayılmadı.
+- HTTPS /api/ready başarılı: service=mikrotik-manager-v2,
+  runtime_profile=v26-isolated-acceptance, api_version=v1,
+  database_checked=false. Bu sonuç DB veya admin login kabulü değildir.
+- Yeni timestamp'li gerçek DB yedeği alınamadı; bütünlük/izole restore ve
+  bu restore üzerinde 011 idempotency provası çalıştırılamadı. Önceki sentetik
+  PASS bu zorunlu kapıların yerine geçirilmedi; gereksiz test tekrarı yok.
+- Güvenlik kapısında duruldu: deploy/migration/restart/silme veya DB restore
+  yapılmadı. Değişiklik başlamadığı için kod rollback gerekmedi. Admin login
+  ve panel işlevleri doğrulanmadı. Kullanıcı onayı tekrar istenmiyor; teknik
+  engel VDS'ye SSH socket açılabilen yürütme ortamıdır.
+- V1/V2.5/router/RADIUS/IPsec/hesaplar/ev-ofis DB ve üç stash aynı kimliklerle
+  korundu. Bu yalnız görev sonucu kaydıdır; canlı yayın hedefi e4b056d kalır.
