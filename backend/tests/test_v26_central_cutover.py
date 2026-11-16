@@ -15,7 +15,7 @@ ROOT=fixtures.ROOT
 
 
 class CentralCutover(unittest.TestCase):
-    def simulate(self,client_failure=False,proof_failure=False,unsafe=False):
+    def simulate(self,client_failure=False,proof_failure=False,unsafe=False,residue=False,residue_drift=False):
         remote=fixtures.CentralDevelopment().remote()
         with tempfile.TemporaryDirectory() as temp,ExitStack() as stack:
             app=Path(temp)/'app';(app/'.venv').mkdir(parents=True)
@@ -45,7 +45,7 @@ class CentralCutover(unittest.TestCase):
                 if 'pg_dump' in str(args):
                     events.append(('backup',live['running']))
                     kw['stdout'].write(b'synthetic dump')
-                if args[:3]==['sudo','-n','test']:return SimpleNamespace(returncode=1)
+                if args[:3]==['sudo','-n','test']:return SimpleNamespace(returncode=0 if residue else 1)
                 if '-m' in args and 'unittest' in args:
                     events.append(('target_tests',live['running']))
                     self.assertNotEqual(kw['cwd'],str(app))
@@ -85,6 +85,13 @@ class CentralCutover(unittest.TestCase):
                 ('public_accept',lambda profile:{'build_id':'b'*64}),('warm_api',lambda:None),
                 ('installed_units',lambda profile:units),('load',lambda *a,**kw:{'main':proof_main})]:
                 stack.enter_context(patch.object(remote,name,side_effect=value))
+            if residue:
+                def verify_residue(units,head):
+                    events.append(('residue_check',live['running']))
+                    if residue_drift and events.count(('residue_check',True))>1:
+                        raise RuntimeError('UNOWNED_CENTRAL_DROPIN_EXISTS')
+                    return {unit:b'' for unit,_ in units}
+                stack.enter_context(patch.object(remote,'verified_initial_dropins',side_effect=verify_residue))
             stack.enter_context(patch.object(remote.subprocess,'run',side_effect=command))
             stack.enter_context(patch.dict(remote.W,{'nginx_routes':lambda text:{}}))
             stack.enter_context(patch.dict(remote.L,{'stash_pin':lambda run:('pinned','oid'),'services':lambda run:units,
@@ -183,3 +190,16 @@ class CentralCutover(unittest.TestCase):
         with patch.object(remote,'git') as git,patch.object(remote,'run') as command:
             with self.assertRaisesRegex(RuntimeError,'CLIENT_ACCEPTANCE_REQUIRED'):remote.setup(client_accept=None)
         git.assert_not_called();command.assert_not_called()
+
+    def test_evidenced_empty_residue_is_rechecked_before_switch_and_preserved_on_rollback(self):
+        result=self.simulate(residue=True,client_failure=True)
+        self.assertEqual(result['events'].count(('residue_check',True)),2)
+        self.assertEqual(result['failure'],'CLIENT_ACCEPTANCE_FAILED')
+        self.assertEqual(result['rollback']['status'],'BASELINE_VERIFIED')
+        self.assertFalse(result['pointer'])
+
+    def test_residue_drift_during_online_preparation_blocks_before_stop(self):
+        result=self.simulate(residue=True,residue_drift=True)
+        self.assertEqual(result['failure'],'UNOWNED_CENTRAL_DROPIN_EXISTS')
+        self.assertNotIn(('run','CENTRAL_V26_STOP'),result['events'])
+        self.assertFalse(result['pointer'])

@@ -6398,3 +6398,32 @@ Her iki ilerleme kaydi korunmustur:
   bütünlük kontrolünü durdurabilir, veri üzerine yazılmaz. Ev receipt eksikliği
   başarılı ofis kabulünden sonra genel BLOCKED sebebidir, yeni yayın hatası değil.
   V1/V2.5/router/RADIUS/IPsec ve üç stash korundu; worktree/yedekler silinmez.
+
+## Kanıtlı boş ilk kurulum drop-in kalıntısı — 2026-11-16
+
+- Kullanıcı VDS kanıtı: current.json yok; iki V26 80-v26-central.conf dosyası
+  root:root/0644/0 byte ve SHA256 e3b0c442...b855; attempt-pcpsra2q içindeki
+  aynı unit adlarıyla .previous dosyaları da boş. Önceki ilk kurulum rollback'i
+  boş drop-in bıraktığından c10e3fa yeni kurulumu UNOWNED kapısında durdurmuştu.
+  Bu oturumda SSH/VDS işlemi yapılmadı; kanıt kullanıcıdan alındı.
+- Dar tanıma: baseline HEAD ve current.json yokluğu (dangling symlink dahil),
+  tekrar doğrulanmış tam iki aktif baseline V26 servis kimliği/User/Group/Exec/
+  cwd, canonical /etc/systemd/system/<unit>.d/80-v26-central.conf yolları,
+  regular type/root:root/0644/tek hardlink/boş hash ve exact eski .previous
+  dosyaları birlikte zorunlu. Symlink, yanlış sahip/grup/mod, içerik, yol ve
+  dosya yarışı reddedilir; O_NOFOLLOW/NONBLOCK ve fd/lstat identity kontrolü var.
+- Yalnız canonical private attempt-pcpsra2q/rollback.json BASELINE_VERIFIED,
+  aynı baseline source_head ve db_restore_performed=false ise tanınır; kanıt
+  regular/sahibi mevcut mikadmin UID/GID/0600, dizin sahibi UID/0700 ve .previous
+  unit çiftinin eksiksiz eşleşmesi zorunlu. Başka attempt/boş dosya yetmez.
+- Mevcut drop-in silinmez/değiştirilmez; yalnız gelecekte yetkili apply sırasında
+  güvenli önceki boş içerik olarak yedeklenebilir. Uzun online hazırlık sonunda
+  servis stop öncesi aynı metadata/servis/kanıt doğrulaması yeniden yapılır.
+  Bilinmeyen/değişmiş durum aynı UNOWNED kapısında kalır; kontrol atlanmaz.
+- 6 farklı hedefli test PASS: exact pair, eksik/yanlış rollback/profile/previous,
+  içerik/izin/yol/servis reddi, dosya sahibi/grup/type/link/race reddi, kabul
+  edilen kalıntıda rollback, online hazırlıkta kalıntı drift'inde sıfır stop.
+  Gerçek DB/restore/API kabulü tekrarlanmadı; frontend değişmedi.
+- Canlı deploy/restart/migration/DB restore/dosya değişikliği yok; V1/V2.5 ve
+  canlı DB korunur. Üç stash hash'i aynı. Sonraki tek işlem, yetkili yayın
+  penceresinde yeni HEAD ile central-v26-office.py --apply. Canlı PASS henüz yok.

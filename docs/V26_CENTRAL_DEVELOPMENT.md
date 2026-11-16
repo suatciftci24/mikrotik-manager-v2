@@ -150,3 +150,14 @@ ev/ofis gözlemleri bu başlıkları X-V26 instance/release/database ile birlikt
 zorunlu doğrular. Bunlar yalnız araç koduna eklenmiştir; mevcut VDS yapılandırması
 bu geliştirme sırasında değiştirilmemiştir. Gerçek HTTPS kabulü alınmadan
 araç testlerinin geçmesi canlı yayın PASS'i değildir.
+
+### Boş ilk kurulum rollback kalıntısı
+
+`current.json` bulunmayan baseline'da mevcut `80-v26-central.conf` genel olarak
+reddedilir. Tek dar istisna: iki doğrulanmış V26 servisine ait canonical
+root:root/0644/regular/tek-link boş dosyalar, bilinen `attempt-pcpsra2q`
+BASELINE_VERIFIED/no-DB-restore kaydı ve aynı unit çiftinin private `.previous`
+dosyalarıyla birebir doğrulanır. Boş hash tek başına yetmez. Servis kimliği,
+metadata, içerik ve kanıt geçiş öncesi tekrar okunur; drift varsa durulur.
+Tanıma dosyaları silmez veya servis değiştirmez; sonraki yetkili apply için
+önceki boş yapılandırmayı güvenli yedek olarak kabul eder.

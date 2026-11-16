@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tarfile
@@ -235,6 +236,59 @@ def install_dropin(unit,path):
     run(['sudo','-n','install','-D','-o','root','-g','root','-m','0644',path,dropin_path(unit)],stage='CENTRAL_UNIT_INSTALL')
 
 
+def pinned_regular(path,uid,gid,mode):
+    """Read a canonical regular file without following links or accepting races."""
+    require(path.resolve()==path,'UNOWNED_CENTRAL_DROPIN_EXISTS')
+    descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    try:
+        before=os.fstat(descriptor)
+        require(stat.S_ISREG(before.st_mode) and before.st_uid==uid and before.st_gid==gid and
+                stat.S_IMODE(before.st_mode)==mode and before.st_nlink==1 and before.st_size<=65536,
+                'UNOWNED_CENTRAL_DROPIN_EXISTS')
+        data=os.read(descriptor,65537)
+        after=os.fstat(descriptor);current=path.lstat()
+        identity=lambda value:(value.st_dev,value.st_ino,value.st_mode,value.st_uid,value.st_gid,
+                               value.st_nlink,value.st_size,value.st_mtime_ns,value.st_ctime_ns)
+        require(identity(before)==identity(after)==identity(current) and len(data)==before.st_size,
+                'UNOWNED_CENTRAL_DROPIN_EXISTS')
+        return data
+    finally:os.close(descriptor)
+
+
+def verified_initial_dropins(units,head):
+    """Only the exact empty pair retained by the known first-install rollback."""
+    try:
+        require(head==BASELINE and not os.path.lexists(ROOT/'current.json') and
+                L['services'](run)==units,'UNOWNED_CENTRAL_DROPIN_EXISTS')
+        require(len(units)==2 and sum(role for _,role in units)==1,'UNOWNED_CENTRAL_DROPIN_EXISTS')
+        evidence=ROOT/'attempt-pcpsra2q'
+        require(evidence.resolve()==evidence,'UNOWNED_CENTRAL_DROPIN_EXISTS')
+        info=evidence.lstat()
+        require(stat.S_ISDIR(info.st_mode) and info.st_uid==os.getuid() and
+                stat.S_IMODE(info.st_mode)==0o700,'UNOWNED_CENTRAL_DROPIN_EXISTS')
+        rollback=json.loads(pinned_regular(evidence/'rollback.json',os.getuid(),os.getgid(),0o600))
+        require(rollback.get('status')=='BASELINE_VERIFIED' and rollback.get('source_head')==head and
+                rollback.get('db_restore_performed') is False,'UNOWNED_CENTRAL_DROPIN_EXISTS')
+        require({p.name for p in evidence.glob('*.service.previous')}==
+                {unit+'.previous' for unit,_ in units},'UNOWNED_CENTRAL_DROPIN_EXISTS')
+        empty='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+        result={}
+        for unit,api in units:
+            props=unit_properties(unit)
+            require(L['service_role'](props['WorkingDirectory'],props['ExecStart'],props['User'],props['Group'])==api,
+                    'UNOWNED_CENTRAL_DROPIN_EXISTS')
+            path=dropin_path(unit)
+            require(path==Path('/etc/systemd/system')/(unit+'.d')/'80-v26-central.conf',
+                    'UNOWNED_CENTRAL_DROPIN_EXISTS')
+            current=pinned_regular(path,0,0,0o644)
+            previous=pinned_regular(evidence/(unit+'.previous'),os.getuid(),os.getgid(),0o600)
+            require(current==previous==b'' and hashlib.sha256(current).hexdigest()==empty,
+                    'UNOWNED_CENTRAL_DROPIN_EXISTS')
+            result[unit]=current
+        return result
+    except (OSError,ValueError):raise RuntimeError('UNOWNED_CENTRAL_DROPIN_EXISTS') from None
+
+
 def setup(client_accept):
     require(callable(client_accept),'CLIENT_ACCEPTANCE_REQUIRED')
     require(APP_PATH.resolve()==APP_PATH and (APP_PATH/'.venv').resolve()==APP_PATH/'.venv',
@@ -322,16 +376,19 @@ def setup(client_accept):
                          '--host','127.0.0.1','--port','18996']
     profile['web_argv']=['/usr/sbin/nginx','-c',str(config),'-p',str(runtime)]
     run(['/usr/sbin/nginx','-t','-c',config,'-p',runtime],stage='CENTRAL_STATIC_CONFIG_TEST')
-    backups={}
+    backups={};initial_dropins=None
     for unit,api in units:
         path=dropin_path(unit)
         exists=subprocess.run(['sudo','-n','test','-e',str(path)],capture_output=True).returncode
         require(exists in (0,1),'UNIT_BACKUP_ACCESS_FAILED')
         if exists==0:
-            require(old is not None,'UNOWNED_CENTRAL_DROPIN_EXISTS')
-            result=subprocess.run(['sudo','-n','cat',str(path)],capture_output=True,timeout=15)
-            require(result.returncode==0,'CENTRAL_UNIT_BACKUP_FAILED')
-            content=result.stdout
+            if old is None:
+                if initial_dropins is None:initial_dropins=verified_initial_dropins(units,head)
+                content=initial_dropins[unit]
+            else:
+                result=subprocess.run(['sudo','-n','cat',str(path)],capture_output=True,timeout=15)
+                require(result.returncode==0,'CENTRAL_UNIT_BACKUP_FAILED')
+                content=result.stdout
         else:content=b''
         saved=attempt/(unit+'.previous');saved.write_bytes(content);saved.chmod(0o600);backups[unit]=saved
         argv=profile['api_argv'] if api else profile['web_argv']
@@ -379,6 +436,8 @@ def setup(client_accept):
         require(result.returncode==0,'CENTRAL_TARGETED_TEST_FAILED')
         require(db_identity()==fingerprint and L['stash_pin'](run)==stash and
                 git('rev-parse','HEAD')==head and not git('status','--porcelain=v1'),'CENTRAL_PRE_SWITCH_DRIFT')
+        if initial_dropins is not None:
+            require(verified_initial_dropins(units,head)==initial_dropins,'UNOWNED_CENTRAL_DROPIN_EXISTS')
         stopped=True
         for unit,api in units:run(['sudo','-n','systemctl','stop',unit],stage='CENTRAL_V26_STOP')
         # Quiescent data baseline excludes normal writes during the online backup.
