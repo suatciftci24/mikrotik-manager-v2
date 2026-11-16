@@ -53,3 +53,20 @@ Yerel hedefli kontrol: 4 offline handoff güvenlik testi PASS (veri değişimi,
 bilinmeyen yeni tablo, yanlış canlı hedef, başarısız backup ön-kontrolünün
 bağlantı açmaması ve satır/hata içeriğinin dışarı çıkmaması). Gerçek remote
 restore/migration kabulü SSH engeli nedeniyle burada BLOCKED kaldı.
+
+## LIVE_TARGET_REJECTED parser düzeltmesi — 2026-11-16
+
+Kullanıcı PostgreSQL kimliğini kesin doğruladı:
+`mikrotik_v26_acceptance:55433:/var/lib/postgresql/16/v26`.
+Eski parser stdout'u tam iki satır varsayıyordu. json_agg(record) çıktısındaki
+çok satırlı katalog bu varsayımı bozup kimlik doğru olsa da yanlış ret üretir.
+Yeni parser tam kimlik satırından sonra tek JSON değerini tüm uzunluğuyla
+çözer. Başta isteğe bağlı tek BEGIN, sonda isteğe bağlı tek ROLLBACK ve boşluk
+kabul edilir. Yanlış DB/port/cluster, banner, bozuk JSON, ikinci JSON, beklenmeyen
+trailing çıktı veya farklı command tag reddedilir. Katalog anahtarları ve
+list/null şekli de doğrulanır; hata metnine ham çıktı eklenmez.
+
+Yedi offline handoff testi PASS. Gerçek VDS acceptance bu görevde çalıştırılmadı;
+VDS stash/DB/servis değişmedi. Ofis WSL tek komutu yukarıdakiyle aynıdır ve yeni
+commit'teki worker'ı gönderir. Başarılı gerçek izole migration sonucu ayrıca
+alınmalıdır; parser testi migration PASS sayılmaz.

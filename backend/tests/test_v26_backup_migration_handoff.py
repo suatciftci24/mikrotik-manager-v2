@@ -53,3 +53,34 @@ class BackupMigrationHandoff(TestCase):
     def test_row_identifier_is_quoted_without_statement_injection(self):
         self.assertEqual(worker.quote_identifier('odd"; DROP TABLE users; --'),
                          '"odd""; DROP TABLE users; --"')
+
+    def test_multiline_catalog_and_optional_transaction_tags_are_accepted(self):
+        catalog = {'columns':[{'table_name':'packages','column_name':'id'},
+                              {'table_name':'packages','column_name':'fields'}],
+                   'constraints':[], 'indexes':[]}
+        identity = 'mikrotik_v26_acceptance:55433:/var/lib/postgresql/16/v26'
+        # Reproduces the former len(splitlines()) != 2 false rejection.
+        multiline = json.dumps(catalog,indent=2)
+        self.assertGreater(len((identity+'\n'+multiline).splitlines()),2)
+        for prefix,suffix in [('', ''), ('BEGIN\n', '\nROLLBACK'), ('\nBEGIN\r\n', '\r\nROLLBACK\r\n')]:
+            with self.subTest(prefix=prefix),patch.object(worker,'run',return_value=prefix+identity+'\n'+multiline+suffix):
+                self.assertEqual(worker.live_catalog(),catalog)
+
+    def test_transaction_tags_do_not_hide_wrong_target(self):
+        for identity in ['other:55433:/var/lib/postgresql/16/v26',
+                         'mikrotik_v26_acceptance:5432:/var/lib/postgresql/16/v26',
+                         'mikrotik_v26_acceptance:55433:/var/lib/postgresql/16/main']:
+            with self.subTest(identity=identity),self.assertRaisesRegex(RuntimeError,'LIVE_TARGET_REJECTED'):
+                worker.parse_live_catalog('BEGIN\n'+identity+'\n{}\nROLLBACK')
+
+    def test_malformed_duplicate_or_unexpected_output_fails_closed_without_echo(self):
+        identity = 'mikrotik_v26_acceptance:55433:/var/lib/postgresql/16/v26'
+        valid = json.dumps({'columns':None,'constraints':None,'indexes':None})
+        for body in ['private credential output', '{}', '[]', valid+'\n'+valid,
+                     valid+'\nprivate credential output', valid+'\nCOMMIT',
+                     valid+'\nROLLBACK\nROLLBACK',
+                     '{"columns":1,"constraints":null,"indexes":null}']:
+            with self.subTest(body=body),self.assertRaisesRegex(RuntimeError,'^LIVE_CATALOG_OUTPUT_REJECTED$'):
+                worker.parse_live_catalog(identity+'\n'+body)
+        with self.assertRaisesRegex(RuntimeError,'LIVE_TARGET_REJECTED'):
+            worker.parse_live_catalog('unexpected banner\n'+identity+'\n'+valid)

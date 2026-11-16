@@ -46,10 +46,30 @@ def live_catalog():
     """ + CATALOG + '\nROLLBACK;'
     output = run(['sudo','-n','-u','postgres',str(PG/'psql'),'-X','-qAt',
                   '-v','ON_ERROR_STOP=1','-h','/var/run/postgresql','-p','55433','-d',DB], sql=sql)
-    lines = output.splitlines()
-    if len(lines) != 2 or lines[0] != DB + ':55433:/var/lib/postgresql/16/v26':
+    return parse_live_catalog(output)
+
+
+def parse_live_catalog(output):
+    # json_agg(record) may emit literal newlines between rows. Decode one entire
+    # JSON value rather than assuming the catalog occupies exactly one line.
+    remaining = output.lstrip()
+    first, separator, remaining = remaining.partition('\n')
+    if first.strip() == 'BEGIN':
+        first, separator, remaining = remaining.lstrip().partition('\n')
+    if not separator or first.strip() != DB + ':55433:/var/lib/postgresql/16/v26':
         raise RuntimeError('LIVE_TARGET_REJECTED')
-    return json.loads(lines[1])
+    try:
+        catalog, end = json.JSONDecoder().raw_decode(remaining.lstrip())
+    except ValueError:
+        raise RuntimeError('LIVE_CATALOG_OUTPUT_REJECTED') from None
+    trailing = remaining.lstrip()[end:].strip()
+    # Only the known transaction command tag may follow the sole JSON value.
+    if trailing not in ('', 'ROLLBACK') or not isinstance(catalog, dict):
+        raise RuntimeError('LIVE_CATALOG_OUTPUT_REJECTED')
+    if set(catalog) != {'columns', 'constraints', 'indexes'} or any(
+            value is not None and not isinstance(value, list) for value in catalog.values()):
+        raise RuntimeError('LIVE_CATALOG_OUTPUT_REJECTED')
+    return catalog
 
 
 def quote_identifier(value):

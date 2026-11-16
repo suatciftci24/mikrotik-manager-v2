@@ -6097,3 +6097,19 @@ Her iki ilerleme kaydi korunmustur:
   V1/V2.5/router/RADIUS/IPsec/hesaplar/yerel veriler/üç stash korunur.
 - Sonraki somut adım ofis WSL'de V26_BACKUP_011_HANDOFF.md tek komutunu çalıştırıp
   result.json kabulünü almaktır; ardından yalnız yayın hazırlığı, canlı uygulama yok.
+
+## V26 LIVE_TARGET_REJECTED ayrıştırma düzeltmesi — 2026-11-16 — yerel PASS
+
+- Temel temiz main-guncel/eedc261; Altın Kurallar ve son backup/011 kabul devri
+  okundu. Kullanıcının kesin doğruladığı DB:55433:/var/lib/postgresql/16/v26
+  kimliği esas alındı; güvenlik pinleri değiştirilmedi.
+- Kök kusur: stdout tam iki satır varsayımı; çok satırlı json_agg katalog çıktısı
+  aynı doğru kimliği yanlış reddediyordu. Tam JSON decoder, yalnız isteğe bağlı
+  BEGIN/ROLLBACK tag'leri ve whitespace kabulü eklendi; DB/port/cluster tam eşit.
+  JSON şekli/tekliği, bilinmeyen stdout ve yanlış hedef fail-closed kalır.
+- PASS: yedi hedefli offline test; çok satırlı katalog/CRLF/tag'ler, üç yanlış
+  kimlik bileşeni, bozuk/çift JSON/ek çıktı ve önceki handoff güvenliği. Diff
+  kontrolü PASS. Frontend/PG/build/başarılı sentetik migration tekrarlanmadı.
+- VDS bağlantısı, canlı deploy/migration/restart/silme yok; VDS stash dahil
+  uzak veriler/hesaplar değişmedi. Üç yerel stash korunur. Sonraki işlem ofis
+  WSL'de check-v26-backup-migration.py --run-isolated; gerçek kabul bekliyor.
