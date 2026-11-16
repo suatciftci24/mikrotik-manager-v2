@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import sys
 import shlex
 import stat
 import subprocess
@@ -98,7 +99,10 @@ def admin_check(opener, *, panel=False):
                     require(isinstance(data.get('items'),list) and type(data.get('total')) is int
                             and data['total']>=0,'WORKSPACE_CONTRACT_REJECTED')
     finally:
-        request(opener,'/api/v1/auth/logout',{})
+        primary_failure=sys.exc_info()[0] is not None
+        try:request(opener,'/api/v1/auth/logout',{})
+        except Exception:
+            if not primary_failure:raise
 
 
 def stash_pin(run):

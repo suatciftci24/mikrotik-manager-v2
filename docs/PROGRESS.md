@@ -6309,3 +6309,32 @@ Her iki ilerleme kaydi korunmustur:
   bozuk magic/payload/ek byte/farklı source filename/orphan/ek py-txt/symlink
   senaryoları. Son ek filename reddi kontrolü tek hedefli testte ayrıca PASS.
   Frontend değişikliği yok; build ve ilgisiz testler çalıştırılmadı.
+
+## Merkezi yayın kabul kayıtları ve logout hata önceliği — 2026-11-16 — BLOCKED
+
+- Kullanıcının son kanıtı esas alındı: attempt-pcpsra2q/c74a367 aday API
+  8/8 PASS, DB kimliği doğrulanmış, CENTRAL_STATE_ROOT_REJECTED giderilmiş.
+  Restore/011/admin testleri yeniden çalıştırılmadı. SSH/yeni yayın/canlı işlem yok.
+- c74a367 public_accept sırası: public ready -> admin/panel sözleşmeleri ->
+  source inventory -> statik index/asset byte eşitliği ve dev-mode reddi ->
+  X-V26 instance/release/DB header bağları -> API release-root/build eşitliği.
+  Eski 20 denemeli blok asıl istisnayı saklamamış; failure.json genel koddan
+  başarısız aşamayı geri üretmek mümkün değil. Aday ASGI 8/8 bu HTTPS/statik
+  kapılarını sınamaz; gerçek geçmiş aşama hâlâ NOT_RECORDED.
+- Rollback kaydı b4e78a4 ve DB restore false kullanıcı kanıtıdır. İlk kurulum
+  rollback'i baseline ready+admin kontrol eder; yeni statik yayın/header/build
+  kabulü anlamına gelmez. Aday ile baseline arasında 46 app/frontend dosyası
+  değişmiş; c74a367 ile mevcut HEAD arasında app/frontend/static policy farkı
+  yok (bu görev öncesi). Araç düzeltmeleri adayın canlı yayımlandığı anlamına gelmez.
+- Doğrulanmış ek tanılama hatası: legacy admin_check finally/logout hatası
+  dashboard JSON sözleşme hatasını örtebiliyordu; merkezi ilk HTTP hatası listesi
+  de bu yanlış logout önceliğini kalıcılaştırıyordu. Önce başarısız regresyonla
+  üretildi; logout her durumda denenir fakat mevcut asıl hata korunur. Tek hata
+  logout ise kabul hâlâ reddedilir. Güvenlik kapısı kaldırılmadı.
+- Yalnız 5 hedefli test PASS: dashboard sözleşme+logout çakışması, dashboard
+  HTTP500+logout503, tek logout hatasının reddi, mevcut HTTP200-hata-gövdesi
+  reddi, panel hatasında code/dist rollback ve DB restore olmaması.
+- Gerçek engel: başarısız adayın public HTTPS/statik/binding/build aşamasına
+  ait özgün kayıt yok; şimdi bu aşamalar doğrulanmış değil. Yeni yayın denenmedi.
+  Yeni kod gelecekte asıl aşamayı korur; geçmiş nedeni tahmin ederek PASS yok.
+  V1/V2.5/router/RADIUS/IPsec/DB ve üç stash'e işlem yapılmadı.

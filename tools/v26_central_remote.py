@@ -178,12 +178,8 @@ def warm_api():
 
 
 def public_accept(profile):
-    opener=L['client']();original=L['request'];first=[]
-    def checked(opener,path,body=None):
-        try:return checked_request(opener,path,body)
-        except D['AcceptanceFailure'] as error:
-            if not first:first.append(error)
-            raise
+    opener=L['client']();original=L['request']
+    checked=checked_request
     L['request']=checked
     try:
         D['step']('API_READY_CONTRACT',lambda:L['ready'](opener))
@@ -217,9 +213,6 @@ def public_accept(profile):
         D['step']('API_BUILD_ID',lambda:require(ready.get('build_id')==expected.hexdigest() and
                 profile.get('build_id',ready['build_id'])==ready['build_id'],'CENTRAL_RUNTIME_CODE_CHANGED'))
         return ready
-    except Exception:
-        if first:raise first[0]
-        raise
     finally:L['request']=original
 
 

@@ -187,6 +187,42 @@ class CentralDevelopment(unittest.TestCase):
             cache.unlink();cache.symlink_to(source)
             with self.assertRaisesRegex(RuntimeError,'CENTRAL_SOURCE_SYMLINK_REJECTED'):remote.verify_source(root,commit)
 
+    def test_panel_contract_failure_is_not_masked_by_logout_http_error(self):
+        remote=self.remote();calls=[]
+        def request(opener,path,body=None):
+            calls.append(path)
+            if path.endswith('/logout'):
+                raise remote.D['AcceptanceFailure']('ADMIN_LOGOUT','ACCEPTANCE_HTTP_STATUS',dict(http_status=503))
+            if path.endswith(('/login','/me')):return json.dumps(dict(id=1,role_code='ADMIN')).encode()
+            return b'{}'  # Valid JSON but missing the required dashboard summary.
+        with patch.object(remote,'checked_request',side_effect=request),patch.dict(remote.L,{'ready':lambda opener:None}):
+            with self.assertRaises(remote.D['AcceptanceFailure']) as caught:remote.public_accept({})
+        self.assertEqual(caught.exception.details.get('guard_code'),'DASHBOARD_CONTRACT_REJECTED')
+        self.assertEqual(caught.exception.details['failed_stage'],'ADMIN_PANEL_CONTRACTS')
+        self.assertEqual(calls[-1],'/api/v1/auth/logout')
+
+    def test_panel_http_failure_survives_logout_failure(self):
+        remote=self.remote();calls=[]
+        def request(opener,path,body=None):
+            calls.append(path)
+            if path.endswith('/logout'):raise remote.D['AcceptanceFailure']('ADMIN_LOGOUT','ACCEPTANCE_HTTP_STATUS',dict(http_status=503))
+            if path.endswith('/summary'):raise remote.D['AcceptanceFailure']('DASHBOARD','ACCEPTANCE_HTTP_STATUS',dict(http_status=500))
+            return json.dumps(dict(id=1,role_code='ADMIN')).encode()
+        with patch.object(remote,'checked_request',side_effect=request),patch.dict(remote.L,{'ready':lambda opener:None}):
+            with self.assertRaises(remote.D['AcceptanceFailure']) as caught:remote.public_accept({})
+        self.assertEqual(caught.exception.details['failed_stage'],'DASHBOARD')
+        self.assertEqual(caught.exception.details['http_status'],500)
+        self.assertEqual(calls[-1],'/api/v1/auth/logout')
+
+    def test_logout_failure_still_rejects_otherwise_successful_admin_check(self):
+        remote=self.remote()
+        def request(opener,path,body=None):
+            if path.endswith('/logout'):raise remote.D['AcceptanceFailure']('ADMIN_LOGOUT','ACCEPTANCE_HTTP_STATUS',dict(http_status=503))
+            return json.dumps(dict(id=1,role_code='ADMIN')).encode()
+        with patch.dict(remote.L,{'request':request}):
+            with self.assertRaises(remote.D['AcceptanceFailure']) as caught:remote.L['admin_check'](object())
+        self.assertEqual(caught.exception.details['failed_stage'],'ADMIN_LOGOUT')
+
     def test_installed_api_cannot_point_at_mutable_checkout(self):
         remote=self.remote();profile=self.profile()
         profile.update(origin=policy.ORIGIN,checkout=policy.APP,release=str(remote.ROOT/'releases'/profile['commit']),
