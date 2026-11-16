@@ -1,5 +1,21 @@
 # MikroTik Manager V2 — İlerleme
 
+## 209fd6d / VDS 79b8484 için standalone read-only preflight — 2026-11-16
+
+- Model/006 kontratı: üç v2_* registry tablosu, aynı public/v26_acceptance;
+  CONNECT/USAGE/SELECT/INSERT/UPDATE. Boş information_schema varlık kanıtı değil.
+- Tek komutluk pinli araç: root env içeriğini yayımlamadan process env/unit/hash,
+  HTTPS/API/UI varlıkları, gerçek mevcut cookie /auth/me → DB ID/revision,
+  katalog/izin/sütun/index, private materyal/source route ve mevcut yedekler.
+- Standalone çalışır; eski VDS app'ini import etmez/yenilemez, yeni grant/session
+  yaratmaz. Yedek üretmez; mevcut dump/list ve kod/env/unit kopyalarını okur.
+- 13 sentetik hedefli test PASS; son izin değişikliğinde yalnız ilgili 3 test
+  PASS. Syntax/diff PASS. Uygulama/frontend/DB migration değişikliği yok.
+- Sonraki adım kullanıcı VDS terminalinde tek pinned preflight komutunu çalıştırır;
+  eksik tablo/yetki/kimlik/yedekte BLOCKED; otomatik onarım/dağıtım yok.
+- Tek rapor: CEBECI_REAL_PILOT_ACCEPTANCE.md son bölüm. SSH denenmedi.
+
+
 ## 79b8484 gerçek kod kökü / dependency incelemesi — 2026-11-16
 
 - Kök neden: main root doğrulamıyordu; store/scope/capability beklenen ROOT'u

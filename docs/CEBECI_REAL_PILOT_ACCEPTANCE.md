@@ -315,3 +315,72 @@ yalnız ilgili root/storage testi yeniden PASS oldu.
 Soketsiz --import-only uygulama grafiği PASS: socket/DB/process başlatma yasak.
 Frontend TypeScript/Vite build ve diff kontrolü PASS. Gerçek PostgreSQL,
 VDS/SSH/router/RADIUS/IPsec/deploy/restart/migration işlemi yapılmadı.
+
+## 209fd6d sonrası tek salt okunur VDS ön kontrolü — 2026-11-16
+
+Kullanıcı VDS'nin 79b8484'te olduğunu, information_schema sonucunun boş
+olduğunu, root env dosyasının mikadmin tarafından okunamadığını ve gerçek
+ADMIN ID/revision'ın henüz doğrulanmadığını bildirdi. Bunlar salt okunur
+standalone araçla ayrı ayrı denetlenir; information_schema görünürlüğü tablo
+varlığının kesin kanıtı değildir. Kaynak/model incelemesi tamamlandı.
+
+Araç: deploy/v26-cebeci/readonly-preflight.py. VDS'ye kurulmaz, mevcut app
+modüllerini import etmez ve 209fd6d'nin canlıya geçmiş olmasını gerektirmez.
+Komut pinli GitHub commit'inden aracı HTTPS ile belleğe alıp yayımlanan SHA256
+ile doğrular; root + etkileşimli VDS terminalinde çalıştırır. İndirme/hash hatası
+uygulama/env okumasından önce BLOCKED verir. sudo yalnız okunamayan root env,
+/proc service metadata ve mevcut private yedekleri okumak içindir. Env dosyası
+source/eval edilmez, izinleri değiştirilmez ve içeriği ekrana çıkarılmaz.
+
+Beklenen DB: 127.0.0.1:55433 / mikrotik_v26_acceptance / v26_acceptance.
+Beklenen tablolar: v2_registered_routers, v2_router_verifications,
+v2_router_registry_audit. ORM şema belirtmez; aynı public veya v26_acceptance
+şemasında, mevcut search_path'in gerçekten çözdüğü tek tablo kümesi gerekir.
+CONNECT, USAGE ve her tabloda SELECT/INSERT/UPDATE zorunludur. CREATE/ALTER/
+DELETE, rol yükseltme, migration veya yeni şema beklenmez. SQLAlchemy model
+sütun/type/nullability/PK/index ve endpoint UNIQUE tanımı araçta kaynakla
+pinlidir; yerel test bu kontratın modelle birebir eşitliğini doğrular.
+pg_catalog varlığı, to_regclass çözümü ve gerçek rol hakları ayrı kontrol
+edilir: TABLE_ABSENT / TABLE_SHADOWED_OR_NOT_RESOLVABLE / PRIVILEGES_REQUIRED
+ayrımı yapılır. Üç tablonun her biri raporlanır; bağımsız kontroller devam eder.
+
+Gerçek kimlik yolu: kullanıcı zaten giriş yaptığı V2.6 panelinin v2_session
+çerezini yalnız aracın gizli TTY istemine girer. Çerez komut satırı/env/dosya/
+rapora girmez ve paylaşılmaz. Araç yalnız 127.0.0.1:18996 üzerinde GET
+/api/v1/auth/me kullanır; login/logout POST, yeni oturum veya demo fallback yok.
+LOCAL/active/ADMIN/can_manage_users/bootstrap_closed ve pilot candidate
+ID/revision doğrulanır; aynı kimlik ayrı READ ONLY/REPEATABLE READ DB snapshot'ında
+yeniden eşleşmelidir. Rapora yalnız doğrulanmış ID/revision adayı çıkar;
+herhangi bir grant veya kalıcı operator seçimi oluşturulmaz. Kapı zaten açıksa
+seçili ID/revision bu gerçek oturumla aynı olmalıdır; kapalıysa stale grant
+bulunmamalıdır. Eski sabit VDS ID'si devralınmaz.
+
+Diğer kontroller: üç sabit unit active/running ve NeedDaemonReload=no;
+gerçek process cwd/env/interpreter ile env dosyası eşleşmesi; çalışan API
+repo/build hash'lerinin fiziksel backend ağacıyla eşitliği; DB sağlık; doğrulanmış
+HTTPS üzerinden aynı API identity ve frontend index/ilk JS-CSS hash eşitliği;
+private pilot/vault owner/izinleri, CA parse, sabit pin/host/source/port;
+yalnız kernel metadata'sından local source IP ve route. RouterOS socket/login
+ve uzaktaki SAN/pin tekrar testi yoktur. Yeni runtime layout seçimi vds-next
+olarak raporlanır; hiçbir environment veya unit ayarı uygulanmaz.
+
+Yedek kapsamı: araç mevcut pg_dump, backend/app + frontend/dist + dependency
+manifest tar arşivi ve env/API-web unit/drop-in/EnvironmentFile geri dönüş
+kopyalarının tam yollarını TTY'de ister. Yeni yedek yaratmak salt okunur işlem
+olmadığından bu komut oluşturmaz. Dump yalnız pg_restore --list ile doğru DB
+ve kullanıcı/abone veri TOC'si bakımından denetlenir; restore testi değildir.
+Kod/dist arşivi extract edilmeden akışla, config dosyaları da yalnız hash/byte
+eşitliğiyle güncel baseline'a karşı doğrulanır. Eksik/farklı/geniş izinli yedek
+BLOCKED; otomatik chmod, veri restore veya silme yoktur. Kod/env içeriği hiçbir
+çıktıya yazılmaz. Büyük arşivler/dump metadata okumasıyla sınırlanır; dump'ın
+tamamı RAM'e yüklenmez. DB kontrolü her sonuçta rollback eder.
+
+PASS yalnız tüm bu ön koşullar için geçerlidir; dağıtım/cihaz/panel etkileşimi
+veya restore kabulü değildir. Her eksik/uyuşmazlık ayrı BLOCKED kodu ve overall
+BLOCKED üretir. Veri/sırların veya başka servislerin aranmasıyla fallback yok.
+
+Yerel doğrulama: 13 benzersiz sentetik hedefli test PASS; son private owner-read/
+vault parent kontrolü sonrası yalnız ilgili 3 test tekrar PASS. Kaynak syntax
+ve diff kontrolü PASS. Uygulama/frontend değişmediği için frontend build ve
+önceki uygulama testleri tekrarlanmadı. VDS/SSH/deploy/restart/migration/router/
+V1/V2.5/RADIUS/IPsec veya mevcut DB verilerine işlem yapılmadı.
