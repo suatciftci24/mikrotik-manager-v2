@@ -8,6 +8,8 @@ from uuid import uuid4
 from sqlalchemy import select,func,or_,update
 from sqlalchemy.exc import SQLAlchemyError,IntegrityError
 from app.core.database import SessionLocal
+from app.core import v26_cebeci
+from app.services.demo_subscriptions import DemoStorageUnavailable
 from app.models.router_registry import RegisteredRouter,RouterVerification,RouterRegistryAudit
 from app.adapters.cebeci_api_ssl import ApiSslStop
 from app.adapters.router_api_ssl import ConnectionPolicy,RouterApiSslClient,Target
@@ -25,10 +27,15 @@ class RegistryError(Exception):
 def storage_boundary(method):
     @wraps(method)
     def call(*args,**kwargs):
-        try:return method(*args,**kwargs)
+        try:
+            if v26_cebeci.in_profile():
+                # Verify existing V2.6 DB identity/marker, never initialize or migrate.
+                from app.services.router_workspace import guard
+                with args[0].sessions() as session:guard(session)
+            return method(*args,**kwargs)
         except RegistryError:raise
         except ApiSslStop as error:raise RegistryError(409,str(error)) from None
-        except SQLAlchemyError:raise RegistryError(503,'REGISTRY_STORAGE_UNAVAILABLE') from None
+        except (SQLAlchemyError,DemoStorageUnavailable):raise RegistryError(503,'REGISTRY_STORAGE_UNAVAILABLE') from None
     return call
 
 
@@ -115,6 +122,7 @@ class RouterRegistry:
             prior=session.get(RouterVerification,str(payload.request_id))
             if prior:
                 if prior.actor_id!=actor or prior.snapshot.get('kind')=='DETAIL_READ' or prior.snapshot.get('management_address')!='10.250.0.19' or prior.snapshot.get('configuration',{}).get('pilot_kind')!='CEBECI_TOWERS':raise RegistryError(409,'VERIFICATION_REQUEST_CONFLICT')
+                v26_cebeci.require_scope(prior.snapshot.get('management_address'),prior.snapshot.get('port'),prior.snapshot.get('configuration',{}))
                 return self.proof(prior)
             if session.scalar(select(RegisteredRouter.id).where(RegisteredRouter.management_address=='10.250.0.19',RegisteredRouter.port==8729)):raise RegistryError(409,'ROUTER_ENDPOINT_EXISTS')
         from app.services.cebeci_registry import candidate
@@ -127,12 +135,16 @@ class RouterRegistry:
         with self.sessions() as session:
             prior=session.get(RouterVerification,key)
             if prior:
+                scoped=session.get(RegisteredRouter,id)
+                if scoped is None:raise RegistryError(404,'ROUTER_NOT_FOUND')
+                v26_cebeci.require_scope(scoped.management_address,scoped.port,scoped.configuration)
                 if prior.actor_id!=actor or prior.target_router_id!=id or prior.snapshot.get('kind')!='DETAIL_READ':raise RegistryError(409,'VERIFICATION_REQUEST_CONFLICT')
                 return prior.snapshot.get('result',dict(state='RUNNING',error_code='VERIFICATION_IN_PROGRESS',is_demo=False))
             row=session.get(RegisteredRouter,id)
             if not row:raise RegistryError(404,'ROUTER_NOT_FOUND')
             require_verified_inventory(row)
             if row.revision!=payload.expected_revision:raise RegistryError(409,'ROUTER_REVISION_CONFLICT')
+            v26_cebeci.require_scope(row.management_address,row.port,row.configuration)
             if row.configuration.get('pilot_kind')!='CEBECI_TOWERS':raise RegistryError(403,'PILOT_SCOPE_MISMATCH')
             policy=self.policy();policy.validate(row.management_address,row.port)
             config=row.configuration;reference=row.credential_ref
@@ -162,6 +174,10 @@ class RouterRegistry:
     def list(self,query='',status='ALL',page=1,page_size=25):
         with self.sessions() as session:
             clause=[]
+            if v26_cebeci.in_profile():
+                clause.extend((RegisteredRouter.management_address=='10.250.0.19',
+                               RegisteredRouter.port==8729,
+                               RegisteredRouter.configuration['pilot_kind'].as_string()=='CEBECI_TOWERS'))
             if query:
                 term='%'+query.replace('\\','\\\\').replace('%','\\%').replace('_','\\_')+'%'
                 clause.append(or_(RegisteredRouter.name.ilike(term,escape='\\'),RegisteredRouter.management_address.ilike(term,escape='\\'),RegisteredRouter.metadata_snapshot['model'].as_string().ilike(term,escape='\\'),RegisteredRouter.metadata_snapshot['identity'].as_string().ilike(term,escape='\\'),RegisteredRouter.metadata_snapshot['routeros_version'].as_string().ilike(term,escape='\\')))
@@ -181,6 +197,7 @@ class RouterRegistry:
         with self.sessions() as session:
             row=session.get(RegisteredRouter,id)
             if row is None:raise RegistryError(404,'ROUTER_NOT_FOUND')
+            v26_cebeci.require_scope(row.management_address,row.port,row.configuration)
             events=session.scalars(select(RouterRegistryAudit).where(RouterRegistryAudit.router_id==id).order_by(RouterRegistryAudit.occurred_at.desc()).limit(50)).all()
             return dict(item=public_router(row),history=[dict(action=e.action,occurred_at=e.occurred_at,actor_id=e.actor_id,details=e.details) for e in events],is_demo=False)
 
@@ -257,8 +274,11 @@ class RouterRegistry:
             proof=session.get(RouterVerification,str(payload.verification_id),with_for_update=True)
             if not proof or proof.actor_id!=actor:raise RegistryError(404,'VERIFICATION_NOT_FOUND')
             if proof.snapshot.get('kind')=='DETAIL_READ':raise RegistryError(409,'VERIFICATION_REQUEST_CONFLICT')
+            v26_cebeci.require_scope(proof.snapshot.get('management_address'),proof.snapshot.get('port'),proof.snapshot.get('configuration',{}))
             if proof.state=='SAVED':
                 row=session.get(RegisteredRouter,proof.saved_router_id)
+                if row is None:raise RegistryError(404,'ROUTER_NOT_FOUND')
+                v26_cebeci.require_scope(row.management_address,row.port,row.configuration)
                 return dict(item=public_router(row),replayed=True,is_demo=False)
             if proof.state!='VERIFIED':raise RegistryError(409,'VERIFICATION_NOT_SUCCESSFUL')
             if now()>datetime.fromisoformat(proof.expires_at):raise RegistryError(409,'VERIFICATION_EXPIRED')
@@ -324,6 +344,7 @@ class RouterRegistry:
         with self.sessions.begin() as session:
             proof=session.get(RouterVerification,verification_id,with_for_update=True)
             if not proof or proof.actor_id!=actor:raise RegistryError(404,'VERIFICATION_NOT_FOUND')
+            v26_cebeci.require_scope(proof.snapshot.get('management_address'),proof.snapshot.get('port'),proof.snapshot.get('configuration',{}))
             if proof.state=='RUNNING':raise RegistryError(409,'VERIFICATION_IN_PROGRESS')
             if proof.state=='VERIFIED':
                 reference=proof.credential_ref;proof.state='CANCELLED'

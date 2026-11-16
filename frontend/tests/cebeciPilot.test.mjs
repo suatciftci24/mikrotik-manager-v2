@@ -65,13 +65,13 @@ test('VDS imported ADMIN identity and explicit consent do not open the closed pi
  }finally{optionsFixture=null;consentFixture=false;}
 });
 
-test('VDS candidate in options cannot replace a missing or different authenticated identity',()=>{
+test('server candidate cannot replace a missing, different or stale authenticated identity',()=>{
  globalThis.window={isSecureContext:true};
  const candidate={id:'v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92',revision:0,source:'V2_AUTHENTICATED_SESSION'};
  optionsFixture={connection_enabled:true,operator_authorized:true,operator_candidate:candidate};consentFixture=true;
  try{
   const {CebeciPilotOnboarding}=load('../src/components/CebeciPilotOnboarding.tsx');
-  for(const pilotIdentity of [undefined,{state:'ELIGIBLE',candidate:{...candidate,id:'v2-user-other'}}]){
+  for(const pilotIdentity of [undefined,{state:'ELIGIBLE',candidate:{...candidate,id:'v2-user-other'}},{state:'ELIGIBLE',candidate:{...candidate,revision:1}}]){
    falseStateCount=0;const tree=CebeciPilotOnboarding({onClose(){},onSaved(){},pilotIdentity});
    assert.ok(nodes(tree).find(node=>node.type==='button'&&node.props.children==='Bağlantıyı Test Et').props.disabled);
   }

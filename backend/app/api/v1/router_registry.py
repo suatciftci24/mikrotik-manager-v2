@@ -25,6 +25,8 @@ def mutator(user:dict=Depends(current_admin),x_v2_demo_action:str|None=Header(de
 
 
 def operator_allowed(user):
+    from app.core import v26_cebeci
+    if v26_cebeci.in_profile():return v26_cebeci.operator_allowed(user)
     from app.core.pilot_runtime import operator_in_profile
     ids={value.strip() for value in os.environ.get('V2_ROUTER_ONBOARDING_OPERATOR_IDS','').split(',') if value.strip()}
     identity=pilot_identity(user)
@@ -64,6 +66,8 @@ def list_routers(query:str=Query('',max_length=120),status:str=Query('ALL',patte
 
 @router.post('/inventory')
 def inventory(payload:InventoryRouter,user:dict=Depends(mutator)):
+    from app.core import v26_cebeci
+    if v26_cebeci.in_profile():raise HTTPException(403,'DEDICATED_PILOT_FLOW_REQUIRED')
     return execute(registry.inventory,payload,user['id'])
 
 

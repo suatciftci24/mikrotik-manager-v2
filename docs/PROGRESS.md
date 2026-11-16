@@ -1,5 +1,22 @@
 # MikroTik Manager V2 — İlerleme
 
+## Kabul profilinde CEBECI capability — 2026-11-16 — yerel PASS
+
+- Başlangıç 82ef534 temiz; son kullanıcı VDS servisleri/run-once/pg_dump kanıtını
+  bildirdi. Bu görev yalnız yerel geliştirme; SSH/deploy/restart/migration yok.
+- v26-isolated-acceptance DB/root/port ve eski genel kapılar korunur. Yeni
+  varsayılan kapalı CEBECI read flag + açık seçilmiş LOCAL ADMIN ID/revision;
+  gerçek taze oturumla eşleşme, eski VDS ID'sinden otomatik grant yok.
+- Sabit hedef/source/port/pin/identity/model/account; private dosya/TLS/manual
+  onay/audit/replay korunur. Registry DB marker kontrolü ve foreign scope reddi;
+  mevcut kullanıcı/abone/demo/RADIUS sahipliğine değişiklik yok.
+- 61 backend hedefli test, frontend build ve ilgili iki UI test dosyası PASS;
+  stale revision testi güncellenince yalnız ilgili UI dosyası PASS. Diff PASS.
+- Tek rapor ve 6 adımlı dağıtım/geri dönüş planı:
+  CEBECI_REAL_PILOT_ACCEPTANCE.md güncel bölüm. Gerçek panel kabulü hâlâ açık.
+  VDS root/factory ve mevcut registry tabloları doğrulanmadan yayın STOP.
+
+
 ## CEBECI VDS canlı kabul girişimi — 2026-11-16 — BLOCKED
 
 - Başlangıç 7f5f511 / main-guncel temiz; kabul raporu ve kurallar okundu.

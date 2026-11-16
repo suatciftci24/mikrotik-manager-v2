@@ -63,4 +63,6 @@ def validate(values=None, root=None):
     if not valid:
         raise RuntimeError("V26_ACCEPTANCE_DATABASE_REJECTED")
 
+    from app.core import v26_cebeci
+    v26_cebeci.validate(values)
     return True

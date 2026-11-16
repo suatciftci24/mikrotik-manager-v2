@@ -12,7 +12,11 @@ VDS_OPERATOR_ID = 'v2-user-b72c04eb-8000-4f2c-a41a-bc4909cddb92'
 
 def validate_scope(environment=None):
     values = os.environ if environment is None else environment
-    from app.core import fresh_pilot
+    from app.core import fresh_pilot, v26_acceptance, v26_cebeci
+    v26_cebeci.validate(values)
+    if v26_cebeci.in_profile(values):
+        v26_acceptance.validate(values, v26_acceptance.ROOT)
+        return
     if fresh_pilot.active(values):
         fresh_pilot.validate(values)
         return
@@ -52,8 +56,13 @@ def validate_target(target, username):
     if 'V2_DEPLOYMENT_PROFILE' not in os.environ:
         return
     validate_scope()
+    from app.core import v26_cebeci
+    if v26_cebeci.in_profile():
+        if not v26_cebeci.enabled():raise RuntimeError('V26_CEBECI_ACCESS_DISABLED')
+    elif os.environ['V2_ROUTER_ONBOARDING_ENABLED'] != 'true':
+        raise RuntimeError('V2_PILOT_TARGET_REJECTED')
     from app.adapters.cebeci_api_ssl import REVIEWED_LEAF_SHA256
-    if os.environ['V2_ROUTER_ONBOARDING_ENABLED'] != 'true' or (
+    if (
         target.address, target.port, target.expected_identity, target.expected_model,
         target.expected_version, target.leaf_sha256, username
     ) != ('10.250.0.19', 8729, 'CEBECI_TOWERS', 'RB3011UiAS', '6.49.19', REVIEWED_LEAF_SHA256, 'v2-cebeci-ro'):
@@ -62,7 +71,8 @@ def validate_target(target, username):
 
 def validate_runtime(root, environment=None):
     values = os.environ if environment is None else environment
-    from app.core import fresh_pilot, v26_acceptance
+    from app.core import fresh_pilot, v26_acceptance, v26_cebeci
+    v26_cebeci.validate(values)
     if values.get("V2_DEPLOYMENT_PROFILE") == v26_acceptance.PROFILE:
         v26_acceptance.validate(values, root)
         return

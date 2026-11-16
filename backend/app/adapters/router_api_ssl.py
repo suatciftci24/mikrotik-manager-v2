@@ -24,6 +24,8 @@ class ConnectionPolicy:
         try:
             from app.core.pilot_runtime import validate_scope
             validate_scope()
+            from app.core import v26_cebeci
+            if v26_cebeci.in_profile():return v26_cebeci.policy()
             enabled=os.environ.get('V2_ROUTER_ONBOARDING_ENABLED','false')
             if enabled not in ('true','false'):raise ValueError()
             return cls(enabled=='true',os.environ.get('V2_ROUTER_ONBOARDING_SOURCE_IP',''),
