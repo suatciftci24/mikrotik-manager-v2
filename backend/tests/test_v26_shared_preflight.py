@@ -86,7 +86,7 @@ class SharedPreflightTests(TestCase):
         result.scalar_one.return_value = admins
         result.mappings.return_value = []
         connection.execute.return_value = result
-        with patch.object(preflight, 'inspect'), \
+        with patch.object(preflight, 'inspect', return_value=catalog_inspector()), \
              patch.object(preflight, 'validate_routers', side_effect=RepairBlocked('drift') if schema_error else None), \
              patch.object(preflight, 'validate_subscribers'), patch.object(preflight, 'validate_packages'):
             try:
@@ -115,3 +115,21 @@ class SharedPreflightTests(TestCase):
             with self.subTest(url=url), self.assertRaises(RepairBlocked):
                 preflight.inspect_target(engine)
             engine.connect.assert_not_called()
+
+    def test_missing_catalog_inventory_is_explicit_and_preview_stays_non_executable(self):
+        engine = MagicMock()
+        engine.url = make_url('postgresql+psycopg://v26_acceptance@127.0.0.1:55433/mikrotik_v26_acceptance')
+        connection = engine.connect.return_value.__enter__.return_value
+        connection.execute.return_value.one.return_value = ('mikrotik_v26_acceptance', 'v26_acceptance', 55433)
+        connection.execute.return_value.scalar_one.return_value = 1
+        connection.execute.return_value.mappings.return_value = []
+        with patch.object(preflight, 'inspect', return_value=inspector()), \
+             patch.object(preflight, 'validate_routers'), patch.object(preflight, 'validate_subscribers'), \
+             patch.object(preflight, 'validate_packages') as validate:
+            result = preflight.inspect_target(engine, allow_missing_catalog=True)
+            validate.assert_not_called()
+        self.assertEqual(result['catalog_status'], 'migration-required')
+        self.assertEqual(result['schema'], 'workspace-compatible')
+        plan = preflight.cleanup_preview(result)
+        self.assertFalse(plan['execution_enabled'])
+        self.assertEqual(plan['subscribers'], [])

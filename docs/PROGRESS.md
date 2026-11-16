@@ -6014,3 +6014,27 @@ Her iki ilerleme kaydi korunmustur:
   Ayrıntı ve bir sonraki somut adım V26_SHARED_API_ACCEPTANCE.md devamında:
   erişim sağlanınca VDS preflight envanteri; canlı uygulama ayrı kapsam/onay.
 - V1/V2.5/router/RADIUS/IPsec/canlı servisler ve yerel veriler değişmedi.
+
+## V26 yayın dry-run / 011 idempotency — 2026-11-16 — izole PASS / canlı BLOCKED
+
+- Başlangıç temiz main-guncel/60d949b; Altın Kurallar/son shared kabul okundu.
+  VDS b4e78a4 + 17 tablo/2 kullanıcı/2 workspace abonesi/12 işlem/1 router
+  kullanıcı beyanı olarak alındı; canlı metadata yerine geçirilmedi.
+- Yeni private PG16 cluster single-user moduyla socket/port açmadan çalıştı.
+  /tmp/v26-release-dryrun-44nxmc5q retained/shut down. 011 kurulum/uyumlu tekrar,
+  yanlış DB/kısmi katalog/kolon drift reddi, 2/2/12/1 ve ADMIN korunumu PASS.
+  Durdurulmuş fixture backup'ından ayrı absent-only kopyaya geri dönüş PASS;
+  bu gerçek canlı pg_dump restore kabulü değildir. Hiçbir eski DB kullanılmadı.
+- 011 sabit DB/rol, transaction/advisory lock/timeouts ve tam paket kolon/PK/
+  unique/check/index doğrulamasıyla idempotent oldu; drift'i onarmaz. Son ek
+  audit index uniqueness kontrolü sonrası yalnız ilgili PG prova tekrar PASS.
+- Katalog eksikliği explicit allow-missing-catalog ile read-only raporlanabilir;
+  workspace-compatible / migration-required, temizlik executor'ı yok.
+  10 offline preflight/workspace testi PASS. Frontend kodu değişmedi.
+- tools/prepare-v26-dry-run.py commit-pinned source/hash/manifest ve kaynak
+  kopyasında frontend build artefaktı üretir; yalnız .local, ağ/deploy yok.
+  Artefakt commit sonrası üretilecek; kesin build/push sonucu görev tesliminde.
+- Yedek/kod rollback ve kayıpsızlık sınırları V26_RELEASE_DRY_RUN_ACCEPTANCE.md.
+  Gerçek ID/revizyon yok: canlı cleanup seçimi boş, bütün hesap/audit korunur.
+  Yeni gerçek yedek/restore ve canlı kimlikli kabul BLOCKED; canlı onay yok.
+  V1/V2.5/router/RADIUS/IPsec/servis/yerel veriler ve üç stash korunur.

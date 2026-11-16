@@ -98,3 +98,11 @@ package katalog drift/kısmi şema, salt okunur sıra/rollback, yanlış hedefin
 bağlantı öncesi reddi, aktif ADMIN yokluğu ve temizlik referansları kapsandı.
 Frontend değişmedi; önceki başarılı frontend test/build tekrarlanmadı. Gerçek
 PG/migration/HTTP yazma veya browser testi yok. Üç stash kimliği korundu.
+
+## Yayın provası devamı
+
+011'in ilk sürümündeki duplicate halinde durma davranışı, gerçek PG16 izole
+prova sonrası uyumlu tekrarda no-op, kısmi/drift halinde red olarak değiştirildi.
+`--allow-missing-catalog` katalog yokken envanter/önizleme almayı sağlar; migration
+hazır/uygulandı iddiası üretmez. Güncel yedek, rollback, paket artefaktı ve tek
+canlı geçiş kararı: [Yayın dry-run kabulü](V26_RELEASE_DRY_RUN_ACCEPTANCE.md).

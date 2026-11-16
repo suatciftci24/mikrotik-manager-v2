@@ -6,7 +6,7 @@ from app.local_subscriber_workspace import validate as validate_subscribers
 from app.package_catalog_schema import validate as validate_packages
 
 
-def inspect_target(engine):
+def inspect_target(engine, *, allow_missing_catalog=False):
     url = engine.url
     require(url.drivername in ('postgresql', 'postgresql+psycopg', 'postgresql+psycopg2')
             and url.host == '127.0.0.1' and url.port == 55433
@@ -25,7 +25,11 @@ def inspect_target(engine):
             check = inspect(connection)
             validate_routers(check)
             validate_subscribers(check)
-            validate_packages(check)  # Catalog required even if workspace 008 alone is valid.
+            names = set(check.get_table_names(schema='v2_subscriber_workspace'))
+            catalog_missing = not {'packages', 'package_events'} & names
+            if not (allow_missing_catalog and catalog_missing):
+                validate_packages(check)
+            # Partial/unknown workspace sets are already rejected by validate_subscribers.
             admins = connection.execute(text(
                 "SELECT count(*) FROM v26_acceptance.users WHERE role='ADMIN' AND active IS TRUE"
             )).scalar_one()
@@ -36,7 +40,8 @@ def inspect_target(engine):
             subscribers = [dict(r) for r in connection.execute(text(
                 'SELECT id, revision, router_id FROM v2_subscriber_workspace.subscribers ORDER BY id'
             )).mappings()]
-            return dict(schema='compatible', schema_scope='workspace_and_package_catalog',
+            return dict(schema='workspace-compatible' if catalog_missing else 'compatible',
+                        catalog_status='migration-required' if catalog_missing else 'compatible', schema_scope='workspace_and_package_catalog',
                         active_admins=admins, routers=routers,
                         subscribers=subscribers, execution_enabled=False,
                         preserved=['users', 'user_audit', 'events', 'audit', 'packages', 'package_events'],
@@ -52,7 +57,7 @@ def cleanup_preview(snapshot, *, router_ids=(), subscriber_ids=()):
     A future executor must revalidate DB identity, revisions, references, admin state,
     backup evidence and authorization inside a single locked transaction.
     """
-    require(snapshot.get('schema') == 'compatible' and snapshot.get('active_admins', 0) > 0,
+    require(snapshot.get('schema') in ('compatible', 'workspace-compatible') and snapshot.get('active_admins', 0) > 0,
             'PREFLIGHT_REQUIRED')
     routers = {r['id']: r for r in snapshot['routers']}
     subscribers = {r['id']: r for r in snapshot['subscribers']}
@@ -81,10 +86,11 @@ def main():
     from sqlalchemy.exc import SQLAlchemyError
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--inspect', action='store_true', required=True)
-    parser.parse_args()
+    parser.add_argument('--allow-missing-catalog', action='store_true')
+    args = parser.parse_args()
     from app.core.database import engine
     try:
-        print(json.dumps(inspect_target(engine), sort_keys=True))
+        print(json.dumps(inspect_target(engine, allow_missing_catalog=args.allow_missing_catalog), sort_keys=True))
         return 0
     except (RepairBlocked, SQLAlchemyError):
         print('BLOCKED: V26 target/schema/admin preflight failed; no changes applied.')
