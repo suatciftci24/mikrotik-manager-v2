@@ -153,3 +153,49 @@ class BackupMigrationHandoff(TestCase):
                 self.assertLess(seen.index('ISOLATED_DATABASE_CREATE'),seen.index('ISOLATED_TARGET_VERIFY'))
                 if 'MIGRATION_011_FIRST' in seen:
                     self.assertLess(seen.index('ISOLATED_RESTORE'),seen.index('MIGRATION_011_FIRST'))
+
+    def test_snapshot_table_14_reports_identity_sqlstate_and_does_not_skip_rows(self):
+        tables = [{'s':'v26_acceptance','t':'fixture_'+str(i)} for i in range(1,15)]
+        tables[-1] = {'s':'v2_subscriber_workspace','t':'subscribers'}
+        diagnostics = []
+        def query(sql, *, stage):
+            if stage.endswith('_TABLE_LIST'):return json.dumps(tables)
+            if stage.endswith('_TABLE_14'):
+                raise worker.CommandFailure(stage,'psql',exit_code=3,sqlstate='22P05')
+            return '[]'
+        with self.assertRaises(worker.CommandFailure) as raised:
+            worker.snapshot(query,stage='SNAPSHOT_BEFORE',diagnostics=diagnostics)
+        self.assertEqual(raised.exception.details['table_identity'],
+                         dict(schema='v2_subscriber_workspace',table='subscribers'))
+        self.assertEqual(raised.exception.details['table_ordinal'],14)
+        self.assertEqual(raised.exception.details['sqlstate'],'22P05')
+        self.assertEqual(diagnostics[0]['sqlstate'],'22P05')
+
+    def test_legacy_probe_failure_never_substitutes_for_full_raw_snapshot(self):
+        tables = [{'s':'v26_acceptance','t':'fixture_'+str(i)} for i in range(14)]
+        diagnostics = []
+        def query(sql, *, stage):
+            if stage.endswith('_TABLE_LIST'):return json.dumps(tables)
+            if 'LEGACY_PROBE' in stage:
+                raise worker.CommandFailure(stage,'psql',exit_code=3,sqlstate='22P05')
+            self.assertNotIn('jsonb_agg',sql)
+            return '[{"raw":"\\u0000"}]'
+        result = worker.snapshot(query,stage='SNAPSHOT_BEFORE',diagnostics=diagnostics)
+        self.assertEqual(len(result),14)
+        self.assertEqual(len(diagnostics),1)
+        self.assertEqual(diagnostics[0]['ordinal'],14)
+        self.assertEqual(diagnostics[0]['sqlstate'],'22P05')
+
+    def test_unusual_table_identity_is_hashed_without_identifier_disclosure(self):
+        value = worker.safe_table_identity({'s':'private-secret-schema','t':'password\nrow'})
+        self.assertEqual(set(value),{'identifier_sha256'})
+        self.assertEqual(len(value['identifier_sha256']),64)
+        self.assertNotIn('password',json.dumps(value))
+
+    def test_unicode_json_sqlstate_is_reported_without_error_detail(self):
+        result = SimpleNamespace(returncode=3,stdout='',
+            stderr='psql:<stdin>:1: ERROR:  22P05\nDETAIL: private row contents')
+        with patch.object(worker.subprocess,'run',return_value=result),self.assertRaises(worker.CommandFailure) as raised:
+            worker.run(['psql'],stage='SNAPSHOT_BEFORE_TABLE_14')
+        self.assertEqual(raised.exception.details['sqlstate'],'22P05')
+        self.assertNotIn('private',json.dumps(raised.exception.details))

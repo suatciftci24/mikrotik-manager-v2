@@ -105,3 +105,41 @@ exit/SQLSTATE tanısı ve timeout/secret sızıntısı reddi. Gerçek izole kabu
 geçtiği iddia edilmez. Ofis WSL tek komutu değişmedi; yeni JSON hangi SQL
 adımının başarısız olduğunu gösterecektir. Canlı migration/deploy/restart/silme
 ve VDS stash işlemi yoktur.
+
+## Snapshot tablo 14 / JSON bütünlüğü — 2026-11-16
+
+Bildirilen kanıt: a0c2cd7, SNAPSHOT_BEFORE_TABLE_14, exit_code=3,
+`/home/mikadmin/v26-backup-011-jd2df7o8`. Bu kayıt tablo adını veya SQLSTATE'i
+vermiyor; VDS'ye bağlanılmadı ve mevcut evidence/yedek/stash değiştirilmedi.
+Dolayısıyla üretimdeki 14. tablo için kesin kök neden henüz gözlemlenmedi.
+
+Yeni private PG16 single-user testinde eski to_jsonb(t)/jsonb_agg sorgusunun
+geçerli JSON içindeki escaped U+0000'ı 22P05 ile reddettiği kanıtlandı.
+Bu, eski snapshot kodunda somut bir uyumluluk hatasıdır. Ayrıca JSONB ham JSON
+anahtar sırasını ve yinelenen anahtarları normalize eder. Bu davranışı satır
+atlayarak veya kolon/JSON alanını çıkararak aşmak bütünlük garantisini bozar.
+
+Yeni sorgu row_to_json/json_agg kullanır, satırın tam metnine COLLATE "C"
+ile deterministik sıralama uygular. JSONB dönüşümü yoktur; bütün alanlar,
+ham JSON temsili, yinelenen satırlar ve boş tablolar hash'e dahildir. Hash ve
+ham satırlar raporlanmaz. Format row-json-text-v1; tüm before/after karşılaştırma
+aynı yeni formatla yapılır, eski snapshot hash'leriyle karşılaştırılmaz.
+
+SNAPSHOT_BEFORE_TABLE_14 hatası olursa table_ordinal ve güvenli table_identity
+rapora eklenir. Bilinen uygulama şemalarında sıradan ASCII tablo adları yalnız
+metadata olarak açıklanır; diğer kimlikler SHA256 ile temsil edilir. Kontrol
+karakteri/yabancı şema/ham SQL veya satır sızmaz. 22P05/22021 ve kaynak limit
+kodları tanı allowlist'ine eklendi; başarısız yeni snapshot hâlâ BLOCKED.
+
+Gerçek sebebi doğrulamak için yalnız ilk snapshot'ın 14. tablosunda, yalnız
+restore kopyasında eski JSONB sorgusu bir tanı probu olarak çalışır. Sonuç
+snapshot_diagnostics içinde probe_only=true, kimlik ve güvenli SQLSTATE ile
+kaydedilir. Eski probun başarısızlığı yeni veri snapshot'ının yerine geçmez:
+yeni sorgu bütün tabloyu başarıyla okumazsa hiçbir kabul PASS olmaz. Probun
+başarısı da geçmiş hatanın sebebini kanıtlamaz. Veri kaybı/atlama fallback'i yok.
+
+Hedefli kanıt: 14 offline handoff testi + 1 yeni gerçek PG16 regresyon testi.
+PG16 testinde 22P05 reproduksiyonu, yeni ham JSON okuma, yinelenen anahtar ve
+satır korunumu, deterministik tekrar, veri mutasyonunun hash girdisini değiştirmesi
+ve boş tablo doğrulandı. Test cluster'ı /tmp/v26-snapshot-json-3442puno altında
+kapalı olarak korundu. Canlı/ev-ofis DB, VDS servis veya stash işlemi yok.

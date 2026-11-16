@@ -6130,3 +6130,24 @@ Her iki ilerleme kaydi korunmustur:
   izole kabul hâlâ BLOCKED; sonraki adım ofis WSL tek komutunun yeni raporu.
 - Canlı deploy/migration/restart/silme yok; VDS stash, V1/V2.5/router/RADIUS/
   IPsec/hesaplar ve üç yerel stash korundu. Commit/push sonucu teslimde.
+
+## V26 snapshot tablo 14 / ham JSON korunumu — 2026-11-16
+
+- Başlangıç temiz a0c2cd7; Altın Kurallar/son handoff okundu. Kullanıcı
+  SNAPSHOT_BEFORE_TABLE_14 exit3 ve jd2df7o8 evidence bildirdi. Tablo/SQLSTATE
+  eski raporda yok; mevcut evidence/backup/stash değiştirilmedi, SSH denenmedi.
+- Yeni private PG16 single-user testinde eski JSONB snapshot sorgusu geçerli
+  JSON escaped U+0000 için 22P05 üretti. VDS tablo14'ün aynı nedene sahip olduğu
+  henüz kanıtlanmadı; üretim kök nedeni varsayılmadı.
+- Snapshot raw row_to_json/json_agg + tam satır COLLATE C sıralamasına geçti;
+  bütün alan/ham JSON/duplicate satırlar korunur, hiçbir tablo atlanmaz. Format
+  row-json-text-v1; before/after aynı formatta. Güvenli tablo kimliği + SQLSTATE
+  hataya eklenir; yabancı/alışılmadık kimlik yalnız SHA256 olarak raporlanır.
+- İlk snapshot tablo14'te izole legacy probe gerçek eski hatayı metadata/kodla
+  gözlemler; yeni tam snapshot başarısızsa kabul BLOCKED kalır. Veri silme veya
+  alan dışlama fallback'i yok. Ham satır/hash/secret raporlanmaz.
+- PASS: 14 offline hedefli test ve 1 gerçek PG16 snapshot regresyonu. PG test
+  /tmp/v26-snapshot-json-3442puno retained/shut down; eski geniş test/build yok.
+- Sonraki somut adım ofis WSL tek kabul komutu ile gerçek izole raporu almak.
+  Canlı DB/deploy/restart/silme yok; tüm yedekler, VDS stash/hesaplar, korunan
+  sistemler ve üç yerel stash korunur. Commit/push sonucu teslimde.

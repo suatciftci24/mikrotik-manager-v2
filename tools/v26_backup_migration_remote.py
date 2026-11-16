@@ -42,8 +42,8 @@ class CommandFailure(RuntimeError):
 
 # Only known PostgreSQL diagnostic codes may leave captured stderr.
 SAFE_SQLSTATES = frozenset(('42P01','42703','42804','42501','23505','23503','23514',
-                           '22023','22P02','3F000','3D000','28P01','28000','53300',
-                           '55P03','57014','57P01','P0001','XX000','08001','08006'))
+                           '22023','22P02','22P05','22021','3F000','3D000','28P01','28000','53300',
+                           '54000','53200','55P03','57014','57P01','P0001','XX000','08001','08006'))
 
 
 def run(args, *, stage, sql=None, timeout=60):
@@ -100,7 +100,25 @@ def quote_identifier(value):
     return '"' + value.replace('"', '""') + '"'
 
 
-def snapshot(query, *, stage):
+def safe_table_identity(table):
+    # Only conventional identifiers in known application schemas are disclosed.
+    schemas = {'public','v26_acceptance','v2_demo','v2_router_workspace','v2_subscriber_workspace'}
+    if table['s'] in schemas and re.fullmatch(r'[a-z_][a-z0-9_]{0,62}', table['t']):
+        return dict(schema=table['s'], table=table['t'])
+    encoded = json.dumps([table['s'],table['t']],ensure_ascii=True).encode()
+    return dict(identifier_sha256=hashlib.sha256(encoded).hexdigest())
+
+
+def snapshot_rows_sql(name, *, legacy=False):
+    if legacy:
+        return "SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]') FROM "+name+' t;'
+    # Preserve raw JSON values, every field, duplicate rows and deterministic order.
+    # JSONB conversion can reject valid JSON (e.g. escaped U+0000) or normalize it.
+    return ('SELECT coalesce(json_agg(row_to_json(t) ORDER BY row_to_json(t)::text '
+            '''COLLATE "C"),'[]'::json)::text FROM '''+name+' t;')
+
+
+def snapshot(query, *, stage, diagnostics=None):
     tables = json.loads(query("""SELECT coalesce(json_agg(x ORDER BY x.s,x.t),'[]') FROM
      (SELECT schemaname AS s,tablename AS t FROM pg_tables
       WHERE schemaname NOT IN ('pg_catalog','information_schema')
@@ -108,8 +126,23 @@ def snapshot(query, *, stage):
     hashes = {}
     for ordinal, table in enumerate(tables, 1):
         name = quote_identifier(table['s'])+'.'+quote_identifier(table['t'])
-        # Raw data stays in process memory, never logs or stdout.
-        data = query('SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),\'[]\') FROM '+name+' t;', stage=stage+'_TABLE_'+str(ordinal))
+        identity = safe_table_identity(table)
+        if diagnostics is not None and ordinal == 14:
+            # Reproduce the reported legacy failure once, only on the restored copy.
+            # This probe does not replace or skip the full row-preservation snapshot.
+            try:
+                query(snapshot_rows_sql(name,legacy=True),stage=stage+'_LEGACY_PROBE_TABLE_14')
+                diagnostics.append(dict(probe='legacy_jsonb',probe_only=True,status='PASS',ordinal=14,table_identity=identity))
+            except CommandFailure as error:
+                diagnostics.append(dict(probe='legacy_jsonb',probe_only=True,status='BLOCKED',ordinal=14,
+                                        table_identity=identity,**error.details))
+        try:
+            # Raw values stay in process memory; neither rows nor hashes are reported.
+            data = query(snapshot_rows_sql(name),stage=stage+'_TABLE_'+str(ordinal))
+        except CommandFailure as error:
+            error.details['table_identity'] = identity
+            error.details['table_ordinal'] = ordinal
+            raise
         hashes[name] = hashlib.sha256(data.encode()).hexdigest()
     return hashes
 
@@ -125,7 +158,8 @@ def assert_preserved(before, after):
 def main():
     root = None
     data = None
-    report = {'status':'BLOCKED','live_modified':False,'backup':str(BACKUP)}
+    report = {'status':'BLOCKED','live_modified':False,'backup':str(BACKUP),
+              'snapshot_format':'row-json-text-v1'}
     try:
         info = BACKUP.lstat()
         if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
@@ -167,7 +201,8 @@ def main():
         restored = json.loads(query(CATALOG, stage='RESTORED_PACKAGE_CATALOG'))
         if restored != live:
             raise RuntimeError('LIVE_AND_BACKUP_PACKAGE_SCHEMA_DIFFER')
-        before = snapshot(query, stage='SNAPSHOT_BEFORE')
+        before = snapshot(query, stage='SNAPSHOT_BEFORE',
+                          diagnostics=report.setdefault('snapshot_diagnostics',[]))
         admins = query("SELECT count(*) FROM v26_acceptance.users WHERE role='ADMIN' AND active IS TRUE;", stage='RESTORED_ADMIN_CHECK')
         if int(admins) < 1:
             raise RuntimeError('ACTIVE_ADMIN_REQUIRED')
