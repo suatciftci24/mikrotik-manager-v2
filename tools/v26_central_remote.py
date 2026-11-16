@@ -453,9 +453,9 @@ def setup(client_accept):
         env={key:value for key,value in os.environ.items() if not key.startswith(('V2_','PG'))}
         env.update(PYTHONPATH=str(test_source/'backend'),PYTHONDONTWRITEBYTECODE='1',
                    V2_DATABASE_URL='postgresql+psycopg://isolated_only@127.0.0.1:1/isolated_only')
-        result=subprocess.run([str(dev/'bin/python'),'-B','-m','unittest','backend.tests.test_v26_central_development'],
-                              cwd=test_source,capture_output=True,env=env,timeout=60)
-        require(result.returncode==0,'CENTRAL_TARGETED_TEST_FAILED')
+        result=D['test_evidence']([str(dev/'bin/python'),'-B','-m','unittest','-v',D['TEST_SUITE']],
+                                 test_source,env,attempt,TARGET)
+        require(result['status']=='TESTS_PASS','CENTRAL_TARGETED_TEST_FAILED')
         require(db_identity()==fingerprint and L['stash_pin'](run)==stash and
                 git('rev-parse','HEAD')==head and not git('status','--porcelain=v1'),'CENTRAL_PRE_SWITCH_DRIFT')
         if initial_dropins is not None:
@@ -612,6 +612,32 @@ def diagnose_attempt():
     return result
 
 
+def diagnose_tests():
+    require(re.fullmatch(r'attempt-[a-z0-9_]{1,48}',ATTEMPT_LABEL),'EVIDENCE_LABEL_REJECTED')
+    attempt=ROOT/ATTEMPT_LABEL
+    require(attempt.resolve()==attempt and attempt.is_dir() and attempt.stat().st_uid==os.getuid(),
+            'EVIDENCE_DIRECTORY_REJECTED')
+    failure=json.loads((attempt/'failure.json').read_text())
+    require(failure.get('reason')=='CENTRAL_TARGETED_TEST_FAILED','TARGET_TEST_FAILURE_REQUIRED')
+    target=failure.get('target','')
+    require(re.fullmatch('[0-9a-f]{40}',target),'EVIDENCE_TARGET_REJECTED')
+    source=attempt/'test-source';dev=ROOT/'dev-venv'
+    require(source.resolve()==source and dev.resolve()==dev,'TEST_DIAGNOSTIC_PATH_REJECTED')
+    require(run(['git','-C',source,'rev-parse','HEAD'],stage='TEST_SOURCE_HEAD')==target and
+            not run(['git','-C',source,'status','--porcelain=v1'],stage='TEST_SOURCE_STATUS'),
+            'TEST_SOURCE_DRIFT')
+    require(run([dev/'bin/python','-c','import sys;print(sys.prefix)'],stage='TEST_DEV_PREFIX')==str(dev),
+            'CENTRAL_DEV_ENVIRONMENT_REJECTED')
+    env={key:value for key,value in os.environ.items() if not key.startswith(('V2_','PG'))}
+    env.update(PYTHONPATH=str(source/'backend'),PYTHONDONTWRITEBYTECODE='1',
+               V2_DATABASE_URL='postgresql+psycopg://isolated_only@127.0.0.1:1/isolated_only')
+    evidence=Path(tempfile.mkdtemp(prefix='test-diagnostics-',dir=attempt))
+    report=D['test_evidence']([str(dev/'bin/python'),'-B','-m','unittest','-v',D['TEST_SUITE']],
+                              source,env,evidence,target)
+    return dict(**report,evidence_root=str(evidence),mode='TEST_DIAGNOSTIC_ONLY',runtime_switch_started=False,
+                db_restore_performed=False)
+
+
 def client_acceptance(profile,ready):
     print(json.dumps(dict(event='CENTRAL_READY',profile=profile,ready=ready)),flush=True)
     def timeout(*args):raise RuntimeError('CLIENT_ACCEPTANCE_TIMEOUT')
@@ -638,6 +664,9 @@ def protocol():
     for number in (signal.SIGHUP,signal.SIGINT,signal.SIGTERM):signal.signal(number,interrupted)
     globals().update(CURRENT_ATTEMPT=None,RUNTIME_SWITCH_STARTED=False)
     try:
+        if ACTION=='test-diagnose':
+            print(json.dumps(diagnose_tests(),sort_keys=True),flush=True)
+            return
         if ACTION=='baseline':
             print(json.dumps(baseline_status(),sort_keys=True),flush=True)
             return

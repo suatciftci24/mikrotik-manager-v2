@@ -92,6 +92,10 @@ class CentralCutover(unittest.TestCase):
                         raise RuntimeError('UNOWNED_CENTRAL_DROPIN_EXISTS')
                     return {unit:b'' for unit,_ in units}
                 stack.enter_context(patch.object(remote,'verified_initial_dropins',side_effect=verify_residue))
+            def captured_tests(argv,cwd,env,evidence,target):
+                result=command(argv,cwd=cwd,env=env)
+                return dict(status='TESTS_PASS' if result.returncode==0 else 'BLOCKED')
+            stack.enter_context(patch.dict(remote.D,{'test_evidence':captured_tests}))
             stack.enter_context(patch.object(remote.subprocess,'run',side_effect=command))
             stack.enter_context(patch.dict(remote.W,{'nginx_routes':lambda text:{}}))
             stack.enter_context(patch.dict(remote.L,{'stash_pin':lambda run:('pinned','oid'),'services':lambda run:units,

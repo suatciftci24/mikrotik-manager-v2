@@ -175,3 +175,14 @@ Mevcut baseline kimliği ve HTTPS ready/admin/session kontrolünü inceler; baş
 isteğin güvenli URL, HTTP kodu ve BASELINE aşamasını bildirir. Query/secret/body
 basılmaz. BASELINE_VERIFIED yalnız bu kontrolün sonucudur; yayın PASS'i değildir.
 Eski `HTTPError`+`evidence_root=null` kaydı kaybolan HTTP kodunu geri getirmez.
+
+### Hedefli test kanıtı
+
+Yeni hedefli çağrılar `targeted-tests.json` ile komut/hedef/exit code/başarısız
+test IDs, ayrı stdout/stderr loglarıyla sadece izinli yapısal bilgiyi kaydeder.
+Dosyalar private 0600/absent-only'dir; raw hata mesajları ve source satırları
+saklanmaz. Eski attempt-4i06g8ka çıktısı geçmişten kurtarılamaz.
+`--diagnose-tests-attempt` aynı pinned retained test worktree'sini yeni private
+alt kanıtta incelemek için hazırlanmıştır; kendisi test çalıştırır. Kullanıcının
+"test yapma" talimatı nedeniyle şu anda çalıştırılmamalıdır. Bu geliştirme
+testsizdir; canlı yayın veya test PASS'i sayılmaz.

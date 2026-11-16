@@ -6456,3 +6456,28 @@ Her iki ilerleme kaydi korunmustur:
 - Canlı işlem veya yeni apply yok. V1/V2.5/DB/router/RADIUS/IPsec ve üç stash
   korunur. Sonraki tek işlem ofis WSL'de --baseline-only; gerçek HTTPS sorunu
   bu ölçümle belirlenecek, yalnız raporlama kusuru bu görevde düzeltildi.
+
+## Hedefli test çıktısının güvenli kalıcı kaydı — 2026-11-16 — test doğrulaması yok
+
+- Kullanıcı kanıtı: attempt-4i06g8ka, target 936dcf3, failure.json yalnız
+  CENTRAL_TARGETED_TEST_FAILED; stdout/stderr hiç kaydedilmemiş. Eski kayıttan
+  test adı/traceback geri üretilemez. Kod incelemesinde uygulama hatası kanıtlanmadı.
+- Test çağrısı -v ile komut/cwd/hedef commit/exit code/başarısız test IDs ve
+  filtreli stdout/stderr'i üç yeni absent-only 0600 dosyaya kaydeder:
+  targeted-tests.json, targeted-tests.stdout.log, targeted-tests.stderr.log.
+  Timeout/OSError de kayıtlıdır. Filtre yalnız pinned test dosyasının AST'sindeki
+  test ID'leri, unittest özetleri, traceback frame/line ve izinli hata sınıfları
+  taşır. Raw mesaj, source satırı, env, parola/token/yanıt verisi yazılmaz.
+  Özel kanıt dizini/komut/executable/hedef doğrulanır; dosya overwrite/symlink yok.
+- Yayın yine başarısız testte servis geçişinden önce durur. Yeni diagnostic
+  seçeneği --diagnose-tests-attempt mevcut temiz/pinned worktree ve ayrı dev-venv
+  üzerinde sadece aynı suite'i gözlemler, yeni private alt kanıt oluşturur;
+  deploy/backup/DB restore/servis işlemi yapmaz ve ADMIN istemez. Eski kanıtı
+  değiştirmez. Bu seçenek bu oturumda ÇALIŞTIRILMADI.
+- Kullanıcı çalışma sırasında açıkça "test yapma" dedi. Bu görevde bundan önce
+  de sonra da HİÇ test çalıştırılmadı. Yalnız statik kod/diff incelemesi yapıldı;
+  PASS veya doğrulanmış test sonucu iddia edilmez. Mevcut sentetik cutover
+  fixture'ı yeni capture sınırına uyarlandı, çalıştırılmadı. Uygulama değişmedi.
+- SSH/yeni apply/canlı DB/migration/restart/restore yok. V1/V2.5 ve diğer
+  korunan sistemlere dokunulmadı. Üç stash korunur. Test yeniden üretimi durduruldu;
+  sonraki güvenli işlem kod incelemesi, mevcut talimatla test veya apply yok.

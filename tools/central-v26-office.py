@@ -63,15 +63,17 @@ def main():
     mode.add_argument('--verify-location',choices=('home','office'))
     mode.add_argument('--diagnose-attempt')
     mode.add_argument('--baseline-only',action='store_true')
+    mode.add_argument('--diagnose-tests-attempt')
     args=parser.parse_args()
-    if args.diagnose_attempt and not re.fullmatch(r'attempt-[a-z0-9_]{1,48}',args.diagnose_attempt):
+    label=args.diagnose_tests_attempt or args.diagnose_attempt
+    if label and not re.fullmatch(r'attempt-[a-z0-9_]{1,48}',label):
         raise RuntimeError('EVIDENCE_LABEL_REJECTED')
     commit=git('rev-parse','HEAD')
     if git('status','--porcelain=v1'):raise RuntimeError('OFFICE_CHECKOUT_DIRTY')
     spec=importlib.util.spec_from_file_location('office_legacy',ROOT/'tools/deploy-v26-office.py')
     legacy_office=importlib.util.module_from_spec(spec);spec.loader.exec_module(legacy_office)
-    values=dict(TARGET=commit,ACTION='baseline' if args.baseline_only else 'diagnose' if args.diagnose_attempt else 'apply' if args.apply else 'verify',
-                ATTEMPT_LABEL=args.diagnose_attempt,
+    values=dict(TARGET=commit,ACTION='test-diagnose' if args.diagnose_tests_attempt else 'baseline' if args.baseline_only else 'diagnose' if args.diagnose_attempt else 'apply' if args.apply else 'verify',
+                ATTEMPT_LABEL=label,
                 DIAGNOSTICS=source(commit,'tools/v26_acceptance_diagnostics.py'),
                 CANDIDATE_PROBE=source(commit,'tools/v26_candidate_probe.py'),
                 POLICY=source(commit,'tools/v26_central_policy.py'),
@@ -90,7 +92,7 @@ def main():
         values.update(SOURCE_B64=base64.b64encode(archive).decode(),
                       DIST_B64=base64.b64encode((Path(artifact['artifact_directory'])/'frontend-dist.tar').read_bytes()).decode(),
                       DIST_SHA=artifact['frontend_dist_sha256'])
-    credentials=dict(username=input('Mevcut merkezi ADMIN kullanıcı adı: '),password=getpass.getpass('ADMIN parolası: '))
+    credentials={} if args.diagnose_tests_attempt else dict(username=input('Mevcut merkezi ADMIN kullanıcı adı: '),password=getpass.getpass('ADMIN parolası: '))
     values['ADMIN']=credentials
     text='\n'.join(key+' = '+repr(value) for key,value in values.items())+'\n'
     text+=source(commit,'tools/v26_central_remote.py')+'\nprotocol()\n'
@@ -107,7 +109,7 @@ def main():
         event=json.loads(line)
         if event.get('event')!='CENTRAL_READY':
             print(json.dumps(event))
-            return 0 if args.baseline_only and event.get('status')=='BASELINE_VERIFIED' else 1
+            return 0 if (args.baseline_only and event.get('status')=='BASELINE_VERIFIED') or (args.diagnose_tests_attempt and event.get('status')=='TESTS_PASS') else 1
         try:receipt=observe(event['profile'],credentials,args.verify_location or 'office',values['LEGACY'],values['POLICY'])
         except Exception as error:
             # The remote has not committed current.json and still owns setup.lock.
