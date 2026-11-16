@@ -104,3 +104,53 @@ korunmuştur. Bu kapı Vite geliştirme HTML'i ile uyuşmazsa değişiklikten ö
 BLOCKED olur; bu parser düzeltmesi statik yayın kabulü veya canlı hazır sonucu
 olarak sunulmaz. Aynı ofis komutu geçerli, sonraki kapılar PASS olmadan canlı
 uygulama yapılmaz.
+
+## Nginx/Vite webroot preflight — 2026-11-16
+
+Eski HTTPS_WEBROOT_REJECTED kontrolü Vite geliştirme HTML'ini statik
+frontend/dist/index.html ile karşılaştırıyordu. Bu iki yayın modu aynı değildir.
+Yeni salt okunur komut:
+
+```bash
+python3 ~/Codex-Projects/mikrotik-manager-v2/tools/deploy-v26-office.py --preflight-only
+```
+
+Bu seçenek build/credential istemez, git fetch/merge, .git kilidi/evidence yazımı,
+DB sorgusu/migration, restart veya dosya silme yapmaz. Tek SSH çağrısında mevcut
+V26 servis sözleşmesi ve aşağıdaki web kimliği doğrulanır. SSH bu Codex oturumunda
+bir kez EPERM ile engellendi; tekrar denenmedi. Gerçek Nginx yapılandırması
+burada gözlemlenmiş sayılmaz; komutun gerçek PASS çıktısı beklenir.
+
+- nginx -T çıktısı yalnız bellekte ayrıştırılır, ham yapılandırma basılmaz.
+  Tek TLS server_name=v26.mikmanager.com.tr, 443 ssl; root proxy yalnız
+  http://127.0.0.1:15173, API proxy yalnız http://127.0.0.1:18996 kabul edilir.
+  Tek sabit loopback peer içeren named upstream de doğrulanır. API prefix'ini
+  silen trailing slash, wildcard/farklı domain, variable upstream, regex veya
+  ek location override, rewrite/return/alias/static fallback reddedilir.
+  Let's Encrypt SSL include varsa nginx -T'deki gerçek içerik yalnız SSL/resolver
+  direktifleri içermelidir; doğrulanmamış include kabul edilmez. Desteklenmeyen
+  topolojide kontrol atlanmaz, açıklayıcı sabit kodla BLOCKED döner.
+- ss ile her portun tek 127.0.0.1 dinleyicisi doğrulanır. PID'nin cwd'si tam
+  API root/frontend olmalı; PID systemd MainPID veya onun sınırlı doğrulanmış
+  descendant'ı olmalıdır. Başka proje/port/süreç reddedilir.
+- HTTPS root, doğrudan Vite root yanıtıyla eşleşir; gerçek /@vite/client ve
+  /src/main.tsx script'leri ile root mount noktası aranır. Statik /assets script
+  sayfası Vite dev kimliği sayılmaz. Vite client bytes loopback ile eşleşir.
+- Vite'ın /src/lib/api.ts?raw ve presentation.ts?raw cevapları yalnız JSON string
+  export modülü olarak çözülür; kod eval edilmez. HTTPS/loopback cevapları ve
+  canonical frontend dosyalarının tam bytes'ı eşleşir. Ham kaynaklar raporlanmaz.
+  Böylece HTML marker veya aynı uygulama adı tek başına proje kanıtı değildir.
+- HTTPS /api/ready tam runtime profile/port/v1 kimliğiyle doğrudan 18996 yanıtına
+  eşit olmalıdır. Redirect ve proxy env fallback yoktur. Özet yalnız domain,
+  portlar, proje yolu, vite-dev modu, config SHA ve doğrulanan HEAD'i içerir.
+
+Mevcut apply motoru statik dist exchange yapar. Doğrulanmış Vite dev'e bu motor
+örtük uygulanmaz: apply-approved VITE_DEV_CUTOVER_NOT_ENABLED ile migration/Git
+cutover/restart öncesinde durur. Bu görev yalnız preflight düzeltmesidir; Vite
+kaynak yayını için ayrıca mode-aware cutover hazırlanmalıdır. Preflight PASS
+canlı dağıtım PASS değildir. Statik kontroller kaldırılmadı veya Vite etiketiyle
+atlanmadı. Eski statik motor regresyonları statik fixture ile korunur.
+
+PASS: 5 yeni webroot testi + preflight salt-okunur/mode gate ve 2 statik rollback
+regresyonu dahil 4 hedefli kontrol; toplam 9 test. Gerçek HTTP/SSH/DB işlemi
+ve başarılı eski build/PG testlerinin tekrarı yoktur.

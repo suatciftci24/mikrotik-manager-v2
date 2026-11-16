@@ -50,7 +50,7 @@ class LiveDeploymentHandoff(TestCase):
             with patch.object(worker,'request',return_value=json.dumps(profile).encode()),self.assertRaises(RuntimeError):
                 worker.ready(object())
 
-    def simulate(self, fail_panel=False, compatible=True, drift=False):
+    def simulate(self, fail_panel=False, compatible=True, drift=False, vite=False):
         with tempfile.TemporaryDirectory() as temp:
             app=Path(temp)/'app'
             (app/'.git').mkdir(parents=True)
@@ -101,6 +101,7 @@ class LiveDeploymentHandoff(TestCase):
             with patch.multiple(worker,create=True,**patches), \
                  patch.object(worker,'exec',side_effect=inject,create=True), \
                  patch.object(worker,'services',return_value=[('mikrotik-v26-api.service',True)]), \
+                 patch.object(worker,'verified_webroot',return_value={'mode':'vite-dev' if vite else 'static-dist'}), \
                  patch.object(worker,'evidence',return_value=('fixture-proof','fixture-backup-hash')), \
                  patch.object(worker,'digest',side_effect=lambda path:'fixture-backup-hash' if path==worker.BACKUP else hashlib.sha256(path.read_bytes()).hexdigest()), \
                  patch.object(worker,'client'),patch.object(worker,'ready'), \
@@ -110,6 +111,10 @@ class LiveDeploymentHandoff(TestCase):
             report=json.loads(output.getvalue())
             self.assertNotIn('private-fixture',output.getvalue())
             self.assertFalse(report['db_restore_performed'])
+            if vite:
+                self.assertEqual(state['head'],worker.BASELINE)
+                self.assertFalse(any(stage in ('LIVE_011_APPLY','CODE_FAST_FORWARD','V26_RESTART') for args,stage,kw in calls))
+                return code,report
             self.assertEqual(state['head'],worker.BASELINE if fail_panel and not drift else TARGET)
             restarts=[args[-1] for args,stage,kw in calls if 'RESTART' in stage]
             self.assertTrue(restarts and all(unit=='mikrotik-v26-api.service' for unit in restarts))
@@ -252,3 +257,29 @@ class LiveDeploymentHandoff(TestCase):
         properties['mikrotik-v26-web.service']['User']='root'
         with patch.object(worker.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=env)),self.assertRaises(RuntimeError):
             worker.services(run)
+
+    def test_static_cutover_is_not_applied_to_verified_vite_dev_webroot(self):
+        code,report=self.simulate(vite=True)
+        self.assertEqual(code,1)
+        self.assertEqual(report['reason'],'VITE_DEV_CUTOVER_NOT_ENABLED')
+        self.assertEqual(report['live_commit'],worker.BASELINE)
+        self.assertEqual(report['migration'],'NOT_RUN')
+
+    def test_office_preflight_has_no_build_credentials_or_live_apply(self):
+        import sys
+        from types import SimpleNamespace
+        spec=importlib.util.spec_from_file_location('office_preflight',ROOT/'tools/deploy-v26-office.py')
+        office=importlib.util.module_from_spec(spec);spec.loader.exec_module(office)
+        def source(commit,path):
+            return 'def preflight_main(): return 0\n' if path.endswith('deploy_v26_remote.py') else '# inert fixture'
+        with patch.object(sys,'argv',['deploy-v26-office.py','--preflight-only']), \
+             patch.object(office.subprocess,'check_output',return_value='a'*40), \
+             patch.object(office,'source',side_effect=source),patch.object(office,'build_artifact') as build, \
+             patch.object(office.getpass,'getpass') as password, \
+             patch.object(office.subprocess,'run',return_value=SimpleNamespace(returncode=0)) as command:
+            self.assertEqual(office.main(),0)
+        build.assert_not_called();password.assert_not_called()
+        payload=command.call_args.kwargs['input']
+        self.assertIn('raise SystemExit(preflight_main())',payload)
+        self.assertNotIn('ADMIN =',payload)
+        self.assertEqual(command.call_count,1)

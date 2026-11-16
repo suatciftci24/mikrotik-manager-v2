@@ -40,20 +40,25 @@ def build_artifact():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--apply-approved',required=True,action='store_true')
-    parser.parse_args()
+    mode=parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--apply-approved',action='store_true')
+    mode.add_argument('--preflight-only',action='store_true')
+    args=parser.parse_args()
     commit = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
-    # Build the already accepted source, not the new handoff/tool commit.
-    manifest = build_artifact()
-    archive = Path(manifest['artifact_directory'])/'frontend-dist.tar'
-    credentials = dict(username=input('Mevcut V2.6 ADMIN kullanıcı adı: '),
-                       password=getpass.getpass('Mevcut V2.6 ADMIN parolası: '))
-    values = dict(TARGET=TARGET,DIST_B64=base64.b64encode(archive.read_bytes()).decode(),
-                  DIST_SHA=manifest['frontend_dist_sha256'],ADMIN=credentials,
-                  MIGRATION_SQL=source(TARGET,'migrations/versions/011_package_catalog.sql'),
-                  HELPER_SOURCE=source(TARGET,'tools/v26_backup_migration_remote.py'))
+    values=dict(HELPER_SOURCE=source(TARGET,'tools/v26_backup_migration_remote.py'),
+                WEBROOT_SOURCE=source(commit,'tools/v26_webroot_preflight.py'))
+    credentials={}
+    if not args.preflight_only:
+        manifest=build_artifact()
+        archive=Path(manifest['artifact_directory'])/'frontend-dist.tar'
+        credentials=dict(username=input('Mevcut V2.6 ADMIN kullanıcı adı: '),
+                         password=getpass.getpass('Mevcut V2.6 ADMIN parolası: '))
+        values.update(TARGET=TARGET,DIST_B64=base64.b64encode(archive.read_bytes()).decode(),
+                      DIST_SHA=manifest['frontend_dist_sha256'],ADMIN=credentials,
+                      MIGRATION_SQL=source(TARGET,'migrations/versions/011_package_catalog.sql'))
     payload = '\n'.join(key+' = '+repr(value) for key,value in values.items())+'\n'
-    payload += source(commit,'tools/deploy_v26_remote.py')+'\nraise SystemExit(main())\n'
+    entry='preflight_main' if args.preflight_only else 'main'
+    payload += source(commit,'tools/deploy_v26_remote.py')+'\nraise SystemExit('+entry+'())\n'
     compile(payload,'pinned_v26_deploy','exec')
     command = ['ssh','-i',str(Path.home()/'.ssh/mikrotik_manager_ed25519'),
                '-o','IdentitiesOnly=yes','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes',

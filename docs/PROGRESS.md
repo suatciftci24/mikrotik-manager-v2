@@ -6190,3 +6190,22 @@ Her iki ilerleme kaydi korunmustur:
   güvenlik kapısı gevşetilmedi; uyumsuzlukta canlı değişiklikten önce BLOCKED.
   Parser kabulü canlı deploy PASS değildir. Ofis tek komutu aynı; commit/push
   sonucu teslimde. V1/V2.5/DB/yedek/hesap/stash aynı kaldı.
+
+## V26 Nginx/Vite webroot preflight — 2026-11-16 — yerel PASS / gerçek yönlendirme BLOCKED
+
+- Temiz main-guncel/522fb6d; Altın Kurallar/son kabul okundu. Kök kusur Vite dev
+  HTML'inin dist/index.html ile eşitlenmesi. Tek SSH nginx -T denemesi EPERM;
+  tekrar yok, ham gerçek yapılandırma elde edilmedi veya doğrulanmış sayılmadı.
+- Yeni read-only webroot modülü tek exact TLS domain/15173 web/18996 API proxy,
+  doğrulanmış nginx include/upstream, listener PID/cwd/systemd ancestry, Vite dev
+  HTML/client ve canonical proje TS kaynakları ile HTTPS/loopback byte eşliğini
+  birlikte denetler. Regex/dinamik/farklı root/port/proje/redirect reddi korunur.
+- --preflight-only tek SSH, credential/build/DB/git-write/lock/restart/evidence
+  dosyası/silme içermez. Ham config/source/env raporlanmaz. VDS stash/yedekler ve
+  üç yerel stash korunur; V1/V2.5/DB/router/RADIUS/IPsec değişmez.
+- Statik dist cutover Vite dev için etkinleştirilmedi; apply mode-aware yayın
+  hazırlanmadan VITE_DEV_CUTOVER_NOT_ENABLED ile canlı değişiklikten önce durur.
+  Böylece preflight düzeltmesi statik yayın güvenliğinin atlanmasına dönüşmez.
+- PASS: 9 hedefli test (5 Nginx/Vite, 2 preflight/mode gate, 2 statik regresyon),
+  syntax/diff. Gerçek yönlendirme/HTTP kabulü BLOCKED; sonraki somut adım ofis
+  WSL'de deploy-v26-office.py --preflight-only. Commit/push sonucu teslimde.

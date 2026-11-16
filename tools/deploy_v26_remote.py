@@ -201,6 +201,30 @@ def services(run):
     return selected
 
 
+def verified_webroot(run,units):
+    namespace={'__name__':'v26_webroot'}
+    exec(WEBROOT_SOURCE,namespace)
+    return namespace['verify'](run,units)
+
+
+def preflight_main():
+    namespace={'__name__':'v26_acceptance_helper'}
+    exec(HELPER_SOURCE,namespace)
+    run=namespace['run']
+    report=dict(status='BLOCKED',mode='PREFLIGHT_ONLY',live_modified=False)
+    try:
+        head=run(['git','-C',APP,'rev-parse','HEAD'],stage='WEBROOT_GIT_HEAD')
+        require(re.fullmatch('[0-9a-f]{40}',head),'WEBROOT_GIT_HEAD_REJECTED')
+        require(not run(['git','-C',APP,'status','--porcelain=v1'],stage='WEBROOT_GIT_STATUS'),'VDS_WORKTREE_DIRTY')
+        units=services(run)
+        report.update(webroot=verified_webroot(run,units),live_commit=head,status='PASS')
+    except Exception as error:
+        report['reason']=str(error) if isinstance(error,RuntimeError) else type(error).__name__
+        if isinstance(error,namespace['CommandFailure']):report.update(error.details)
+    print(json.dumps(report,sort_keys=True))
+    return 0 if report['status']=='PASS' else 1
+
+
 def main():
     namespace = {'__name__':'v26_acceptance_helper'}
     exec(HELPER_SOURCE,namespace)
@@ -239,9 +263,12 @@ def main():
         opener = client()
         ready(opener)
         admin_check(opener)
+        webroot=verified_webroot(run,units)
+        # This engine swaps static dist. Never silently apply it to a dev server.
+        require(webroot['mode']=='static-dist','VITE_DEV_CUTOVER_NOT_ENABLED')
         old_dist = APP/'frontend/dist'
         old_hash = tree_hash(old_dist)
-        require(request(opener,'/')==(old_dist/'index.html').read_bytes(),'HTTPS_WEBROOT_REJECTED')
+        require(request(opener,'/')==(old_dist/'index.html').read_bytes(),'STATIC_HTTPS_WEBROOT_REJECTED')
         before = namespace['snapshot'](query,stage='LIVE_SNAPSHOT_BEFORE')
         require(int(query("SELECT count(*) FROM v26_acceptance.users WHERE role='ADMIN' AND active IS TRUE;",
                           stage='LIVE_ADMIN_COUNT'))>0,'ACTIVE_ADMIN_REQUIRED')
