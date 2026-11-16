@@ -6261,3 +6261,28 @@ Her iki ilerleme kaydi korunmustur:
 - V26_CENTRAL_DEVELOPMENT.md tek komut ve kabul sınırlarını içerir. Eski Vite
   dev üretim sayılmaz; V1/V2.5/router/RADIUS/IPsec, veriler/yedekler/admin ve
   üç stash korunur. Git commit/push ve kalan engel sonucu teslimde.
+
+## CENTRAL_PUBLIC_ACCEPTANCE_FAILED tanılama — 2026-11-16 — BLOCKED
+
+- Kullanıcı kanıtı: c74a367 attempt-pcpsra2q genel kabul hatası; rollback
+  BASELINE_VERIFIED/b4e78a4, DB restore false; restore-proof PASS, 17 tablo,
+  izole 011 iki kez. Bu oturumda uzak kanıt okunamadı: tek SSH EPERM, tekrar yok.
+- Kanıtlanmış araç hatası: public_accept istisnaları 20 kez yutuluyor ve ilk
+  başarısız endpoint/aşama kayboluyordu. Artık yalnız geçici ready hatası
+  beklenir; kalıcı hatada hemen durulur. failure.json ilk aşama, HTTP durum,
+  uzunluk/hash veya izinli guard kodu taşır; body/secret/traceback içermez.
+- --diagnose-attempt mevcut kanıtı değiştirmez: rollback/retained source/DB
+  kimliği, mutable state izinleri, rollback sonrası HTTPS ve loopback hashleri,
+  yalnız V26 API journal izinli hata sınıfları. Aday ASGI port açmadan mevcut
+  admin ile okunur sorgulanır; PostgreSQL default_transaction_read_only=on,
+  connect doğrulaması ve SELECT/SHOW sınırı birlikte uygulanır. Servis,
+  migration, deploy, restore, veri silme veya stash işlemi yapılmaz.
+- Eager merkezi state guard artık deploy öncesi de doğrulanır; izin değiştirme
+  veya güvenlik gevşetme yok. Statik üretim kimliği/asset/header/build kapıları
+  korunur. Geçmiş asıl Nginx/API hatası NOT_RECORDED; boş error.log kök neden
+  kanıtı değildir. Rollback sonrası yanıtlar başarısız adayın yanıtı sayılmaz.
+- Hedefli 14 test PASS: HTTP veri sızdırmama, geçici/kalıcı retry, DB hedef ve
+  read-only zorlaması, mevcut merkezi güvenlik regresyonları. Frontend değişmedi.
+- Sonraki tek işlem ofis WSL: python3 tools/central-v26-office.py
+  --diagnose-attempt attempt-pcpsra2q. Üst durum bilerek BLOCKED; canlı kabul
+  yerine geçmez. Gerçek kök neden/kalıcı uyumluluk düzeltmesi uzak rapora bağlı.

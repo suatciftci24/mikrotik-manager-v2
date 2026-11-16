@@ -113,3 +113,20 @@ aynı uygulama komutuyla ve bütün kapılarla yapılır. .venv runtime'a pip in
 
 Bu oturum: SSH EPERM nedeniyle yeni kurulum/publication gerçek VDS'de uygulanmadı;
 istemci home/ofis ortak veri kabulü alınmadı. Yerel testler kurulum PASS'i sayılmaz.
+
+### Başarısız kabulü güvenli teşhis
+
+Ofis WSL, repo güncel ve temizken:
+
+```bash
+python3 ~/Codex-Projects/mikrotik-manager-v2/tools/central-v26-office.py --diagnose-attempt attempt-pcpsra2q
+```
+
+Mevcut admin bilgisi yalnız SSH stdin üzerinden aktarılır. Komut dağıtım veya
+servis değişikliği yapmaz; aday ASGI incelemesi port açmaz ve DB bağlantılarını
+zorunlu salt okunur tutar. Uzak kanıtı yeniden yazmaz. HTTP gövdeleri/parolalar
+raporlanmaz. Rollback sonrası HTTPS/loopback ölçümleri eski başarısız adayın
+kanıtı değildir. Eski kayıtta kaybolan neden journal veya aday probe ile de
+kanıtlanamazsa UNKNOWN olarak kalır; üst BLOCKED/exit 1 beklenen sonuçtur.
+Yeni dağıtımlarda failure.json ilk başarısız aşamayı korur; yalnız geçici ready
+hatası beklenir, panel/login/statik kimlik hatası tekrarlarla gizlenmez.

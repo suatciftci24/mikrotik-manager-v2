@@ -32,6 +32,7 @@ def load(source,values=None):
 H=load(HELPER)
 L=load(LEGACY,dict(HELPER_SOURCE=HELPER,WEBROOT_SOURCE=WEBROOT,ADMIN=ADMIN))
 W=load(WEBROOT)
+D=load(DIAGNOSTICS)
 run=H['run']
 
 
@@ -122,35 +123,64 @@ def verify_source(release,commit):
     require(actual_files==expected_files,'CENTRAL_SOURCE_EXTRA_FILE_REJECTED')
 
 
+def checked_request(opener,path,body=None):
+    labels={'/api/ready':'API_READY','/api/v1/auth/login':'ADMIN_LOGIN','/api/v1/auth/me':'ADMIN_ME',
+            '/api/v1/auth/logout':'ADMIN_LOGOUT','/api/v1/dashboard/summary':'DASHBOARD',
+            '/api/v1/router-workspace/routers':'ROUTERS','/api/v1/subscriber-workspace':'SUBSCRIBERS',
+            '/api/v1/packages':'PACKAGES','/':'STATIC_INDEX'}
+    return D['request'](opener,ORIGIN,path,labels.get(path,'STATIC_ASSET'),body)
+
+
+def warm_api():
+    original=L['request'];L['request']=checked_request
+    try:return D['step']('API_READY_CONTRACT',lambda:L['ready'](L['client']()))
+    finally:L['request']=original
+
+
 def public_accept(profile):
-    opener=L['client']()
-    L['ready'](opener)
-    L['admin_check'](opener,panel=True)
-    release=Path(profile['release'])
-    verify_source(release,profile['commit'])
-    index=(release/'dist/index.html').read_bytes()
-    require(L['request'](opener,'/')==index,'CENTRAL_STATIC_INDEX_MISMATCH')
-    document=W['EntryHTML']();document.feed(index.decode())
-    require(document.root and document.scripts and
+    opener=L['client']();original=L['request'];first=[]
+    def checked(opener,path,body=None):
+        try:return checked_request(opener,path,body)
+        except D['AcceptanceFailure'] as error:
+            if not first:first.append(error)
+            raise
+    L['request']=checked
+    try:
+        D['step']('API_READY_CONTRACT',lambda:L['ready'](opener))
+        D['step']('ADMIN_PANEL_CONTRACTS',lambda:L['admin_check'](opener,panel=True))
+        release=Path(profile['release'])
+        D['step']('SOURCE_BLOBS',lambda:verify_source(release,profile['commit']))
+        index=D['step']('STATIC_INDEX_FILE',lambda:(release/'dist/index.html').read_bytes())
+        D['step']('STATIC_INDEX_MATCH',lambda:require(checked(opener,'/')==index,'CENTRAL_STATIC_INDEX_MISMATCH'))
+        document=W['EntryHTML']();document.feed(index.decode())
+        D['step']('STATIC_HTML_MODE',lambda:require(document.root and document.scripts and
             all(not src.startswith(('/src/','/@vite','/@react-refresh')) for src in document.scripts),
-            'DEVELOPMENT_SERVER_IS_NOT_A_RELEASE')
-    assets=re.findall(r'(?:src|href)="(/assets/[^"?#]+)"',index.decode())
-    require(any(path.endswith('.js') for path in assets),'STATIC_ENTRYPOINT_REQUIRED')
-    for path in assets:
-        require('..' not in path and L['request'](opener,path)==(release/'dist'/path.lstrip('/')).read_bytes(),
-                'CENTRAL_STATIC_ASSET_MISMATCH')
-    with opener.open(ORIGIN+'/',timeout=10) as response:
-        require(response.headers.get('X-V26-Instance')==profile['instance'] and
-                response.headers.get('X-V26-Release')==profile['commit'] and
-                response.headers.get('X-V26-Database')==profile['database'],'CENTRAL_PUBLIC_BINDING_MISMATCH')
-    ready=json.loads(L['request'](opener,'/api/ready'))
-    require(ready.get('repo_id')==hashlib.sha256(str(release).encode()).hexdigest(),'CENTRAL_RUNTIME_RELEASE_MISMATCH')
-    expected=hashlib.sha256()
-    for file in sorted((release/'backend/app').rglob('*.py')):
-        expected.update(str(file.relative_to(release)).encode()+b'\0'+file.read_bytes()+b'\0')
-    require(ready.get('build_id')==expected.hexdigest() and
-            profile.get('build_id',ready['build_id'])==ready['build_id'],'CENTRAL_RUNTIME_CODE_CHANGED')
-    return ready
+            'DEVELOPMENT_SERVER_IS_NOT_A_RELEASE'))
+        assets=re.findall(r'(?:src|href)="(/assets/[^"?#]+)"',index.decode())
+        D['step']('STATIC_ENTRYPOINT',lambda:require(any(path.endswith('.js') for path in assets),'STATIC_ENTRYPOINT_REQUIRED'))
+        for ordinal,path in enumerate(assets,1):
+            D['step']('STATIC_ASSET_'+str(ordinal),lambda:require('..' not in path and
+                checked(opener,path)==(release/'dist'/path.lstrip('/')).read_bytes(),'CENTRAL_STATIC_ASSET_MISMATCH'))
+        def headers():
+            with opener.open(ORIGIN+'/',timeout=10) as response:
+                values={key:response.headers.get('X-V26-'+key)==profile[field] for key,field in
+                        [('Instance','instance'),('Release','commit'),('Database','database')]}
+                if not all(values.values()):raise D['AcceptanceFailure']('PUBLIC_HEADERS',
+                    'CENTRAL_PUBLIC_BINDING_MISMATCH',dict(matches=values,http_status=response.status))
+        D['step']('PUBLIC_HEADERS',headers)
+        ready=D['step']('API_READY_JSON',lambda:json.loads(checked(opener,'/api/ready')))
+        D['step']('API_RELEASE_ROOT',lambda:require(ready.get('repo_id')==hashlib.sha256(str(release).encode()).hexdigest(),
+                'CENTRAL_RUNTIME_RELEASE_MISMATCH'))
+        expected=hashlib.sha256()
+        for file in sorted((release/'backend/app').rglob('*.py')):
+            expected.update(str(file.relative_to(release)).encode()+b'\0'+file.read_bytes()+b'\0')
+        D['step']('API_BUILD_ID',lambda:require(ready.get('build_id')==expected.hexdigest() and
+                profile.get('build_id',ready['build_id'])==ready['build_id'],'CENTRAL_RUNTIME_CODE_CHANGED'))
+        return ready
+    except Exception:
+        if first:raise first[0]
+        raise
+    finally:L['request']=original
 
 
 def extract(data,destination,kind):
@@ -183,6 +213,9 @@ def setup():
     require(ACTION=='apply' or (ROOT/'current.json').is_file(),'CENTRAL_INSTALL_REQUIRED')
     ROOT.mkdir(parents=True,mode=0o700,exist_ok=True)
     require(ROOT.stat().st_uid==os.getuid() and ROOT.stat().st_mode & 0o077==0,'CENTRAL_PRIVATE_OWNER_REJECTED')
+    state=APP_PATH/'.local'
+    require(state.resolve()==state and state.stat().st_uid==os.getuid() and state.stat().st_mode & 0o022==0,
+            'CENTRAL_MUTABLE_STATE_PREFLIGHT_REJECTED')
     lock=(ROOT/'setup.lock').open('a');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     identity_path=ROOT/'identity.json'
     if identity_path.exists():
@@ -317,11 +350,8 @@ def setup():
             free=run(['sudo','-n','ss','-H','-ltn','sport = :'+('18996' if api else '15173')],stage='CENTRAL_PORT_FREE')
             require(not free,'CENTRAL_PORT_COLLISION')
             run(['sudo','-n','systemctl','start',unit],stage='CENTRAL_V26_START')
-        for _ in range(20):
-            try:ready=public_accept(profile);break
-            except Exception:
-                time.sleep(1)
-        else:raise RuntimeError('CENTRAL_PUBLIC_ACCEPTANCE_FAILED')
+        D['wait_ready'](warm_api,time.sleep)
+        ready=public_accept(profile)
         installed_units(profile)
         H['assert_preserved'](before,H['snapshot'](query,stage='CENTRAL_DATA_AFTER'))
         require(db_identity()==fingerprint and L['stash_pin'](run)==stash,'CENTRAL_DB_OR_STASH_CHANGED')
@@ -332,8 +362,10 @@ def setup():
         return profile,ready
     except Exception as original:
         for number in (signal.SIGHUP,signal.SIGINT,signal.SIGTERM):signal.signal(number,signal.SIG_IGN)
-        private_json(attempt/'failure.json',dict(reason=str(original) if isinstance(original,RuntimeError) else type(original).__name__,
-                                               target=TARGET,db_restore_performed=False))
+        failure=dict(reason=str(original) if isinstance(original,RuntimeError) else type(original).__name__,
+                     target=TARGET,db_restore_performed=False)
+        if getattr(original,'details',None):failure.update(original.details)
+        private_json(attempt/'failure.json',failure)
         if changed:
             for unit,api in units:run(['sudo','-n','systemctl','stop',unit],stage='CENTRAL_ROLLBACK_STOP')
             for unit,api in units:install_dropin(unit,backups[unit])
@@ -366,10 +398,89 @@ def digest_file(path):
     return value.hexdigest()
 
 
+def diagnose_attempt():
+    label=ATTEMPT_LABEL
+    require(re.fullmatch(r'attempt-[a-z0-9_]{1,48}',label),'EVIDENCE_LABEL_REJECTED')
+    attempt=ROOT/label
+    require(attempt.is_dir() and attempt.resolve()==attempt and attempt.stat().st_uid==os.getuid(),
+            'EVIDENCE_DIRECTORY_REJECTED')
+    failure=json.loads((attempt/'failure.json').read_text())
+    target=failure.get('target','')
+    require(re.fullmatch('[0-9a-f]{40}',target),'EVIDENCE_TARGET_REJECTED')
+    rollback=json.loads((attempt/'rollback.json').read_text())
+    require(rollback.get('status')=='BASELINE_VERIFIED' and rollback.get('db_restore_performed') is False,
+            'BASELINE_ROLLBACK_NOT_VERIFIED')
+    release=ROOT/'releases'/target
+    verify_source(release,target)
+    result=dict(status='BLOCKED',mode='DIAGNOSTIC_ONLY',live_modified=False,live_commit=git('rev-parse','HEAD'),
+                candidate_commit=target,historical_reason='CENTRAL_PUBLIC_ACCEPTANCE_FAILED',
+                historical_cause='NOT_RECORDED',production_acceptance='NOT_VERIFIED')
+    proof=json.loads((attempt/'restore-proof.json').read_text())
+    result['restore_proof']={key:proof.get(key) for key in ('status','migration_runs','existing_tables_preserved')}
+    state=APP_PATH/'.local';info=state.lstat()
+    result['mutable_state']=dict(canonical=state.resolve()==state,directory=state.is_dir(),
+                                owner_matches=info.st_uid==os.getuid(),no_group_or_world_write=not info.st_mode & 0o022)
+    errorlog=attempt/'static-runtime/error.log'
+    result['static_nginx_error_log_bytes']=errorlog.stat().st_size if errorlog.is_file() else None
+    result['database_identity_verified']=bool(db_identity())
+    result['current_delivery']={}
+    for label,origin,path in [('HTTPS_INDEX',ORIGIN,'/'),('HTTPS_API',ORIGIN,'/api/ready'),
+                              ('LOOPBACK_STATIC','http://127.0.0.1:15173','/'),
+                              ('LOOPBACK_API','http://127.0.0.1:18996','/api/ready')]:
+        try:
+            raw=D['request'](L['client'](),origin,path,label)
+            result['current_delivery'][label]=dict(http_status=200,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
+        except D['AcceptanceFailure'] as error:result['current_delivery'][label]=error.details
+    result['current_delivery_context']='BASELINE_AFTER_ROLLBACK_NOT_FAILED_CANDIDATE'
+    units=L['services'](run)
+    api=next(unit for unit,role in units if role)
+    props=unit_properties(api)
+    env=run(['sudo','-n','cat','/proc/'+props['MainPID']+'/environ'],stage='DIAG_RUNTIME_ENV')
+    values=dict(item.split('=',1) for item in env.split('\0') if '=' in item)
+    values={key:value for key,value in values.items() if key.startswith('V2_')}
+    for line in (attempt/'runtime.env').read_text().splitlines():
+        key,sep,value=line.partition('=')
+        require(sep and key in ('V2_SESSION_SECURE','V2_CENTRAL_STATE_ROOT','PYTHONPATH'),'DIAG_ENV_FILE_REJECTED')
+        values[key]=value
+    values['PYTHONPATH']=str(release/'backend')
+    payload=dict(release=str(release),environment=values,admin=ADMIN)
+    process=subprocess.run([str(APP_PATH/'.venv/bin/python'),'-P','-B','-c',CANDIDATE_PROBE],
+                           input=json.dumps(payload),text=True,capture_output=True,cwd=APP,timeout=90)
+    # Only our JSON report is forwarded. No stderr, traceback, env or raw body.
+    try:probe=json.loads(process.stdout)
+    except ValueError:probe=dict(status='BLOCKED',reason='PROBE_REPORT_UNAVAILABLE',exit_code=process.returncode)
+    require(set(probe)<= {'status','mode','steps','failed_stage','error_class','reason','sqlstate','exit_code'},'PROBE_REPORT_SHAPE_REJECTED')
+    result['candidate_api_readonly']=probe
+    start=int((attempt/'restore-proof.json').stat().st_mtime)-30
+    end=int((attempt/'failure.json').stat().st_mtime)+1
+    try:
+        journal=run(['sudo','-n','journalctl','-u',api,'--since=@'+str(start),'--until=@'+str(end),
+                     '-n','200','-o','json','--no-pager'],stage='DIAG_API_JOURNAL')
+        classes={'ModuleNotFoundError','ImportError','PermissionError','FileNotFoundError','RuntimeError',
+                 'ValueError','TypeError','OperationalError','ProgrammingError','IntegrityError'}
+        markers={'CENTRAL_STATE_ROOT_REJECTED','V26_ACCEPTANCE_ROOT_REJECTED','V26_ACCEPTANCE_DATABASE_REJECTED',
+                 'V26_ACCEPTANCE_PROFILE_REJECTED','DATABASE_UNAVAILABLE'}
+        seen=set();codes=set();count=0
+        for line in journal.splitlines():
+            try:message=json.loads(line).get('MESSAGE','')
+            except ValueError:continue
+            if not isinstance(message,str):continue
+            count+=1
+            seen.update(value for value in classes if re.search(r'\b'+value+r'\b',message))
+            codes.update(value for value in markers if value in message)
+        result['api_journal_summary']=dict(messages=count,exception_types=sorted(seen),guard_markers=sorted(codes))
+    except Exception:result['api_journal_summary']=dict(status='UNAVAILABLE')
+    result['next_step']='REVIEW_CANDIDATE_AND_HISTORICAL_STAGE_BEFORE_APPLY'
+    return result
+
+
 def protocol():
     def interrupted(*args):raise RuntimeError('CENTRAL_OPERATION_INTERRUPTED')
     for number in (signal.SIGHUP,signal.SIGINT,signal.SIGTERM):signal.signal(number,interrupted)
     try:
+        if ACTION=='diagnose':
+            print(json.dumps(diagnose_attempt(),sort_keys=True),flush=True)
+            return
         profile,ready=setup()
         print(json.dumps(dict(event='CENTRAL_READY',profile=profile,ready=ready)),flush=True)
         value=json.loads(sys.stdin.readline())

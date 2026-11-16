@@ -91,6 +91,8 @@ class CentralDevelopment(unittest.TestCase):
         module.HELPER='def run(*a, **kw): raise RuntimeError("UNEXPECTED_COMMAND")\n'
         module.LEGACY=(ROOT/'tools/deploy_v26_remote.py').read_text()
         module.WEBROOT=(ROOT/'tools/v26_webroot_preflight.py').read_text()
+        module.DIAGNOSTICS=(ROOT/'tools/v26_acceptance_diagnostics.py').read_text()
+        module.CANDIDATE_PROBE=(ROOT/'tools/v26_candidate_probe.py').read_text()
         module.ADMIN={};module.TARGET='a'*40;module.ACTION='apply';module.MIGRATION_SQL='fixture'
         spec.loader.exec_module(module)
         return module

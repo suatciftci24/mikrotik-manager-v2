@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 import socket
+import re
 import subprocess
 import sys
 import time
@@ -60,12 +61,18 @@ def main():
     mode=parser.add_mutually_exclusive_group(required=True)
     mode.add_argument('--apply',action='store_true')
     mode.add_argument('--verify-location',choices=('home','office'))
+    mode.add_argument('--diagnose-attempt')
     args=parser.parse_args()
+    if args.diagnose_attempt and not re.fullmatch(r'attempt-[a-z0-9_]{1,48}',args.diagnose_attempt):
+        raise RuntimeError('EVIDENCE_LABEL_REJECTED')
     commit=git('rev-parse','HEAD')
     if git('status','--porcelain=v1'):raise RuntimeError('OFFICE_CHECKOUT_DIRTY')
     spec=importlib.util.spec_from_file_location('office_legacy',ROOT/'tools/deploy-v26-office.py')
     legacy_office=importlib.util.module_from_spec(spec);spec.loader.exec_module(legacy_office)
-    values=dict(TARGET=commit,ACTION='apply' if args.apply else 'verify',
+    values=dict(TARGET=commit,ACTION='diagnose' if args.diagnose_attempt else 'apply' if args.apply else 'verify',
+                ATTEMPT_LABEL=args.diagnose_attempt,
+                DIAGNOSTICS=source(commit,'tools/v26_acceptance_diagnostics.py'),
+                CANDIDATE_PROBE=source(commit,'tools/v26_candidate_probe.py'),
                 POLICY=source(commit,'tools/v26_central_policy.py'),
                 LEGACY=source(commit,'tools/deploy_v26_remote.py'),
                 WEBROOT=source(commit,'tools/v26_webroot_preflight.py'),
