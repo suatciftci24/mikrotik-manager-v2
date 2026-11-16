@@ -21,12 +21,19 @@ import ssl
 import shutil
 import urllib.request
 import pwd
+import ctypes
+import resource
+import selectors
+import time
+from contextlib import contextmanager
 
 ROOT = Path('/srv/mikrotik-v26-next')
 ENV_FILE = Path('/etc/mikrotik-v26-api.env')
 UNITS = ('mikrotik-v26-api.service', 'mikrotik-v26-web.service', 'postgresql@16-v26.service')
 TABLES = ('v2_registered_routers', 'v2_router_verifications', 'v2_router_registry_audit')
 REPORT = {}
+TOOL_ENV = {'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LC_ALL':'C'}
+SYSTEM_PYTHON = '/usr/bin/python3'
 # Generated from the committed ORM; inspected types/keys/indexes are compared exactly.
 CONTRACT = {'v2_registered_routers': {'columns': {'id': ['VARCHAR(48)', False], 'name': ['VARCHAR(120)', False], 'management_address': ['VARCHAR(64)', False], 'port': ['INTEGER', False], 'configuration': ['JSON', False], 'metadata_snapshot': ['JSON', False], 'credential_ref': ['VARCHAR(36)', False], 'revision': ['INTEGER', False], 'last_checked_at': ['VARCHAR(40)', False], 'last_success_at': ['VARCHAR(40)', False], 'last_error': ['VARCHAR(200)', True]}, 'indexes': {'ix_v2_registered_routers_name': ['name'], 'ix_v2_registered_routers_check': ['last_error', 'last_success_at']}, 'unique': ['management_address', 'port']}, 'v2_router_verifications': {'columns': {'id': ['VARCHAR(36)', False], 'actor_id': ['VARCHAR(80)', False], 'state': ['VARCHAR(16)', False], 'target_router_id': ['VARCHAR(48)', True], 'expected_revision': ['INTEGER', False], 'snapshot': ['JSON', False], 'credential_ref': ['VARCHAR(36)', False], 'created_at': ['VARCHAR(40)', False], 'expires_at': ['VARCHAR(40)', False], 'error_code': ['VARCHAR(200)', True], 'saved_router_id': ['VARCHAR(48)', True]}, 'indexes': {'ix_v2_router_verifications_actor_id': ['actor_id'], 'ix_v2_router_verifications_expiry': ['state', 'expires_at']}, 'unique': []}, 'v2_router_registry_audit': {'columns': {'id': ['VARCHAR(36)', False], 'actor_id': ['VARCHAR(80)', False], 'router_id': ['VARCHAR(48)', True], 'verification_id': ['VARCHAR(36)', False], 'action': ['VARCHAR(40)', False], 'occurred_at': ['VARCHAR(40)', False], 'details': ['JSON', False]}, 'indexes': {'ix_v2_router_registry_audit_router_id': ['router_id'], 'ix_v2_router_registry_audit_time': ['router_id', 'occurred_at']}, 'unique': []}}
 MODEL_SHA256 = '0a31194f1d723f741be066da8d7a8360774b78b5a512390e9d4db1d990b10fc6'
@@ -53,23 +60,95 @@ def check(name, call):
     return None
 
 
-def read_file(path, limit=16*1024*1024, private=False, owners=None, metadata_only=False):
-    path = Path(path)
-    require(path.is_absolute() and '..' not in path.parts, 'ABSOLUTE_FILE_REQUIRED')
-    for parent in (*reversed(path.parents), path):
-        require(not parent.is_symlink(), 'SYMLINK_REJECTED')
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
-    with os.fdopen(fd, 'rb') as stream:
-        before = os.fstat(stream.fileno())
-        require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and before.st_size <= limit,
+def run_tool(args,*,timeout,env,input=None,max_output=262144,**options):
+    """Bounded pipes only; tool stderr (possibly sensitive) is never exported."""
+    require(input is None or len(input)<=262144,'TOOL_INPUT_LIMIT')
+    process=subprocess.Popen(args,stdin=subprocess.PIPE if input is not None else subprocess.DEVNULL,
+        stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=env,**options)
+    output=bytearray();offset=0;deadline=time.monotonic()+timeout
+    selection=selectors.DefaultSelector()
+    try:
+        os.set_blocking(process.stdout.fileno(),False)
+        selection.register(process.stdout,selectors.EVENT_READ,'out')
+        if input is not None:
+            os.set_blocking(process.stdin.fileno(),False)
+            if input:selection.register(process.stdin,selectors.EVENT_WRITE,'in')
+            else:process.stdin.close()
+        while selection.get_map():
+            left=deadline-time.monotonic()
+            require(left>0,'TOOL_TIMEOUT')
+            for key,_ in selection.select(min(left,1)):
+                if key.data=='in':
+                    offset+=os.write(key.fd,input[offset:offset+4096])
+                    if offset==len(input):selection.unregister(key.fileobj);key.fileobj.close()
+                else:
+                    data=os.read(key.fd,min(65536,max_output-len(output)+1))
+                    if not data:selection.unregister(key.fileobj);continue
+                    output.extend(data);require(len(output)<=max_output,'TOOL_OUTPUT_LIMIT')
+        left=deadline-time.monotonic();require(left>0,'TOOL_TIMEOUT')
+        code=process.wait(timeout=left)
+        return subprocess.CompletedProcess(args,code,bytes(output),b'')
+    except BaseException:
+        if process.poll() is None:process.kill()
+        process.wait()
+        raise
+    finally:
+        selection.close()
+        for stream in (process.stdin,process.stdout):
+            if stream is not None and not stream.closed:stream.close()
+
+
+def trusted_system_path(path):
+    resolved=Path(path).resolve(strict=True)
+    for item in (resolved,*resolved.parents):
+        info=item.stat()
+        require(info.st_uid==0 and not info.st_mode&0o022, 'TRUSTED_SYSTEM_TOOL_REQUIRED')
+    return str(resolved)
+
+
+def tls_context(ca=None):
+    # create_default_context honours SSLKEYLOGFILE and may open a writable file.
+    context=ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.minimum_version=ssl.TLSVersion.TLSv1_2
+    if ca is None:context.load_verify_locations(cafile='/etc/ssl/certs/ca-certificates.crt')
+    else:context.load_verify_locations(cadata=ca)
+    return context
+
+
+@contextmanager
+def regular_file(path, limit=16*1024*1024, private=False, owners=None):
+    path=Path(path)
+    require(path.is_absolute() and '..' not in path.parts and path.name, 'ABSOLUTE_FILE_REQUIRED')
+    directory=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
+    fd=None
+    try:
+        for part in path.parts[1:-1]:
+            next_dir=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC,dir_fd=directory)
+            os.close(directory);directory=next_dir
+        fd=os.open(path.name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC,dir_fd=directory)
+        before=os.fstat(fd)
+        require(stat.S_ISREG(before.st_mode) and before.st_nlink==1 and before.st_size<=limit,
                 'REGULAR_BOUNDED_FILE_REQUIRED')
         if private:
-            require(before.st_mode & stat.S_IRUSR and not before.st_mode & 0o077 and (owners is None or before.st_uid in owners),
-                    'PRIVATE_BACKUP_OR_ENV_PERMISSIONS_REQUIRED')
-        value = b'' if metadata_only else stream.read(limit+1)
-        after = os.fstat(stream.fileno())
-        require(len(value) <= limit and (before.st_size,before.st_mtime_ns,before.st_ino) ==
-                (after.st_size,after.st_mtime_ns,after.st_ino), 'FILE_CHANGED_OR_LIMIT')
+            require(before.st_mode&stat.S_IRUSR and not before.st_mode&0o077
+                    and (owners is None or before.st_uid in owners), 'PRIVATE_BACKUP_OR_ENV_PERMISSIONS_REQUIRED')
+        with os.fdopen(fd,'rb') as stream:
+            fd=None
+            yield stream
+            after=os.fstat(stream.fileno())
+            require((before.st_size,before.st_mtime_ns,before.st_ino,before.st_mode,before.st_uid)==
+                    (after.st_size,after.st_mtime_ns,after.st_ino,after.st_mode,after.st_uid),'FILE_CHANGED_OR_LIMIT')
+    except OSError:
+        raise Blocked('FILE_ACCESS_OR_SYMLINK_REJECTED') from None
+    finally:
+        if fd is not None:os.close(fd)
+        os.close(directory)
+
+
+def read_file(path, limit=16*1024*1024, private=False, owners=None, metadata_only=False):
+    with regular_file(path,limit,private,owners) as stream:
+        value=b'' if metadata_only else stream.read(limit+1)
+        require(len(value)<=limit,'FILE_CHANGED_OR_LIMIT')
         return value
 
 
@@ -90,9 +169,9 @@ def environment_file(raw):
 
 
 def unit(name):
-    result = subprocess.run(['/usr/bin/systemctl','show',name,'--no-pager',
+    result = run_tool([trusted_system_path('/usr/bin/systemctl'),'show',name,'--no-pager',
         '--property=ActiveState,SubState,MainPID,WorkingDirectory,FragmentPath,DropInPaths,EnvironmentFiles,NeedDaemonReload'],
-        capture_output=True, timeout=10, check=False)
+        timeout=10,env=TOOL_ENV)
     require(result.returncode == 0, 'UNIT_METADATA_UNAVAILABLE')
     data = dict(line.split('=',1) for line in result.stdout.decode().splitlines() if '=' in line)
     require(data.get('ActiveState') == 'active' and data.get('SubState') == 'running', 'UNIT_NOT_RUNNING')
@@ -102,6 +181,7 @@ def unit(name):
 
 def api_get(path, cookie=None):
     require(path in ('/api/ready','/api/health','/api/v1/auth/me'), 'API_PATH_REJECTED')
+    require(not cookie or path=='/api/v1/auth/me', 'SESSION_DESTINATION_REJECTED')
     connection = http.client.HTTPConnection('127.0.0.1',18996,timeout=8)
     try:
         headers = {'Host':'v26.mikmanager.com.tr'}
@@ -127,7 +207,7 @@ def https_get(path):
     require(path in ('/','/api/ready') or re.fullmatch(r'/assets/[A-Za-z0-9_.-]+',path), 'STATIC_PATH_REJECTED')
     url='https://v26.mikmanager.com.tr'+path
     opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect(),
-                                      urllib.request.HTTPSHandler(context=ssl.create_default_context()))
+                                      urllib.request.HTTPSHandler(context=tls_context()))
     with opener.open(url,timeout=10) as response:
         require(response.status==200 and response.geturl()==url, 'HTTPS_STATUS_OR_REDIRECT_REJECTED')
         data=response.read(16*1024*1024+1)
@@ -163,58 +243,129 @@ def session_identity(cookie):
 
 # Executed with the running API's interpreter and UID, not imported application code.
 DB_INSPECT = r'''
-import json,sys
-from sqlalchemy import create_engine,inspect,text
-from sqlalchemy.engine import make_url
-p=json.load(sys.stdin); result={}; engine=None
-try:
-    url=make_url(p['url'])
-    assert (url.drivername,url.host,url.port,url.database,url.username)==('postgresql+psycopg','127.0.0.1',55433,'mikrotik_v26_acceptance','v26_acceptance')
-    assert not url.query and url.password and len(url.password)>=20 and not any(ord(v)<32 for v in url.password)
-    engine=create_engine(url,hide_parameters=True,connect_args={'connect_timeout':5,'options':'-c default_transaction_read_only=on -c statement_timeout=5000 -c lock_timeout=3000'})
-    with engine.connect() as c:
-        tx=c.begin()
+import ctypes, json, os, sys
+from pathlib import Path
+from urllib.parse import urlsplit, unquote
+
+def trusted(path):
+    resolved=Path(path).resolve(strict=True)
+    for item in (resolved,*resolved.parents):
+        info=item.stat()
+        if info.st_uid!=0 or info.st_mode&0o022:raise RuntimeError('UNTRUSTED_SYSTEM_LIBRARY')
+    return str(resolved)
+
+class LibPQ:
+    def __init__(self,url):
+        u=urlsplit(url)
+        if ((u.scheme,u.hostname,u.port,u.path,unquote(u.username or '')) !=
+            ('postgresql+psycopg','127.0.0.1',55433,'/mikrotik_v26_acceptance','v26_acceptance')
+            or u.query or u.fragment):raise RuntimeError('DATABASE_SCOPE')
+        password=unquote(u.password or '')
+        if len(password)<20 or any(ord(c)<32 for c in password):raise RuntimeError('DATABASE_CREDENTIAL_FORMAT')
+        path=next((p for p in ('/usr/lib/x86_64-linux-gnu/libpq.so.5','/usr/lib/aarch64-linux-gnu/libpq.so.5') if Path(p).exists()),None)
+        if path is None:raise RuntimeError('SYSTEM_LIBPQ_REQUIRED')
+        self.lib=ctypes.CDLL(trusted(path));self.conn=None
+        declarations={
+          'PQconnectdbParams':([ctypes.POINTER(ctypes.c_char_p),ctypes.POINTER(ctypes.c_char_p),ctypes.c_int],ctypes.c_void_p),
+          'PQstatus':([ctypes.c_void_p],ctypes.c_int),
+          'PQexecParams':([ctypes.c_void_p,ctypes.c_char_p,ctypes.c_int,ctypes.c_void_p,ctypes.POINTER(ctypes.c_char_p),ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int],ctypes.c_void_p),
+          'PQresultStatus':([ctypes.c_void_p],ctypes.c_int),'PQntuples':([ctypes.c_void_p],ctypes.c_int),
+          'PQnfields':([ctypes.c_void_p],ctypes.c_int),
+          'PQgetisnull':([ctypes.c_void_p,ctypes.c_int,ctypes.c_int],ctypes.c_int),
+          'PQgetvalue':([ctypes.c_void_p,ctypes.c_int,ctypes.c_int],ctypes.c_char_p),
+          'PQclear':([ctypes.c_void_p],None),'PQfinish':([ctypes.c_void_p],None)}
+        for name,(args,result) in declarations.items():
+            function=getattr(self.lib,name);function.argtypes=args;function.restype=result
+        config={'host':'127.0.0.1','hostaddr':'127.0.0.1','port':'55433','dbname':'mikrotik_v26_acceptance',
+          'user':'v26_acceptance','password':password,'connect_timeout':'5',
+          'sslmode':'disable','gssencmode':'disable','passfile':'/dev/null','client_encoding':'UTF8',
+          'options':'-c default_transaction_read_only=on -c statement_timeout=5000 -c lock_timeout=3000'}
+        keys=(ctypes.c_char_p*(len(config)+1))(*(v.encode() for v in config),None)
+        values=(ctypes.c_char_p*(len(config)+1))(*(v.encode() for v in config.values()),None)
+        self.conn=self.lib.PQconnectdbParams(keys,values,0)
+        if not self.conn or self.lib.PQstatus(self.conn)!=0:
+            self.close();raise RuntimeError('DATABASE_CONNECTION_REJECTED')
+    def query(self,sql,params=()):
+        values=(ctypes.c_char_p*len(params))(*(str(v).encode() for v in params))
+        result=self.lib.PQexecParams(self.conn,sql.encode(),len(params),None,values,None,None,0)
+        if not result:raise RuntimeError('DATABASE_QUERY_REJECTED')
         try:
-            c.execute(text('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY'))
-            assert tuple(c.execute(text('SELECT current_database(),current_user,inet_server_port()')).one())==('mikrotik_v26_acceptance','v26_acceptance',55433)
-            assert c.execute(text('SELECT marker FROM v26_acceptance.schema_state WHERE version=1')).scalar_one()=='mikrotik-manager-v2-synthetic-only'
-            result['database']='PASS'
-            actual=c.execute(text('SELECT id,revision,role,active,account_origin FROM v26_acceptance.users WHERE id=:id'),{'id':p['identity']['id']}).one_or_none()
-            result['session_database_match']='PASS' if actual and tuple(actual)==(p['identity']['id'],p['identity']['revision'],'ADMIN',True,'LOCAL') else 'BLOCKED:SESSION_DATABASE_MISMATCH'
-            check=inspect(c); namespaces=set()
-            for name,expected in p['contract'].items():
-                found=c.execute(text("SELECT n.nspname FROM pg_class t JOIN pg_namespace n ON n.oid=t.relnamespace WHERE t.relname=:name AND n.nspname IN ('public','v26_acceptance') AND t.relkind='r'"),{'name':name}).scalars().all()
-                schema=c.execute(text("SELECT n.nspname FROM pg_class t JOIN pg_namespace n ON n.oid=t.relnamespace WHERE t.oid=to_regclass(:name) AND t.relkind='r'"),{'name':name}).scalar_one_or_none()
-                if not found:
-                    result[name]='BLOCKED:TABLE_ABSENT'; continue
-                if schema not in ('public','v26_acceptance') or len(found)!=1:
-                    result[name]='BLOCKED:TABLE_SHADOWED_OR_NOT_RESOLVABLE'; continue
-                namespaces.add(schema)
-                privileges=c.execute(text("SELECT has_database_privilege(current_database(),'CONNECT'),has_schema_privilege(:schema,'USAGE'),has_table_privilege(:name,'SELECT'),has_table_privilege(:name,'INSERT'),has_table_privilege(:name,'UPDATE')"),{'schema':schema,'name':schema+'.'+name}).one()
-                if not all(v is True for v in privileges):
-                    result[name]='BLOCKED:CONNECT_USAGE_SELECT_INSERT_UPDATE_REQUIRED'; continue
-                columns={v['name']:[str(v['type']).upper(),v['nullable']] for v in check.get_columns(name,schema=schema)}
-                indexes={v['name']:v['column_names'] for v in check.get_indexes(name,schema=schema)}
-                good=(columns==expected['columns'] and check.get_pk_constraint(name,schema=schema)['constrained_columns']==['id'] and all(indexes.get(k)==v for k,v in expected['indexes'].items()))
-                if expected['unique']:
-                    good=good and any(v['column_names']==expected['unique'] for v in check.get_unique_constraints(name,schema=schema))
-                result[name]='PASS' if good else 'BLOCKED:MODEL_SCHEMA_OR_INDEX_MISMATCH'
-            if len(namespaces)>1:result['registry_namespace']='BLOCKED:SPLIT_SCHEMA'
-        finally:
-            tx.rollback()
-except Exception:
-    result['database']='BLOCKED:READONLY_DATABASE_INSPECTION_FAILED'
-finally:
-    if engine is not None:engine.dispose()
-print(json.dumps(result))
+            if self.lib.PQresultStatus(result) not in (1,2):raise RuntimeError('DATABASE_QUERY_REJECTED')
+            rows=self.lib.PQntuples(result);columns=self.lib.PQnfields(result)
+            if rows>1024 or columns>16:raise RuntimeError('DATABASE_RESPONSE_LIMIT')
+            output=[];size=0
+            for row in range(rows):
+                record=[]
+                for col in range(columns):
+                    value=None if self.lib.PQgetisnull(result,row,col) else self.lib.PQgetvalue(result,row,col).decode('utf8')
+                    size+=len(value or '')
+                    if size>262144:raise RuntimeError('DATABASE_RESPONSE_LIMIT')
+                    record.append(value)
+                output.append(record)
+            return output
+        finally:self.lib.PQclear(result)
+    def close(self):
+        if self.conn:self.lib.PQfinish(self.conn);self.conn=None
+
+def inspect_database(p,query):
+    result={}
+    try:
+        query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+        if query('SHOW transaction_read_only')!=[['on']]:raise RuntimeError('READ_ONLY_REQUIRED')
+        if query('SELECT pg_catalog.current_database(),current_user,pg_catalog.inet_server_port()')!=[['mikrotik_v26_acceptance','v26_acceptance','55433']]:raise RuntimeError('DATABASE_IDENTITY')
+        for table in ('v26_acceptance.schema_state','v26_acceptance.users'):
+            if query('SELECT relkind FROM pg_catalog.pg_class WHERE oid=pg_catalog.to_regclass($1)',(table,))!=[['r']]:raise RuntimeError('CORE_TABLE_REQUIRED')
+        if query('SELECT marker FROM v26_acceptance.schema_state WHERE version=1')!=[['mikrotik-manager-v2-synthetic-only']]:raise RuntimeError('DATABASE_MARKER')
+        result['database']='PASS';identity=p['identity']
+        row=query('SELECT id,revision,role,active,account_origin FROM v26_acceptance.users WHERE id=$1',(identity['id'],))
+        result['session_database_match']='PASS' if row==[[identity['id'],str(identity['revision']),'ADMIN','t','LOCAL']] else 'BLOCKED:SESSION_DATABASE_MISMATCH'
+        namespaces=set()
+        for name,expected in p['contract'].items():
+            found=query("SELECT n.nspname FROM pg_catalog.pg_class t JOIN pg_catalog.pg_namespace n ON n.oid=t.relnamespace WHERE t.relname=$1 AND n.nspname IN ('public','v26_acceptance') AND t.relkind='r'",(name,))
+            resolved=query("SELECT n.nspname FROM pg_catalog.pg_class t JOIN pg_catalog.pg_namespace n ON n.oid=t.relnamespace WHERE t.oid=pg_catalog.to_regclass($1) AND t.relkind='r'",(name,))
+            if not found:result[name]='BLOCKED:TABLE_ABSENT';continue
+            if len(found)!=1 or len(resolved)!=1 or resolved[0][0] not in ('public','v26_acceptance'):
+                result[name]='BLOCKED:TABLE_SHADOWED_OR_NOT_RESOLVABLE';continue
+            schema=resolved[0][0];namespaces.add(schema);qualified=schema+'.'+name
+            rights=query("SELECT pg_catalog.has_database_privilege(pg_catalog.current_database(),'CONNECT'),pg_catalog.has_schema_privilege($1,'USAGE'),pg_catalog.has_table_privilege($2,'SELECT'),pg_catalog.has_table_privilege($2,'INSERT'),pg_catalog.has_table_privilege($2,'UPDATE')",(schema,qualified))
+            if rights!=[['t']*5]:result[name]='BLOCKED:CONNECT_USAGE_SELECT_INSERT_UPDATE_REQUIRED';continue
+            rows=query('SELECT attname,pg_catalog.format_type(atttypid,atttypmod),NOT attnotnull FROM pg_catalog.pg_attribute WHERE attrelid=pg_catalog.to_regclass($1) AND attnum>0 AND NOT attisdropped ORDER BY attnum',(qualified,))
+            columns={r[0]:[r[1].upper().replace('CHARACTER VARYING','VARCHAR'),r[2]=='t'] for r in rows}
+            rows=query('SELECT ci.relname,pg_catalog.json_agg(a.attname ORDER BY k.ord)::text,i.indisprimary,i.indisunique FROM pg_catalog.pg_index i JOIN pg_catalog.pg_class ci ON ci.oid=i.indexrelid CROSS JOIN LATERAL pg_catalog.unnest(i.indkey) WITH ORDINALITY k(attnum,ord) JOIN pg_catalog.pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.attnum WHERE i.indrelid=pg_catalog.to_regclass($1) AND i.indisvalid AND i.indisready AND i.indpred IS NULL AND i.indexprs IS NULL GROUP BY ci.relname,i.indisprimary,i.indisunique',(qualified,))
+            indexes={r[0]:json.loads(r[1]) for r in rows}
+            good=(columns==expected['columns'] and any(r[2]=='t' and json.loads(r[1])==['id'] for r in rows) and all(indexes.get(k)==v for k,v in expected['indexes'].items()))
+            if expected['unique']:good=good and any(r[3]=='t' and json.loads(r[1])==expected['unique'] for r in rows)
+            result[name]='PASS' if good else 'BLOCKED:MODEL_SCHEMA_OR_INDEX_MISMATCH'
+        if len(namespaces)>1:result['registry_namespace']='BLOCKED:SPLIT_SCHEMA'
+    except Exception:result['database']='BLOCKED:READONLY_DATABASE_INSPECTION_FAILED'
+    finally:
+        try:query('ROLLBACK')
+        except Exception:result['database']='BLOCKED:READONLY_DATABASE_INSPECTION_FAILED'
+    return result
+
+def main():
+    import resource
+    resource.setrlimit(resource.RLIMIT_CORE,(0,0))
+    libc=ctypes.CDLL(None)
+    if libc.prctl(4,0,0,0,0)!=0:raise RuntimeError('PRIVATE_PROCESS_REQUIRED')
+    db=None;result={'database':'BLOCKED:READONLY_DATABASE_INSPECTION_FAILED'}
+    try:
+        p=json.load(sys.stdin);db=LibPQ(p['url']);result=inspect_database(p,db.query)
+    except Exception:pass
+    finally:
+        if db:db.close()
+    print(json.dumps(result))
+
+if __name__=='__main__':main()
 '''
 
 
-def database(values, identity, python, uid, gid):
+def database(values, identity, uid, gid):
     require(identity is not None, 'EXISTING_SESSION_REQUIRED_BEFORE_DB_CHECK')
     request = json.dumps({'url':values['V2_DATABASE_URL'],'identity':identity,'contract':CONTRACT})
-    result = subprocess.run([python,'-I','-B','-c',DB_INSPECT],input=request.encode(),
-        capture_output=True,timeout=45,cwd=ROOT,user=uid,group=gid,extra_groups=[],
+    python=trusted_system_path(SYSTEM_PYTHON)
+    result = run_tool([python,'-I','-S','-B','-c',DB_INSPECT],input=request.encode(),
+        timeout=45,max_output=32768,cwd=ROOT,user=uid,group=gid,extra_groups=[],
         env={'PATH':'/usr/bin:/bin','PYTHONDONTWRITEBYTECODE':'1'})
     require(result.returncode == 0 and len(result.stdout) <= 32768, 'DB_HELPER_UNAVAILABLE')
     data = json.loads(result.stdout)
@@ -283,7 +434,7 @@ def private_material(uid,values):
             'PRIVATE_PILOT_CREDENTIAL_FORMAT_REJECTED')
     ca=read_file(root/'trust/ca.pem',262144,private=True,owners={uid}).decode()
     require('PRIVATE KEY' not in ca, 'PUBLIC_CA_REQUIRED')
-    ssl.create_default_context(cadata=ca)
+    tls_context(ca)
     expected={'HOST':'10.250.0.19','SOURCE_IP':'10.250.0.1','PORT':'8729',
               'LEAF_SHA256':'896addde343bf45b429aa354605ee1930d91c30c024c71fe182b94243937acb6'}
     for key,value in expected.items():
@@ -294,7 +445,7 @@ def source_route():
     ip=shutil.which('ip',path='/usr/sbin:/usr/bin:/sbin:/bin')
     require(ip is not None,'IP_ROUTE_TOOL_REQUIRED')
     def query(args):
-        result=subprocess.run([ip,'-j','-4',*args],capture_output=True,timeout=5)
+        result=run_tool([trusted_system_path(ip),'-j','-4',*args],timeout=5,env=TOOL_ENV)
         require(result.returncode==0 and len(result.stdout)<=262144, 'SOURCE_ROUTE_UNAVAILABLE')
         return json.loads(result.stdout)
     addresses=query(['address','show'])
@@ -313,10 +464,20 @@ def ask_path(label):
     return Path(value)
 
 
+class BoundedTarInfo(tarfile.TarInfo):
+    def _proc_member(self,archive):
+        require(self.type in (tarfile.REGTYPE,tarfile.AREGTYPE,tarfile.DIRTYPE,
+                tarfile.XHDTYPE,tarfile.XGLTYPE,tarfile.GNUTYPE_LONGNAME,tarfile.GNUTYPE_LONGLINK),
+                'BACKUP_ARCHIVE_TYPE_REJECTED')
+        require(0<=self.size<=512*1024*1024,'BACKUP_ARCHIVE_LIMIT')
+        if self.type in (tarfile.XHDTYPE,tarfile.XGLTYPE,tarfile.GNUTYPE_LONGNAME,tarfile.GNUTYPE_LONGLINK):
+            require(self.size<=65536,'BACKUP_ARCHIVE_METADATA_LIMIT')
+        return super()._proc_member(archive)
+
+
 def archive_matches(path,files,owners):
-    read_file(path,limit=512*1024*1024,private=True,owners=owners,metadata_only=True)
     seen=set(); total=0; expanded=0; count=0
-    with tarfile.open(path,mode='r|*') as archive:
+    with regular_file(path,limit=512*1024*1024,private=True,owners=owners) as source, tarfile.open(fileobj=source,mode='r|*',tarinfo=BoundedTarInfo) as archive:
         for member in archive:
             expanded+=member.size;count+=1
             require(expanded<=512*1024*1024 and count<=20000, 'BACKUP_ARCHIVE_LIMIT')
@@ -333,8 +494,10 @@ def archive_matches(path,files,owners):
 
 
 def dump_valid(path,owners):
-    read_file(path,limit=1024*1024*1024,private=True,owners=owners,metadata_only=True)
-    result=subprocess.run(['/usr/lib/postgresql/16/bin/pg_restore','--list',str(path)],capture_output=True,timeout=30)
+    tool=trusted_system_path('/usr/lib/postgresql/16/bin/pg_restore')
+    with regular_file(path,limit=1024*1024*1024,private=True,owners=owners) as source:
+        result=run_tool([tool,'--list','/proc/self/fd/'+str(source.fileno())],
+            pass_fds=(source.fileno(),),timeout=30,max_output=4*1024*1024,env=TOOL_ENV)
     require(result.returncode==0 and len(result.stdout)<=4*1024*1024, 'BACKUP_DUMP_LIST_FAILED')
     toc=result.stdout.decode('utf8',errors='strict')
     require(re.search(r'^;\s+dbname: mikrotik_v26_acceptance\s*$',toc,re.M), 'BACKUP_DATABASE_IDENTITY_REJECTED')
@@ -344,6 +507,9 @@ def dump_valid(path,owners):
 
 def main():
     require(os.geteuid()==0 and sys.stdin.isatty(), 'ROOT_AND_INTERACTIVE_VDS_TTY_REQUIRED')
+    require(sys.flags.isolated and sys.flags.no_site and sys.dont_write_bytecode, 'ISOLATED_NO_SITE_NO_BYTECODE_REQUIRED')
+    resource.setrlimit(resource.RLIMIT_CORE,(0,0))
+    require(ctypes.CDLL(None).prctl(4,0,0,0,0)==0, 'PRIVATE_PROCESS_REQUIRED')
     units={name:check(name,lambda n=name:unit(n)) for name in UNITS}
     api=units[UNITS[0]]
     require(api is not None, 'API_UNIT_REQUIRED')
@@ -377,7 +543,7 @@ def main():
     check('capability_selection',lambda:selection(values,identity))
     check('private_tls_material',lambda:private_material(info.st_uid,values))
     check('source_route',source_route)
-    check('readonly_database_dependencies',lambda:database(values,identity,python,info.st_uid,info.st_gid))
+    check('readonly_database_dependencies',lambda:database(values,identity,info.st_uid,info.st_gid))
     if identity is not None and REPORT.get('session_database_match')=='PASS':
         REPORT['verified_operator_candidate']=identity  # ID/revision only; this creates no grant.
     check('rollback_db_dump',lambda:dump_valid(ask_path('V2.6 pg_dump yedeği'),owners|{pwd.getpwnam('postgres').pw_uid}))
@@ -397,7 +563,8 @@ def main():
     print(json.dumps({'status':final,'checks':REPORT,'writes_performed':False,
         'expected_tables':list(TABLES),'allowed_registry_schemas':['public','v26_acceptance'],
         'required_privileges':['DATABASE CONNECT','SCHEMA USAGE','TABLE SELECT,INSERT,UPDATE'],
-        'planned_runtime_layout':'vds-next','dump_restore_tested':False,'device_connection_performed':False},sort_keys=True))
+        'planned_runtime_layout':'vds-next','dump_restore_tested':False,'device_connection_performed':False,
+        'incidental_access_logging_possible':True},sort_keys=True))
     return 0 if final=='PASS' else 1
 
 

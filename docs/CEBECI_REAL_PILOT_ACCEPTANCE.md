@@ -384,3 +384,80 @@ vault parent kontrolü sonrası yalnız ilgili 3 test tekrar PASS. Kaynak syntax
 ve diff kontrolü PASS. Uygulama/frontend değişmediği için frontend build ve
 önceki uygulama testleri tekrarlanmadı. VDS/SSH/deploy/restart/migration/router/
 V1/V2.5/RADIUS/IPsec veya mevcut DB verilerine işlem yapılmadı.
+
+## Standalone betik güvenlik incelemesi — 2026-11-16 — düzeltilmiş sürüm PASS
+
+Başlangıç 07a9032 temiz. Eski dosyanın SHA256'sı yayımlanan
+368ee5ceccbb93458e44c50354f804f3689fb323c40ff77fb4c83f8383a233b9 ile
+birebir eşleşti. Hash doğru olsa da eski sürüme koşulsuz güvenlik PASS verilmedi:
+
+- Servis venv Python'u -I ile başlatılıyordu. -I, .pth/sitecustomize çalışmasını
+  engellemez; read-only SQL başlamadan önce yan etkili başlangıç kodu çalışabilirdi.
+- ssl.create_default_context SSLKEYLOGFILE değişkenini kullanarak dosya
+  açabilirdi. salt okunur iddiası ortamdan bağımsız değildi.
+- Backup metadata kontrolünden sonra archive/pg_restore dosyayı yoluyla yeniden
+  açıyordu. Yol değişiminde kontrol edilen nesneyle okunan nesne farklılaşabilirdi.
+- capture_output sınırı süreç bittikten sonra uygulanıyordu; büyük/bozuk dump
+  çıktısının RAM kullanımını gerçek zamanlı sınırlamıyordu.
+
+Düzeltmeler:
+
+1. Servis venv'i ve uygulama kodu artık çalıştırılmaz/import edilmez. Root
+   sahipliği ve yazılabilirlik denetimli /usr/bin/python3, -I -S -B ile,
+   API UID/GID'sinde açılır. Helper yalnız stdlib ctypes + root sahipli sistem
+   libpq'su kullanır; system/site/user Python başlangıç kancaları yoktur.
+   Ana betik de bu launcher bayrakları yoksa secret toplamadan önce BLOCKED olur.
+2. DB URL env/argv/dosyaya yazılmaz; bounded stdin pipe'ıyla helper'a gider.
+   URL parametreleri tekrar doğrulanır, libpq PQconnectdbParams yalnız sabit
+   host+hostaddr=127.0.0.1, 55433, v26_acceptance/mikrotik_v26_acceptance'a bağlanır.
+   DB query/fragment/service/socket override yoktur. Bu yalnız loopback DB
+   probunda SSL/GSS kapalı, passfile=/dev/null'dır: kullanıcı HOME altındaki
+   varsayılan sertifika/pgpass/GSS dosyaları aranmaz. Router TLS politikası
+   değiştirilmedi. SQL değerleri PQexecParams parametreleridir; assert ile
+   atlanabilen kontrol yoktur. BEGIN REPEATABLE READ READ ONLY + SHOW doğrulaması,
+   session default_transaction_read_only=on ve her sonuçta ROLLBACK vardır.
+   Catalog fonksiyonları pg_catalog ile nitelikli, core tablolar regular table
+   olarak doğrulanır. Yalnız sabit SELECT/SHOW/transaction SQL'i vardır.
+3. TLS context doğrudan SSLContext(PROTOCOL_TLS_CLIENT) ile kurulup TLS>=1.2,
+   hostname/chain doğrulaması ve sabit sistem CA dosyasıyla kullanılır.
+   SSLKEYLOGFILE/SSL_CERT_FILE/SSL_CERT_DIR ortamı key-log veya CA override açmaz.
+   Public pilot CA parse'ı da key-log açmaz. Yeni indirme komutu aynı yaklaşımı
+   kullanır; proxy ve redirect kapalı, commit+hash sabittir, kod hash öncesi çalışmaz.
+4. Çerez gizli TTY girişinden yalnız loopback GET /api/v1/auth/me header'ına
+   gider; başka endpoint, dış HTTPS, argv, env, dosya veya çıktıya gönderilemez.
+   Ana süreç ve DB helper core dump'ı kapatır, Linux dumpable durumunu sıfırlar.
+   Çerez için getpass echo fallback'i reddedilir. Yeni login/grant yaratılmaz.
+5. Dosyalar her parent bileşeni directory FD/openat + O_NOFOLLOW ile dolaşılıp
+   O_RDONLY açılır. Metadata ve içerik aynı FD üzerinden kontrol edilir.
+   Arşiv fileobj'den okunur; pg_restore --list yalnız miras verilen read-only
+   /proc/self/fd/N'i açar. Hiçbir archive extract çağrısı yoktur. PAX/GNU metadata
+   header boyutları payload parse edilmeden sınırlanır, sparse/link türleri reddedilir.
+6. Alt süreçler root sahipli sabit sistem araçlarıdır; ortamları temizlenmiştir.
+   stdout/input pipe'ları canlı byte limiti ve deadline ile işlenir, stderr
+   terminale/dosyaya aktarılmaz. Limitte yalnız aracın kendi child'ı sonlandırılır;
+   mevcut VDS servislerine kill/restart/deploy/DB migration çağrısı yoktur.
+
+Ağ envanteri: launcher raw.githubusercontent.com HTTPS; betik yalnız
+v26.mikmanager.com.tr HTTPS hazır/statik dosyalar, 127.0.0.1:18996 GET ve
+127.0.0.1:55433 DB. Cookie dış HTTPS'e gitmez. systemctl yalnız local show,
+ip yalnız kernel address/route get metadatası; 10.250.0.19'a RouterOS socket,
+login veya veri isteği yoktur. DNS çözümü sistem resolver'ını kullanabilir.
+
+Yazma kapsamı: kod/env/backup/config izin ve içerikleri değişmez; yeni dosya,
+yedek, migration, kalıcı DB değişikliği veya oturum/grant talep edilmez.
+TTY/pipe/stdout IO vardır. Normal OS erişim metadata'sı ve mevcut API/DB erişim
+logları okuma sırasında ilerleyebilir; 'writes_performed=false' bu aracın
+kalıcı değişiklik istemediğini belirtir, tüm işletim sistemi disk hareketlerinin
+sıfır olduğunu iddia etmez. incidental access logging olasılığı JSON'da da
+belirtilir. PASS yalnız incelenmiş launcher ve güvenilen sistem araçları için
+yerel güvenlik sonucudur; gerçek VDS/PG16 işlev veya canlı cihaz kabulü değildir.
+
+Doğrulama: toplam 18 benzersiz hedefli test PASS. İlk 13'lü koşuda sistem yol
+sahipliği fixture'ı host'a dayandığı için tek test BLOCKED oldu; explicit trusted
+system path mock'u eklendi, yalnız o test ve yeni güvenlik testleri çalıştırıldı.
+Son arşiv metadata ve native DB parametre değişikliklerinde yalnız ilgili testler
+tekrarlandı. Gerçek SSLKEYLOGFILE env testi dosya yaratılmadığını kanıtladı;
+read-only FD değişim testi, parent rename/symlink yarışı, timeout/output limit,
+libpq C parametre/cleanup mock ve transaction/rollback negatifleri PASS.
+Native libpq testi gerçek DB'ye bağlanmaz. Syntax/diff PASS. App/frontend değişmedi;
+VDS/SSH/servis/DB/router/RADIUS/IPsec/deployment/migration işlemi yapılmadı.

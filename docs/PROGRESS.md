@@ -1,5 +1,19 @@
 # MikroTik Manager V2 — İlerleme
 
+## 07a9032 preflight güvenlik incelemesi — 2026-11-16 — düzeltildi
+
+- Eski SHA doğru; venv .pth/sitecustomize, SSLKEYLOGFILE dosya açma,
+  backup yeniden-açma yarışı ve subprocess capture limit eksikleri bulundu.
+- Sistem Python -I -S -B + trusted libpq, sabit loopback/readonly transaction;
+  key-log/env CA'sız TLS, cookie-only /auth/me, core/dumpable kapalı;
+  anchored read-only FD, bounded archive header ve subprocess pipe/deadline.
+- 18 benzersiz hedefli test PASS; yalnız fixture hatası/ilgili son değişiklikler
+  yeniden doğrulandı. Syntax/diff PASS; app/frontend/build değişikliği yok.
+- Yeni pin/hash dosyası güncellendi; eski komut yerine yeni commit/hash kullanılır.
+  Tek rapor CEBECI_REAL_PILOT_ACCEPTANCE.md son bölüm. VDS/SSH/servis/DB/device
+  işlemi yok. Güvenlik PASS gerçek VDS işlev/cihaz kabulü değildir.
+
+
 ## 209fd6d / VDS 79b8484 için standalone read-only preflight — 2026-11-16
 
 - Model/006 kontratı: üç v2_* registry tablosu, aynı public/v26_acceptance;
