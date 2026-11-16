@@ -42,6 +42,18 @@ def complete_receipts(receipts,profile,now=None):
     return None
 
 
+SECURITY_HEADERS={'X-Content-Type-Options':'nosniff','X-Frame-Options':'SAMEORIGIN',
+                  'Referrer-Policy':'strict-origin-when-cross-origin','Cache-Control':'no-store'}
+
+
+def public_header_checks(headers,profile):
+    checks={key:headers.get('X-V26-'+key)==profile[field] for key,field in
+            [('Instance','instance'),('Release','commit'),('Database','database')]}
+    checks.update({key:headers.get(key)==value for key,value in SECURITY_HEADERS.items()})
+    checks['Content-Type']=headers.get('Content-Type','').split(';',1)[0].strip().lower()=='text/html'
+    return checks
+
+
 def static_config(root,runtime,profile):
     require(re.fullmatch('[0-9a-f]{40}',profile['commit']) is not None,'RELEASE_COMMIT_REJECTED')
     require(re.fullmatch('[0-9a-f]{64}',profile['database']) is not None,'DATABASE_FINGERPRINT_REJECTED')
@@ -71,6 +83,9 @@ http {{
   add_header X-V26-Release "{profile['commit']}" always;
   add_header X-V26-Database "{profile['database']}" always;
   add_header Cache-Control "no-store" always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header X-Frame-Options "SAMEORIGIN" always;
+  add_header Referrer-Policy "strict-origin-when-cross-origin" always;
   location ~ (^|/)\\. {{ return 404; }}
   location /src/ {{ return 404; }}
   location /@vite {{ return 404; }}

@@ -43,6 +43,14 @@ def request(opener,origin,path,stage,body=None):
              'TIMEOUT' if isinstance(cause,TimeoutError) else 'CONNECTION')
         raise AcceptanceFailure(stage,'ACCEPTANCE_TRANSPORT',dict(transport=kind),transient=kind in ('TIMEOUT','CONNECTION')) from None
     if status!=200:raise AcceptanceFailure(stage,'ACCEPTANCE_HTTP_STATUS',dict(http_status=status),transient=status in (502,503,504))
+    expected=None
+    if path.startswith('/api/'):expected={'application/json'}
+    elif path=='/':expected={'text/html'}
+    elif path.startswith('/assets/'):
+        if path.endswith('.js'):expected={'application/javascript','text/javascript'}
+        elif path.endswith('.css'):expected={'text/css'}
+    if expected is not None and mime not in expected:
+        raise AcceptanceFailure(stage,'ACCEPTANCE_CONTENT_TYPE_REJECTED',dict(http_status=status))
     return raw
 
 

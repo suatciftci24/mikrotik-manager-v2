@@ -130,3 +130,13 @@ kanıtı değildir. Eski kayıtta kaybolan neden journal veya aday probe ile de
 kanıtlanamazsa UNKNOWN olarak kalır; üst BLOCKED/exit 1 beklenen sonuçtur.
 Yeni dağıtımlarda failure.json ilk başarısız aşamayı korur; yalnız geçici ready
 hatası beklenir, panel/login/statik kimlik hatası tekrarlarla gizlenmez.
+
+### Statik teslim kabulü
+
+Bayt/hash eşitliğine ek olarak API JSON, index HTML, JS JavaScript ve CSS doğru
+Content-Type ile sunulmalıdır. Yeni private statik config nosniff, SAMEORIGIN,
+strict-origin-when-cross-origin ve no-store üretir. Remote kabul ve bağımsız
+ev/ofis gözlemleri bu başlıkları X-V26 instance/release/database ile birlikte
+zorunlu doğrular. Bunlar yalnız araç koduna eklenmiştir; mevcut VDS yapılandırması
+bu geliştirme sırasında değiştirilmemiştir. Gerçek HTTPS kabulü alınmadan
+araç testlerinin geçmesi canlı yayın PASS'i değildir.

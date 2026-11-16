@@ -21,9 +21,10 @@ def git(*args):return subprocess.check_output(['git',*args],cwd=ROOT,text=True).
 def source(commit,path):return subprocess.check_output(['git','show',commit+':'+path],cwd=ROOT,text=True)
 
 
-def observe(profile,credentials,location,legacy):
+def observe(profile,credentials,location,legacy,policy_source):
     namespace={'__name__':'client_observation','ADMIN':credentials}
     exec(legacy,namespace)
+    policy={'__name__':'client_policy'};exec(policy_source,policy)
     opener=namespace['client']()
     namespace['ready'](opener)
     namespace['admin_check'](opener)  # Dedicated login/session check; credentials never stored.
@@ -31,8 +32,7 @@ def observe(profile,credentials,location,legacy):
     try:
         if user.get('role_code')!='ADMIN':raise RuntimeError('ADMIN_REQUIRED')
         with opener.open(ORIGIN+'/',timeout=15) as response:
-            if any(response.headers.get('X-V26-'+key)!=profile[field] for key,field in
-                   [('Instance','instance'),('Release','commit'),('Database','database')]):
+            if response.status!=200 or not all(policy['public_header_checks'](response.headers,profile).values()):
                 raise RuntimeError('CENTRAL_BROWSER_BINDING_MISMATCH')
         ready=json.loads(namespace['request'](opener,'/api/ready'))
         if ready['build_id']!=profile['build_id']:raise RuntimeError('CLIENT_RELEASE_BUILD_MISMATCH')
@@ -105,7 +105,7 @@ def main():
             process.wait();print(json.dumps(dict(status='BLOCKED',reason='SSH_CHANNEL_UNAVAILABLE')));return 1
         event=json.loads(line)
         if event.get('event')!='CENTRAL_READY':print(json.dumps(event));return 1
-        try:receipt=observe(event['profile'],credentials,args.verify_location or 'office',values['LEGACY'])
+        try:receipt=observe(event['profile'],credentials,args.verify_location or 'office',values['LEGACY'],values['POLICY'])
         except Exception as error:
             print(json.dumps(dict(status='BLOCKED',setup='VERIFIED',live_commit=event['profile']['commit'],
                   reason=str(error) if isinstance(error,RuntimeError) else type(error).__name__)))

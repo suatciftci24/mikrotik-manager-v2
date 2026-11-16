@@ -6338,3 +6338,29 @@ Her iki ilerleme kaydi korunmustur:
   ait özgün kayıt yok; şimdi bu aşamalar doğrulanmış değil. Yeni yayın denenmedi.
   Yeni kod gelecekte asıl aşamayı korur; geçmiş nedeni tahmin ederek PASS yok.
   V1/V2.5/router/RADIUS/IPsec/DB ve üç stash'e işlem yapılmadı.
+
+## HTTPS/statik yayın kabul kapıları — 2026-11-16 — yerel hazır, canlı BLOCKED
+
+- Başlangıç 7eb83bd, temiz main-guncel. Önceki aday API 8/8, DB/restore/011
+  ve rollback kanıtları tekrar çalıştırılmadan kullanıldı. SSH/canlı değişiklik yok.
+- Doğrulanmış eksikler: D.request MIME türünü okuyup kullanmıyordu; aynı dosya
+  baytları yanlış MIME ile kabul edilebiliyordu. X-V26 identity header'ları vardı
+  ancak tarayıcı güvenlik başlıkları ve no-store kabul sözleşmesine bağlı değildi.
+- API application/json, index text/html, JS text/javascript veya
+  application/javascript, CSS text/css zorunlu. Bilinmeyen MIME reddi aşama
+  bazlı, response/header içerikleri raporlanmadan yapılır. TLS varsayılan CA/host
+  doğrulaması, yönlendirme reddi ve canonical HTTPS origin korunur.
+- Yalnız gelecekte üretilecek private statik Nginx config'e nosniff,
+  X-Frame-Options SAMEORIGIN, Referrer-Policy strict-origin-when-cross-origin
+  eklendi. Ortak public_header_checks hem remote kabul hem ev/ofis gözleminde
+  identity/release/DB, MIME ve no-store+güvenlik başlıklarını zorunlu doğrular.
+  Dış Nginx/VDS config değiştirilmedi; eski yayında yoksa sessiz PASS yok.
+- Yeni 4 offline hedefli test PASS: her eksik/yanlış header reddi, üretilen
+  Nginx header sözleşmesi, doğru byte/yanlış MIME reddi, ofis receipt öncesi
+  eksik nosniff reddi. Önceki test paketleri yeniden çalıştırılmadı.
+- Root ve /api/ready tek salt okunur erişim denemesinde URLError: canlı HTTPS,
+  statik, header ve version kapıları bu ortamda doğrulanamadı. Eski c74a367
+  kaydı kayıp aşamayı geri getirmez. Yeni yayın denenmedi; üç stash korundu.
+- Yerel araç yeni kapılarla hazır; canlı BLOCKED. Tek güvenli sonraki adım
+  ofis WSL'de --diagnose-attempt attempt-pcpsra2q ile mevcut yayın/rollback
+  durumunu salt okunur yeniden ölçmek; bu komut dağıtım yapmaz ve PASS üretmez.

@@ -199,8 +199,8 @@ def public_accept(profile):
                 checked(opener,path)==(release/'dist'/path.lstrip('/')).read_bytes(),'CENTRAL_STATIC_ASSET_MISMATCH'))
         def headers():
             with opener.open(ORIGIN+'/',timeout=10) as response:
-                values={key:response.headers.get('X-V26-'+key)==profile[field] for key,field in
-                        [('Instance','instance'),('Release','commit'),('Database','database')]}
+                values=public_header_checks(response.headers,profile)
+                values['HTTP_STATUS']=response.status==200
                 if not all(values.values()):raise D['AcceptanceFailure']('PUBLIC_HEADERS',
                     'CENTRAL_PUBLIC_BINDING_MISMATCH',dict(matches=values,http_status=response.status))
         D['step']('PUBLIC_HEADERS',headers)
