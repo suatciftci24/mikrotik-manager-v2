@@ -9,7 +9,11 @@ SCHEMA='v2_subscriber_workspace'
 MIGRATION=ROOT/'migrations/versions/008_subscriber_workspace.sql'
 
 def validate(check,schema=SCHEMA,router_schema='v2_router_workspace'):
-    require(set(check.get_table_names(schema=schema))=={'subscribers','events'},'Abone çalışma alanı şeması eksik/farklı.')
+    names=set(check.get_table_names(schema=schema))
+    require(names in ({'subscribers','events'}, {'subscribers','events','packages','package_events'}),'Abone çalışma alanı şeması eksik/farklı.')
+    if 'packages' in names:
+        from app.package_catalog_schema import validate as validate_packages
+        validate_packages(check,schema)
     for table in TABLES:
         actual={c['name']:c for c in check.get_columns(table.name,schema=schema)}
         require(set(actual)==set(table.columns.keys()),'Abone sütunları farklı.')

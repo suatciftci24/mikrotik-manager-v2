@@ -5992,3 +5992,25 @@ Her iki ilerleme kaydi korunmustur:
 - Kabul: docs/V26_SHARED_API_ACCEPTANCE.md. Sonraki iş erişim sağlanınca
   merkezi API sürümü ve workspace envanterini salt okunur doğrulamaktır.
   Normal commit/push sonucu teslimde; uzak başarı olmadan tam teslim PASS yok.
+
+## V26 merkezi hazırlık / şema ve temizlik önizlemesi — 2026-11-16
+
+- Başlangıç temiz main-guncel/3b4f353, üç stash korundu; Altın Kurallar ve son
+  ortak API/paket/PPPoE kabulü esas alındı. Tamamlanan UI/build tekrarlanmadı.
+- Bildirilen VDS b4e78a4, tabanın 10 commit gerisindeki atası; bu aralıkta
+  backend/app ve migrations farkı yok. VDS gerçek HEAD SSH EPERM ile BLOCKED.
+  GET /api/ready doğru V26 profile/v1 döndürdü; database_checked=false.
+- Paket ORM tablolarının eksik sürümlü SQL artefaktı 011 eklendi; uygulanmadı.
+  Workspace 008 validator'ı tam katalog uzantısını doğrulayarak kabul eder;
+  kısmi/unknown tablo ve PK/unique/type/index/revision drift reddedilir.
+- Yeni preflight URL/DB/rol/port sabitler; tek read-only repeatable-read snapshot,
+  timeout/finally rollback, aktif ADMIN şartı. Sır/hesap alanları alınmaz.
+  Cleanup preview açık ID/revizyon, canonical demo router ve referans kontrolü
+  kullanır; user/audit/event/katalog korunur. Silme executor'ı/otomatik onarım yok.
+- PASS: 6 yeni offline + 3 mevcut workspace testi; diff check. DB bağlantısı,
+  migration/DDL çalıştırma, kullanıcı/parola değişimi veya gerçek silme yok.
+- Uçtan uca merkezi kabul BLOCKED: VDS şema/workspace ve kimlikli ev/ofis oturumu
+  doğrulanmadı. İlk fetch DNS hatası; commit/normal push sonucu teslimde.
+  Ayrıntı ve bir sonraki somut adım V26_SHARED_API_ACCEPTANCE.md devamında:
+  erişim sağlanınca VDS preflight envanteri; canlı uygulama ayrı kapsam/onay.
+- V1/V2.5/router/RADIUS/IPsec/canlı servisler ve yerel veriler değişmedi.
