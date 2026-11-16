@@ -11,6 +11,28 @@ PROFILE = "v26-isolated-acceptance"
 PORT = "18996"
 ROOT = Path("/tmp/mikrotik-v26-acceptance")
 HOST = "127.0.0.1"
+# Code location is separate from the existing acceptance data/maintenance ROOT.
+# No arbitrary path override or implicit fallback is accepted.
+LAYOUT_KEY = "V2_V26_RUNTIME_LAYOUT"
+VDS_ROOT = Path("/srv/mikrotik-v26-next")
+
+
+def expected_code_root(values):
+    layout = values.get(LAYOUT_KEY, "acceptance")
+    if layout == "acceptance":
+        return ROOT
+    if layout == "vds-next":
+        return VDS_ROOT
+    raise RuntimeError("V26_RUNTIME_LAYOUT_REJECTED")
+
+
+def code_root():
+    return Path(__file__).resolve().parents[3]
+
+
+def validate_current(values=None):
+    """Measure the imported code tree, never substitute the expected constant."""
+    return validate(values, code_root())
 
 
 def validate(values=None, root=None):
@@ -19,7 +41,7 @@ def validate(values=None, root=None):
     if values.get("V2_DEPLOYMENT_PROFILE") != PROFILE:
         raise RuntimeError("V26_ACCEPTANCE_PROFILE_REJECTED")
 
-    if root is None or Path(root).resolve() != ROOT:
+    if root is None or not Path(root).is_absolute() or Path(root).resolve() != expected_code_root(values):
         raise RuntimeError("V26_ACCEPTANCE_ROOT_REJECTED")
 
     if values.get("V2_API_HOST") != HOST:

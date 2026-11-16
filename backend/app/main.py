@@ -1,10 +1,15 @@
+# Validate the actual imported code location before constructing routes/engines.
+import os
+from app.core import v26_acceptance
+if os.environ.get('V2_DEPLOYMENT_PROFILE') == v26_acceptance.PROFILE:
+    v26_acceptance.validate_current()
+
 from app.runtime_identity import BUILD_ID,REPO_ID
 from app.local_ports import ui_base,api_port
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from app.services import demo_subscriptions
 from fastapi.middleware.cors import CORSMiddleware
-import os
 
 from app.api.v1.app_router import api_router
 from app.core.config import settings

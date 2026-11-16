@@ -92,6 +92,7 @@ class PilotRuntimeTests(TestCase):
 
     def test_vds_missing_admin_import_never_authenticates_demo_or_invents_allowlisted_id(self):
         adapter = MagicMock()
+        adapter.schema = 'v2_demo'  # Explicit V2.5 fixture; never an implicit schema fallback.
         connection = adapter.engine.connect.return_value.__enter__.return_value
         with patch.dict(os.environ, template(), clear=True), patch.object(identity, 'adapter', return_value=adapter):
             for state in (IdentitySetup(False), IdentitySetup(True, True, True, False)):

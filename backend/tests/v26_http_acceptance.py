@@ -520,6 +520,7 @@ def import_only_diagnostic():
         if Path.cwd() != SOURCE or 'app.main' in sys.modules:
             raise AcceptanceBlocked('IMPORT_DIAGNOSTIC_REQUIRES_FRESH_REPO_PROCESS')
         with patch.dict(os.environ, isolated_environment({}), clear=True), \
+             patch('app.core.v26_acceptance.code_root', return_value=ROOT), \
              patch('socket.socket', NoSocket), \
              patch('sqlalchemy.engine.Engine.connect', side_effect=AcceptanceBlocked('IMPORT_DB_FORBIDDEN')), \
              patch('psycopg.connect', side_effect=AcceptanceBlocked('IMPORT_DB_FORBIDDEN')), \

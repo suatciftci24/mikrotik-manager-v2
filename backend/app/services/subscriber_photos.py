@@ -56,7 +56,7 @@ class SubscriberPhotoStore:
             if os.environ.get("V2_DEPLOYMENT_PROFILE") != v26_acceptance.PROFILE:
                 raise PhotoError(404, "Fotoğraf alanı yalnız V2.6 izole kabul ortamında kullanılabilir.")
             try:
-                v26_acceptance.validate(root=v26_acceptance.ROOT)
+                v26_acceptance.validate_current()
             except RuntimeError:
                 raise PhotoError(404, "V2.6 izole kabul yapılandırması doğrulanamadı.") from None
             root = v26_acceptance.ROOT / "subscriber-photos"

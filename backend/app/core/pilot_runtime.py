@@ -15,7 +15,7 @@ def validate_scope(environment=None):
     from app.core import fresh_pilot, v26_acceptance, v26_cebeci
     v26_cebeci.validate(values)
     if v26_cebeci.in_profile(values):
-        v26_acceptance.validate(values, v26_acceptance.ROOT)
+        v26_acceptance.validate_current(values)
         return
     if fresh_pilot.active(values):
         fresh_pilot.validate(values)

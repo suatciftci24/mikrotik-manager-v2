@@ -41,7 +41,7 @@ def operator_allowed(user):
     from app.core.pilot_operator import pilot_identity
     from app.core import v26_acceptance
     try:
-        v26_acceptance.validate(root=v26_acceptance.ROOT)
+        v26_acceptance.validate_current()
         if not enabled():
             return False
         identity = pilot_identity(user)
@@ -55,7 +55,7 @@ def operator_allowed(user):
 def policy():
     from app.core import v26_acceptance
     from app.adapters.router_api_ssl import ConnectionPolicy
-    v26_acceptance.validate(root=v26_acceptance.ROOT)
+    v26_acceptance.validate_current()
     return ConnectionPolicy(enabled(), '10.250.0.1', ('10.250.0.19/32',), (8729,))
 
 

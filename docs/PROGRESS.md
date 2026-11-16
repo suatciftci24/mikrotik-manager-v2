@@ -1,5 +1,21 @@
 # MikroTik Manager V2 — İlerleme
 
+## 79b8484 gerçek kod kökü / dependency incelemesi — 2026-11-16
+
+- Kök neden: main root doğrulamıyordu; store/scope/capability beklenen ROOT'u
+  geri veriyor, panel factory gerçek root'u geçiriyordu. Bu farklılık giderildi.
+- Explicit V2_V26_RUNTIME_LAYOUT=vds-next yalnız /srv/mikrotik-v26-next koduna;
+  varsayılan acceptance yalnız /tmp koduna izin verir. Gerçek __file__ ölçülür.
+  Eski ROOT veri/bakım ve DB/kullanıcı/port/kapılar/TLS/ADMIN sınırları korunur.
+- Salt okunur dependency inspector eklendi; registry şema/hak, gerçek yönetici
+  ID/revizyon ve private materyal kontrolü; her transaction rollback, cihaz IO yok.
+- 49 benzersiz hedefli backend test, soketsiz import-only ve frontend build PASS.
+  İki fixture hatası güvenliği gevşetmeden düzeltildi; yalnız başarısızlar tekrarlandı.
+- Tek rapor: CEBECI_REAL_PILOT_ACCEPTANCE.md son bölüm. Canlı dağıtım BLOCKED:
+  mevcut registry şema/hakları, gerçek ADMIN seçimi, unit/env/drift ve kod/env
+  rollback kanıtı yok. SSH erişimi denenmedi; deploy/restart/migration yok.
+
+
 ## Kabul profilinde CEBECI capability — 2026-11-16 — yerel PASS
 
 - Başlangıç 82ef534 temiz; son kullanıcı VDS servisleri/run-once/pg_dump kanıtını

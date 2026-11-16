@@ -208,3 +208,110 @@ karşılaştırır; backend yetkisi esastır. Kapı açılışı bağlantı baş
    restore etme, yeni kullanıcı/abone verisini ezme veya registry/audit kayıtlarını
    silme. Şema değişmediği için kod/env geri dönüşü DB restore gerektirmez.
    Belirsiz isteği yeni UUID ile otomatik tekrarlama; mevcut proof/audit'i incele.
+
+## 79b8484 runtime/root ve dağıtım bağımlılık incelemesi — 2026-11-16
+
+### Kanıtlanan kök neden ve çağrı zinciri
+
+79b8484 öncesi/sonrası kaynak zinciri:
+
+- app.main:app doğrudan girişinde runtime/root guard yoktu. /api/ready,
+  DB'ye ve root'a dokunmadan yanıt verebiliyordu; hazır yanıtı runtime kabulü değildi.
+- app.pilot_panel:create_app → validate_runtime(ROOT) gerçek __file__ kökünü
+  kullanıyordu. /srv/mikrotik-v26-next fiziksel ağaçsa varsayılan /tmp köküyle
+  uyuşmaz ve doğru biçimde V26_ACCEPTANCE_ROOT_REJECTED verirdi.
+- PostgresDemoStore → validate_runtime(v26_acceptance.ROOT),
+  validate_scope → validate(values, v26_acceptance.ROOT), capability
+  operator_allowed/policy ve fotoğraf deposu → validate(root=ROOT) çağrıları
+  beklenen sabiti doğrulayıcıya geri veriyordu. Bu, gerçek import edilen kod
+  ağacının nerede olduğunu kanıtlamıyordu. Çalışan API ile factory yolu bu
+  nedenle farklı sonuç verebiliyordu. Önceki testler bu ölçüm eksikliğini
+  sentetik beklenen ROOT üzerinden örtük taşıyordu.
+
+Dolayısıyla sorun salt yanlış environment bayrağı değildir. ROOT'u /srv ile
+körlemesine değiştirmek fotoğraf/ilk yönetici gibi mevcut /tmp veri/bakım
+sınırlarını taşır; root kontrolünü kaldırmak veya sabiti geri vermeye devam
+etmek gerçek kod ağacını doğrulamaz. Bu iki yaklaşım kullanılmadı.
+
+### Yerel kalıcı düzeltme
+
+ROOT=/tmp/mikrotik-v26-acceptance veri/bakım sabiti korundu. Ayrı ve sabit kod
+konumu sözleşmesi eklendi:
+
+- V2_V26_RUNTIME_LAYOUT verilmezse veya acceptance ise yalnız fiziksel
+  /tmp/mikrotik-v26-acceptance kod ağacı kabul edilir.
+- Yalnız açık V2_V26_RUNTIME_LAYOUT=vds-next seçimi fiziksel
+  /srv/mikrotik-v26-next kod ağacını kabul eder.
+- Başka değer/yol, göreli yol ve başka fiziksel ağaca çözülen alias reddedilir.
+  Serbest root environment override'ı, otomatik keşif veya fallback yoktur.
+- validate_current() root'u kendi __file__ yolundan ölçer. app.main ilk
+  satırlarda routes/engine kurulmadan önce bunu çağırır. Store, scope,
+  capability ve fotoğraf doğrulaması da artık bu ölçümü kullanır.
+  pilot_panel zaten gerçek kök geçirir; aynı iki sabit layout sözleşmesine uyar.
+- Profil/host/API 18996, DB rol/ad/55433, şema marker'ı, eski genel iki false
+  bayrak, boş eski operator allowlist, yeni explicit ADMIN ID/revision,
+  TLS/pin/source/tek router/manual consent/audit kontrolleri değişmedi.
+- Fotoğrafların mevcut /tmp yolu ve bakıma ait ilk yönetici sınırı taşınmadı.
+  vds-next layout ilk-yönetici oluşturma aracına /srv yetkisi vermez.
+  .local secret/vault kökü mevcut fiziksel VDS kod ağacına göre kalır;
+  tmp/V1/V2.5'ten otomatik sır veya veri kopyalanmaz.
+
+V2.6 adaptörünün gerçek engine URL'sinde query host/socket override'ı da
+bağlantı öncesinde reddedilir; yalnız environment URL kontrolüne dayanılmaz.
+
+Sentetik workspace testleri gerçek /srv kurulumu değildir: path ölçümü bu
+fixture'larda artık açıkça mock'lanır. Disposable PG fixture ve import-only
+teşhisi de kaynak ağacından import ettiklerini açıkça belirtir. Ürün kodunda
+bir test bayrağıyla root/DB güvenliğini atlayan yol eklenmedi. Yeni bağımsız
+root regresyonu, gerçek workspace importunun DB/network öncesinde reddini
+ayrı süreçte kanıtlar.
+
+### Dağıtım bağımlılıkları ve tek karar
+
+Yeni app.v26_cebeci_preflight --inspect yalnız READ ONLY / REPEATABLE READ
+transaction içinde mevcut DB kimliği/marker, ORM'nin gerçekten çözdüğü üç
+registry tablosunun namespace/sütun/type/PK/index/endpoint unique kuralı ve
+SELECT/INSERT/UPDATE haklarını kontrol eder. Aynı snapshot'ta mevcut kapalı
+bootstrap ve açık seçilmiş gerçek LOCAL ADMIN ID/revision/scope doğrulanır.
+Yalnız bundan sonra private V2 dosyaları ve public CA parse edilir; RouterOS
+soketi/login/probe, schema yaratma, migration, kullanıcı yazma ve servis işlemi
+yoktur. Transaction her sonuçta rollback edilir. Hata çıktısı sır/SQL/DSN
+sızdırmaz. PASS burada yalnız preflight'tır; canlı cihaz/panel/deploy kabulü değildir.
+
+Bu oturumda VDS erişilmedi. Kullanıcının bildirdiği servis active/run-once PASS/
+pg_dump listesi aşağıdakilerin kanıtı değildir:
+
+1. Mevcut üç registry tablosunun uyumlu şema/indeks/haklarla varlığı.
+   Migration 006 bunların tarihsel tanımıdır; kabul kullanıcısı/abone kurulumu
+   bunları tek başına garanti etmez. Eksik oldukları varsayılmaz; mevcut
+   kanıtlarla varlıkları da doğrulanmış sayılamaz. Eksikte ayrı migration
+   değerlendirmesi gerekir; bu görevde migration yetkisi yoktur.
+2. Gerçek V2.6 yöneticisinin doğrulanmış ID/revision/scope seçimi.
+   Eski VDS sabit ID'sinden bu bilgi üretilemez veya grant devralınamaz.
+3. İlgili API unit'in gerçek factory/env dosyası, sürüm drift'i, kod/config/dist
+   geri dönüş yedeği ve yeni layout seçiminin o unit'e uygulanma biçimi.
+   pg_restore -l DB dump okunabilirliğidir; uygulama/env rollback kanıtı değildir.
+
+Bu bağımlılıklar kapatılmadan tek satır git pull/restart, eski V2/V2.5 deploy
+aracı veya frontend-only update.py kullanmak uygulanabilir dağıtım çözümü
+olmaz. Eski araçların sabit hedefleri farklıdır ve backend/env güncellemesini
+karşılamaz. Runtime düzeltmesi gerekli olsa da bunların yerine geçmez.
+
+SON KARAR: yerel düzeltme/test/build PASS; tek komutla canlı dağıtım BLOCKED.
+Gerçek neden SSH kısıtı değil, onaylı gerçek ADMIN seçimi ve registry/unit/
+rollback bağımlılıklarının kanıtlanmamış olmasıdır. Önceki altı adımlı planın
+root/factory belirsizliği bu bölümdeki explicit layout çözümüyle güncellendi;
+VDS'de dependency preflight PASS olmadan uygulama adımına geçilmez.
+
+### Doğrulama ve sınırlar
+
+İki hedefli backend paketi: 28 ve 24 test çalıştırıldı (import edilen aynı
+fixture'dan 3 tekrar dahil; toplam 49 benzersiz test). İlkinde tek eski
+V2.5 fixture'ında schema string'i yerine MagicMock verilmesi, ikincisinde
+context manager fixture'ında Mock kullanımı görüldü. Ürün kontrolleri korunup
+fixture'lar explicit schema/MagicMock ile düzeltildi; yalnız bu iki başarısız
+test yeniden PASS. Diğer PASS testler tekrarlanmadı. Son engine-query override reddi eklendiğinde
+yalnız ilgili root/storage testi yeniden PASS oldu.
+Soketsiz --import-only uygulama grafiği PASS: socket/DB/process başlatma yasak.
+Frontend TypeScript/Vite build ve diff kontrolü PASS. Gerçek PostgreSQL,
+VDS/SSH/router/RADIUS/IPsec/deploy/restart/migration işlemi yapılmadı.

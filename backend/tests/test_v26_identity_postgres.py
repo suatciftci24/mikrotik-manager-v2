@@ -56,6 +56,10 @@ class V26IdentityPostgres(unittest.TestCase):
     def setUpClass(cls):
         cls.stage = 'PRIVATE_CLUSTER_DIRECTORY'
         cls.root = v26_acceptance.ROOT
+        # This fixture imports source from the workspace while hosting an owned
+        # disposable cluster. It is not an installed-code-root acceptance test.
+        code_path = patch.object(v26_acceptance, 'code_root', return_value=cls.root)
+        code_path.start(); cls.addClassCleanup(code_path.stop)
         # Refuse any pre-existing acceptance environment, including symlinks.
         with defer_interrupts():
             cls.owned = OwnedRoot(cls.root)

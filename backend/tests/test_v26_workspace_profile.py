@@ -9,6 +9,12 @@ from app.services.demo_subscriptions import DemoStorageUnavailable
 
 
 class WorkspaceProfileTests(TestCase):
+    def setUp(self):
+        # Synthetic path for this mocked PG guard; runtime measurement is tested separately.
+        from app.core import v26_acceptance
+        patcher=patch.object(v26_acceptance,'code_root',return_value=v26_acceptance.ROOT)
+        patcher.start();self.addCleanup(patcher.stop)
+
     def session(self, port=55433):
         session = Mock()
         session.get_bind.return_value.url = URL.create(

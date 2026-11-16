@@ -28,6 +28,10 @@ def environment(enabled=True):
     return base
 
 class CapabilityTests(TestCase):
+    def setUp(self):
+        patcher=patch.object(v26_acceptance,'code_root',return_value=v26_acceptance.ROOT)
+        patcher.start();self.addCleanup(patcher.stop)
+
     def test_baseline_profile_database_and_generic_gates_are_unchanged(self):
         for live in (False,True):
             env=environment(live)
@@ -95,6 +99,8 @@ class CapabilityTests(TestCase):
 class CapabilityRegistryTests(TestCase):
     def setUp(self):
         fixture.RegistryTests.setUp(self)
+        root=patch.object(v26_acceptance,'code_root',return_value=v26_acceptance.ROOT)
+        root.start();self.addCleanup(root.stop)
         self.client.probe.return_value=dict(identity='CEBECI_TOWERS',model='RB3011UiAS',routeros_version='6.49.19')
         self.registry.policy=v26_cebeci.policy
         self.env=patch.dict(os.environ,environment(),clear=True);self.env.start();self.addCleanup(self.env.stop)

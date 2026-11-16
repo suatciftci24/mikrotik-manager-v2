@@ -31,9 +31,9 @@ class PostgresDemoStore:
         if fresh:
             fresh_pilot.validate()
         if v26:
-            from app.core.pilot_runtime import validate_runtime
-            from app.core.v26_acceptance import ROOT
-            validate_runtime(ROOT)
+            v26_acceptance.validate_current()
+            if url.query:
+                raise DemoStorageUnavailable()  # No query-level host/socket overrides.
         target = ((55433, 'mikrotik_v26_acceptance', 'v26_acceptance') if v26
                   else (fresh_pilot.PORT, fresh_pilot.DB, fresh_pilot.ROLE) if fresh
                   else (55432, 'mikrotik_manager_v2', 'v2_local'))
