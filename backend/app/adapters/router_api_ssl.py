@@ -100,7 +100,9 @@ class RouterApiSslClient:
             metadata=dict(identity=identity[0]['name'],model=resource[0]['board-name'],routeros_version=version)
             if details:
                 from app.adapters.router_readonly import snapshot
-                return snapshot(wire,metadata,resource[0],credentials[1])
+                result=snapshot(wire,metadata,resource[0],credentials[1])
+                wire.timeout()
+                return result
             return metadata
         except ApiSslStop:raise
         except ssl.SSLError:raise ApiSslStop('TLS_VERIFICATION_FAILED') from None

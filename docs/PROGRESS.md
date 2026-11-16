@@ -1,5 +1,19 @@
 # MikroTik Manager V2 — İlerleme
 
+## CEBECI gerçek pilot hazırlığı — 2026-11-16 — yerel PASS
+
+- V1 kaynak bağlantısı/WAN/poller ve V2 registry/TLS/read-only zinciri incelendi.
+- Yalnız mevcut CEBECI detail okuması: WAN interface/IP eşlemesi, ayrı aktif
+  PPPoE/Hotspot oturum sayıları, UTC snapshot ve UI. Belirsiz WAN unknown;
+  eski snapshot yeni alanları unknown; deadline son detail read'i de kapsar.
+- 45 benzersiz hedefli backend testi PASS; test fixture düzenlemesinden sonra
+  yalnız yeni 3 test PASS. TypeScript/Vite build ve diff check PASS.
+- Gerçek bağlantı/V1 ayrılma/deploy/migration/restart yok. V1/router/VDS/mevcut
+  DB/RADIUS korunur. Gate/config/credentials değişmedi. Canlı kabul açık.
+- Kabul ve sonraki ayrı onay kapsamı: CEBECI_REAL_PILOT_ACCEPTANCE.md.
+- GitHub DNS nedeniyle remote kontrol/push engelli; yerel commit sonuçta bildirilir.
+
+
 ## Remote Observer / kanıt / runtime principal — 2026-11-13 — izole PASS
 
 - Başlangıç main-guncel/6078c2d temiz; kurallar/son AAA kabul ve mevcut

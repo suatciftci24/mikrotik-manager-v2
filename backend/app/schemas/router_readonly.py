@@ -1,4 +1,5 @@
 """Only public read-only telemetry; no account names or credentials can cross this DTO."""
+from ipaddress import IPv4Interface
 from datetime import datetime,timezone
 from typing import Literal
 from pydantic import BaseModel,ConfigDict,Field,field_validator
@@ -26,7 +27,10 @@ class ReadOnlySnapshot(BaseModel):
     captured_at:datetime
     interfaces:list[InterfaceSnapshot]=Field(max_length=128)
     default_routes:list[DefaultRouteSnapshot]=Field(max_length=128)
-    wan_ip:None=None
+    wan_ip:IPv4Interface|None=None
+    wan_interface:str|None=Field(default=None,max_length=160)
+    pppoe_active_count:int|None=Field(default=None,ge=0,le=128)
+    hotspot_active_count:int|None=Field(default=None,ge=0,le=128)
     pppoe_count:int|None=Field(ge=0,le=128)
     pppoe_explicit_count:int=Field(ge=0,le=128)
     ppp_any_count:int=Field(ge=0,le=128)
