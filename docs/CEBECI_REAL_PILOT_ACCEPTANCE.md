@@ -461,3 +461,32 @@ read-only FD değişim testi, parent rename/symlink yarışı, timeout/output li
 libpq C parametre/cleanup mock ve transaction/rollback negatifleri PASS.
 Native libpq testi gerçek DB'ye bağlanmaz. Syntax/diff PASS. App/frontend değişmedi;
 VDS/SSH/servis/DB/router/RADIUS/IPsec/deployment/migration işlemi yapılmadı.
+
+## TABLE_ABSENT sonrası registry planı — 2026-11-16
+
+Kullanıcının son VDS readonly sonucu: authenticated_local_admin,
+capability_selection, database, session_database_match PASS; aday
+v2-user-49b00e12-4d11-4413-94ee-f222ab056703 / revision 0. Üç tablo TABLE_ABSENT;
+ACTIVE_CODE_IDENTITY_MISMATCH ve ikincil CODE_SNAPSHOT_REQUIRED; rollback
+kanıtları tamamlanmamış. Geçmiş BLOCKED kayıtları kapanmış sayılmaz.
+
+Tek güncel operasyon planı: [CEBECI_REGISTRY_MIGRATION_PLAN.md](CEBECI_REGISTRY_MIGRATION_PLAN.md).
+Yalnız public üç registry tablosuna özel, onay/receipt/maintenance/DB/core seal/
+role/lock/schema/ACL guard'lı install.sql ve normatif contract/hash hazırlandı.
+Başlangıç 006 değiştirilmedi veya startup migration eklenmedi. İdempotent kurulum,
+managed NOOP, partial/drift/unmanaged STOP ve atomic migration audit tanımlıdır.
+Default rollback kod/env geri dönüşü + registry/audit korunmasıdır; populated
+altyapıyı silen down yoktur. Yapısal boş kaldırma ayrı onay/receipt/RESTRICT gerektirir.
+
+Preflight artık disk snapshot'ını çalışan API kimliği kontrolünden ayırır.
+Mismatch disk yedek denetimini atlatmaz; yedek sadece disk baseline'ı olarak
+etiketlenir ve overall BLOCKED devam eder. Repo/build/scope mismatch ayrı
+sabit kodlarla ve yalnız geçerli hash değerleriyle raporlanır; yeni hash yayımlandı.
+Eski readonly komutu eski sürümünü okumaya devam eder; yeni teşhis artefaktı
+kullanılmadan yeni davranış varsayılmaz.
+
+Yerel PASS: yeni PG16 single-user ortamında SQL kurulum/noop/negatif/gerçek
+SQL audit hatası rollback ve core veri korunumu; metadata/model/legacy hash
+kontratı; iki yeni readonly diagnostic testi. Gerçek VDS/SSH/migration/restart/
+deploy/router/RADIUS/IPsec ve mevcut DB işlemi yapılmadı. Ayrıntı ve gerçek
+BLOCKED koşulları tek planın son bölümlerindedir.

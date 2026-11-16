@@ -1,5 +1,24 @@
 # MikroTik Manager V2 — İlerleme
 
+## CEBECI eksik registry / koşullu migration planı — 2026-11-16
+
+- Kullanıcı VDS raporu: gerçek aday v2-user-49b00e12-4d11-4413-94ee-f222ab056703
+  rev0/session/DB PASS; üç TABLE_ABSENT; aktif code drift ve yedek kanıtı açık.
+- Tek plan CEBECI_REGISTRY_MIGRATION_PLAN.md. Public yalnız 3 tablo, 6 index,
+  exact contract/owner/ACL/PK/UNIQUE/CHECK; explicit receipt/DB/role/core seal/
+  advisory/timeout guard'lı SQL; managed exact NOOP, partial/drift STOP;
+  atomic install audit, mevcut data/roles/seal değişmez. 006/startup korunur.
+- Default rollback additive tablolar/audit korunarak kapalı kod/env sürümüne;
+  populated yapı silinmez. Boş structural removal ayrı onay+receipt+RESTRICT.
+- Yerel yeni PG16 --single cluster'da socket açmadan gerçek SQL hedefli PASS;
+  contract testi ve 2 diagnostic testi PASS. App/frontend değişmedi, build yok.
+- Preflight disk snapshot/active identity ayrıldı; disk backup kontrolü drift
+  yüzünden atlanmaz, overall BLOCKED korunur, hash güncellendi.
+- SSH/VDS/migration/restart/deploy/device yok. Güncel blockers: code drift ve
+  running rollback artefaktı, DB/app/env/unit yedekleri, güncel maintenance/ACL
+  guard kanıtları ve yeni scoped approval. Commit/push sonuçta bildirilir.
+
+
 ## 07a9032 preflight güvenlik incelemesi — 2026-11-16 — düzeltildi
 
 - Eski SHA doğru; venv .pth/sitecustomize, SSLKEYLOGFILE dosya açma,

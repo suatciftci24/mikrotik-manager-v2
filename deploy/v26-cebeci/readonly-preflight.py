@@ -390,16 +390,28 @@ def code_snapshot():
             if path.is_file() and (directory.name=='dist' or path.suffix=='.py'):
                 files[str(path.relative_to(ROOT))]=read_file(path)
     require('frontend/dist/index.html' in files and bool(files), 'FRONTEND_BUILD_REQUIRED')
-    digest = hashlib.sha256()
+    return files
+
+
+def active_code_identity(files):
+    require(files is not None,'CODE_SNAPSHOT_REQUIRED')
+    digest=hashlib.sha256()
     for name,value in sorted(files.items()):
         if name.startswith('backend/app/'):
             digest.update(name[len('backend/app/'):].encode());digest.update(b'\0');digest.update(value);digest.update(b'\0')
-    ready = api_get('/api/ready')
-    require(ready.get('runtime_profile') == 'v26-isolated-acceptance' and ready.get('api_port') == 18996
-            and ready.get('build_id') == digest.hexdigest()
-            and ready.get('repo_id') == hashlib.sha256(str(ROOT).encode()).hexdigest(), 'ACTIVE_CODE_IDENTITY_MISMATCH')
-    require(api_get('/api/health').get('database_connected') is True, 'API_DATABASE_HEALTH_FAILED')
-    return files
+    ready=api_get('/api/ready')
+    def safe_hash(value):
+        return value if isinstance(value,str) and re.fullmatch('[0-9a-f]{64}',value) else None
+    disk_repo=hashlib.sha256(str(ROOT).encode()).hexdigest()
+    REPORT['code_identity_evidence']={'disk_repo_id':disk_repo,'api_repo_id':safe_hash(ready.get('repo_id')),
+        'disk_build_id':digest.hexdigest(),'api_build_id':safe_hash(ready.get('build_id')),
+        'backup_scope':'DISK_BASELINE_ONLY_UNTIL_ACTIVE_IDENTITY_MATCHES'}
+    require(ready.get('runtime_profile')=='v26-isolated-acceptance' and ready.get('api_port')==18996,
+            'ACTIVE_API_SCOPE_MISMATCH')
+    require(ready.get('repo_id')==disk_repo,'ACTIVE_REPO_IDENTITY_MISMATCH')
+    require(ready.get('build_id')==digest.hexdigest(),'ACTIVE_BUILD_IDENTITY_MISMATCH')
+    require(api_get('/api/health').get('database_connected') is True,'API_DATABASE_HEALTH_FAILED')
+    REPORT['code_identity_evidence']['backup_scope']='DISK_AND_ACTIVE_IDENTITY_MATCH'
 
 
 def selection(values,identity):
@@ -534,7 +546,8 @@ def main():
     python=(process/'cmdline').read_bytes().split(b'\0')[0].decode()
     require(Path(python).is_absolute() and str(Path(python)).startswith(str(ROOT)+'/')
             and Path(python).name.startswith('python'), 'API_INTERPRETER_REQUIRES_REVIEW')
-    files=check('running_code_and_health',code_snapshot)
+    files=check('disk_code_snapshot',code_snapshot)
+    check('running_code_and_health',lambda:active_code_identity(files))
     check('https_api_frontend_assets',lambda:frontend_live(files))
     with warnings.catch_warnings():
         warnings.simplefilter('error',getpass.GetPassWarning)

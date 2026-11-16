@@ -283,3 +283,29 @@ class ReadonlyPreflightTests(unittest.TestCase):
         with self.assertRaisesRegex(preflight.Blocked,'METADATA_LIMIT'):item._proc_member(Mock())
         item.type=tarfile.GNUTYPE_SPARSE;item.size=1
         with self.assertRaisesRegex(preflight.Blocked,'TYPE_REJECTED'):item._proc_member(Mock())
+
+    def test_active_identity_drift_does_not_discard_disk_snapshot_or_hide_blocker(self):
+        files={'backend/app/main.py':b'code','frontend/dist/index.html':b'html'}
+        ready=dict(runtime_profile='v26-isolated-acceptance',api_port=18996,repo_id='a'*64,build_id='b'*64)
+        with patch.object(preflight,'api_get',return_value=ready):
+            captured=preflight.check('disk_code_snapshot',lambda:files)
+            preflight.check('running_code_and_health',lambda:preflight.active_code_identity(captured))
+        self.assertIs(captured,files)
+        self.assertEqual(preflight.REPORT['running_code_and_health'],'BLOCKED:ACTIVE_REPO_IDENTITY_MISMATCH')
+        self.assertEqual(preflight.REPORT['code_identity_evidence']['backup_scope'],'DISK_BASELINE_ONLY_UNTIL_ACTIVE_IDENTITY_MATCHES')
+        # Informational metadata never exports arbitrary API response fields.
+        with patch.object(preflight,'api_get',return_value={**ready,'repo_id':'SYNTHETIC_SECRET'}):
+            preflight.check('running_code_and_health',lambda:preflight.active_code_identity(captured))
+        self.assertNotIn('SYNTHETIC_SECRET',json.dumps(preflight.REPORT))
+
+    def test_matching_disk_and_active_build_requires_database_health(self):
+        import hashlib
+        files={'backend/app/main.py':b'code'}
+        build=hashlib.sha256(b'main.py\0code\0').hexdigest()
+        ready=dict(runtime_profile='v26-isolated-acceptance',api_port=18996,
+                   repo_id=hashlib.sha256(str(preflight.ROOT).encode()).hexdigest(),build_id=build)
+        with patch.object(preflight,'api_get',side_effect=[ready,{'database_connected':False}]):
+            with self.assertRaisesRegex(preflight.Blocked,'DATABASE_HEALTH'):preflight.active_code_identity(files)
+        with patch.object(preflight,'api_get',side_effect=[ready,{'database_connected':True}]):
+            preflight.active_code_identity(files)
+        self.assertEqual(preflight.REPORT['code_identity_evidence']['backup_scope'],'DISK_AND_ACTIVE_IDENTITY_MATCH')
