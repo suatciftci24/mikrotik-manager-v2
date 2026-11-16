@@ -197,3 +197,58 @@ class LiveDeploymentHandoff(TestCase):
             worker.admin_check(object(),panel=True)
         self.assertEqual(calls[-1][0],'/api/v1/auth/logout')
         self.assertTrue(all(body is None or path.startswith('/api/v1/auth/') for path,body in calls))
+
+    def service_fixture(self):
+        api=str(worker.APP/'.venv/bin/python')+' -m uvicorn app.main:app --host 127.0.0.1 --port 18996'
+        web='/usr/bin/npm run dev -- --host 127.0.0.1 --port 15173 --strictPort'
+        return api,web
+
+    def structured_exec(self,command):
+        return '{ path='+command.split()[0]+' ; argv[]='+command+' ; ignore_errors=no ; start_time=[Mon 2026-11-16 10:00:00 +03] ; stop_time=[n/a] ; pid=123 ; code=(null) ; status=0/0 }'
+
+    def test_exact_confirmed_api_and_npm_web_exec_are_accepted(self):
+        api,web=self.service_fixture()
+        for command,cwd,is_api in [(api,str(worker.APP),True),(web,str(worker.APP/'frontend'),False)]:
+            for value in [command,self.structured_exec(command)]:
+                with self.subTest(value=value):
+                    self.assertEqual(worker.service_role(cwd,value,'mikadmin','mikadmin'),is_api)
+
+    def test_service_exec_rejects_command_path_argv_or_metadata_bypass(self):
+        api,web=self.service_fixture()
+        invalid=[api+' --reload',api.replace('127.0.0.1','0.0.0.0'),api.replace('18996','8000'),
+                 api.replace('app.main:app','other:app'),api.replace('.venv/bin/python','backend/venv/bin/python'),
+                 self.structured_exec(api).replace('path='+api.split()[0],'path=/usr/bin/python'),
+                 self.structured_exec(api)+' '+self.structured_exec(web),
+                 self.structured_exec(api).replace('ignore_errors=no','ignore_errors=yes'),
+                 self.structured_exec(api).replace('pid=123','argv[]=/bin/sh'),
+                 api+'; /bin/sh',api+'\n/bin/sh']
+        for command in invalid:
+            with self.subTest(command=command),self.assertRaises(RuntimeError):
+                worker.service_role(str(worker.APP),command,'mikadmin','mikadmin')
+        for command in [web.replace('/usr/bin/npm','/usr/local/bin/npm'),web.replace('15173','5173'),
+                        web.replace('--strictPort',''),web.replace('127.0.0.1','0.0.0.0'),web+' --reload']:
+            with self.subTest(command=command),self.assertRaises(RuntimeError):
+                worker.service_role(str(worker.APP/'frontend'),command,'mikadmin','mikadmin')
+        for user,group in [('root','mikadmin'),('mikadmin','root'),('mikadmin','')]:
+            with self.subTest(user=user,group=group),self.assertRaisesRegex(RuntimeError,'SERVICE_USER_GROUP_REJECTED'):
+                worker.service_role(str(worker.APP),api,user,group)
+        with self.assertRaises(RuntimeError):worker.service_role(str(worker.APP/'backend'),api,'mikadmin','mikadmin')
+        with self.assertRaises(RuntimeError):worker.service_role(str(worker.APP),web,'mikadmin','mikadmin')
+
+    def test_service_inventory_classifies_web_by_command_even_with_shared_environment(self):
+        from types import SimpleNamespace
+        api,web=self.service_fixture()
+        properties={
+            'mikrotik-v26-api.service':dict(WorkingDirectory=str(worker.APP),ExecStart=self.structured_exec(api),User='mikadmin',Group='mikadmin',MainPID='101'),
+            'mikrotik-v26-web.service':dict(WorkingDirectory=str(worker.APP/'frontend'),ExecStart=self.structured_exec(web),User='mikadmin',Group='mikadmin',MainPID='102'),
+        }
+        def run(args,**kw):
+            if args[1]=='list-units':return '\n'.join(name+' loaded active running V26' for name in properties)
+            return properties[args[2]][args[-1].split('=',1)[1]]
+        env=b'V2_DATABASE_URL=postgresql+psycopg://v26_acceptance:fixture@127.0.0.1:55433/mikrotik_v26_acceptance\0V2_DEPLOYMENT_PROFILE=v26-isolated-acceptance\0'
+        with patch.object(worker.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=env)) as process:
+            self.assertEqual(worker.services(run),[('mikrotik-v26-api.service',True),('mikrotik-v26-web.service',False)])
+            self.assertEqual(process.call_count,2)
+        properties['mikrotik-v26-web.service']['User']='root'
+        with patch.object(worker.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=env)),self.assertRaises(RuntimeError):
+            worker.services(run)

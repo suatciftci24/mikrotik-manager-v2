@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import shlex
 import stat
 import subprocess
 import tarfile
@@ -126,6 +127,45 @@ def evidence():
     raise RuntimeError('PINNED_ISOLATED_ACCEPTANCE_REQUIRED')
 
 
+def service_exec_argv(value):
+    # systemctl show serializes ExecStart as a structured path/argv/metadata value.
+    # Accept one command only; metadata is never interpreted as shell code.
+    text = value.strip()
+    if text.startswith('{'):
+        match = re.fullmatch(r'\{\s*path=([^;{}\r\n]+?)\s*;\s*argv\[\]=([^;{}\r\n]+?)\s*;([^{}\r\n]*)\}',text)
+        require(match is not None,'SERVICE_EXEC_REJECTED')
+        path,arguments,metadata = match.groups()
+        seen = set()
+        for field in metadata.split(';'):
+            if not field.strip():continue
+            key,separator,item = field.strip().partition('=')
+            require(separator and key in {'ignore_errors','start_time','stop_time','pid','code','status',
+                    'start_time_monotonic','stop_time_monotonic'} and key not in seen,'SERVICE_EXEC_REJECTED')
+            seen.add(key)
+            if key=='ignore_errors':require(item in ('no','false'),'SERVICE_EXEC_REJECTED')
+    else:
+        require(not any(char in text for char in ';{}\r\n'),'SERVICE_EXEC_REJECTED')
+        path,arguments = None,text
+    try:
+        argv = shlex.split(arguments)
+    except ValueError:
+        raise RuntimeError('SERVICE_EXEC_REJECTED') from None
+    require(argv and (path is None or path==argv[0]),'SERVICE_EXEC_REJECTED')
+    return argv
+
+
+def service_role(cwd, executable, user, group):
+    require(user=='mikadmin' and group=='mikadmin','SERVICE_USER_GROUP_REJECTED')
+    expected = {
+        str(APP): [str(APP/'.venv/bin/python'),'-m','uvicorn','app.main:app',
+                   '--host','127.0.0.1','--port','18996'],
+        str(APP/'frontend'): ['/usr/bin/npm','run','dev','--','--host','127.0.0.1',
+                             '--port','15173','--strictPort'],
+    }
+    require(cwd in expected and service_exec_argv(executable)==expected[cwd],'SERVICE_EXEC_REJECTED')
+    return cwd==str(APP)
+
+
 def services(run):
     names = run(['systemctl','list-units','--type=service','--state=running','--no-legend','--plain'],
                 stage='SERVICE_INVENTORY').splitlines()
@@ -138,7 +178,7 @@ def services(run):
         cwd = prop('WorkingDirectory')
         if cwd not in [str(APP),str(APP/'backend'),str(APP/'frontend')]:continue
         executable = prop('ExecStart')
-        require(str(APP) in executable and '--reload' not in executable,'SERVICE_EXEC_REJECTED')
+        api = service_role(cwd,executable,prop('User'),prop('Group'))
         pid = prop('MainPID')
         require(pid.isdigit() and int(pid)>1,'SERVICE_PID_REJECTED')
         # Read only this already-pinned V26 process environment; never print it.
@@ -146,6 +186,7 @@ def services(run):
                                      capture_output=True,timeout=10)
         require(environment.returncode==0,'SERVICE_ENV_UNREADABLE')
         values = dict(item.split(b'=',1) for item in environment.stdout.split(b'\0') if b'=' in item)
+        require(not api or b'V2_DATABASE_URL' in values,'SERVICE_DATABASE_REJECTED')
         if b'V2_DATABASE_URL' in values:
             from urllib.parse import urlsplit,unquote
             url = urlsplit(values[b'V2_DATABASE_URL'].decode())
@@ -154,11 +195,9 @@ def services(run):
                     url.path=='/mikrotik_v26_acceptance' and unquote(url.username or '')=='v26_acceptance'
                     and not url.query and not url.fragment,'SERVICE_DATABASE_REJECTED')
             require(values.get(b'V2_DEPLOYMENT_PROFILE')==b'v26-isolated-acceptance','SERVICE_PROFILE_REJECTED')
-            selected.append((name,True))
-        else:
-            require(cwd==str(APP/'frontend'),'SERVICE_SCOPE_REJECTED')
-            selected.append((name,False))
+        selected.append((name,api))
     require(sum(api for _,api in selected)==1,'SINGLE_V26_API_SERVICE_REQUIRED')
+    require(sum(not api for _,api in selected)==1,'SINGLE_V26_WEB_SERVICE_REQUIRED')
     return selected
 
 

@@ -6173,3 +6173,20 @@ Her iki ilerleme kaydi korunmustur:
   API/login ve salt okunur panel/DB korunumu içerir; görsel kabul iddiası yok.
 - V1/V2.5/router/RADIUS/IPsec/hesaplar/ev-ofis DB, yedekler ve üç stash korundu.
   Commit/push ve canlı commit durumu görev tesliminde; VDS b4e78a4 son beyan.
+
+## V26 servis ExecStart sözleşmesi — 2026-11-16 — yerel PASS
+
+- Başlangıç temiz main-guncel/f5d057d; Altın Kurallar/son canlı yayın devri okundu.
+  Kullanıcı API .venv/python uvicorn :18996, web /usr/bin/npm dev :15173 strictPort,
+  root/frontend cwd ve iki mikadmin User/Group değerini kesin doğruladı.
+- Kök neden APP substring şartının meşru /usr/bin/npm komutunu reddetmesi.
+  systemd structured path/argv[] tek komut parser'ı ve tam argv/cwd/principal
+  eşlemesi eklendi. Ek seçenek/komut, path/argv farkı ve farklı kimlik reddedilir.
+  Rol env'e göre tahmin edilmez; web ortak DB env'i taşısa da web kalır. DB/profil
+  kontrolü ve tam bir API + bir web şartı korunur.
+- PASS: dört hedefli offline servis testi ve diff/syntax kontrolü. VDS bağlantısı,
+  deploy/restart/migration/silme veya yedek/stash işlemi yok. Üç stash korundu.
+- Açık: npm dev web ile ayrı statik-dist HTTPS webroot kapısının uyumu. Bu
+  güvenlik kapısı gevşetilmedi; uyumsuzlukta canlı değişiklikten önce BLOCKED.
+  Parser kabulü canlı deploy PASS değildir. Ofis tek komutu aynı; commit/push
+  sonucu teslimde. V1/V2.5/DB/yedek/hesap/stash aynı kaldı.

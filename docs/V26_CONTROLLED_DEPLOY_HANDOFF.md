@@ -75,3 +75,32 @@ artefakt tekrar kullanımı ve HTTP200 hata gövdesinin kabul edilmemesi.
 69279d2'nin kaynak kopyasında TypeScript/Vite build PASS; private artefakt:
 .local/v26-release-dry-run/69279d22c0f3-v4zb1lx2/manifest.json.
 Gerçek canlı adımlar bu ortamda çalıştırılmadı; ofis komutunun JSON sonucu beklenir.
+
+## SERVICE_EXEC_REJECTED düzeltmesi — 2026-11-16
+
+Kullanıcının doğruladığı tek servis sözleşmesi kabul edilir:
+API cwd=/srv/mikrotik-v26-next, argv=/srv/mikrotik-v26-next/.venv/bin/python
+-m uvicorn app.main:app --host 127.0.0.1 --port 18996;
+web cwd=/srv/mikrotik-v26-next/frontend, argv=/usr/bin/npm run dev --
+--host 127.0.0.1 --port 15173 --strictPort. İkisinde User/Group=mikadmin şarttır.
+
+Eski substring APP-in-ExecStart kontrolü npm yolunu yanlış reddediyordu.
+Yeni parser tek systemd path/argv[] kaydını ve bilinen durum alanlarını ayırır;
+path ile argv[0] eşit olmalıdır. Çoklu komut, bilinmeyen/çift metadata,
+ignore_errors=yes, farklı executable/host/port/app/cwd, eksik strictPort,
+ek reload/argüman ve farklı User/Group reddedilir. Düz komut gösterimi de
+aynı tam argv sözleşmesiyle doğrulanır. Web ortak V2 env'ini taşısa bile komutuna
+ve cwd'sine göre web sayılır; DB URL/profil kontrolleri korunur. Tam bir API
+ve bir web servisi gerekir. Secret/ortam içeriği çıktıya alınmaz.
+
+PASS: dört hedefli offline servis testi; API/npm düz ve structured çıktıları,
+yanlış executable/argüman/metadata/kimlik reddi, ortak env ile rol ayrımı ve
+V1/DB servislerinin seçilmemesi. Canlıya bağlanılmadı; deploy/restart/migration,
+stash veya yedek işlemi yoktur. Başarılı eski build/PG testleri tekrarlanmadı.
+
+Açık uyum konusu: doğrulanan web npm/Vite dev modundadır. Önceki dağıtım
+aracının HTTPS index'i dist/index.html ile byte eşitleyen ayrı webroot kapısı
+korunmuştur. Bu kapı Vite geliştirme HTML'i ile uyuşmazsa değişiklikten önce
+BLOCKED olur; bu parser düzeltmesi statik yayın kabulü veya canlı hazır sonucu
+olarak sunulmaz. Aynı ofis komutu geçerli, sonraki kapılar PASS olmadan canlı
+uygulama yapılmaz.
