@@ -1078,3 +1078,11 @@ ve kaynak hesap ID eşlemesi gereklidir.
 Preferences 503 için kalıcı kurulum güvencesi, açık onarım/rollback kapsamı ve
 canlı kabul ölçütleri: [Fresh Pilot preferences onarımı](deploy/fresh-v2-pilot/PREFERENCES-REPAIR.md).
 Onarım HTTP/startup sırasında çalışmaz; canlı DB yazımı ayrı açık onay gerektirir.
+
+### V2.6 ev/ofis ortak panel
+
+Ofis veya ev WSL repo kökünde `./dev.sh --central` mevcut merkezi HTTPS panel
+adresini gösterir. Tarayıcıda aynı adres ve mevcut hesabı kullanın. Bu seçenek
+yerel API/DB başlatmaz. Normal `./dev.sh` ayrı yerel demo geliştirmesidir;
+Git eşitliği DB eşitliği değildir. Ayrıntılar ve korunan demo dizinleri:
+[Merkezi API / ortak kullanım](docs/V26_SHARED_API_ACCEPTANCE.md).

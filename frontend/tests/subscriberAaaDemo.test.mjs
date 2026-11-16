@@ -61,3 +61,16 @@ test('AAA auth errors and server errors retain their status and are not reclassi
   }
  }finally{globalThis.fetch=original;}
 });
+
+test('workspace missing endpoints preserve 404 without prescribing a local service restart',async()=>{
+ const original=globalThis.fetch;
+ globalThis.fetch=async()=>({ok:false,status:404,json:async()=>({detail:'Not Found'})});
+ try{
+  for(const path of ['/subscriber-center/id','/subscriber-workspace?limit=1','/router-workspace/routers']){
+   await assert.rejects(module.exports.loadAaaDemoPreview(path),error=>{
+    assert.equal(error.status,404);assert.match(error.message,/Bağlı API adresi ve sürümü/);
+    assert.doesNotMatch(error.message,/yenileyin|restart/);return true;
+   });
+  }
+ }finally{globalThis.fetch=original;}
+});

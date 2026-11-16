@@ -61,3 +61,19 @@ fi
         code, calls = self.run_dev(pillow_missing=False)
         self.assertEqual(code, 0)
         self.assertEqual(calls, ['probe-pillow', 'verify-existing-db', 'start-owned-api-ui'])
+
+    def test_central_and_invalid_arguments_never_bootstrap_local_environment(self):
+        for args, expected in [(['--central'], 0), (['--central', '--prepare-demo'], 1),
+                               (['--unknown'], 1), (['--prepare-demo', 'extra'], 1)]:
+            with self.subTest(args=args), TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                shutil.copyfile(ROOT / 'dev.sh', root / 'dev.sh')
+                result = subprocess.run(['/bin/bash', str(root / 'dev.sh'), *args],
+                                        cwd=root, env={'PATH': '/usr/bin:/bin'},
+                                        capture_output=True, text=True, timeout=5)
+                self.assertEqual(result.returncode, expected, result.stderr)
+                self.assertFalse((root / '.venv').exists())
+                self.assertFalse((root / '.local').exists())
+                if expected == 0:
+                    self.assertIn('https://v26.mikmanager.com.tr/', result.stdout)
+                    self.assertIn('Git eşitliği DB eşitliği değildir', result.stdout)

@@ -4,6 +4,21 @@ set -euo pipefail
 PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_ROOT"
 
+# Shared home/office access uses the existing HTTPS origin and its session cookie.
+# Resolve this before dependency bootstrap or any local database lifecycle.
+if [[ "${1:-}" == '--central' ]]; then
+  [[ $# -eq 1 ]] || { printf 'Geçersiz dev.sh argümanı.\n' >&2; exit 1; }
+  printf 'Ev/ofis ortak panel: https://v26.mikmanager.com.tr/\n'
+  printf 'Tarayıcıda bu adresi açın; mevcut yönetici hesabınızla giriş yapın.\n'
+  printf 'Yerel demo ile merkezi veriler ayrı; Git eşitliği DB eşitliği değildir.\n'
+  exit 0
+fi
+# Reject unknown arguments before installing dependencies or starting a database.
+if [[ $# -gt 0 && "$1" != '--accept-demo' &&
+      ( $# -ne 1 || ( "$1" != '--ui-only' && "$1" != '--prepare-demo' && "$1" != '--refresh-owned' ) ) ]]; then
+  printf 'Geçersiz dev.sh argümanı.\n' >&2; exit 1
+fi
+
 # One Vite entrypoint shared by normal dev and the browser acceptance manager.
 if [[ "${1:-}" == '--ui-only' ]]; then
   [[ $# -eq 1 && -f frontend/node_modules/vite/bin/vite.js ]] || { printf 'UI BLOCKED: Vite eksik veya argüman geçersiz.\n' >&2; exit 1; }

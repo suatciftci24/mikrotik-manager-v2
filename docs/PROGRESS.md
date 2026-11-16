@@ -5970,3 +5970,25 @@ Her iki ilerleme kaydi korunmustur:
 - Yalnız frontend/dokümantasyon değişti. Backend/PG/migration/veri, VDS
   deploy/restart, V1/V2.5/cihaz/RADIUS/IPsec işlemi yok; ayrı onaylı frontend
   yayını gerekir. Commit/push durumu teslimde bildirilecek.
+
+## V26 merkezi API / ev-ofis erişimi — 2026-11-16 — yerel PASS / uzak BLOCKED
+
+- Başlangıç main-guncel/3ac1f2a temiz; Altın Kurallar, son abone oluşturma,
+  PPPoE/paket/Dashboard kayıtları ve özellik koruma envanteri okundu.
+- Frontend aynı-origin /api/v1 ve credential cookie kullanır. Vite yalnız yerel
+  loopback API'ye yönelir; ev/ofis ortak veri kullanımı merkezi HTTPS paneldedir.
+- dev.sh --central mevcut panel adresini gösterir; yerel dependency/API/DB
+  yaşam döngüsüne girmez. Geçersiz argümanlar bootstrap öncesinde reddedilir.
+  Abone/router endpoint 404 hataları status'u korur; koşulsuz yerel servis
+  yenileme önerisi yerine bağlı API adresi/sürümünü kontrol etmeyi ister.
+- PASS: 4 backend unittest (bootstrap/argüman sınırı), 7 frontend API/fixture
+  testi, TypeScript/Vite production build, bash syntax ve diff check.
+- .local demo PG/socket, AAA fixture, pilot/kabul/runtime dizin adları tespit
+  edildi; içerik/DB satırı okunmadı, silinmedi. Üç stash kimliği korundu.
+  Yönetici/diğer hesaplar, veriler, V1/V2.5/router/RADIUS/IPsec değişmedi.
+- BLOCKED: fetch github.com DNS; VDS salt-okunur HEAD sorgusu socket EPERM.
+  Merkezi API canlı yapılandırması/health ve kalan VDS workspace satırları
+  doğrulanmadı. Git eşitliği DB eşitliği değildir. Deploy/restart/migration yok.
+- Kabul: docs/V26_SHARED_API_ACCEPTANCE.md. Sonraki iş erişim sağlanınca
+  merkezi API sürümü ve workspace envanterini salt okunur doğrulamaktır.
+  Normal commit/push sonucu teslimde; uzak başarı olmadan tam teslim PASS yok.
