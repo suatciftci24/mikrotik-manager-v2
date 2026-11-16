@@ -4,6 +4,8 @@ import contextlib
 import fcntl
 import hashlib
 import io
+import importlib.util
+import marshal
 import json
 import os
 from pathlib import Path
@@ -102,6 +104,34 @@ def installed_units(profile):
     return profile['units']
 
 
+def verified_source_cache(release,name,expected_files):
+    """Accept only byte-for-byte compiler output of an already verified Git blob.
+
+    Never import/unmarshal an extra file. A suffix or a cache directory alone
+    grants no exception to the source inventory.
+    """
+    file=release/name
+    if file.parent.name!='__pycache__':return False
+    tag=re.escape(sys.implementation.cache_tag)
+    match=re.fullmatch(r'(.+)\.'+tag+r'(?:\.opt-([12]))?\.pyc',file.name)
+    if not match:return False
+    source=file.parent.parent/(match[1]+'.py')
+    if str(source.relative_to(release)) not in expected_files:return False
+    raw=file.read_bytes();data=source.read_bytes()
+    if len(raw)<16 or raw[:4]!=importlib.util.MAGIC_NUMBER:return False
+    flags=int.from_bytes(raw[4:8],'little')
+    if flags==0:
+        stat=source.stat()
+        if raw[8:16]!=(int(stat.st_mtime)&0xffffffff).to_bytes(4,'little')+(len(data)&0xffffffff).to_bytes(4,'little'):return False
+    elif flags in (1,3):
+        if raw[8:16]!=importlib.util.source_hash(data):return False
+    else:return False
+    try:
+        expected=compile(data,str(source),'exec',dont_inherit=True,optimize=int(match[2] or 0))
+    except (SyntaxError,ValueError):return False
+    return raw[16:]==marshal.dumps(expected)
+
+
 def verify_source(release,commit):
     expected_files=set()
     for line in git('ls-tree','-r',commit,'--','backend/app','migrations').splitlines():
@@ -120,7 +150,17 @@ def verify_source(release,commit):
         for file in base.rglob('*'):
             require(not file.is_symlink(),'CENTRAL_SOURCE_SYMLINK_REJECTED')
             if file.is_file():actual_files.add(str(file.relative_to(release)))
-    require(actual_files==expected_files,'CENTRAL_SOURCE_EXTRA_FILE_REJECTED')
+    extras=actual_files-expected_files
+    verified_caches={name for name in extras if verified_source_cache(release,name,expected_files)}
+    unexpected=extras-verified_caches
+    if unexpected:
+        # Unknown file names can themselves contain secrets. Only fingerprint them.
+        details=dict(expected_files=len(expected_files),actual_files=len(actual_files),
+                     verified_cache_files=len(verified_caches),unexpected_files=len(unexpected),
+                     unexpected_inventory_sha256=hashlib.sha256('\n'.join(sorted(unexpected)).encode()).hexdigest())
+        raise D['AcceptanceFailure']('SOURCE_INVENTORY','CENTRAL_SOURCE_EXTRA_FILE_REJECTED',details)
+    require(expected_files<=actual_files,'CENTRAL_SOURCE_FILE_REJECTED')
+    return dict(expected_files=len(expected_files),actual_files=len(actual_files),verified_cache_files=len(verified_caches))
 
 
 def checked_request(opener,path,body=None):

@@ -6286,3 +6286,26 @@ Her iki ilerleme kaydi korunmustur:
 - Sonraki tek işlem ofis WSL: python3 tools/central-v26-office.py
   --diagnose-attempt attempt-pcpsra2q. Üst durum bilerek BLOCKED; canlı kabul
   yerine geçmez. Gerçek kök neden/kalıcı uyumluluk düzeltmesi uzak rapora bağlı.
+
+## CENTRAL_SOURCE_EXTRA_FILE_REJECTED — 2026-11-16 — yerel düzeltme
+
+- Yalnız ofis kaynak kodu incelendi; SSH/VDS/deploy/restart/migration/DB işlemi yok.
+  Başlangıç 431d278, temiz main-guncel; üç stash hash'i önceki kayıtla aynı.
+- Git backend/app+migrations manifesti 187 blob. verify_source tüm gerçek
+  dosyaları bu listeyle birebir karşılaştırıyor, türetilmiş Python cache dosyasını
+  da bilinmeyen kaynak sayıyordu. Temiz Git arşivine py_compile ile gerçek cache
+  eklenince envanter 188 oluyor: bu yanlış ret mekanizması yerelde doğrulandı.
+  VDS'deki ek dosya adı/byte içeriği verilmediğinden uzak olayın kesin dosya
+  nedeni kanıtlanmış değildir; bilinmeyen ekstra dosya hâlâ gerçek ihlal olabilir.
+- Genel __pycache__/.pyc istisnası yok: sadece mevcut interpreter cache tag'i,
+  Git blob'u doğrulanmış kaynak eşlemesi, magic/flags/timestamp+size veya source
+  hash başlığı ve yeniden compile edilen marshal payload'u birebir eşleşirse
+  türetilmiş cache kabul edilir. Ek dosya import/unmarshal edilmez. Değişmiş
+  kaynak/blob/symlink kapıları korunur; hiçbir mevcut dosya silinmez/değiştirilmez.
+- Beklenmeyen dosyada SOURCE_INVENTORY aşaması, kaynak/gerçek/cache/bilinmeyen
+  sayıları ve yalnız bilinmeyen isimlerin toplam SHA256'sı raporlanır; isimler,
+  içerikler veya secret yazılmaz. Gerçek ekstra dosya genel hatada gizlenmez.
+- 10 ilgili merkezi test PASS; yeni gerçek Git arşivi+timestamp/hash cache,
+  bozuk magic/payload/ek byte/farklı source filename/orphan/ek py-txt/symlink
+  senaryoları. Son ek filename reddi kontrolü tek hedefli testte ayrıca PASS.
+  Frontend değişikliği yok; build ve ilgisiz testler çalıştırılmadı.

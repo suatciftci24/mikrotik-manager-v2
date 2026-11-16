@@ -147,6 +147,46 @@ class CentralDevelopment(unittest.TestCase):
                 info=tarfile.TarInfo('backend/app/../../private');info.size=1;tar.addfile(info,io.BytesIO(b'x'))
             with self.assertRaises(RuntimeError):remote.extract(malicious.getvalue(),root,'source')
 
+    def test_source_inventory_validates_derived_bytecode_without_ignoring_extras(self):
+        import subprocess,tempfile,py_compile
+        remote=self.remote()
+        archive=subprocess.check_output(['git','archive','HEAD','backend/app','migrations'],cwd=ROOT)
+        commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+        with tempfile.TemporaryDirectory() as temp,patch.object(remote,'git',side_effect=lambda *args:
+                subprocess.check_output(['git',*args],cwd=ROOT,text=True).strip()):
+            root=Path(temp);remote.extract(archive,root,'source')
+            clean=remote.verify_source(root,commit)
+            source=root/'backend/app/__init__.py'
+            # A real compiler-generated file is absent from Git's source manifest.
+            cache=Path(py_compile.compile(str(source),doraise=True))
+            self.assertNotIn(str(cache.relative_to(root)),subprocess.check_output(
+                ['git','ls-tree','-r','--name-only',commit,'backend/app','migrations'],cwd=ROOT,text=True).splitlines())
+            checked=remote.verify_source(root,commit)
+            self.assertEqual(checked['actual_files'],clean['actual_files']+1)
+            self.assertEqual(checked['verified_cache_files'],1)
+            for mode in (py_compile.PycInvalidationMode.CHECKED_HASH,py_compile.PycInvalidationMode.UNCHECKED_HASH):
+                py_compile.compile(str(source),doraise=True,invalidation_mode=mode)
+                self.assertEqual(remote.verify_source(root,commit)['verified_cache_files'],1)
+            py_compile.compile(str(source),dfile='/different/source.py',doraise=True)
+            with self.assertRaisesRegex(RuntimeError,'CENTRAL_SOURCE_EXTRA_FILE_REJECTED'):remote.verify_source(root,commit)
+            py_compile.compile(str(source),doraise=True)
+            original=cache.read_bytes()
+            for raw in (original+b'extra',b'bad magic'+original[9:],original[:16]+b'untrusted executable payload'):
+                with self.subTest(kind=raw[:4]):
+                    cache.write_bytes(raw)
+                    with self.assertRaisesRegex(RuntimeError,'CENTRAL_SOURCE_EXTRA_FILE_REJECTED') as caught:
+                        remote.verify_source(root,commit)
+                    self.assertEqual(caught.exception.details['unexpected_files'],1)
+                    self.assertNotIn('untrusted',json.dumps(caught.exception.details))
+            cache.write_bytes(original)
+            for name in ('unexpected.py','unexpected.txt','__pycache__/orphan.cpython-311.pyc'):
+                extra=root/'backend/app'/name;extra.write_bytes(b'private-token')
+                with self.subTest(name=name),self.assertRaisesRegex(RuntimeError,'CENTRAL_SOURCE_EXTRA_FILE_REJECTED'):
+                    remote.verify_source(root,commit)
+                extra.unlink()
+            cache.unlink();cache.symlink_to(source)
+            with self.assertRaisesRegex(RuntimeError,'CENTRAL_SOURCE_SYMLINK_REJECTED'):remote.verify_source(root,commit)
+
     def test_installed_api_cannot_point_at_mutable_checkout(self):
         remote=self.remote();profile=self.profile()
         profile.update(origin=policy.ORIGIN,checkout=policy.APP,release=str(remote.ROOT/'releases'/profile['commit']),
