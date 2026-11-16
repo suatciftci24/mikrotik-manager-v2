@@ -235,7 +235,8 @@ def install_dropin(unit,path):
     run(['sudo','-n','install','-D','-o','root','-g','root','-m','0644',path,dropin_path(unit)],stage='CENTRAL_UNIT_INSTALL')
 
 
-def setup():
+def setup(client_accept):
+    require(callable(client_accept),'CLIENT_ACCEPTANCE_REQUIRED')
     require(APP_PATH.resolve()==APP_PATH and (APP_PATH/'.venv').resolve()==APP_PATH/'.venv',
             'CENTRAL_PATH_REJECTED')
     if ACTION=='apply':require(not git('status','--porcelain=v1'),'CENTRAL_CHECKOUT_DIRTY')
@@ -266,10 +267,12 @@ def setup():
         units=installed_units(old)
         if ACTION=='verify' or old['commit']==TARGET:
             if ACTION=='apply':require(head==TARGET and git('branch','--show-current')=='main-guncel','CENTRAL_SOURCE_DRIFT')
-            ready=public_accept(old)
-            require(L['stash_pin'](run)==stash,'CENTRAL_STASH_CHANGED')
-            lock.close()
-            return old,ready
+            try:
+                ready=public_accept(old)
+                client_accept(old,ready)
+                require(L['stash_pin'](run)==stash,'CENTRAL_STASH_CHANGED')
+                return old,ready
+            finally:lock.close()
     else:
         require(head==BASELINE,'INITIAL_VDS_BASELINE_CHANGED')
         units=L['services'](run)
@@ -345,11 +348,8 @@ def setup():
             run(['sudo','-n','-l','--','/usr/bin/install','-D','-o','root','-g','root','-m','0644',saved,dropin_path(unit)],
                 stage='CENTRAL_PRIVILEGE_CHECK')
     run(['sudo','-n','-l','--','/usr/bin/systemctl','daemon-reload'],stage='CENTRAL_PRIVILEGE_CHECK')
-    changed=False;source_changed=False;stopped=False
+    changed=False;source_changed=False;stopped=False;before=None
     try:
-        stopped=True
-        for unit,api in units:run(['sudo','-n','systemctl','stop',unit],stage='CENTRAL_V26_STOP')
-        before=H['snapshot'](query,stage='CENTRAL_DATA_BEFORE')
         backup=attempt/'database.dump'
         with backup.open('xb') as stream:
             result=subprocess.run(['sudo','-n','-u','postgres','/usr/lib/postgresql/16/bin/pg_dump','-Fc',
@@ -368,14 +368,23 @@ def setup():
         run(['sudo','-n','-u','postgres','/usr/lib/postgresql/16/bin/psql','-X','-qAt','-v','ON_ERROR_STOP=1',
              '-h','/var/run/postgresql','-p','55433','-d',DB],stage='CENTRAL_SCHEMA_READONLY',
              sql='SET ROLE v26_acceptance;\n'+MIGRATION_SQL.replace('BEGIN;','BEGIN READ ONLY;',1))
-        source_changed=True
-        git('switch','main-guncel');git('merge','--ff-only',TARGET)
+        # Test the target without changing the running application's checkout.
+        test_source=attempt/'test-source'
+        git('worktree','add','--detach',str(test_source),TARGET)
         env={key:value for key,value in os.environ.items() if not key.startswith(('V2_','PG'))}
-        env.update(PYTHONPATH=str(APP_PATH/'backend'),PYTHONDONTWRITEBYTECODE='1',
+        env.update(PYTHONPATH=str(test_source/'backend'),PYTHONDONTWRITEBYTECODE='1',
                    V2_DATABASE_URL='postgresql+psycopg://isolated_only@127.0.0.1:1/isolated_only')
         result=subprocess.run([str(dev/'bin/python'),'-B','-m','unittest','backend.tests.test_v26_central_development'],
-                              cwd=APP,capture_output=True,env=env,timeout=60)
+                              cwd=test_source,capture_output=True,env=env,timeout=60)
         require(result.returncode==0,'CENTRAL_TARGETED_TEST_FAILED')
+        require(db_identity()==fingerprint and L['stash_pin'](run)==stash and
+                git('rev-parse','HEAD')==head and not git('status','--porcelain=v1'),'CENTRAL_PRE_SWITCH_DRIFT')
+        stopped=True
+        for unit,api in units:run(['sudo','-n','systemctl','stop',unit],stage='CENTRAL_V26_STOP')
+        # Quiescent data baseline excludes normal writes during the online backup.
+        before=H['snapshot'](query,stage='CENTRAL_DATA_BEFORE')
+        source_changed=True
+        git('switch','main-guncel');git('merge','--ff-only',TARGET)
         changed=True
         for unit,api in units:install_dropin(unit,attempt/(unit+'.next'))
         run(['sudo','-n','systemctl','daemon-reload'],stage='CENTRAL_UNIT_RELOAD')
@@ -389,6 +398,10 @@ def setup():
         H['assert_preserved'](before,H['snapshot'](query,stage='CENTRAL_DATA_AFTER'))
         require(db_identity()==fingerprint and L['stash_pin'](run)==stash,'CENTRAL_DB_OR_STASH_CHANGED')
         profile.update(backup=str(backup),backup_sha256=digest_file(backup),build_id=ready['build_id'])
+        # Keep the lock and baseline until the office explicitly acknowledges.
+        client_accept(profile,ready)
+        H['assert_preserved'](before,H['snapshot'](query,stage='CENTRAL_CLIENT_DATA_AFTER'))
+        require(db_identity()==fingerprint and L['stash_pin'](run)==stash,'CENTRAL_CLIENT_BINDING_CHANGED')
         version=attempt/'profile.json';private_json(version,profile)
         # Immutable profile receipt retained; atomically move a new pointer into place.
         pending=attempt/'current-next.json';private_json(pending,profile);os.replace(pending,pointer)
@@ -399,6 +412,15 @@ def setup():
                      target=TARGET,db_restore_performed=False)
         if getattr(original,'details',None):failure.update(original.details)
         private_json(attempt/'failure.json',failure)
+        if changed or source_changed or stopped:
+            require(db_identity()==fingerprint and L['stash_pin'](run)==stash,'CENTRAL_ROLLBACK_UNSAFE_BINDING')
+            require(git('rev-parse','HEAD') in (head,TARGET) and
+                    not git('status','--porcelain=v1','--untracked-files=no'),'CENTRAL_ROLLBACK_SOURCE_DRIFT')
+        if changed:
+            for unit,api in units:
+                current=run(['sudo','-n','cat',dropin_path(unit)],stage='CENTRAL_ROLLBACK_DROPIN_READ')
+                require(current.strip() in (backups[unit].read_text().strip(),
+                        (attempt/(unit+'.next')).read_text().strip()),'CENTRAL_ROLLBACK_DROPIN_DRIFT')
         if changed:
             for unit,api in units:run(['sudo','-n','systemctl','stop',unit],stage='CENTRAL_ROLLBACK_STOP')
             for unit,api in units:install_dropin(unit,backups[unit])
@@ -417,8 +439,9 @@ def setup():
                     break
                 except Exception:time.sleep(1)
             else:raise RuntimeError('CENTRAL_ROLLBACK_HEALTH_BLOCKED')
+        if before is not None:H['assert_preserved'](before,H['snapshot'](query,stage='CENTRAL_ROLLBACK_DATA'))
         require(db_identity()==fingerprint and L['stash_pin'](run)==stash,'CENTRAL_ROLLBACK_BINDING_CHANGED')
-        private_json(attempt/'rollback.json',dict(status='BASELINE_VERIFIED',source_head=git('rev-parse','HEAD'),
+        private_json(attempt/'rollback.json',dict(status='BASELINE_VERIFIED' if stopped else 'NOT_REQUIRED',source_head=git('rev-parse','HEAD'),
                                                 db_restore_performed=False))
         raise
     finally:lock.close()
@@ -507,6 +530,27 @@ def diagnose_attempt():
     return result
 
 
+def client_acceptance(profile,ready):
+    print(json.dumps(dict(event='CENTRAL_READY',profile=profile,ready=ready)),flush=True)
+    def timeout(*args):raise RuntimeError('CLIENT_ACCEPTANCE_TIMEOUT')
+    previous=signal.signal(signal.SIGALRM,timeout)
+    signal.alarm(180)
+    try:line=sys.stdin.readline()
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM,previous)
+    require(bool(line),'CLIENT_ACCEPTANCE_DISCONNECTED')
+    value=json.loads(line)
+    require(value.get('event')!='CLIENT_REJECTED','CLIENT_ACCEPTANCE_FAILED')
+    allowed={'origin','instance','release','database','location','machine','view_hash','build_id','captured_at'}
+    require(set(value)==allowed and value['location'] in ('home','office'),'CLIENT_RECEIPT_REJECTED')
+    require(value['origin']==ORIGIN and value['instance']==profile['instance'] and value['release']==profile['commit']
+            and value['database']==profile['database'] and value['build_id']==ready['build_id'],'CLIENT_BINDING_REJECTED')
+    require(type(value['captured_at']) in (int,float) and 0<=time.time()-value['captured_at']<=600 and
+            all(re.fullmatch('[0-9a-f]{64}',value[key]) for key in ('machine','view_hash','build_id')),'CLIENT_RECEIPT_FORMAT_REJECTED')
+    return value
+
+
 def protocol():
     def interrupted(*args):raise RuntimeError('CENTRAL_OPERATION_INTERRUPTED')
     for number in (signal.SIGHUP,signal.SIGINT,signal.SIGTERM):signal.signal(number,interrupted)
@@ -514,15 +558,10 @@ def protocol():
         if ACTION=='diagnose':
             print(json.dumps(diagnose_attempt(),sort_keys=True),flush=True)
             return
-        profile,ready=setup()
-        print(json.dumps(dict(event='CENTRAL_READY',profile=profile,ready=ready)),flush=True)
-        value=json.loads(sys.stdin.readline())
-        allowed={'origin','instance','release','database','location','machine','view_hash','build_id','captured_at'}
-        require(set(value)==allowed and value['location'] in ('home','office'),'CLIENT_RECEIPT_REJECTED')
-        require(value['origin']==ORIGIN and value['instance']==profile['instance'] and value['release']==profile['commit']
-                and value['database']==profile['database'] and value['build_id']==ready['build_id'],'CLIENT_BINDING_REJECTED')
-        require(type(value['captured_at']) in (int,float) and 0<=time.time()-value['captured_at']<=600 and
-                all(re.fullmatch('[0-9a-f]{64}',value[key]) for key in ('machine','view_hash','build_id')),'CLIENT_RECEIPT_FORMAT_REJECTED')
+        accepted=[]
+        def acknowledge(profile,ready):accepted.append(client_acceptance(profile,ready))
+        profile,ready=setup(client_accept=acknowledge)
+        value=accepted[0]
         folder=ROOT/'verification';folder.mkdir(mode=0o700,exist_ok=True)
         private_json(folder/(value['location']+'-'+uuid.uuid4().hex+'.json'),value)
         receipts=[json.loads(path.read_text()) for path in folder.glob('*.json')]
@@ -535,5 +574,9 @@ def protocol():
         report=dict(status='BLOCKED',reason=str(error) if isinstance(error,RuntimeError) else type(error).__name__,
                     db_restore_performed=False,evidence_root=globals().get('CURRENT_ATTEMPT'))
         if getattr(error,'details',None):report.update(error.details)
+        attempt=globals().get('CURRENT_ATTEMPT')
+        if attempt and (Path(attempt)/'rollback.json').is_file():
+            report['rollback']=json.loads((Path(attempt)/'rollback.json').read_text())
+        elif attempt:report['rollback']='NOT_VERIFIED'
         print(json.dumps(report),flush=True)
     finally:ADMIN.clear()

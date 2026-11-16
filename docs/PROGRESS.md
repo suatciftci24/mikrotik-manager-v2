@@ -6364,3 +6364,37 @@ Her iki ilerleme kaydi korunmustur:
 - Yerel araç yeni kapılarla hazır; canlı BLOCKED. Tek güvenli sonraki adım
   ofis WSL'de --diagnose-attempt attempt-pcpsra2q ile mevcut yayın/rollback
   durumunu salt okunur yeniden ölçmek; bu komut dağıtım yapmaz ve PASS üretmez.
+
+## Online hazırlık ve ofis kabulüne bağlı rollback — 2026-11-16
+
+- Başlangıç 6731475; temiz main-guncel. Önceki gerçek aday API/restore/011
+  kanıtları yeniden üretilmedi. SSH/deploy/restart/migration/DB restore yok.
+- Yeni dump, archive/hash ve izole restore+011 kabulü canlı V26 servisleri
+  çalışırken tamamlanır. Pinned hedef ayrı retained Git worktree'sinde sentetik
+  DSN/dev-venv ile sınanır; çalışan checkout test için değiştirilmez. DB/stash/
+  HEAD/worktree drift kontrolünden sonra iki V26 unit kısa geçiş için durdurulur.
+  Veri bütünlüğü başlangıcı online yedek öncesi değil servis duruşunda alınır;
+  normal online yazılar yanlış veri kaybı sayılmaz. Canlı DDL hâlâ READ ONLY.
+- Zorunlu client_accept callback'i aynı setup.lock ve rollback kapsamındadır.
+  Public server kabulü geçse de current.json ofis receipt'i gelmeden yayınlanmaz.
+  CLIENT_REJECTED, EOF, bozuk/yanlış bağlı receipt veya 180 saniyelik tam satır
+  deadline hatası geri dönüşü tetikler. Ofis açık ret gönderip uzak rollback
+  kanıtını bekler. Ret hiçbir durumda PASS değildir. Kanal kaybında ret yerine
+  EOF/deadline da çalışır; yeni SSH/tekrar bağlantı denenmez.
+- Rollback öncesi DB/stash/HEAD/worktree ve kendi drop-in içeriği kontrol edilir.
+  Drift varsa zorlanmaz; BLOCKED/NOT_VERIFIED. Güvenli dönüşte önceki unit
+  yapılandırması, ilk kurulum checkout HEAD'i, baseline sağlık, tam veri
+  hash'leri ve DB/stash bağı doğrulanır; ancak sonra BASELINE_VERIFIED yazılır.
+  Hazırlık hatası servisleri değiştirmediyse NOT_REQUIRED. DB restore yoktur.
+- 9 farklı hedefli kontrol PASS (8 yeni cutover/kanal testi + değişen aynı-sürüm
+  idempotence bağlantısı): online hazırlık sırası, hazırlık hatasında sıfır
+  stop/checkout değişimi, ofis reddinde rollback, güvensiz DB bağında durma,
+  EOF/ret/yanlış sürüm/deadline, geçerli receipt ve alarm temizliği, ofis negatif
+  ACK+kanıt bekleme, eksik acceptor reddi ve idempotence. Tüm servis/DB/SSH
+  çağrıları sentetik; gerçek kabul testleri tekrarlanmadı. Frontend değişmedi.
+- Risk: SIGKILL/host kaybı rollback tamamlamasını garanti etmez; kanıt yoksa
+  BLOCKED. Online dump geçiş anındaki son yazıları kapsamayabilir; otomatik
+  restore yapılmaz. Geçiş/istemci kontrolü sırasında dış veri değişikliği
+  bütünlük kontrolünü durdurabilir, veri üzerine yazılmaz. Ev receipt eksikliği
+  başarılı ofis kabulünden sonra genel BLOCKED sebebidir, yeni yayın hatası değil.
+  V1/V2.5/router/RADIUS/IPsec ve üç stash korundu; worktree/yedekler silinmez.

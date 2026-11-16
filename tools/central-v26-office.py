@@ -107,8 +107,12 @@ def main():
         if event.get('event')!='CENTRAL_READY':print(json.dumps(event));return 1
         try:receipt=observe(event['profile'],credentials,args.verify_location or 'office',values['LEGACY'],values['POLICY'])
         except Exception as error:
-            print(json.dumps(dict(status='BLOCKED',setup='VERIFIED',live_commit=event['profile']['commit'],
-                  reason=str(error) if isinstance(error,RuntimeError) else type(error).__name__)))
+            # The remote has not committed current.json and still owns setup.lock.
+            process.stdin.write(json.dumps(dict(event='CLIENT_REJECTED')).encode()+b'\n');process.stdin.flush()
+            line=process.stdout.readline()
+            report=json.loads(line) if line else dict(status='BLOCKED',reason='ROLLBACK_RESULT_UNAVAILABLE')
+            report['status']='BLOCKED'
+            print(json.dumps(report,sort_keys=True))
             return 1
         process.stdin.write(json.dumps(receipt).encode()+b'\n');process.stdin.flush()
         report=json.loads(process.stdout.readline())

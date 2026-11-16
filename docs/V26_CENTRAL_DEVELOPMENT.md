@@ -46,15 +46,16 @@ Kısmi/tanımsız release ya da scope drift varsa veri ezmek yerine BLOCKED olur
    kopyası hazırlanır, Python prefix'i doğrulanır. Kimlik bilgisi/ENV örneği yeniden
    yazılmaz; API'ye yalnız release PYTHONPATH, secure cookie ve canonical mutable
    state yolu için nonsecret son EnvironmentFile eklenir.
-5. Kısa bakım penceresinde yalnız mevcut iki V26 unit durdurulur. Yeni private
-   zaman damgalı/benzersiz DB dump alınır, SHA256/archive ve yeni private Unix-only
-   cluster'a restore doğrulanır. 011 iki kez yalnız bu restore'da kabul edilir;
-   başarısızlığın güvenli evidence'i korunur. Canlı paket şeması 011'in READ ONLY
-   doğrulamasını geçmelidir: bu kurucu canlı migration/DDL çalıştırmaz.
-6. Kaynak checkout main-guncel'e ff edilir. Dev-venv'de yalnız merkezi güvenlik
-   testleri, temizlenmiş test env'i ve erişilemeyen dummy test DSN ile çalışır.
-   Merkezi DB URL/secret ve PG opt-in'leri testlere aktarılmaz. Normal dev.sh artık
-   yalnız merkezi adresi gösterir; --local-isolated açık sentetik istisnadır.
+5. Servisler çalışırken yeni private DB dump alınır; SHA256/archive ve ayrı
+   Unix-only cluster'a restore doğrulanır. 011 iki kez yalnız bu restore'da
+   kabul edilir. Canlı paket şeması READ ONLY kontrolünden geçer; canlı DDL yoktur.
+6. Hedef commit ayrı retained `attempt-*/test-source` Git worktree'sinde,
+   dev-venv ve temizlenmiş test env'iyle sınanır; çalışan checkout değiştirilmez.
+   DB/stash/HEAD/temiz çalışma ağacı tekrar doğrulanır. Sonra yalnız iki V26
+   unit durdurulur, kesinti başlangıcında veri snapshot'ı alınır ve checkout
+   fast-forward güncellenir. Online yedek sırasında normal veri değişiklikleri
+   bu kesinti snapshot'ıyla karıştırılmaz. Yedek kesinti başlangıcından eskidir;
+   otomatik DB restore zaten yapılmaz.
 7. Yalnız iki V26 unit'e kendi 80-v26-central.conf drop-in'i kurulur. API aynı
    18996'da -P/--app-dir ile değişmez release/backend'den çalışır. Çalışma dizini
    aynı checkout root'udur. Existing .local router-secret/pilot/simulator verileri
@@ -66,14 +67,23 @@ Kısmi/tanımsız release ya da scope drift varsa veri ezmek yerine BLOCKED olur
    release/dist'tir; başka statik release'in aynı adlı/farklı içerikli asset'i
    collision sayılır; eski hash'li asset'ler açık tarayıcılar için korunur.
 9. HTTPS/API/admin login/session, dashboard/router/abone/paket GET'leri, statik
-   index/assets, API repo/build kimliği, unit/env scope, DB fingerprint/tüm tablo
-   verileri ve stash tekrar doğrulanır. Başarı manifest'i atomik yayımlanır.
-   Kaynak geliştirme değişiklikleri bu değişmez runtime'ı kendiliğinden değiştirmez.
-10. Hata halinde yalnız kendi unit/drop-in ve gerektiğinde ilk kaynak değişimi
-    güvenli kod rollback ile geri alınır; yedek/drop-in dosyaları byte olarak
-    private saklanır. Yeni oluşturulmuş override'ın rollback'i boş etkisiz dosyadır;
-    eski dosyalar/yedek/stash silinmez. DB otomatik restore/down migration yoktur.
-    Drift/kayıp riski veya rollback sağlığı doğrulanamazsa BLOCKED.
+   index/assets/MIME/header ve API repo/build kimliği doğrulanır. DB ve stash
+   korunması kontrol edilir. `current.json` henüz değiştirilmez: setup.lock
+   tutulurken ofis HTTPS gözlemi için en fazla 180 saniye beklenir. Geçerli
+   sürüm/instance/DB/build bağlı receipt gelince DB tekrar kontrol edilir,
+   başarı manifest'i atomik yayımlanır. Ev receipt'i eksikliği, başarılı ofis
+   kabulünden sonra yayın rollback'i değil genel görev için BLOCKED sonucudur.
+10. Ofis reddi açık CLIENT_REJECTED ile aynı SSH kanalından iletilir; kopma,
+    eksik/bozuk receipt ve tam satır zaman aşımı da hata sayılır. Kendi unit/
+    drop-in ve ilk checkout için güvenli rollback uygulanır; DB restore yoktur.
+    Öncesinde DB/stash/HEAD/checkout ve kendi drop-in içeriğinin beklenen
+    önceki/yeni içerikten biri olduğu doğrulanır. Drift varsa geri dönüşe
+    zorlanmaz: BLOCKED/rollback NOT_VERIFIED. Dönüşten sonra baseline sağlık,
+    veri hash'leri, DB ve stash doğrulanır; ancak o zaman BASELINE_VERIFIED
+    kanıtı yazılır. Ofis bu kanıtı bekler ve reddi yine BLOCKED olarak bildirir.
+    Hazırlık hatası servis değiştirmemişse rollback NOT_REQUIRED olur.
+    SIGKILL/sunucu kaybında otomatik rollback tamamlanması garanti edilemez;
+    kanıt yoksa başarı varsayılmaz. Worktree/yedek/release/kanıtlar silinmez.
 
 Sudoers veya servis scope'u uyuşmazsa yetki verilmez, kontrol atlanmaz; sistem
 ön kapıda BLOCKED döner. İlk aşamanın eksik hazırlanmış release'i korunur ve

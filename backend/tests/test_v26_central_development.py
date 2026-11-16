@@ -124,7 +124,7 @@ class CentralDevelopment(unittest.TestCase):
                  patch.dict(remote.L,{'stash_pin':lambda run:('unchanged','oid')}), \
                  patch.dict(remote.W,{'nginx_routes':lambda text:{}}), \
                  patch.object(remote.subprocess,'run') as command,patch.object(remote.shutil,'copytree') as copy:
-                result,_=remote.setup()
+                result,_=remote.setup(client_accept=lambda profile,ready:None)
             self.assertEqual(result,profile);self.assertEqual(pointer.read_bytes(),before)
             command.assert_not_called();copy.assert_not_called()
             self.assertTrue(all(args[0] in ('status','rev-parse','branch') for args in calls))
