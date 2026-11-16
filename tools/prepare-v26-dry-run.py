@@ -16,8 +16,8 @@ def git(*args):
     return subprocess.check_output(['git', *args], cwd=ROOT, text=True).strip()
 
 
-def prepare():
-    commit = git('rev-parse', 'HEAD')
+def prepare(reference='HEAD'):
+    commit = git('rev-parse', '--verify', reference+'^{commit}')
     baseline = git('rev-parse', 'b4e78a4^{commit}')
     subprocess.run(['git', 'merge-base', '--is-ancestor', baseline, commit], cwd=ROOT, check=True)
     paths = ['backend/app', 'migrations', 'frontend']
@@ -34,7 +34,7 @@ def prepare():
                        cwd=ROOT, stdout=stream, check=True)
     archive.chmod(0o600)
     migration = subprocess.check_output(['git', 'show', commit+':migrations/versions/011_package_catalog.sql'], cwd=ROOT)
-    manifest = dict(mode='DRY_RUN_ONLY', deploy_enabled=False, cleanup_enabled=False,
+    manifest = dict(artifact_directory=str(destination), mode='DRY_RUN_ONLY', deploy_enabled=False, cleanup_enabled=False,
                     commit=commit, vds_baseline=baseline, target='/srv/mikrotik-v26-next',
                     source_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
                     migration_sha256=hashlib.sha256(migration).hexdigest(),

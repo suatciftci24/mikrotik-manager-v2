@@ -6151,3 +6151,25 @@ Her iki ilerleme kaydi korunmustur:
 - Sonraki somut adım ofis WSL tek kabul komutu ile gerçek izole raporu almak.
   Canlı DB/deploy/restart/silme yok; tüm yedekler, VDS stash/hesaplar, korunan
   sistemler ve üç yerel stash korunur. Commit/push sonucu teslimde.
+
+## V26 kontrollü canlı yayın / ofis komutu — 2026-11-16 — canlı BLOCKED / hazırlık PASS
+
+- Kullanıcı 69279d2 gerçek izole PASS (011 iki koşu, uyumlu katalog, 17 tablo ve
+  ADMIN korunumu) ile doğrulanmış predeploy backup/restore bildirdi; kabul edildi.
+  Altın Kurallar/son rapor okundu; mevcut kaynak main-guncel/69279d2 temizdi.
+- Tek VDS SSH denemesi socket EPERM, tekrar yok. VDS stash/HEAD/servis doğrudan
+  doğrulanamadı; canlı update/migration/restart veya veri/stash işlemi yapılmadı.
+- Tek komutluk authorized office launcher ve remote worker hazır. Uygulama
+  hedefi tam 69279d2; stash listesi/OID, private PASS proof+backup/migration SHA,
+  DB/cluster/runtime/unit ve mevcut ADMIN/webroot doğrulanır. .env/venv/unit aynı.
+- 011 mevcut katalogda read-only no-op kontrolü, yalnız iki tablo yoksa izinli
+  uygulama. Kaynak ff-only; dist atomik exchange; yalnız V26 restart. Hata halinde
+  hash/HEAD drift yoksa kod+dist rollback, DB restore/silme yok. Driftte BLOCKED.
+- 11 hedefli offline test PASS; source 69279d2 frontend build PASS. Hash'li
+  artefakt .local/v26-release-dry-run/69279d22c0f3-v4zb1lx2 altında korundu.
+  Gerçek kabul başarısı bu yerel testlere dayanarak iddia edilmez.
+- Somut sonraki adım V26_CONTROLLED_DEPLOY_HANDOFF.md ofis WSL komutu; mevcut
+  ADMIN bilgisi gizli terminal girdisi, Git/argv/dosyaya yazılmaz. Rapor HTTPS/
+  API/login ve salt okunur panel/DB korunumu içerir; görsel kabul iddiası yok.
+- V1/V2.5/router/RADIUS/IPsec/hesaplar/ev-ofis DB, yedekler ve üç stash korundu.
+  Commit/push ve canlı commit durumu görev tesliminde; VDS b4e78a4 son beyan.
