@@ -6038,3 +6038,22 @@ Her iki ilerleme kaydi korunmustur:
   Gerçek ID/revizyon yok: canlı cleanup seçimi boş, bütün hesap/audit korunur.
   Yeni gerçek yedek/restore ve canlı kimlikli kabul BLOCKED; canlı onay yok.
   V1/V2.5/router/RADIUS/IPsec/servis/yerel veriler ve üç stash korunur.
+
+
+## V26 dry-run teslim doğrulaması — 2026-11-16
+
+- Kullanıcının son bilinen 60d949b kaydı yerine gerçek HEAD 2bee710 doğrulandı;
+  temiz main-guncel, üç stash aynı kimliklerde. Önceki başarılı testler/build
+  tekrarlanmadı; yeni ürün kodu veya migration değişikliği yapılmadı.
+- .local/v26-release-dry-run/2bee71060125-gjhj_hti içindeki source.tar ve
+  frontend-dist.tar SHA256 değerleri commit-pinned manifest ile eşleşti.
+  Önceki kaynak kopyası frontend build PASS kanıtı doğrulandı; deploy ve
+  cleanup bayrakları kapalı. Gerçek DB şema kabulü NOT_VERIFIED olarak kaldı.
+- Daha önce bekleyen 2bee710 normal push ile GitHub main-guncel'e gönderildi
+  (60d949b..2bee710); force yok. Bu teslim kaydı ayrı dokümantasyon commit'idir.
+- Kalan BLOCKED: VDS mevcut paket tablolarının gerçek metadata kontrolü,
+  canlı yedek/izole restore doğrulaması ve ID/revizyonlu workspace snapshot.
+  Şema sayısı veya Git eşitliği DB uyumu sayılmadı. Gerçek temizlik seçimi boş.
+- VDS deploy/migration/restart/silme yok. Hesaplar, V1/V2.5/router/RADIUS/IPsec,
+  yerel veriler ve üç stash korundu. Sonraki adım erişilebilir VDS oturumunda
+  yalnız salt okunur katalog ve workspace envanterinin doğrulanmasıdır.
