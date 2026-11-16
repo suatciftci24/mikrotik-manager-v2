@@ -70,3 +70,38 @@ Yedi offline handoff testi PASS. Gerçek VDS acceptance bu görevde çalıştır
 VDS stash/DB/servis değişmedi. Ofis WSL tek komutu yukarıdakiyle aynıdır ve yeni
 commit'teki worker'ı gönderir. Başarılı gerçek izole migration sonucu ayrıca
 alınmalıdır; parser testi migration PASS sayılmaz.
+
+## Aşama bazlı güvenli tanı — 2026-11-16
+
+Kullanıcı d1dbe5a için COMMAND_FAILED:psql ve
+`/home/mikadmin/v26-backup-011-33_uy6u6` evidence dizinini bildirdi. Eski genel
+hata kaydı hangi SQL'in başarısız olduğunu kanıtlamaz; bu dizin değiştirilmedi
+ve SSH yeniden denenmedi. SQL kök nedeni henüz doğrulanmadı.
+
+Yeni worker her dış komuta sabit aşama atar. PostgreSQL sırası:
+ISOLATED_DATABASE_CREATE → ISOLATED_TARGET_VERIFY → ISOLATED_RESTORE →
+RESTORED_PACKAGE_CATALOG → SNAPSHOT_BEFORE_TABLE_LIST / TABLE_n →
+RESTORED_ADMIN_CHECK → MIGRATION_011_FIRST → SNAPSHOT_AFTER_FIRST_* →
+PACKAGE_CATALOG_AFTER_FIRST → MIGRATION_011_SECOND → SNAPSHOT_AFTER_SECOND_* →
+PACKAGE_CATALOG_AFTER_SECOND. Canlı katalog başta LIVE_CATALOG, sonda
+LIVE_CATALOG_RECHECK olarak ayrılır; yalnız read-only kalır.
+
+Başarısız komut JSON'unda failed_stage, tool, failure, exit_code ve yalnız
+bilinen SQLSTATE varsa sqlstate bulunur. Örnek:
+`{"failed_stage":"RESTORED_ADMIN_CHECK","tool":"psql","exit_code":3,"sqlstate":"42P01"}`.
+Bu örnek gerçek hata teşhisi değildir. Psql VERBOSITY=sqlstate kullanır;
+stdout/stderr, SQL, argümanlar, satırlar, parola/hash veya tablo isimleri
+rapora alınmaz. Snapshot TABLE_n yalnız sıra numarasıdır. Timeout ve executable
+başlatma hataları aynı güvenli biçimde ayrılır. Bilinmeyen SQLSTATE basılmaz.
+
+Kendi cluster'ını durdurma başarısız olursa cleanup_failure ayrıca eklenir;
+ilk SQL'in reason/failed_stage alanı korunur ve durum BLOCKED kalır.
+Private result.json ile stdout aynı güvenli raporu taşır. Eski evidence'e
+üzerine yazılmaz; yeni çalıştırma yeni private dizin oluşturur.
+
+10 offline hedefli test PASS: eski parser/kimlik sınırı, sekiz SQL aşamasında
+hata enjeksiyonu, ilk hata+stop hatasının birlikte korunması, private rapor,
+exit/SQLSTATE tanısı ve timeout/secret sızıntısı reddi. Gerçek izole kabulün
+geçtiği iddia edilmez. Ofis WSL tek komutu değişmedi; yeni JSON hangi SQL
+adımının başarısız olduğunu gösterecektir. Canlı migration/deploy/restart/silme
+ve VDS stash işlemi yoktur.

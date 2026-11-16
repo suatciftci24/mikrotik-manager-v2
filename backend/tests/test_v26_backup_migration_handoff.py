@@ -2,6 +2,9 @@
 import importlib.util
 import io
 import json
+import subprocess
+import tempfile
+from types import SimpleNamespace
 from pathlib import Path
 from contextlib import redirect_stdout
 from unittest import TestCase
@@ -84,3 +87,69 @@ class BackupMigrationHandoff(TestCase):
                 worker.parse_live_catalog(identity+'\n'+body)
         with self.assertRaisesRegex(RuntimeError,'LIVE_TARGET_REJECTED'):
             worker.parse_live_catalog('unexpected banner\n'+identity+'\n'+valid)
+
+    def test_command_error_reports_only_stage_exit_and_allowlisted_sqlstate(self):
+        result = SimpleNamespace(returncode=3,stdout='private row',
+                                 stderr='ERROR: 42P01\nDETAIL: password=private row secret')
+        with patch.object(worker.subprocess,'run',return_value=result):
+            with self.assertRaises(worker.CommandFailure) as raised:
+                worker.run(['/usr/lib/postgresql/16/bin/psql'],stage='RESTORED_ADMIN_CHECK',sql='private SQL')
+        details = raised.exception.details
+        self.assertEqual(details,dict(failed_stage='RESTORED_ADMIN_CHECK',tool='psql',
+                                      failure='COMMAND_FAILED',exit_code=3,sqlstate='42P01'))
+        self.assertNotIn('private',str(raised.exception))
+        for stderr in ['ERROR: TOKEN password=private', 'private row without SQLSTATE']:
+            result.stderr = stderr
+            with patch.object(worker.subprocess,'run',return_value=result),self.assertRaises(worker.CommandFailure) as raised:
+                worker.run(['psql'],stage='MIGRATION_011_FIRST')
+            self.assertNotIn('sqlstate',raised.exception.details)
+
+    def test_timeout_does_not_echo_sql_arguments_or_captured_output(self):
+        error = subprocess.TimeoutExpired(['psql','password=private'],5,output='private row',stderr='private')
+        with patch.object(worker.subprocess,'run',side_effect=error),self.assertRaises(worker.CommandFailure) as raised:
+            worker.run(['psql'],stage='MIGRATION_011_SECOND')
+        self.assertEqual(raised.exception.details['failure'],'COMMAND_TIMEOUT')
+        self.assertNotIn('private',str(raised.exception))
+
+    def test_sql_stage_propagates_to_json_and_cleanup_preserves_primary_failure(self):
+        stages = ['ISOLATED_TARGET_VERIFY','RESTORED_PACKAGE_CATALOG','SNAPSHOT_BEFORE_TABLE_LIST',
+                  'SNAPSHOT_BEFORE_TABLE_1','RESTORED_ADMIN_CHECK','MIGRATION_011_FIRST',
+                  'MIGRATION_011_SECOND','PACKAGE_CATALOG_AFTER_SECOND']
+        for failed in stages:
+            with self.subTest(stage=failed),tempfile.TemporaryDirectory() as temporary:
+                parent = Path(temporary)
+                root = parent/'evidence'
+                root.mkdir(mode=0o700)
+                backup = parent/'database.dump'
+                backup.write_bytes(b'synthetic backup only')
+                seen = []
+                def command(args, *, stage, **kwargs):
+                    seen.append(stage)
+                    if stage in (failed,'ISOLATED_CLUSTER_STOP'):
+                        raise worker.CommandFailure(stage,'psql' if stage==failed else 'pg_ctl',exit_code=3)
+                    if stage=='VDS_HEAD':return 'b4e78a44685f83e58bb37684712236a33c5ccbaf'
+                    if stage=='ISOLATED_INITDB':(root/'pgdata').mkdir()
+                    if stage=='ISOLATED_CLUSTER_START':
+                        (root/'pgdata/postmaster.pid').write_text('123\n'+str(root/'pgdata')+'\n')
+                    if stage=='ISOLATED_TARGET_VERIFY':return str(root/'pgdata')
+                    if 'PACKAGE_CATALOG' in stage:return json.dumps(dict(columns=None,constraints=None,indexes=None))
+                    if stage.endswith('_TABLE_LIST'):return '[{"s":"v26_acceptance","t":"users"}]'
+                    if '_TABLE_' in stage:return '[]'
+                    if stage=='RESTORED_ADMIN_CHECK':return '1'
+                    return ''
+                output = io.StringIO()
+                catalog = dict(columns=None,constraints=None,indexes=None)
+                with patch.object(worker,'BACKUP',backup),patch.object(worker,'run',side_effect=command), \
+                     patch.object(worker,'live_catalog',return_value=catalog), \
+                     patch.object(worker.tempfile,'mkdtemp',return_value=str(root)), \
+                     patch.object(worker,'MIGRATION_SQL','synthetic migration',create=True),redirect_stdout(output):
+                    self.assertEqual(worker.main(),1)
+                report = json.loads(output.getvalue())
+                self.assertEqual(report['failed_stage'],failed)
+                self.assertEqual(report['cleanup_failure'],'ISOLATED_CLUSTER_STOP_UNCONFIRMED')
+                self.assertIn(failed,report['reason'])
+                self.assertEqual(json.loads((root/'result.json').read_text()),report)
+                self.assertEqual((root/'result.json').stat().st_mode & 0o777,0o600)
+                self.assertLess(seen.index('ISOLATED_DATABASE_CREATE'),seen.index('ISOLATED_TARGET_VERIFY'))
+                if 'MIGRATION_011_FIRST' in seen:
+                    self.assertLess(seen.index('ISOLATED_RESTORE'),seen.index('MIGRATION_011_FIRST'))

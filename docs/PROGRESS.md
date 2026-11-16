@@ -6113,3 +6113,20 @@ Her iki ilerleme kaydi korunmustur:
 - VDS bağlantısı, canlı deploy/migration/restart/silme yok; VDS stash dahil
   uzak veriler/hesaplar değişmedi. Üç yerel stash korunur. Sonraki işlem ofis
   WSL'de check-v26-backup-migration.py --run-isolated; gerçek kabul bekliyor.
+
+## V26 COMMAND_FAILED:psql güvenli aşama tanısı — 2026-11-16 — yerel PASS
+
+- Temel temiz main-guncel/d1dbe5a; Altın Kurallar ve son handoff kabulü okundu.
+  Kullanıcı /home/mikadmin/v26-backup-011-33_uy6u6 BLOCKED bildirdi; mevcut genel
+  hata başarısız SQL'i kanıtlamaz. Evidence değiştirilmedi; SSH denenmedi.
+- run() sabit failed_stage/tool/exit_code ve allowlist SQLSTATE raporlar;
+  psql SQLSTATE verbosity, timeout/start failure ayrımı. Ham hata/SQL/argv/
+  satır/hash/parola raporlanmaz. Snapshot'lar tablo adı yerine sıra taşır.
+- PostgreSQL işlem sırası incelendi: yeni DB → kendi data_directory kontrolü →
+  restore → metadata/snapshot/ADMIN → ilk 011 → korunma → ikinci 011 → idempotency.
+  Her çağrı etiketli; stop hatası ilk SQL failure'ını artık örtmez.
+- PASS: 10 hedefli offline test (8 SQL aşaması hata enjeksiyonu dahil), syntax/
+  diff kontrolü. Eski başarılı PG/build tekrarlanmadı. Gerçek SQL kök nedeni ve
+  izole kabul hâlâ BLOCKED; sonraki adım ofis WSL tek komutunun yeni raporu.
+- Canlı deploy/migration/restart/silme yok; VDS stash, V1/V2.5/router/RADIUS/
+  IPsec/hesaplar ve üç yerel stash korundu. Commit/push sonucu teslimde.
