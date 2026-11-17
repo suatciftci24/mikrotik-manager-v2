@@ -1,5 +1,22 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.2 VDS üzerinden güvenli GitHub aktarımı — 2026-11-17
+
+- Başlangıç development/v2.6.2-pppoe / b41deae temiz; AGENTS ve son kabul
+  okundu. Kaynak tam b41deae94be7ed2d3790d0a1ecd9cad1c6b06f93 ve doğrudan
+  75c27df tabanı yerelde doğrulandı. Codex'te DNS/SSH/GitHub denenmedi.
+- tools/v262-push-via-vds.py normal WSL'de tek uçtan uca komuttur; yalnız
+  pinned kaynak Git graph'ını mevcut SSH ile geçici private bare VDS deposuna
+  aktarır. Canlı VDS proje klasörüne veya onun Git ağacına erişmez.
+- Exact tek GitHub branch ref'i normal non-force push; mevcut ref çatışması
+  reddi, gönderim sonrası SHA doğrulaması ve geçici deponun temizliği var.
+  Kaynaktan sonraki yerel araç commit'leri pakete girmez. Tag/hooks/mirror yok.
+- Üç gerçek Git kullanan çevrimdışı hedefli test PASS; bütün hedefler yerel
+  disposable bare fixture'ları. Syntax/diff PASS. Gerçek gönderim yapılmadı.
+- Prosedür docs/V262_GITHUB_RELAY.md; VDS mevcut HTTPS yazma kimliği yoksa
+  BLOCKED. Yeni credential, sudo veya canlı panel/DB/servis işlemi yok.
+  Kullanıcı normal WSL komutunu çalıştırınca PUSHED/BLOCKED çıktısı alınır.
+
 ## V2.6.2 PPPoE Abone Merkezi — 2026-11-17 — yerel READY
 
 - Başlangıç development/v2.6.1-ui / 708bb08 temiz; kurallar, özellik koruma ve
