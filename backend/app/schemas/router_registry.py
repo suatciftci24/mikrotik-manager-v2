@@ -55,18 +55,6 @@ class RecheckRouter(BaseModel):
     confirmed_read_only: Literal[True]
     _explicit=field_validator('confirmed_read_only',mode='before')(RouterCandidate.explicit.__func__)
 
-class CebeciPilotCandidate(BaseModel):
-    model_config=ConfigDict(extra='forbid')
-    request_id:UUID
-    name:str=Field(default='CEBECI_TOWERS',min_length=1,max_length=120)
-    _text=field_validator('name')(RouterCandidate.text.__func__)
-    _nonempty=field_validator('name')(RouterCandidate.nonempty.__func__)
-    management_address:Literal['10.250.0.19']='10.250.0.19'
-    port:Literal[8729]=8729
-    username:Literal['v2-cebeci-ro']='v2-cebeci-ro'
-    credential_alias:Literal['CEBECI_TOWERS_RO']='CEBECI_TOWERS_RO'
-    confirmed_read_only:Literal[True]
-    _explicit=field_validator('confirmed_read_only',mode='before')(RouterCandidate.explicit.__func__)
 
 
 class InventoryRouter(BaseModel):

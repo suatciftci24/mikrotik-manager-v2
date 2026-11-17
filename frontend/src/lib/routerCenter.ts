@@ -1,5 +1,5 @@
+export type RouterReadSnapshot={identity:string;model:string;routeros_version:string;cpu_percent:number;memory_percent:number;uptime:string;captured_at:string;interfaces:{'.id':string;name:string;type:string;disabled:boolean;running:boolean}[];default_routes:{'dst-address':string;gateway:string;active:boolean;disabled:boolean}[];wan_ip:string|null;wan_interface?:string|null;pppoe_active_count?:number|null;hotspot_active_count?:number|null;pppoe_count:number|null;pppoe_explicit_count:number;ppp_any_count:number;hotspot_count:number;is_demo:false;read_only:true};
 import {linkedCenterHash,centerReturnHash} from './detailLinks.ts';
-import type {PilotReadSnapshot} from './cebeciPilot';
 import {connectionError} from './routerRegistry.ts';
 export const routerSectionTabs=[['overview','Genel Bakış'],['interfaces','Ağ Arayüzleri'],['wan','WAN ve İnternet'],['pppoe','PPPoE'],['hotspot','Hotspot'],['events','Olay Geçmişi'],['security','Güvenli Bağlantı']] as const;
 export const routerCenterTabs=[['overview','Genel Durum'],['wan','WAN/Bağlantı'],['subscribers','Aboneler'],['events','Geçmiş']] as const;
@@ -20,8 +20,8 @@ export function routerSubscriberListHash(id:string,access:'PPPOE'|'HOTSPOT'|'ALL
 }
 export type RouterCenterData={source:'PERSISTENT_DEMO'|'STATIC_DEMO'|'REGISTERED';is_demo:boolean;device_connection_started:false;
  item:{id:string;name:string;identity:string|null;model:string|null;routeros_version:string|null;management_address:string;site:string|null;inventory_description?:string|null;status:string;last_success_at:string|null;last_seen_at:string|null;cpu_percent:number|null;memory_percent:number|null;uptime:string|null};
+ read_snapshot?:RouterReadSnapshot|null;
  sections:Record<typeof routerSectionTabs[number][0],'AVAILABLE'|'UNMEASURED'|'PREPARING'>;
- read_snapshot?:PilotReadSnapshot|null;
  events:{action:string;occurred_at:string;actor_id:string;revision:number|null}[]};
 export const routerCenterPath=(id:string)=>'/router-center/'+encodeURIComponent(id);
 export function validRouterCenter(data:RouterCenterData,id:string){return data.item?.id===id&&data.device_connection_started===false&&

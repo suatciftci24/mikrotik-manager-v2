@@ -1,6 +1,6 @@
 import type {PilotIdentity} from './pilotOperator';
 export type RegisteredRouter={
-  pilot_kind?:'CEBECI_TOWERS'|null;id:string;name:string;management_address:string;port:number;identity:string;model:string;routeros_version:string;
+  id:string;name:string;management_address:string;port:number;identity:string;model:string;routeros_version:string;
   revision:number;last_checked_at:string|null;last_success_at:string|null;last_error:string|null;
   status:'PENDING_VERIFICATION'|'VERIFIED'|'STALE'|'CHECK_FAILED';leaf_sha256:string;source_ip:string;
   expected_identity:string;expected_version:string;credentials_configured:boolean;is_demo:false;continuous_monitoring:false;

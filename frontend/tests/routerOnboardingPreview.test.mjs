@@ -40,7 +40,7 @@ test('closed policy UI permits local preview without verification, save or netwo
   if(value?.path==='/router-registry/options')return [{...value,loading:false,data:{connection_enabled:false,operator_authorized:false,allowed_ports:[8729]}},()=>{}];
   return [value,next=>states.push(next)];
  }};
- const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/RouterOnboarding.tsx',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
+ const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/components/RouterOnboarding.tsx',import.meta.url))],bundle:true,write:false,loader:{'.css':'empty'},platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']}).outputFiles[0].text;
  const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?react:require(name),module,module.exports);
  const previousWindow=globalThis.window,previousFetch=globalThis.fetch;let writes=0;
  globalThis.window={isSecureContext:true};globalThis.fetch=()=>{writes++;throw new Error('network forbidden');};

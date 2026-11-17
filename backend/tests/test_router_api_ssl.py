@@ -5,7 +5,7 @@ from unittest import TestCase
 from unittest.mock import Mock,patch
 from app.adapters import router_api_ssl as transport
 from app.adapters.cebeci_api_ssl import ApiSslStop
-from backend.tests.test_cebeci_api_ssl import FakeTls,response,sentence,DER
+from backend.tests.router_tls_fixtures import FakeTls,response,sentence,DER
 
 class RouterTransportTests(TestCase):
     def setUp(self):

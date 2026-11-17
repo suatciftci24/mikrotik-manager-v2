@@ -1,5 +1,27 @@
 # MikroTik Manager V2 — İlerleme
 
+## CEBECI_TOWERS V2.6 cleanup — 2026-11-17 — kontroller PASS / commit BLOCKED
+
+- Başlangıç `cleanup/cebeci-v26-reset-20261117` / `4f10df0`; staged ve
+  unstaged mevcut cleanup değişiklikleri korunarak tamamlandı. Push yok.
+- CEBECI ekranları, özel registry/read API ve preflight/rollout artefaktları
+  kaldırıldı. Genel router, PPPoE, Hotspot, kaydedilmiş ölçüm gösterimi ve
+  ortak TLS/wire modülleri korundu. V26 storage guard korundu; emekli
+  capability eski enabled/operator ayarlarında fail-closed davranır.
+- Kaldırılan test modülündeki ortak sentetik TLS fixture bağımsız dosyaya
+  taşındı. Eski API testleri kaldırılmış yüzeyin yokluğu kontrollerine
+  uyarlandı; genel TLS/read kontrolleri korundu. Fixture framing ve CSS test
+  harness hataları düzeltildi; güvenlik doğrulamaları gevşetilmedi.
+- Hedefli backend kontrolleri, altı frontend test dosyası, TypeScript + Vite
+  build ve diff check PASS. Detay: `V26_CEBECI_CLEANUP_ACCEPTANCE.md`.
+- DB bağlantısı/migration/kalıcı veri değişimi, canlı bağlantı, servis veya
+  deploy yok. Test DB'leri yalnız geçici sentetik SQLite memory fixture'ları.
+  Önceki canlı code drift/yedek/SSH BLOCKED kayıtları bu işle kapanmış değildir.
+- Commit BLOCKED: `.git` salt okunur; git add/commit index.lock oluşturamadı.
+  HEAD `4f10df0`, mevcut index/çalışma değişiklikleri korundu. Sonraki adım
+  Git yazma yetkili ortamda aynı cleanup dalında commit. Push/yayın yapılmadı.
+
+
 ## CEBECI eksik registry / koşullu migration planı — 2026-11-16
 
 - Kullanıcı VDS raporu: gerçek aday v2-user-49b00e12-4d11-4413-94ee-f222ab056703

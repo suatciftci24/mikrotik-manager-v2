@@ -3,7 +3,6 @@
 No IO, implicit operator, generic onboarding grant or startup connection.
 """
 import os
-import re
 
 FLAG = 'V2_V26_CEBECI_READ_ENABLED'
 OPERATOR = 'V2_V26_CEBECI_OPERATOR_ID'
@@ -11,18 +10,9 @@ REVISION = 'V2_V26_CEBECI_OPERATOR_REVISION'
 
 
 def validate(values):
-    flag = values.get(FLAG, 'false')
-    identity = values.get(OPERATOR, '')
-    revision = values.get(REVISION, '')
-    valid = flag in ('false', 'true')
-    if flag == 'true':
-        valid = (valid and values.get('V2_DEPLOYMENT_PROFILE') == 'v26-isolated-acceptance'
-                 and isinstance(identity, str)
-                 and re.fullmatch(r'v2-user-[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}', identity)
-                 and isinstance(revision, str) and re.fullmatch(r'0|[1-9][0-9]{0,9}', revision))
-    else:
-        valid = valid and identity == '' and revision == ''
-    if not valid:
+    # Retired V2.6 capability: stale configuration must fail closed.
+    if (values.get(FLAG, 'false') != 'false' or values.get(OPERATOR, '')
+            or values.get(REVISION, '')):
         raise RuntimeError('V26_CEBECI_CAPABILITY_REJECTED')
 
 

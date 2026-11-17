@@ -226,8 +226,7 @@ class RegistryTests(TestCase):
         payload=self.inventory_payload();item=self.registry.inventory(payload,'actor')['item']
         self.registry.policy=Mock(side_effect=AssertionError('NO_POLICY_OR_IO'))
         calls=[lambda:self.registry.verify(RouterCandidate(request_id=uuid4(),name=item['name'],management_address=item['management_address'],router_id=item['id'],expected_revision=1,leaf_sha256='a'*64,confirmed_read_only=True),'actor'),
-            lambda:self.registry.recheck(item['id'],RecheckRouter(request_id=uuid4(),expected_revision=1,confirmed_read_only=True),'actor'),
-            lambda:self.registry.read_details(item['id'],RecheckRouter(request_id=uuid4(),expected_revision=1,confirmed_read_only=True),'actor')]
+            lambda:self.registry.recheck(item['id'],RecheckRouter(request_id=uuid4(),expected_revision=1,confirmed_read_only=True),'actor')]
         for call in calls:
             with self.assertRaises(service.RegistryError) as failure:call()
             self.assertEqual(failure.exception.code,'ROUTER_PENDING_VERIFICATION')
