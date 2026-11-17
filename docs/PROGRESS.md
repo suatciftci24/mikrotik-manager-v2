@@ -1,5 +1,26 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.1 merkez arayüz düzeni — 2026-11-17 — yerel PASS
+
+- Başlangıç temiz v2.6.0 / `5b8649e`; yerel dal
+  `development/v2.6.1-ui`. AGENTS, özellik koruma ve son mobil/Dashboard
+  kabul kayıtları okundu. Önceki canlı erişim/dağıtım engelleri sürer.
+- Dashboard, Router Merkezi ve Abone Merkezi için kapsamlı olmayan ortak
+  sunum CSS'i: daha küçük boşluklar, saran başlık/filtre araçları, okunabilir
+  satır metni, mobil abone ad/durum sarımı ve 44px dokunma alanları.
+- Dashboard teknik kapsam bölümündeki UNKNOWN ve WITHIN_30 yinelenen
+  linkleri kaldırıldı; aynı filtreler durum/bitiş bölümünde korunur.
+  Sayım, kaynak, yetki, API, işlemler ve veri kodları değişmedi.
+- Merkezi sürüm/paket/lock/CHANGELOG 2.6.1. Alt bilgi mevcut merkezi kaydı okur.
+- Altı hedefli frontend dosyası PASS: dashboardOverview, workspaceDashboard,
+  routerInventory, compactSubscribers, subscriberQuickWorkflow,
+  dashboardExpiryRefresh. TypeScript/Vite build, release check ve diff PASS.
+- Gerçek tarayıcı layout/görsel kabulü yapılmadı; önceki Chromium ortam engeli
+  yeniden denenmedi. SSR/handler kontrolleri görsel kabul olarak sunulmaz.
+- Backend, DB/migration, canlı router/PPPoE/Hotspot/RADIUS/TLS/IPsec değişimi
+  yok. İptal edilen CEBECI entegrasyonu geri getirilmedi. Push/tag/deploy/
+  restart yok. Ayrıntı: `V261_CENTER_UI_ACCEPTANCE.md`; yerel commit teslimde.
+
 ## Kalıcı sürüm yönetimi — 2026-11-17 — yerel PASS
 
 - Başlangıç: temiz `cleanup/cebeci-v26-reset-20261117`, HEAD `892e87d`.

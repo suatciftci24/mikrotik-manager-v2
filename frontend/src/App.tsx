@@ -17,6 +17,7 @@ import { Login } from './screens/Login';
 import { api } from './lib/api';
 import './styles.css';
 import './styles/v26-ui.css';
+import './styles/center-layout.css';
 
 function lazyScreens(){return {
  Dashboard:lazy(()=>import('./screens/Dashboard').then(module=>({default:module.Dashboard}))),

@@ -1,0 +1,59 @@
+/* Shared spacing for the three centers; data and action visibility stay in components. */
+:is(.dashboard-overview,.router-center-list,.subscriber-center-list){
+ --center-gap:12px;
+ min-width:0;
+ line-height:1.5;
+}
+.dashboard-overview.screen-stack,
+:is(.router-center-list,.subscriber-center-list) .screen-stack{gap:var(--center-gap)}
+:is(.dashboard-overview,.router-center-list,.subscriber-center-list) .page-heading-row{
+ min-height:0;
+ gap:12px;
+ margin-bottom:0;
+}
+:is(.dashboard-overview,.router-center-list,.subscriber-center-list) .page-heading-row h1{
+ line-height:1.25;
+ letter-spacing:-.025em;
+}
+:is(.dashboard-overview,.router-center-list,.subscriber-center-list) .heading-actions{
+ display:flex;
+ flex-wrap:wrap;
+ align-items:center;
+ gap:8px;
+ min-width:0;
+}
+:is(.dashboard-overview,.router-center-list,.subscriber-center-list) :is(.button-primary,.button-secondary){
+ height:auto;
+ min-height:38px;
+ padding:8px 12px;
+ line-height:1.4;
+ white-space:normal;
+}
+:is(.router-center-list,.subscriber-center-list) .source-picker{padding:12px 14px}
+:is(.router-center-list,.subscriber-center-list) .source-picker-controls{gap:10px}
+:is(.router-center-list,.subscriber-center-list) .source-technical{margin-top:6px}
+:is(.router-center-list,.subscriber-center-list) .inventory-toolbar{height:auto;gap:10px;flex-wrap:wrap}
+:is(.router-center-list,.subscriber-center-list) .table-search{min-width:0;max-width:100%}
+:is(.router-center-list,.subscriber-center-list) .filter-tabs{flex-wrap:wrap;height:auto;gap:4px}
+:is(.router-center-list,.subscriber-center-list) .filter-tabs button{height:auto;min-height:36px;white-space:normal;line-height:1.4}
+:is(.router-center-list,.subscriber-center-list) .data-table :is(th,td){line-height:1.5}
+:is(.router-center-list,.subscriber-center-list) .data-table small{font-size:12px}
+:is(.router-center-list,.subscriber-center-list) .data-table .record-link{font-size:13px}
+.dashboard-overview :is(.overview-status-grid,.overview-daily-grid,.overview-quick-grid){gap:10px}
+.dashboard-overview .overview-section-heading{margin-bottom:8px;gap:8px;flex-wrap:wrap}
+.dashboard-overview :is(.overview-router-status,.overview-report-links){gap:8px;flex-wrap:wrap}
+.dashboard-overview :is(.daily-description,.overview-info p){line-height:1.6}
+.dashboard-overview .overview-quick-grid .button-secondary{justify-content:flex-start;text-align:left}
+.dashboard-overview .overview-quick-grid .button-secondary>svg:last-child{margin-left:auto;flex-shrink:0}
+@media(max-width:650px){
+ :is(.dashboard-overview,.router-center-list,.subscriber-center-list){--center-gap:10px}
+ :is(.dashboard-overview,.router-center-list,.subscriber-center-list) :is(.button-primary,.button-secondary,.filter-tabs button){min-height:44px}
+ :is(.router-center-list,.subscriber-center-list) .source-picker{padding:10px}
+ :is(.router-center-list,.subscriber-center-list) .filter-tabs button{flex:1 1 auto}
+ .dashboard-overview .overview-quick-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:600px){
+ .subscriber-center-list .compact-subscriber-first strong{font-size:14px;line-height:1.45}
+ .subscriber-center-list :is(.compact-subscriber-second,.compact-subscriber-status){font-size:12px;line-height:1.5}
+ .subscriber-center-list .compact-subscriber-first{flex-wrap:wrap;gap:2px 6px}
+}

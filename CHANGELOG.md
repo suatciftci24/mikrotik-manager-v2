@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.1] - 2026-11-17
+
+- Dashboard, Router ve Abone Merkezi boşlukları, metin ve araç çubukları iyileştirildi; yinelenen Dashboard filtre bağlantıları kaldırıldı.
+
 ## [2.6.0] - 2026-11-17
 
 - Kalıcı SemVer kaydı başlatıldı; frontend paketleri, arayüz alt bilgisi,
