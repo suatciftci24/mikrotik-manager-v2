@@ -96,6 +96,8 @@ class SubscriberCenterData(BaseModel):
     connection_history:list[dict]=Field(default_factory=list)
 
 class SubscriberWorkspaceList(BaseModel):
+    expiry_groups:dict[str,int]|None=None
+    as_of_date:str|None=None
     items:list[CenterSubscriber]
     total:int
     page:int

@@ -13,7 +13,7 @@ export function turkeyToday(now = new Date()): string {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 function calendarDay(value: string): number | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)||Number(value.slice(0,4))<1) return null;
   const date = new Date(`${value}T00:00:00Z`);
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? date.getTime() / 86400000 : null;
 }

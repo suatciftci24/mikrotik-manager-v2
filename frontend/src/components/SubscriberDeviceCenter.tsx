@@ -1,3 +1,4 @@
+import {ExpiryBadge} from './Expiry';
 import {packagePrice} from '../lib/packages';
 import {SubscriberAaaDemo} from './SubscriberAaaDemo';
 import {SourceBadge} from './Status';
@@ -49,11 +50,11 @@ export function SubscriberDeviceCenterView({data,tab,onTab,onEdit,onRenew,onMana
  </div>:null;
  function key(event:KeyboardEvent,index:number){let next=index;if(event.key==='ArrowRight')next=(index+1)%tabs.length;else if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;else return;event.preventDefault();onTab(tabs[next][0]);buttons.current[next]?.focus();}
  return <><section className="panel registry-detail router-device-summary subscriber-summary" aria-label="Abone özeti">
- <div className="subscriber-summary-title"><div><span className="eyebrow">SENTETİK · Güncel yetkili kaynak: {subscriberSource(r.source)==='UNKNOWN'?'BELİRSİZ':sourceLabels[subscriberSource(r.source)]} · Erişim türü: {r.access_type??'Bilinmiyor'}</span><h2>{detailText(r.customer_name)}</h2></div><div className="subscriber-summary-actions"><span className="demo-chip">{accountStatus(r.status)}</span>{workspaceMenu}</div></div>
+ <div className="subscriber-summary-title"><div><span className="eyebrow">SENTETİK · Güncel yetkili kaynak: {subscriberSource(r.source)==='UNKNOWN'?'BELİRSİZ':sourceLabels[subscriberSource(r.source)]} · Erişim türü: {r.access_type??'Bilinmiyor'}</span><h2>{detailText(r.customer_name)}</h2></div><div className="subscriber-summary-actions"><span className="demo-chip">{accountStatus(r.status)}</span><ExpiryBadge expiresOn={r.expires_on} today={today}/>{workspaceMenu}</div></div>
  <Facts items={[
  ['Kullanıcı adı',detailText(r.username)],['Paket',detailText(r.plan)],['Paket hızı',r.package_snapshot?`${r.package_snapshot.download_mbps}/${r.package_snapshot.upload_mbps} Mbps`:'Veri yok'],
  ['Router',routerHash?<a className="record-link" aria-label="İlgili routerı aç" href={routerHash}>{r.router_name||'Routerı aç'}</a>:detailText(r.router_name)],
- ['Bitiş tarihi',expiry.days===null?'Veri yok':expiryDate(r.expires_on)],['Kalan gün',expiry.days===null?'Veri yok':remainingDays(expiry.days)]
+ ['Bitiş tarihi',expiryDate(r.expires_on)],['Kalan gün',remainingDays(expiry.days)]
  ]}/>{subscriberSource(r.source)==='UNKNOWN'&&<p role="status">{sourceDescription(r.source)}</p>}{!r.access_type&&<p>Erişim türü kayıtlı değil; PPPoE/Hotspot türü yetkili kaynaktan veya router atamasından tahmin edilmez.</p>}</section>
  <div className="filter-tabs router-device-tabs" role="tablist" aria-label="Abone detay bölümleri">{tabs.map(([id,label],index)=><button key={id} ref={node=>{buttons.current[index]=node;}} role="tab" id={'subscriber-tab-'+id} aria-controls={'subscriber-panel-'+id} aria-selected={activeTab===id} tabIndex={activeTab===id?0:-1} onKeyDown={event=>key(event,index)} onClick={()=>onTab(id)} className={activeTab===id?'selected':''}>{label}</button>)}</div>
  <section className="panel registry-detail router-device-panel" role="tabpanel" id={'subscriber-panel-'+activeTab} aria-labelledby={'subscriber-tab-'+activeTab} tabIndex={0}><h2>{tabs.find(([key])=>key===activeTab)?.[1]??'Abone detayı'}</h2>

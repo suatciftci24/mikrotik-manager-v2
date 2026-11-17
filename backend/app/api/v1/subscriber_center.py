@@ -36,9 +36,9 @@ def actor_names(detail):
     return detail.model_copy(update={'history':[event.model_copy(update={'actor_username':names.get(event.actor_id)}) for event in detail.history]})
 
 @router.get('/subscriber-workspace',response_model=SubscriberWorkspaceList)
-def list_subscribers(query:str=Query('',max_length=120),access_type:str=Query('ALL',pattern='^(ALL|PPPOE|HOTSPOT)$'),status:str=Query('ALL',pattern='^(ALL|ACTIVE|PAUSED)$'),router_id:str=Query('',max_length=100),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_demo_user)):
+def list_subscribers(query:str=Query('',max_length=120),access_type:str=Query('ALL',pattern='^(ALL|PPPOE|HOTSPOT)$'),status:str=Query('ALL',pattern='^(ALL|ACTIVE|PAUSED)$'),router_id:str=Query('',max_length=100),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_demo_user),grouped:bool=False,source:str=Query('ALL',pattern='^(ALL|LOCAL|RADIUS|UNKNOWN)$'),expiry_group:str=Query('ALL',pattern='^(ALL|EXPIRED|TODAY|WITHIN_3|WITHIN_7|WITHIN_30|ACTIVE|UNKNOWN)$')):
     workspace_scope(user)
-    return execute(workspace.list,query,access_type,status,router_id,page,page_size,user=user)
+    return execute(workspace.list,query,access_type,status,router_id,page,page_size,user=user,grouped=grouped,source=source,expiry_group=expiry_group)
 @router.get('/subscriber-workspace/options')
 def options(user:dict=Depends(current_demo_user)):
     workspace_scope(user)

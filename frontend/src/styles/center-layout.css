@@ -57,3 +57,24 @@
  .subscriber-center-list :is(.compact-subscriber-second,.compact-subscriber-status){font-size:12px;line-height:1.5}
  .subscriber-center-list .compact-subscriber-first{flex-wrap:wrap;gap:2px 6px}
 }
+
+/* v2.6.2: exclusive expiry navigation, without hiding action or source controls. */
+.subscriber-expiry-groups{padding:10px 14px;border-block:1px solid var(--line);min-width:0}
+.subscriber-expiry-groups>p{margin:0 0 8px;color:var(--text-secondary);font-size:13px;line-height:1.5}
+.subscriber-expiry-groups>div{display:flex;flex-wrap:wrap;gap:6px}
+.subscriber-expiry-groups button{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text);font-size:13px;text-align:left;line-height:1.4}
+.subscriber-expiry-groups button[aria-pressed=true]{border-color:var(--accent);background:var(--surface-selected);font-weight:600}
+.subscriber-expiry-groups button strong{font-variant-numeric:tabular-nums}
+.subscriber-expiry-groups button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.subscriber-summary .subscriber-summary-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.synthetic-subscriber-list .workspace-list-heading .form-label{flex:1;min-width:180px}
+.synthetic-subscriber-list .workspace-list-heading input{font-size:14px;min-height:44px;min-width:0}
+.synthetic-subscriber-list .synthetic-subscriber-table td:first-child{width:44px}
+.synthetic-subscriber-list .synthetic-subscriber-table td:nth-child(2) small{display:block;overflow-wrap:anywhere;font-size:13px}
+@media(max-width:600px){
+ .subscriber-expiry-groups{padding:8px 0}
+ .subscriber-expiry-groups>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .subscriber-expiry-groups button{min-width:0;overflow-wrap:anywhere}
+ .synthetic-subscriber-list .workspace-list-heading .form-label{flex-basis:100%;min-width:0}
+ .subscriber-summary .detail-facts{grid-template-columns:minmax(0,1fr)}
+}

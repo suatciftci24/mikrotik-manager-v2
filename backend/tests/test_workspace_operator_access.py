@@ -73,6 +73,21 @@ class OperatorAccess(TestCase):
         self.assertEqual(self.client.get('/api/v1/router-workspace/routers/'+self.allowed).status_code,200)
         data=self.client.get('/api/v1/router-center/'+self.allowed).json();self.assertEqual(data['source'],'PERSISTENT_DEMO');self.assertEqual(data['events'],[]);self.assertEqual(data['sections']['pppoe'],'AVAILABLE')
         data=self.client.get('/api/v1/dashboard/summary').json()['summary'];self.assertEqual(data['router_count'],1);self.assertEqual(data['subscribers_total'],0)
+    def test_grouped_subscriber_filters_do_not_count_hidden_router_accounts(self):
+        from app.models.subscriber_workspace import SyntheticSubscriber
+        with self.sessions.begin() as session:
+            for suffix,router in [('visible',self.allowed),('hidden',self.hidden)]:
+                fields=dict(username=suffix,customer_name=suffix,router_id=router,access_type='PPPOE',source='LOCAL',plan='Test',status='ACTIVE',expires_on=None)
+                session.add(SyntheticSubscriber(id='demo-managed-sub-'+suffix,router_id=router,username_key=suffix,access_type='PPPOE',source='LOCAL',revision=1,fields=fields))
+        response=self.client.get('/api/v1/subscriber-workspace?grouped=true&source=LOCAL&expiry_group=UNKNOWN')
+        self.assertEqual(response.status_code,200,response.text)
+        data=response.json();self.assertEqual(data['total'],1)
+        self.assertEqual(data['expiry_groups']['UNKNOWN'],1)
+        self.assertEqual([row['username'] for row in data['items']],['visible'])
+        data=self.client.get('/api/v1/subscriber-workspace?grouped=true&query=hidden').json()
+        self.assertEqual(data['total'],0);self.assertEqual(sum(data['expiry_groups'].values()),0)
+        self.assertEqual(self.client.get('/api/v1/subscriber-workspace?grouped=true&source=RADIUS').json()['total'],0)
+
     def test_foreign_ids_and_revoked_grants_are_denied_before_read(self):
         for id in (self.hidden,'demo-managed-router-missing','trust-profile-x','demo-router-1'):
             self.assertEqual(self.client.get('/api/v1/router-workspace/routers/'+id).status_code,404)

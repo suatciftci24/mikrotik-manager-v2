@@ -48,6 +48,36 @@ class SubscriberTransactions(TestCase):
         self.assertEqual(reopened.list('test.ev')['total'],1);self.assertEqual(reopened.list(query='%')['total'],0)
         self.assertEqual(reopened.list(access_type='HOTSPOT')['total'],0);self.assertEqual(reopened.list(status='ACTIVE',router_id=self.router_id)['total'],1)
         with self.assertRaises(WorkspaceError):reopened.save(self.command(revision=1),'actor',item.id)
+    def test_grouped_search_source_pagination_and_invalid_dates(self):
+        from datetime import date,timedelta
+        from types import SimpleNamespace
+        today=date(2026,11,17)
+        made=[]
+        for i,offset in enumerate([-1,0,1,3,4,7,8,30,31,None]):
+            item=self.workspace.save(self.command(username=f'ayse.{i}',customer_name='Ayşe Işık',
+                source='RADIUS' if i%2 else 'LOCAL',
+                expires_on=(today+timedelta(days=offset)).isoformat() if offset is not None else None),'actor')
+            made.append(item)
+        with patch('app.services.subscriber_center.datetime') as clock:
+            clock.now.return_value=SimpleNamespace(date=lambda:today)
+            result=self.workspace.list(query='AYSE ISIK TEST-EV',grouped=True,page_size=3)
+            self.assertEqual(result['total'],10)
+            self.assertEqual(sum(result['expiry_groups'].values()),10)
+            self.assertEqual(result['expiry_groups'],dict(EXPIRED=1,TODAY=1,WITHIN_3=2,WITHIN_7=2,WITHIN_30=2,ACTIVE=1,UNKNOWN=1))
+            self.assertEqual(result['items'][0].id,made[0].id)
+            self.assertEqual(self.workspace.list(query='ayse.3',source='RADIUS',grouped=True,expiry_group='WITHIN_3')['total'],1)
+            self.assertEqual(self.workspace.list(query='ayse.3',source='LOCAL',grouped=True)['total'],0)
+            self.assertEqual(self.workspace.list(query='%',grouped=True)['total'],0)
+            page=self.workspace.list(grouped=True,page=2,page_size=3)
+            self.assertEqual(len(page['items']),3)
+            with self.sessions.begin() as session:
+                row=session.get(Account,made[0].id);row.fields={**row.fields,'expires_on':'2026-02-30'}
+            unknown=self.workspace.list(grouped=True,expiry_group='UNKNOWN')
+            self.assertEqual(unknown['total'],2)
+            self.assertTrue(all(row.expires_on is None for row in unknown['items']))
+            with self.sessions() as session:
+                self.assertEqual(session.get(Account,made[0].id).fields['expires_on'],'2026-02-30')
+
     def test_hotspot_kind_and_single_authority_are_preserved_on_edit(self):
         item=self.workspace.save(self.command('HOTSPOT',source='RADIUS'),'actor')
         self.assertEqual(self.workspace.list(access_type='HOTSPOT')['total'],1)

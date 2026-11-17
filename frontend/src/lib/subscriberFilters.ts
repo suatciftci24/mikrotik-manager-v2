@@ -1,5 +1,5 @@
 import type { Subscriber } from './api.ts';
-import { expiryInfo, matchesExpiry, type ExpiryFilter } from './expiry.ts';
+import { expiryInfo, matchesExpiry, type ExpiryFilter,type ExpiryStatus } from './expiry.ts';
 import { matchesSource, type SourceFilter } from './source.ts';
 
 export type SubscriberFilters = {
@@ -41,4 +41,11 @@ export function sortSubscribers<T extends Pick<Subscriber,'id'|'customer_name'|'
     }
     return (a.customer_name??'').localeCompare(b.customer_name??'','tr')||a.id.localeCompare(b.id);
   });
+}
+
+/** Exclusive groups, independent from existing cumulative expiry filters. */
+export function subscriberExpiryCounts(rows:Pick<Subscriber,'expires_on'>[],today:string){
+ const counts:Record<ExpiryStatus,number>={EXPIRED:0,TODAY:0,WITHIN_3:0,WITHIN_7:0,WITHIN_30:0,ACTIVE:0,UNKNOWN:0};
+ for(const row of rows)counts[expiryInfo(row.expires_on,today).status]++;
+ return counts;
 }

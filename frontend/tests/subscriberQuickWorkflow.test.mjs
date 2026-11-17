@@ -243,3 +243,17 @@ test('subscriber list distinguishes menu action from selection action and uses d
  list(draw()).props.onQuick(workspace,'STATUS');assert.equal(modal(draw()).props.fixedAction,'STATUS');modal(draw()).props.onClose();
  list(draw()).props.onQuick(workspace,'EXTEND');assert.ok(nodes(draw()).some(n=>n.type?.name==='SubscriberRenewal'));assert.equal(modal(draw()),undefined);
 });
+
+test('workspace group and source controls retain search and reset server pagination',t=>{
+ const location=stubGlobals(t);location.hash='#module=subscribers&workspace=PERSISTENT&workspace_query=test.ev&workspace_page=2';
+ const paths=[],counts={EXPIRED:0,TODAY:0,WITHIN_3:1,WITHIN_7:0,WITHIN_30:0,ACTIVE:0,UNKNOWN:0};
+ const h=harness('src/components/SyntheticSubscribers.tsx',path=>{paths.push(path);return {data:{items:[],total:1,is_demo:true,expiry_groups:counts,as_of_date:'2026-11-17'}};});
+ const tree=h.render('SyntheticSubscriberList',{onOpen:quiet});
+ const group=nodes(tree).find(n=>n.type?.name==='SubscriberExpiryGroups');
+ assert.deepEqual(group.props.counts,counts);group.props.onChange('WITHIN_3');
+ let params=new URLSearchParams(location.hash.slice(1));
+ assert.equal(params.get('workspace_query'),'test.ev');assert.equal(params.get('workspace_expiry_group'),'WITHIN_3');assert.equal(params.has('workspace_page'),false);
+ nodes(tree).find(n=>n.props?.['aria-label']==='Kalıcı abone kaynağı').props.onChange({target:{value:'RADIUS'}});
+ params=new URLSearchParams(location.hash.slice(1));assert.equal(params.get('workspace_source'),'RADIUS');assert.equal(params.get('workspace_query'),'test.ev');
+ assert.ok(paths.some(path=>path.includes('grouped=true')&&path.includes('query=test.ev')));
+});

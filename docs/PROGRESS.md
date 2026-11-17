@@ -1,5 +1,30 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.2 PPPoE Abone Merkezi — 2026-11-17 — yerel READY
+
+- Başlangıç development/v2.6.1-ui / 708bb08 temiz; kurallar, özellik koruma ve
+  mevcut arama/tarih/işlem mimarisi incelendi. Yeni development/v2.6.2-pppoe
+  dalı doğrudan 75c27df/v2.6.1'den açıldı; sonraki teşhis/yayın commit'leri
+  bu sürüme dahil edilmedi. Canlı2.6.1 bilgisi kullanıcı kanıtıdır.
+- Kalıcı listede arama Türkçe normalize çoklu sözcük ve mevcut alanları
+  kapsar. LOCAL/RADIUS/bilinmeyen kaynak ile arama ve tarih grubu birlikte
+  çalışır. Sayfalama öncesinde yetkili kapsamdan tekil bitiş grup sayımları.
+- Aynı GET sözleşmesine isteğe bağlı grouped/source/expiry_group ve ek
+  expiry_groups/as_of_date yanıtı. Eski varsayılanlar, mutasyonlar ve yetki
+  sınırları korunur. Backend/frontend yeni ortak grup arayüzünü kullanır.
+- Ayrık geçmiş/bugün/1–3/4–7/8–30/30+ ve bilinmeyen grupları; Türkiye günü,
+  geçersiz takvim tarihleri ve gece gün değişimi güvenli. Liste/detayda durum,
+  router, bitiş rozeti, işlemler ve responsive grup kontrolleri iyileştirildi.
+- 22 backend sentetik test; sekiz frontend test dosyası ve yeni filtre
+  callback testi PASS. TypeScript/Vite build, sürüm eşleşmesi ve diff PASS.
+  Yeni gerçek PostgreSQL veya tarayıcı testi yok; bilinen socket engeli
+  tekrarlanmadı. Detay: V262_PPPOE_ACCEPTANCE.md.
+- Merkezi sürüm/paket/lock/CHANGELOG2.6.2. Canlı panel, DB/kullanıcı/abone
+  verisi, V1/V2.5/cihaz/RADIUS/IPsec değişmedi. Migration/seed/reset/deploy/
+  restart/tag yok. Bilinen ağ engeli nedeniyle push tekrarlanmadı.
+- Sonraki adım yerel commit'in kullanıcıca incelenmesi; canlı yayın için
+  ayrı açık onay. Yerel commit kimliği teslimde bildirilir.
+
 ## V2.6.1 merkez arayüz düzeni — 2026-11-17 — yerel PASS
 
 - Başlangıç temiz v2.6.0 / `5b8649e`; yerel dal

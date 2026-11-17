@@ -10,10 +10,12 @@ from app.services.router_workspace import guard,boundary,WorkspaceError
 from app.models.router_workspace import RouterWorkspaceRecord as Router
 from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as Event
 from app.schemas.subscriber_center import CenterSubscriber,SubscriberCenterData
+from app.services.subscriber_listing import calendar_date,grouped_listing,GROUPS
 
 
 def account_view(account,router,user=None):
-    return CenterSubscriber(can_manage=bool(user and router and workspace_can_manage(user,account.router_id,account.access_type)),id=account.id,**account.fields,revision=account.revision,router_name=router.fields['name'] if router else None,router_model=router.fields.get('model') if router else None,router_missing=router is None,router_source='PERSISTENT_DEMO' if router else 'UNKNOWN')
+    fields={**account.fields,'expires_on':calendar_date(account.fields.get('expires_on'))}
+    return CenterSubscriber(can_manage=bool(user and router and workspace_can_manage(user,account.router_id,account.access_type)),id=account.id,**fields,revision=account.revision,router_name=router.fields['name'] if router else None,router_model=router.fields.get('model') if router else None,router_missing=router is None,router_source='PERSISTENT_DEMO' if router else 'UNKNOWN')
 
 def request_audit(event,account,router_id,source,success):
     """Exact UUID evidence from the audit row; never read a paginated history list."""
@@ -49,7 +51,7 @@ class SubscriberWorkspace:
             if row.fields.get('router_id')!=row.router_id or row.fields.get('source')!=row.source or row.fields.get('access_type')!=row.access_type:raise WorkspaceError(409,'Abone kaynak/router bağı uyuşmuyor.')
 
     @boundary
-    def list(self,query='',access_type='ALL',status='ALL',router_id='',page=1,page_size=25,require_parent=False,user=None):
+    def list(self,query='',access_type='ALL',status='ALL',router_id='',page=1,page_size=25,require_parent=False,user=None,grouped=False,source='ALL',expiry_group='ALL'):
         with self.sessions() as session:
             self.check(session)
             if require_parent:
@@ -59,13 +61,21 @@ class SubscriberWorkspace:
             if user is not None:
                 ids=workspace_scope(user)
                 if ids is not None:clauses.extend([Account.router_id.in_(ids),Router.kind=='DEMO_ROUTER'])
-            if query:
+            if query and not grouped:
                 term='%'+query.replace('!','!!').replace('%','!%').replace('_','!_')+'%'
                 clauses.append(or_(Account.username_key.ilike(term,escape='!'),Account.fields['customer_name'].as_string().ilike(term,escape='!')))
+            if source not in ('ALL','LOCAL','RADIUS','UNKNOWN') or expiry_group not in ('ALL',*GROUPS):raise WorkspaceError(422,'Geçersiz liste filtresi.')
+            if source!='ALL':
+                clauses.append(Account.source==source if source!='UNKNOWN' else or_(Account.source.is_(None),Account.source.notin_(['LOCAL','RADIUS'])))
             if access_type!='ALL':clauses.append(Account.access_type==access_type)
             if status!='ALL':clauses.append(Account.fields['status'].as_string()==status)
             if router_id:clauses.append(Account.router_id==router_id)
             base=select(Account,Router).outerjoin(Router,Account.router_id==Router.id).where(*clauses)
+            if grouped or expiry_group!='ALL':
+                today=datetime.now(ZoneInfo('Europe/Istanbul')).date()
+                matches,counts=grouped_listing(session.execute(base).all(),query if grouped else '',expiry_group,today)
+                total=len(matches);matches=matches[(page-1)*page_size:page*page_size]
+                return dict(items=[account_view(a,r,user) for a,r in matches],total=total,page=page,page_size=page_size,is_demo=True,expiry_groups=counts,as_of_date=today.isoformat())
             total=session.scalar(select(func.count()).select_from(base.subquery()))
             rows=session.execute(base.order_by(Account.username_key,Account.id).offset((page-1)*page_size).limit(page_size)).all()
             return dict(items=[account_view(a,r,user) for a,r in rows],total=total,page=page,page_size=page_size,is_demo=True)
