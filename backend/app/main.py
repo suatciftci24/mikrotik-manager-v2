@@ -5,6 +5,7 @@ if os.environ.get('V2_DEPLOYMENT_PROFILE') == v26_acceptance.PROFILE:
     v26_acceptance.validate_current()
 
 from app.runtime_identity import BUILD_ID,REPO_ID
+from app.release import VERSION
 from app.local_ports import ui_base,api_port
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -14,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.app_router import api_router
 from app.core.config import settings
 
-app = FastAPI(title=settings.app_name, version='0.1.0', docs_url='/api/docs')
+app = FastAPI(title=settings.app_name, version=VERSION, docs_url='/api/docs')
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[ui_base()],
@@ -48,7 +49,7 @@ async def ready():
     profile=os.environ.get('V2_DEPLOYMENT_PROFILE','local-demo')
     if profile not in {'local-demo','v26-isolated-acceptance'}:profile='local-demo'
     return {'service':'mikrotik-manager-v2', 'environment':settings.environment,'runtime_profile':profile,
-            'api_version':'v1', 'database_checked':False,
+            'api_version':'v1', 'app_version':VERSION, 'database_checked':False,
             'api_port':api_port(),'repo_id':REPO_ID,'build_id':BUILD_ID,'router_workspace_version':1}
 
 

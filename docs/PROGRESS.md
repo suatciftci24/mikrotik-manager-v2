@@ -1,5 +1,25 @@
 # MikroTik Manager V2 — İlerleme
 
+## Kalıcı sürüm yönetimi — 2026-11-17 — yerel PASS
+
+- Başlangıç: temiz `cleanup/cebeci-v26-reset-20261117`, HEAD `892e87d`.
+  Önceki cleanup commit BLOCKED kaydı tarihsel; görev başlangıcında cleanup
+  commit'i mevcut. Canlı drift/yedek engellerinin kapandığı iddia edilmez.
+- Yerel frontend/FastAPI eski sürümü `0.1.0`; V2.6 ürün adı. Canlı HTTPS
+  `/` ve `/api/ready` salt okunur curl denemeleri DNS çözümünde başarısız
+  (exit 6); ortak panelin çalışan sürümü doğrulanamadı, tahmin edilmedi.
+- Yeni yerel SemVer `2.6.0`: release.json tek kaynak, paket/lock eşleşmesi,
+  frontend alt bilgisi ve backend başlangıç sürümü/OpenAPI/ready app_version.
+  CHANGELOG, sürüm artırma aracı ve VERSIONING prosedürü eklendi.
+- Üç hedefli sentetik test PASS; TypeScript/Vite build PASS; derlenmiş
+  footer sürüm kaydı ve diff check PASS. Uygulama/DB/cihaz bağlantısı açılmadı.
+- Baseline etiketi `v2.6-clean-baseline-20261117` hedefi
+  `a59728f1843a0ffa620c32270abb8295f73a0afb` korunur. Yeni etiket yok.
+- Push/deploy/restart/migration/DB/router değişikliği yok. Sonraki güncelleme:
+  VERSIONING prosedürüyle sürüm artırma, hedefli kontrol, commit ve SemVer etiketi.
+- Kabul ayrıntıları: `V26_VERSIONING_ACCEPTANCE.md`. Yerel commit sonucu görev
+  sonu raporunda verilir.
+
 ## CEBECI_TOWERS V2.6 cleanup — 2026-11-17 — kontroller PASS / commit BLOCKED
 
 - Başlangıç `cleanup/cebeci-v26-reset-20261117` / `4f10df0`; staged ve

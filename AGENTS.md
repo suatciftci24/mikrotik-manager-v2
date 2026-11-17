@@ -144,3 +144,12 @@ regresyonda doğrula. Sunucu yetkilerini veya kaynak güvenliğini gevşetme.
 - Uzun terminal yapistirmalari yerine kisa ve guvenli islemler tercih edilir.
 - Canli V1, V2.5, router, RADIUS, IPsec ve VDS degisiklikleri icin acik onay gerekir.
 - AAA kabulunde daha once PASS olan testler gereksiz yere tekrarlanmaz.
+
+## Kalıcı sürüm yönetimi
+
+Her sonraki güncellemede `docs/VERSIONING.md` prosedürünü uygula: merkezi
+`release.json` sürümünü SemVer ile artır, CHANGELOG/paket kayıtlarını eşleştir,
+hedefli kontrollerden sonra commit ve aynı commit'e açıklamalı `vX.Y.Z` etiketi
+oluştur. Mevcut etiketleri taşıma veya silme; özellikle
+`v2.6-clean-baseline-20261117` korunur. Push ve canlı işlem sınırlarında
+kullanıcının güncel talimatı geçerlidir.
