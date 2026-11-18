@@ -1,4 +1,5 @@
 import {SubscriberOperationResults} from './SubscriberOperationResults';
+import {SubscriberOperationReport} from './SubscriberOperationReport';
 import {SubscriberOperationPreview} from './SubscriberOperationPreview';
 import {loadPackageChoices,selectablePackage,packageSpeed,type PackageRecord} from '../lib/packages';
 import {loadWorkspaceRouterChoices} from '../lib/workspaceDashboard';
@@ -100,6 +101,13 @@ const historySources=['legacy','workspace'] as const;
 const historyResults=['ALL','SUCCESS','FAILED'] as const;
 const historyOperations=['ALL',...Object.keys(dailyLabels),'PLAN_CHANGE','STATUS_CHANGE','DATE_EDIT'] as const;
 export function SubscriberOperationHistory({workspaceOnly=false}:{workspaceOnly?:boolean}={}){
+ const [showReport,setShowReport]=useState(false);
+ return <>
+  <div className="daily-links"><button className="button-secondary" aria-pressed={showReport} onClick={()=>setShowReport(!showReport)}>{showReport?'İşlem geçmişine dön':'Toplu işlem raporu'}</button></div>
+  {showReport?<SubscriberOperationReport/>:<SubscriberAuditHistory workspaceOnly={workspaceOnly}/>}
+ </>;
+}
+function SubscriberAuditHistory({workspaceOnly}:{workspaceOnly:boolean}){
  const [pageText,setPageText]=useSubscriberTextFilter('history_page'),[id,setId]=useSubscriberTextFilter('history_id');
  const page=Math.min(1000000,Math.max(1,Math.floor(Number(pageText))||1));
  const setPage=(value:number)=>setPageText(value===1?'':String(value));

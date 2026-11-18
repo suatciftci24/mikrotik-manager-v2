@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter,Depends,Query,Header,HTTPException,Request,Response,status
 from app.core.security import current_demo_user,current_admin
 from app.core.authorization import subscriber_for,public_detail,workspace_scope
@@ -53,7 +54,7 @@ def update(id:str,payload:SyntheticSubscriberCommand,user:dict=Depends(mutator))
 def renew(id:str,payload:SubscriberRenewal,user:dict=Depends(mutator)):return execute(workspace.renew,id,payload,user['id'],user=user)
 
 from app.schemas.subscriber_management_center import SubscriberOperations,OperationResults,OperationHistory
-from app.services.subscriber_operations import operations
+from app.services.subscriber_operations import DAILY_REPORT_OPERATIONS,operations
 
 @router.post('/subscriber-workspace/management/execute',response_model=OperationResults)
 def manage(payload:SubscriberOperations,user:dict=Depends(mutator)):
@@ -66,13 +67,37 @@ def manage(payload:SubscriberOperations,user:dict=Depends(mutator)):
     return {'results':[execute(operations.execute,entry,user['id'],user=user) for entry in payload.entries],'is_demo':True}
 
 @router.get('/subscriber-workspace/management/history',response_model=OperationHistory)
-def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',pattern='^(ALL|EDIT|PLAN|STATUS|EXPIRE|EXTEND|ROUTER|CREATE|UPDATE|RENEWAL)$'),result:str=Query('ALL',pattern='^(ALL|SUCCESS|FAILED)$'),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),report:bool=False,user:dict=Depends(current_demo_user)):
+def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',pattern='^(ALL|EDIT|PLAN|STATUS|EXPIRE|EXTEND|ROUTER|CREATE|UPDATE|RENEWAL)$'),
+            result:str=Query('ALL',pattern='^(ALL|SUCCESS|FAILED|SKIPPED)$'),page:int=Query(1,ge=1,le=1000000),
+            page_size:int=Query(25,ge=1,le=100),report:bool=False,daily:bool=False,
+            start:str='',end:str='',actor_id:str=Query('',max_length=80),user:dict=Depends(current_demo_user)):
     scope=workspace_scope(user)
-    if report and scope is not None:
+    if (report or daily) and scope is not None:
         ids={id for id in scope if user.get('permissions',{}).get(id,{}).get('can_view_reports') is True}
         if not ids:raise HTTPException(403,'Rapor yetkisi gerekli')
         user={**user,'permissions':{id:user['permissions'][id] for id in ids}}
-    return execute(operations.history,item_id,operation,result,page,page_size,user=user)
+    if not daily:
+        if start or end or actor_id or result=='SKIPPED':raise HTTPException(422,'Bu filtreler günlük abone işlemi raporuna aittir.')
+        return execute(operations.history,item_id,operation,result,page,page_size,user=user)
+    if operation!='ALL' and operation not in DAILY_REPORT_OPERATIONS:
+        raise HTTPException(422,'Geçerli bir toplu işlem türü seçin.')
+    start_utc=until_utc=None
+    if start or end:
+        from app.services.operation_reports import report_range
+        try:first,until,_=report_range(start,end,datetime.now(timezone.utc))
+        except (ValueError,OverflowError):raise HTTPException(422,'Geçerli bir başlangıç ve bitiş tarihi seçin (en fazla 366 gün).') from None
+        start_utc=first.astimezone(timezone.utc).isoformat()
+        until_utc=until.astimezone(timezone.utc).isoformat()
+    data=execute(operations.history,item_id,operation,result,page,page_size,user=user,daily=True,
+                 start=start_utc,until=until_utc,actor_id=actor_id.strip())
+    from app.services import identity
+    from app.services.demo_subscriptions import DemoStorageUnavailable
+    ids=sorted({row['actor_id'] for row in data['items'] if row['actor_id']})
+    names={}
+    for offset in range(0,len(ids),50):
+        try:names.update(identity.audit_actor_usernames(ids[offset:offset+50]))
+        except DemoStorageUnavailable:break
+    return {**data,'items':[{**row,'actor_username':names.get(row['actor_id'])} for row in data['items']]}
 
 
 from typing import Literal

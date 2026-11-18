@@ -13,8 +13,17 @@ export function auditQuery(filter:AuditFilter){return new URLSearchParams({start
 export function auditHash(filter:AuditFilter){return '#module=dashboard&view=AUDIT_CENTER&'+auditQuery(filter).replace('source=','audit_source=').replace('result=','audit_result=').replace('query=','q=');}
 
 export function auditCsv(rows:{occurred_at:string;actor_id:string|null;target_id:string|null;router_id:string|null;operation:string;result:string;source:string;audit_id:string|null;id:string}[]):string{
- const safe=(value:unknown)=>{let text=String(value??'');if(/^\s*[=+\-@]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"';};
  const fields=[['occurred_at','İşlem zamanı (Türkiye saati)'],['actor_id','Aktör kimliği'],['target_id','Hedef kimliği'],['router_id','Router kimliği'],['operation','İşlem'],['result','Sonuç'],['source','Kaynak'],['audit_id','Audit UUID'],['id','Kayıt kimliği']] as const;
- const localTime=(value:string)=>{const date=new Date(value);return Number.isNaN(date.getTime())?value:`${new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium',timeStyle:'medium',timeZone:'Europe/Istanbul'}).format(date)} (Europe/Istanbul)`;};
- return '\uFEFF'+[fields.map(([,label])=>safe(label)).join(','),...rows.map(row=>fields.map(([key])=>safe(key==='occurred_at'?localTime(row.occurred_at):row[key])).join(','))].join('\r\n');
+ return excelCsv(fields.map(([,label])=>label),rows.map(row=>fields.map(([key])=>key==='occurred_at'?auditLocalTime(row.occurred_at):row[key])));
+}
+
+export function excelCsv(headers:string[],rows:(string|null|undefined)[][]):string{
+ const safe=(value:string|null|undefined)=>{let text=value??'';if(/^(?:\s*[=+\-@＝＋－＠]|[\t\r\n])/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"';};
+ return '\uFEFF'+[headers,...rows].map(row=>row.map(safe).join(',')).join('\r\n');
+}
+
+const auditTime=new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium',timeStyle:'medium',timeZone:'Europe/Istanbul'});
+export function auditLocalTime(value:string){
+ const date=new Date(value);
+ return Number.isNaN(date.getTime())?value:`${auditTime.format(date)} (Europe/Istanbul)`;
 }

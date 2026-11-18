@@ -1,5 +1,22 @@
 # MikroTik Manager V2 — İlerleme
 
+## Abone toplu işlem geçmişi ve raporu — V2.6.4
+
+- Ev WSL ortak checkout, `development/v2.6.2-pppoe`, taban `6a8455f4`.
+  Abone Merkezi → İşlem geçmişi → Toplu işlem raporu. Uzatma, paket ve
+  durum audit'leri için İstanbul tarih aralığı, işlem, aktör ve sonuç
+  filtreleri, abone sonuçları ve tüm filtrelenmiş sayfalardan Excel
+  uyumlu UTF-8 BOM CSV. Yetkili router kapsamı sayım ve sayfalamadan önce
+  uygulanır. Mevcut audit kayıtları korunur.
+- Eski audit'te toplu çağrı kimliği ve atlama kanıtı tutulmadığı için
+  tekil/toplu ayrımı çıkarılamaz ve Atlandı sayısı Veri yok gösterilir.
+- Hedefli PASS: `operationsNavigation`, `auditCenter` ve
+  `managementReport` 40/40. İzole `test_pppoe_workspace_access`,
+  `test_audit_center` ve `test_subscriber_daily_management` 32/32.
+  Üretim derlemesi ve diff kontrolü PASS. Görsel tarayıcı kabulü yapılmadı.
+- Push BLOCKED. `bash tools/check-git-transfer.sh` mevcut checkout ve dal
+  eşleşmesini Ev WSL aktarımına uygun bulmadı. Uzak aktarım başlatılmadı.
+
 ## PPPoE toplu hesap durumu kök neden düzeltmesi
 
 - Ev WSL ortak checkout, `development/v2.6.2-pppoe`, taban `50d7d207`.

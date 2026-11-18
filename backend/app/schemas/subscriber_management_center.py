@@ -59,11 +59,22 @@ class OperationResults(BaseModel):
     results:list[OperationReceipt]
     is_demo:Literal[True]=True
 
+class OperationHistoryItem(OperationReceipt):
+    subscriber_name:str|None=None
+    subscriber_username:str|None=None
+    actor_username:str|None=None
+
+class OperationHistoryCounts(BaseModel):
+    success:int
+    failed:int
+    skipped:None=None
+
 class OperationHistory(BaseModel):
-    items:list[OperationReceipt]
+    items:list[OperationHistoryItem]
     total:int
     page:int
     page_size:int
+    counts:OperationHistoryCounts|None=None
     is_demo:Literal[True]=True
 
 

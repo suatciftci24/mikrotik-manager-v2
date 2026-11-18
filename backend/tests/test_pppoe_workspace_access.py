@@ -2,7 +2,9 @@
 from unittest import TestCase
 from unittest.mock import patch
 from uuid import uuid4
-from datetime import date,timedelta
+from datetime import date,datetime,timedelta
+from zoneinfo import ZoneInfo
+from urllib.parse import urlencode
 from sqlalchemy import select,func,event
 from sqlalchemy.exc import SQLAlchemyError
 from app.models.router_workspace import RouterWorkspaceRecord as Router
@@ -176,6 +178,44 @@ class PppoeWorkspace(TestCase):
         self.assertEqual(result.json()['items'][0]['item_id'],item['id'])
         self.user['permissions'][self.allowed]['can_view']=False
         self.assertEqual(self.client.get(path).status_code,403)
+
+    def test_daily_report_filters_counts_and_actor_names_use_report_scope(self):
+        _,item=self.create()
+        self.user['permissions'][self.hidden]={'can_view':True,'can_manage_pppoe':True}
+        _,foreign=self.create(self.command(router=self.hidden))
+        path='/api/v1/subscriber-workspace/management/history'
+        def report(params):
+            return self.client.get(path+'?'+urlencode(params))
+        execute_path='/subscriber-workspace/management/execute'
+        success=self.operation(item,'STATUS','PAUSED')
+        self.assertTrue(self.post(execute_path,{'entries':[success]}).json()['results'][0]['success'])
+        self.assertTrue(self.post(execute_path,{'entries':[self.operation(foreign,'STATUS','PAUSED')]}).json()['results'][0]['success'])
+        conflict=self.operation(item,'STATUS','ACTIVE')
+        self.assertFalse(self.post(execute_path,{'entries':[conflict]}).json()['results'][0]['success'])
+        self.assertEqual(report({'daily':'true'}).status_code,403)
+        self.user['permissions'][self.allowed]['can_view_reports']=True
+        self.names.return_value={self.user['id']:'operator.fixture'}
+        day=datetime.now(ZoneInfo('Europe/Istanbul')).date()
+        filters={'daily':'true','start':day.isoformat(),'end':day.isoformat(),'actor_id':self.user['id'],'operation':'STATUS'}
+        response=report({**filters,'result':'SUCCESS','page_size':1})
+        self.assertEqual(response.status_code,200,response.text)
+        data=response.json()
+        self.assertEqual(data['counts'],{'success':1,'failed':1,'skipped':None})
+        self.assertEqual(data['total'],1)
+        row=data['items'][0]
+        self.assertEqual(row['item_id'],item['id'])
+        self.assertEqual(row['subscriber_username'],item['username'])
+        self.assertEqual(row['actor_username'],'operator.fixture')
+        self.assertEqual(row['previous'],{'status':'ACTIVE'})
+        self.assertEqual(row['values'],{'status':'PAUSED'})
+        self.names.assert_called_with([self.user['id']])
+        for overrides in ({'actor_id':'other'},{'operation':'PLAN'},
+                          {'start':(day-timedelta(days=1)).isoformat(),'end':(day-timedelta(days=1)).isoformat()}):
+            self.assertEqual(report({**filters,**overrides}).json()['total'],0)
+        skipped=report({**filters,'result':'SKIPPED'}).json()
+        self.assertEqual(skipped['items'],[])
+        self.assertIsNone(skipped['counts']['skipped'])
+        self.assertEqual(report({**filters,'end':'invalid'}).status_code,422)
 
     def test_actor_names_enrich_only_authorized_history_and_preserve_raw_audit(self):
         _,item=self.create()

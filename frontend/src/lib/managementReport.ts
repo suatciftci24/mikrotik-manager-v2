@@ -136,7 +136,7 @@ export function managementFilterFromHash(hash:string):ManagementFilter{
 export function managementReportHash(filter:ManagementFilter,center:'dashboard'|'operations'='dashboard'){return '#'+new URLSearchParams({module:center,view:'DAILY_REPORT',...filter}).toString();}
 
 /** Read every page; partial or changing totals must never become a complete counter. */
-async function reportPages<T extends {id?:string;request_id?:string}>(path:string,init?:RequestInit,routerWorkspace=false):Promise<T[]>{
+export async function reportPages<T extends {id?:string;request_id?:string}>(path:string,init?:RequestInit,routerWorkspace=false):Promise<T[]>{
   const rows:T[]=[];const ids=new Set<string>();let expected:number|undefined;
   for(let page=1;page<=1000;page++){
     const data=await api<{items:T[];total:number;is_demo?:boolean}>(path+(path.includes('?')?'&':'?')+'page_size=100&page='+page,init);

@@ -10,6 +10,7 @@ from app.services.subscriber_center import SubscriberWorkspace,request_audit,eve
 from app.services.router_workspace import guard,boundary,WorkspaceError
 
 PUBLIC_FIELDS={'customer_name','plan','status','expires_on','started_on','router_id','username','access_type','source','package_id','package_revision'}
+DAILY_REPORT_OPERATIONS=('EXTEND','PLAN','STATUS')
 
 def fingerprint(command,actor):
     values=command.model_dump(mode='json')
@@ -209,7 +210,7 @@ class SubscriberOperationsService:
             return {**result,'status':'SUCCESS' if receipt['success'] else 'FAILED','response':receipt,'audit':evidence}
 
     @boundary
-    def history(self,item_id='',operation='ALL',result='ALL',page=1,page_size=25,*,start=None,until=None,router_id='',actor_id='',query='',user=None):
+    def history(self,item_id='',operation='ALL',result='ALL',page=1,page_size=25,*,start=None,until=None,router_id='',actor_id='',query='',user=None,daily=False):
         with self.sessions() as session:
             self.check(session);clauses=[]
             if user is not None:
@@ -222,19 +223,28 @@ class SubscriberOperationsService:
             if router_id:clauses.append(Account.router_id==router_id)
             if actor_id:clauses.append(Event.actor_id==actor_id)
             if operation!='ALL':clauses.append(Event.operation==operation)
+            if daily:clauses.append(Event.operation.in_(DAILY_REPORT_OPERATIONS))
             if query:
                 pattern='%'+query+'%'
                 clauses.append((Event.id.ilike(pattern))|(Event.actor_id.ilike(pattern))|(Event.subscriber_id.ilike(pattern))|(Account.fields['customer_name'].as_string().ilike(pattern))|(Account.fields['username'].as_string().ilike(pattern)))
+            success=case((Event.operation.in_(('CREATE','UPDATE','RENEWAL')),True),
+                         else_=Event.changes['_management']['receipt']['success'].as_boolean())
+            counts=None
+            if daily:
+                grouped=dict(session.execute(select(success,func.count()).select_from(Event)
+                             .join(Account,Account.id==Event.subscriber_id).where(*clauses).group_by(success)).all())
+                counts=dict(success=grouped.get(True,0),failed=grouped.get(False,0),skipped=None)
+                if result=='SKIPPED':
+                    return dict(items=[],total=0,page=page,page_size=page_size,is_demo=True,counts=counts)
             if result!='ALL':
-                # CREATE/UPDATE/RENEWAL audits commit atomically and have no management receipt.
-                # Match event_receipt instead of classifying those successes as unknown.
-                success=case((Event.operation.in_(('CREATE','UPDATE','RENEWAL')),True),
-                             else_=Event.changes['_management']['receipt']['success'].as_boolean())
                 clauses.append(success.is_(False) if result=='FAILED' else success.is_(True) if result=='SUCCESS' else success.is_(None))
-            statement=select(Event).join(Account,Account.id==Event.subscriber_id).where(*clauses)
+            statement=select(Event,Account.fields['customer_name'].as_string(),Account.fields['username'].as_string()).join(Account,Account.id==Event.subscriber_id).where(*clauses)
             total=session.scalar(select(func.count()).select_from(Event).join(Account,Account.id==Event.subscriber_id).where(*clauses))
-            rows=session.scalars(statement.order_by(Event.occurred_at.desc(),Event.id).offset((page-1)*page_size).limit(page_size)).all()
+            rows=session.execute(statement.order_by(Event.occurred_at.desc(),Event.id).offset((page-1)*page_size).limit(page_size)).all()
             from app.services.subscriber_center import event_source
-            return dict(items=[{**event_receipt(e),'source':event_source(e)} for e in rows],total=total,page=page,page_size=page_size,is_demo=True)
+            items=[{**event_receipt(event),'source':event_source(event),
+                    **(dict(subscriber_name=name,subscriber_username=username) if daily else {})}
+                   for event,name,username in rows]
+            return dict(items=items,total=total,page=page,page_size=page_size,is_demo=True,**({'counts':counts} if daily else {}))
 
 operations=SubscriberOperationsService()

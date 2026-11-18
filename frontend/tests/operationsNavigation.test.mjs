@@ -7,7 +7,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 const require=createRequire(import.meta.url);
 let effects=[],calls=[],states=[],initialStates=[],selectedEvent=null,identity=null,selectedNullAt=0,nullCursor=0;
 const hooks={...React,useCallback:fn=>fn,useContext:()=>identity,useEffect:fn=>effects.push(fn),useRef:()=>({current:{scrollIntoView:()=>calls.push('scroll'),focus:()=>calls.push('focus')}}),useState:value=>{const initial=value===null&&selectedEvent&&nullCursor++===selectedNullAt?selectedEvent:typeof value==='function'?value():value;initialStates.push(initial);return [initial,next=>states.push(next)];}};
-const result=await build({stdin:{contents:"export {ResourceState} from './src/components/Resource';export {SyntheticSubscriberList} from './src/components/SyntheticSubscribers';export {SubscriberOperationHistory} from './src/components/SubscriberDailyActions';export {OperationReport} from './src/screens/OperationReport';export {ManagementReport} from './src/screens/ManagementReport';export {OperationDetails} from './src/components/OperationDetails';export {SubscriberDeviceCenter} from './src/components/SubscriberDeviceCenter';",resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,loader:{'.css':'empty'},platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'resource',setup(b){b.onResolve({filter:/lib\/useResource$/},()=>({path:'resource',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function useResource(path){globalThis.__navigationQueries?.push(path);return globalThis.__navigationResources?.[path.split("?")[0]]??globalThis.__navigationResource}',loader:'js'}));}}]});
+const result=await build({stdin:{contents:"export {ResourceState} from './src/components/Resource';export {SyntheticSubscriberList} from './src/components/SyntheticSubscribers';export {SubscriberOperationHistory} from './src/components/SubscriberDailyActions';export {SubscriberOperationReport} from './src/components/SubscriberOperationReport';export {operationReportCsv} from './src/lib/subscriberOperationReport';export {reportPages} from './src/lib/managementReport';export {OperationReport} from './src/screens/OperationReport';export {ManagementReport} from './src/screens/ManagementReport';export {OperationDetails} from './src/components/OperationDetails';export {SubscriberDeviceCenter} from './src/components/SubscriberDeviceCenter';",resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,loader:{'.css':'empty'},platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'resource',setup(b){b.onResolve({filter:/lib\/useResource$/},()=>({path:'resource',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function useResource(path){globalThis.__navigationQueries?.push(path);return globalThis.__navigationResources?.[path.split("?")[0]]??globalThis.__navigationResource}',loader:'js'}));}}]});
 const module={exports:{}};new Function('require','module','exports',result.outputFiles[0].text)(name=>name==='react'?hooks:require(name),module,module.exports);
 function draw(hash,state){
  globalThis.window={location:{hash}};globalThis.__navigationResource=state;effects=[];calls=[];
@@ -129,10 +129,10 @@ test('workspace history keeps source and filters and links exact subscriber/rout
  const hash='#module=subscribers&workspace=HISTORY&history_source=workspace&history_page=2&history_result=FAILED&history_operation=PLAN&history_id=demo-managed-sub-test';
  const receipt={request_id:'fixture',item_id:account.id,router_id:account.router_id,operation:'PLAN',success:false,recorded:true,previous:{plan:'Eski'},values:{},occurred_at:new Date().toISOString(),actor_id:'sentetik',error:'Sentetik işlem reddedildi'};
  const cleanup=fixture(hash,{loading:false,data:{items:[receipt],total:26,is_demo:true}});
- try{const tree=module.exports.SubscriberOperationHistory();const query=new URLSearchParams(__navigationQueries[0].split('?')[1]);assert.match(__navigationQueries[0],/^\/subscriber-workspace\/management\/history/);assert.equal(query.get('page'),'2');assert.equal(query.get('result'),'FAILED');assert.equal(query.get('operation'),'PLAN');assert.equal(query.get('item_id'),account.id);
-  const links=nodes(tree).filter(node=>node.type==='a');assert.equal(links.length,2);
-  const target=new URLSearchParams(links[0].props.href.slice(1));assert.equal(target.get('id'),account.id);assert.equal(target.get('workspace'),'PERSISTENT');assert.equal(target.get('return_to'),hash);
-  assert.match(renderToStaticMarkup(tree),/Başarısız/);
+ try{const html=renderToStaticMarkup(module.exports.SubscriberOperationHistory());const query=new URLSearchParams(__navigationQueries[0].split('?')[1]);assert.match(__navigationQueries[0],/^\/subscriber-workspace\/management\/history/);assert.equal(query.get('page'),'2');assert.equal(query.get('result'),'FAILED');assert.equal(query.get('operation'),'PLAN');assert.equal(query.get('item_id'),account.id);
+  const links=[...html.matchAll(/<a [^>]*href="([^"]+)"/g)];assert.equal(links.length,2);
+  const target=new URLSearchParams(links[0][1].slice(1).replaceAll('&amp;','&'));assert.equal(target.get('id'),account.id);assert.equal(target.get('workspace'),'PERSISTENT');assert.equal(target.get('return_to'),hash);
+  assert.match(html,/Başarısız/);
  }finally{cleanup();}
 });
 
@@ -189,4 +189,32 @@ test('operation UUID and raw actor remain inside a closed technical disclosure',
  const html=renderToStaticMarkup(module.exports.OperationDetails({event:{id:'audit',request_id:'audit-uuid',subscriber_id:'demo-managed-sub-test',operation:'STATUS_CHANGE',access_type:'PPPOE',source:'LOCAL',actor_id:actor,occurred_at:'2026-11-11T12:00:00Z',is_demo:true,audit_result:'APPLIED'},onClose(){},onSubscriber(){}}));
  const details=html.match(/<details class="technical-info">[\s\S]*?<\/details>/)[0];assert.match(details,/audit-uuid/);assert.ok(details.includes(actor));assert.doesNotMatch(details,/<details[^>]*open/);
  const visible=html.replace(details,'');assert.ok(!visible.includes(actor));assert.doesNotMatch(visible,/audit-uuid|İşlem revizyonu/);
+});
+
+test('subscriber operation report shows recorded evidence and exports all filtered pages as Excel CSV',async t=>{
+ const row={request_id:'one',item_id:account.id,subscriber_name:'=1+1',subscriber_username:'abone.test',actor_id:'actor',actor_username:'Suat "Test"',
+  occurred_at:'2026-11-18T12:00:00Z',source:'LOCAL',operation:'PLAN',recorded:true,success:true,previous:{plan:'Önceki'},values:{plan:'Yeni'}};
+ const cleanup=fixture('#module=subscribers&workspace=HISTORY',{loading:false,data:{is_demo:true,total:2,items:[row],counts:{success:1,failed:1,skipped:null}}});
+ try{
+  const html=renderToStaticMarkup(module.exports.SubscriberOperationReport());
+  assert.match(html,/Başarılı: 1 · Atlandı: Veri yok · Başarısız: 1/);
+  assert.match(html,/Suat &quot;Test&quot;/);
+  assert.match(html,/Paket\/profil: Önceki/);
+  assert.match(html,/Paket\/profil: Yeni/);
+  const path='/subscriber-workspace/management/history?daily=true&actor_id=actor&operation=PLAN&result=SUCCESS';
+  const requests=[];
+  t.mock.method(globalThis,'fetch',async url=>{
+   const query=new URLSearchParams(url.split('?')[1]);
+   for(const [key,value] of Object.entries({daily:'true',actor_id:'actor',operation:'PLAN',result:'SUCCESS'}))assert.equal(query.get(key),value);
+   requests.push(query.get('page'));
+   return {ok:true,json:async()=>({is_demo:true,total:2,items:[{...row,request_id:requests.length===1?'one':'two'}]})};
+  });
+  const csv=module.exports.operationReportCsv(await module.exports.reportPages(path));
+  assert.deepEqual(requests,['1','2']);
+  assert.equal(csv.charCodeAt(0),0xFEFF);
+  assert.equal(csv.split('\r\n').length,3);
+  assert.match(csv,/"'=1\+1"/);
+  assert.match(csv,/"Suat ""Test"""/);
+  assert.match(csv,/15:00:00/);
+ }finally{cleanup();}
 });
