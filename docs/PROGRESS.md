@@ -1,5 +1,18 @@
 # MikroTik Manager V2 — İlerleme
 
+## PPPoE mobil İşlemler menüsü — 2026-11-18
+
+- Ev WSL, `/home/suat/mikrotik-v2-ortak`, `development/v2.6.2-pppoe`,
+  başlangıç `68adf19`, V2.6.4. Eski konum hesabı menü yüksekliğini tüm
+  görünüme göre sınırladığı için dar alanda tetikleyiciyle çakışabiliyordu.
+  Liste ve detayın ortak menüsü mobilde uygun tarafı seçiyor ve yüksekliği
+  o taraftaki boşlukla sınırlıyor. İlk seçenek Düzenle.
+- `subscriberMenuPosition`, `subscriberQuickWorkflow` ve `subscriberCenter`
+  toplam 49/49 PASS. `npm run build` ve `git diff --check` PASS.
+- Push BLOCKED. `bash tools/check-git-transfer.sh` Ev WSL için
+  `/home/suat/Codex-Projects/mikrotik-manager-v2` ve `main-guncel` bekliyor.
+  Bu checkout ve dal izinli eşleşme olmadığından uzak aktarım başlatılmadı.
+
 ## Abone Merkezi İşlemler menüsü — 2026-11-18
 
 - Ev WSL ortak checkout, development/v2.6.2-pppoe, başlangıç 07dd80c.

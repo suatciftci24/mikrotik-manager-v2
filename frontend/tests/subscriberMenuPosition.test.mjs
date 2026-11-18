@@ -18,3 +18,23 @@ test('visual viewport offsets and a mobile keyboard constrain the same fixed pan
  const p=subscriberMenuPosition({left:300,right:370,top:350,bottom:390},{width:240,height:300},viewport);
  assert.ok(p.left>=28);assert.ok(p.top>=208);assert.ok(p.left+240<=332);assert.ok(p.top+p.maxHeight<=392);
 });
+
+test('mobile menu opens below when it fits and scrolls above a low trigger',()=>{
+ const viewport={width:390,height:480};
+ const size={width:240,height:300};
+ const below=subscriberMenuPosition({left:20,right:120,top:54,bottom:98},size,viewport,true);
+ assert.equal(below.top,102);
+ assert.equal(below.maxHeight,370);
+ const above=subscriberMenuPosition({left:20,right:120,top:275,bottom:319},size,viewport,true);
+ assert.equal(above.top,8);
+ assert.equal(above.maxHeight,263);
+ assert.equal(above.top+above.maxHeight,271);
+});
+
+test('mobile menu uses the larger lower space when neither side fits',()=>{
+ const viewport={left:20,top:200,width:320,height:200};
+ const position=subscriberMenuPosition({left:300,right:370,top:235,bottom:279},{width:240,height:300},viewport,true);
+ assert.equal(position.left,92);
+ assert.equal(position.top,283);
+ assert.equal(position.maxHeight,109);
+});

@@ -32,8 +32,8 @@ function stubGlobals(t){
 test('compact menu uses an auto top-layer popover and restores focus on selection/Escape',()=>{
  const h=harness('src/components/SubscriberQuickButtons.tsx'),calls=[];let stopped=false,focused=false,isOpen=false;
  const first={focus(){focused=true;}};
- const popup={style:{},matches:()=>isOpen,showPopover(){isOpen=true;},hidePopover(){isOpen=false;},querySelectorAll:()=>[first],getBoundingClientRect:()=>({width:220,height:180})};
- const before=globalThis.window;globalThis.window={innerWidth:360,innerHeight:640};
+ const popup={style:{},matches:()=>isOpen,showPopover(){isOpen=true;},hidePopover(){isOpen=false;},querySelectorAll:()=>[first],getBoundingClientRect:()=>({width:220,height:180}),scrollHeight:238,offsetHeight:180,clientHeight:178};
+ const before=globalThis.window;globalThis.window={innerWidth:360,innerHeight:640,matchMedia:()=>({matches:true})};
  try{
   const props={compact:true,status:'ACTIVE',label:row.customer_name,onAction:a=>calls.push(a),onHistory:()=>calls.push('history'),onEdit:()=>calls.push('edit')};
   let tree=h.render('SubscriberQuickButtons',props);
@@ -45,6 +45,7 @@ test('compact menu uses an auto top-layer popover and restores focus on selectio
   assert.deepEqual(nodes(panel).filter(n=>n.props?.role==='menuitem').map(n=>n.props.children),['Düzenle','Abonelik Uzat','Paket Değiştir','Hesabı Kapat','İşlem Geçmişi']);
   trigger.props.ref.current={focus(){focused=true;},getBoundingClientRect:()=>({left:280,right:350,top:400,bottom:440})};panel.props.ref.current=popup;
   trigger.props.onClick();assert.ok(isOpen&&focused);assert.equal(popup.style.left,'130px');
+  assert.equal(popup.style.top,'156px');assert.equal(popup.style.maxHeight,'388px');
   panel.props.onToggle({nativeEvent:{newState:'open'}});tree=h.render('SubscriberQuickButtons',props);
   assert.equal(nodes(tree).find(n=>n.type==='button'&&n.props['aria-haspopup']==='menu').props['aria-expanded'],true);
   for(const [text,action] of [['Düzenle','edit'],['Abonelik Uzat','EXTEND'],['Paket Değiştir','PLAN'],['Hesabı Kapat','STATUS'],['İşlem Geçmişi','history']]){

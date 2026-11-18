@@ -9,13 +9,20 @@ export function SubscriberQuickButtons({status,onAction,onHistory,onEdit,compact
  const id=useId(),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null);
  const [open,setOpen]=useState(false);
  function position(){
-  if(!trigger.current||!panel.current)return;
+  const button=trigger.current,menu=panel.current;
+  if(!button||!menu)return;
   const view=window.visualViewport;
   const viewport={width:view?.width??window.innerWidth,height:view?.height??window.innerHeight,left:view?.offsetLeft??0,top:view?.offsetTop??0};
-  panel.current.style.maxWidth=Math.max(0,viewport.width-16)+'px';
-  panel.current.style.maxHeight=Math.max(0,viewport.height-16)+'px';
-  const place=subscriberMenuPosition(trigger.current.getBoundingClientRect(),panel.current.getBoundingClientRect(),viewport);
-  panel.current.style.left=place.left+'px';panel.current.style.top=place.top+'px';
+  const mobile=!iconOnly&&window.matchMedia('(max-width: 650px)').matches;
+  menu.style.maxWidth=Math.max(0,viewport.width-16)+'px';
+  if(!mobile)menu.style.maxHeight=Math.max(0,viewport.height-16)+'px';
+  const bounds=menu.getBoundingClientRect();
+  // The scroll height includes items hidden by the previous placement.
+  const height=mobile?menu.scrollHeight+menu.offsetHeight-menu.clientHeight:bounds.height;
+  const place=subscriberMenuPosition(button.getBoundingClientRect(),{width:bounds.width,height},viewport,mobile);
+  menu.style.maxHeight=place.maxHeight+'px';
+  menu.style.left=place.left+'px';
+  menu.style.top=place.top+'px';
  }
  function close(focus=false){if(panel.current?.matches(':popover-open'))panel.current.hidePopover();if(focus)trigger.current?.focus();}
  function show(last=false){
@@ -26,10 +33,11 @@ export function SubscriberQuickButtons({status,onAction,onHistory,onEdit,compact
  }
  useEffect(()=>{
   if(!open)return;
-  window.addEventListener('resize',position);window.addEventListener('scroll',position,true);
+  function repositionOnScroll(event:Event){if(event.target!==panel.current)position();}
+  window.addEventListener('resize',position);window.addEventListener('scroll',repositionOnScroll,true);
   window.visualViewport?.addEventListener('resize',position);window.visualViewport?.addEventListener('scroll',position);
-  return()=>{window.removeEventListener('resize',position);window.removeEventListener('scroll',position,true);window.visualViewport?.removeEventListener('resize',position);window.visualViewport?.removeEventListener('scroll',position);};
- },[open]);
+  return()=>{window.removeEventListener('resize',position);window.removeEventListener('scroll',repositionOnScroll,true);window.visualViewport?.removeEventListener('resize',position);window.visualViewport?.removeEventListener('scroll',position);};
+ },[open,iconOnly]);
  function choose(_event:MouseEvent<HTMLButtonElement>,action:()=>void){if(compact)close(true);action();}
  function navigate(event:KeyboardEvent<HTMLDivElement>){
   if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close(true);return;}
