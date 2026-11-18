@@ -1103,5 +1103,11 @@ Onarım HTTP/startup sırasında çalışmaz; canlı DB yazımı ayrı açık on
 Ofis veya ev WSL repo kökünde `./dev.sh --central` mevcut merkezi HTTPS panel
 adresini gösterir. Tarayıcıda aynı adres ve mevcut hesabı kullanın. Bu seçenek
 yerel API/DB başlatmaz. Normal `./dev.sh` ayrı yerel demo geliştirmesidir;
-Git eşitliği DB eşitliği değildir. Ayrıntılar ve korunan demo dizinleri:
+Git eşitliği DB eşitliği değildir. Ofis WSL (`DESKTOP-VD5T7VG`) için normal
+geliştirme checkout'u `~/v26-transfer/mikrotik-v26-next`, dalı
+`development/v2.6.2-pppoe` ve origin deposu `suatciftci24/mikrotik-manager-v2`.
+`./dev.sh --check-target` bu başlangıç kapısını servis açmadan denetler.
+Varsayılan yerel UI `http://127.0.0.1:5173/`, API ise
+`http://127.0.0.1:8000/`. Vite sayfası ilgili checkout ile doğrulanır.
+Ayrıntılar ve korunan demo dizinleri:
 [Merkezi API / ortak kullanım](docs/V26_SHARED_API_ACCEPTANCE.md).

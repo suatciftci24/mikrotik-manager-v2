@@ -21,9 +21,14 @@ class HTML:
     def __exit__(self,*args):pass
 
 
+VITE_ENTRY = b'<title>MikroTik Manager V2</title><script src="/src/main.tsx"></script>'
+CHECKOUT_META = f'<meta name="mikrotik-dev-checkout" content="{REPO_ID}">'.encode()
+
+
 class ManagedUITests(TestCase):
     def test_ui_identity_requires_actual_vite_entry_not_just_a_page(self):
-        for body,state in [(b'<title>MikroTik Manager V2</title><script src="/src/main.tsx"></script>','READY'),
+        for body,state in [(VITE_ENTRY + CHECKOUT_META,'READY'),
+                           (VITE_ENTRY,'WRONG'),(VITE_ENTRY + CHECKOUT_META.replace(REPO_ID.encode(),b'other-checkout'),'WRONG'),
                            (b'<title>Other application</title>','WRONG'),(b'MikroTik Manager V2','WRONG')]:
             def response(request,**kwargs):
                 if request.full_url.endswith('/@vite/client'):return HTML(b'vite client')
@@ -80,13 +85,13 @@ class ManagedUITests(TestCase):
             database.assert_called_once();http.return_value.request.assert_called_once_with('/api/health')
 
     def test_ui_rejects_wrong_vite_or_proxy_identity(self):
-        page=b'<title>MikroTik Manager V2</title>/src/main.tsx'
+        page=VITE_ENTRY + CHECKOUT_META
         for vite,api in [(b'other',b'{}'),(b'vite',b'{}'),(b'vite',b'[]')]:
             client=SimpleNamespace(open=Mock(side_effect=[HTML(page),HTML(vite),HTML(api)]))
             self.assertEqual(readiness.probe_ui(client).state,'WRONG')
 
     def test_proxy_permission_failure_is_not_retried(self):
-        page=b'<title>MikroTik Manager V2</title>/src/main.tsx'
+        page=VITE_ENTRY + CHECKOUT_META
         client=SimpleNamespace(open=Mock(side_effect=[HTML(page),HTML(b'vite'),URLError(PermissionError(1,'denied'))]))
         self.assertEqual(readiness.probe_ui(client).state,'BLOCKED')
         self.assertEqual(client.open.call_count,3)

@@ -9,7 +9,7 @@ import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
 
-from app.runtime_identity import current_contract
+from app.runtime_identity import REPO_ID, current_contract
 from app.local_ports import api_base, ui_base, api_port, ui_port
 
 
@@ -61,6 +61,9 @@ def probe_ui(opener=None):
             body=response.read()
         if b'<title>MikroTik Manager V2</title>' not in body or b'/src/main.tsx' not in body:
             return APIStatus('WRONG',f'Port {ui_port()} V2 Vite UI kimliğini sağlamıyor; mevcut servise dokunulmadı.')
+        checkout_meta=f'<meta name="mikrotik-dev-checkout" content="{REPO_ID}">'.encode()
+        if checkout_meta not in body:
+            return APIStatus('WRONG',f'Port {ui_port()} doğru Vite checkout kimliğini taşımıyor; mevcut panele dokunulmadı.')
         with client.open(Request(ui_base()+'/@vite/client'),timeout=1) as response:
             vite=response.read()
         with client.open(Request(ui_base()+'/api/ready'),timeout=1) as response:

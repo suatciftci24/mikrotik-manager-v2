@@ -15,6 +15,9 @@ class DevDependencyBootstrapTests(unittest.TestCase):
         with TemporaryDirectory(prefix='v2-dev-bootstrap-unit-') as temporary:
             root = Path(temporary)
             shutil.copyfile(ROOT / 'dev.sh', root / 'dev.sh')
+            hostname = root / 'hostname'
+            hostname.write_text('#!/bin/sh\necho OTHER-WSL\n')
+            hostname.chmod(0o700)
             python = root / '.venv/bin/python'
             python.parent.mkdir(parents=True)
             python.write_text('''#!/bin/bash
@@ -41,7 +44,7 @@ fi
             vite.touch(mode=0o700)
             result = subprocess.run(
                 ['/bin/bash', str(root / 'dev.sh')], cwd=root,
-                env={**os.environ, 'TEST_PILLOW_MISSING': str(int(pillow_missing)),
+                env={**os.environ, 'PATH': f"{root}:{os.environ['PATH']}", 'TEST_PILLOW_MISSING': str(int(pillow_missing)),
                      'TEST_INSTALL_FAILS': str(int(install_fails))},
                 capture_output=True, text=True, timeout=5)
             return result.returncode, (root / 'calls').read_text().splitlines()
@@ -77,3 +80,25 @@ fi
                 if expected == 0:
                     self.assertIn('https://v26.mikmanager.com.tr/', result.stdout)
                     self.assertIn('Git eşitliği DB eşitliği değildir', result.stdout)
+
+    def test_office_wrong_checkout_and_nonlocal_profile_stop_before_bootstrap(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            shutil.copyfile(ROOT / 'dev.sh', root / 'dev.sh')
+            hostname = root / 'hostname'
+            hostname.write_text('#!/bin/sh\necho DESKTOP-VD5T7VG\n')
+            hostname.chmod(0o700)
+            env = {'PATH': f'{root}:/usr/bin:/bin'}
+            result = subprocess.run(['/bin/bash', 'dev.sh'], cwd=root, env=env,
+                                    capture_output=True, text=True, timeout=5)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('DEV_TARGET_BLOCKED', result.stderr)
+            self.assertIn('development/v2.6.2-pppoe', result.stderr)
+            hostname.write_text('#!/bin/sh\necho OTHER-WSL\n')
+            result = subprocess.run(['/bin/bash', 'dev.sh'], cwd=root,
+                                    env={**env, 'V2_DEPLOYMENT_PROFILE': 'v26-isolated-acceptance'},
+                                    capture_output=True, text=True, timeout=5)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('yalnız local-demo', result.stderr)
+            self.assertFalse((root / '.venv').exists())
+            self.assertFalse((root / '.local').exists())

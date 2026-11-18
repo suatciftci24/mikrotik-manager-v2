@@ -1,5 +1,17 @@
 # MikroTik Manager V2 — İlerleme
 
+## #44 Ofis WSL geliştirme hedefi doğrulaması — 2026-11-18 — yerel PASS
+
+- DESKTOP-VD5T7VG, temiz `development/v2.6.2-pppoe` / `bea09f0`, sürüm
+  2.6.4. Normal dev UI 5173 / API 8000; merkezi HTTPS adresi ayrı.
+- Normal dev başlangıcı origin, canonical checkout ve dalı bootstrap öncesi
+  doğrular. Farklı ortam profili reddedilir. `--check-target` servis açmaz.
+- Vite geliştirme HTML'si checkout kimliği taşır. Ortak başlık ve geçerli
+  API proxy tek başına başka checkout panelinin yeniden kullanılmasına yetmez.
+  Üretim HTML'inde işaret yok. Merkezi adres modu ayrı ve bilgi amaçlıdır.
+- Hedefli 23 soketsiz test, şube reddi ve Vite yapılandırma/derleme PASS.
+  Canlı panel isteği, servis işlemi, deploy, migration veya push yok.
+
 ## #42 Ofis WSL mevcut PGDATA ile yerel başlangıç — 2026-11-18
 
 - DESKTOP-VD5T7VG, temiz `development/v2.6.2-pppoe` / `1567de8`. Kullanıcı
