@@ -18,6 +18,9 @@ class DevDependencyBootstrapTests(unittest.TestCase):
             hostname = root / 'hostname'
             hostname.write_text('#!/bin/sh\necho OTHER-WSL\n')
             hostname.chmod(0o700)
+            system_python = root / 'python3'
+            system_python.write_text('#!/bin/sh\ntest "$*" = "-B -m app.loopback_preflight"\n')
+            system_python.chmod(0o700)
             python = root / '.venv/bin/python'
             python.parent.mkdir(parents=True)
             python.write_text('''#!/bin/bash

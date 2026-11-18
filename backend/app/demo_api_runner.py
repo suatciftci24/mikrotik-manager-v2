@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 from app.local_ports import api_port, ui_port, ui_base
+from app.loopback_preflight import socket_blocker
 from app.demo_readiness import probe_api, probe_ui, wait_ready
 from app.demo_repair import ROOT, RepairBlocked, require
 
@@ -130,6 +131,8 @@ def main(argv=None):
     previous=signal.signal(signal.SIGTERM,interrupted)
     try:
         ui_port()  # Validate both endpoints before any service starts.
+        if not args.dev and (blocker := socket_blocker()):
+            raise RepairBlocked(blocker)
         with ManagedAPI() as api:
             if args.dev:
                 with ManagedUI() as ui:

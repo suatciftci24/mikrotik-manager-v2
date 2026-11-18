@@ -164,7 +164,7 @@ def verify_owned_acceptance_database(connection, store):
 
 
 def preflight():
-    """No sockets/processes/DB IO; refuse rather than reuse an existing fixture."""
+    """Check local prerequisites before acquiring a fixture or starting a process."""
     if (os.getuid() <= 0 or os.getuid() != os.geteuid() or Path.cwd() != SOURCE
             or SOURCE.stat().st_uid != os.getuid()):
         raise AcceptanceBlocked('LOCAL_REPO_OWNER_REQUIRED')
@@ -175,6 +175,9 @@ def preflight():
     for name in ('initdb', 'pg_ctl', 'createdb', 'postgres'):
         if not os.access(PG / name, os.X_OK):
             raise AcceptanceBlocked('POSTGRESQL16_TOOLS_REQUIRED')
+    from app.loopback_preflight import socket_blocker
+    if blocker := socket_blocker():
+        raise AcceptanceBlocked(blocker)
     try:
         import_diagnostic.check_dependencies()
     except RuntimeError as error:

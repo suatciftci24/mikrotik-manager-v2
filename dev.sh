@@ -19,9 +19,15 @@ if [[ $# -gt 0 && "$1" != '--accept-demo' &&
   printf 'Geçersiz dev.sh argümanı.\n' >&2; exit 1
 fi
 
+# Check the current execution environment before starting an HTTP workflow.
+check_loopback() {
+  PYTHONPATH="$PROJECT_ROOT/backend" python3 -B -m app.loopback_preflight
+}
+
 # One Vite entrypoint shared by normal dev and the browser acceptance manager.
 if [[ "${1:-}" == '--ui-only' ]]; then
   [[ $# -eq 1 && -f frontend/node_modules/vite/bin/vite.js ]] || { printf 'UI BLOCKED: Vite eksik veya argüman geçersiz.\n' >&2; exit 1; }
+  check_loopback
   cd "$PROJECT_ROOT/frontend"
   # exec Node directly so the owned PID is Vite, not an npm wrapper with an orphan child.
   exec node node_modules/vite/bin/vite.js --host 127.0.0.1
@@ -58,6 +64,8 @@ if [[ "${1:-}" == '--check-target' ]]; then
 ' "$PROJECT_ROOT"
   exit 0
 fi
+
+check_loopback
 
 if [[ ! -x .venv/bin/python ]]; then
   python3 -m venv .venv

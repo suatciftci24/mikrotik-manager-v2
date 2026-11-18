@@ -9,6 +9,8 @@ from app.demo_repair import RepairBlocked
 
 
 class BrowserAPIReuse(TestCase):
+    def setUp(self):
+        self.enterContext(patch.object(runner, 'socket_blocker', return_value=None))
     def test_browser_runs_only_inside_shared_manager_and_uses_nonrecursive_worker(self):
         order=[]
         class Manager:

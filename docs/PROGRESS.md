@@ -1,5 +1,20 @@
 # MikroTik Manager V2 — İlerleme
 
+## #45 Yerel komutlar için EPERM ön kontrolü — 2026-11-18 — yerel PASS
+
+- Ofis WSL DESKTOP-VD5T7VG, temiz `development/v2.6.2-pppoe` / `0b534e2`.
+  #43 kaydında IPv4 stream soketi oluşturma EPERM, #21 kaydında Chromium
+  başlangıcında ayrı socket çağrılarında izin reddi vardı.
+- Dev, paylaşılan tarayıcı/HTTP kabulü ve izole HTTP çalıştırıcısı aynı
+  ucuz soket ön kontrolünü kullanır. İzin engelinde kurulum, API/UI,
+  tarayıcı veya kabul fixture'ı başlamadan BLOCKED. Port bind/bağlantı yok.
+- Yeni çağrı mevcut ortamı yeniden ölçer. Sonuçlar önbelleğe alınmaz.
+  Ön kontrol geçerse mevcut bind, kimlik, DB ve Chromium doğrulamaları
+  çalışır. Başka errno kendi tanısını korur.
+- Yalnız beş yeni hedefli test ve shell/diff kontrolleri PASS. Önceki
+  doğrulanmış testler ve gerçek engelli senaryolar tekrar çalıştırılmadı.
+  Canlı erişim, restart, deploy, migration veya push yok.
+
 ## #44 Ofis WSL geliştirme hedefi doğrulaması — 2026-11-18 — yerel PASS
 
 - DESKTOP-VD5T7VG, temiz `development/v2.6.2-pppoe` / `bea09f0`, sürüm
