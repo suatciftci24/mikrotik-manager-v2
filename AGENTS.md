@@ -20,7 +20,7 @@ Proje talimatları kendi aralarında çelişirse güvenli ve daha kısıtlayıc�
 
 1. Kodlamadan önce mevcut mimariyi, ilgili kodu, geçmiş kararları, açık engelleri ve bağımlılıkları değerlendir.
 2. Önce `docs/PROGRESS.md` ve görevle ilgili en son kabul raporunu oku. Büyük dosyaları gereksiz yere tamamen tarama.
-3. Tek kapsamlı görevde planlama, uygulama, gerekli düzeltmeler, hedefli regresyon, kabul raporu, commit ve push işlemlerini tamamla.
+3. Tek kapsamlı görevde planlama, uygulama, gerekli düzeltmeler, hedefli regresyon, kabul raporu ve yetkilendirilmiş Git teslim adımlarını tamamla.
 4. Kanıtlanmış sorunları yeniden araştırma. Önceki çalışmaları ve bulguları tekrar kullan.
 5. Ürün hatası ile test aracı hatasını ayır. Değişken verileri aynı snapshot ve aynı veri kaynağıyla karşılaştır.
 6. Testleri kaldırarak, gevşeterek veya hataları gizleyerek PASS üretme.
@@ -31,7 +31,7 @@ Proje talimatları kendi aralarında çelişirse güvenli ve daha kısıtlayıc�
 11. Her yeni canlı deploy, DB yazımı, migration, servis restartı, router, RADIUS veya PPPoE değişikliği için kullanıcıdan yeni, açık ve işlem kapsamına özgü onay al. Önceki görev veya dağıtımın onayını yeni bir canlı işleme taşıma; aynı açıkça onaylanmış işlemi gereksiz yere tekrar onaylatma.
 12. V1 üretim sistemi ve eski V2 korunacak. Fresh Pilot ve yerel demo izolasyonu bozulmayacak.
 13. Gizli bilgileri, parolaları, tokenları ve yedek içeriklerini Git'e ekleme.
-14. Güvenli yerel değişiklikleri hedefli testlerden sonra commit/push yap; force push kullanma. Yalnız talimat/dokümantasyon görevinde içerik, talimat yükleme ve diff gibi ilgili kontroller yeterlidir; uygulama test/build döngüsü başlatma.
+14. Güvenli yerel değişiklikleri hedefli testlerden sonra commit et. Uzak aktarımı yetkilendirilmiş kapsamda yap ve force push kullanma. Yalnız talimat/dokümantasyon görevinde içerik, talimat yükleme ve diff gibi ilgili kontroller yeterlidir; uygulama test/build döngüsü başlatma.
 15. Raporlar kısa, kanıta dayalı ve net olsun. PASS yalnız gerçekten doğrulanan işlemler için verilsin.
 16. Kullanıcıya terminal komutu gerekiyorsa ev/ofis/VDS/MikroTik terminalini açıkça belirt.
 17. Kullanıcıdan gereksiz onay veya tekrar test isteme.
@@ -43,7 +43,7 @@ Proje talimatları kendi aralarında çelişirse güvenli ve daha kısıtlayıc�
 3. Yerel kodlama, güvenli geliştirme, hedefli test, hata düzeltme ve commit için tekrar onay isteme.
 4. Yalnızca değişen işlevi ve doğrudan etkilenen kritik bağlantıları doğrula.
 5. Başarılı testleri sebepsiz tekrarlama; hata varsa yalnızca başarısız kapsamı yeniden test et.
-6. Tek görevde kodlama, gerekli düzeltmeler, hedefli test, commit ve normal push işlemlerini tamamla.
+6. Tek görevde kodlama, gerekli düzeltmeler, hedefli test, commit ve yetkilendirilmiş uzak aktarımı tamamla.
 7. MikroTik Manager V1 üretim sistemine müdahale etme.
 8. V2 için ayrı veritabanı, yapılandırma, kimlik bilgileri ve çalışma ortamı kullan.
 9. Hibrit MikroTik Local + FreeRADIUS mimarisini koru; her aboneliğin tek yetkili yönetim kaynağı olsun.
@@ -126,13 +126,17 @@ regresyonda doğrula. Sunucu yetkilerini veya kaynak güvenliğini gevşetme.
 
 ## Ofis ve Ev Git Senkronizasyonu
 
-- GitHub main-guncel ortak kaynak daldir.
-- Her oturum basinda yerel degisiklikler korunarak senkronizasyon yapilir.
-- Tamamlanan tum gelistirmeler ilgili dosyalariyla commit ve push edilir.
-- Oturum sonunda yerel HEAD ile GitHub HEAD esitligi dogrulanir.
-- Push basarisizsa is tamamlandi olarak bildirilmez.
-- Yerel degisiklikler incelenmeden silinmez.
-- Gizli bilgiler, veritabani dosyalari ve gecici dosyalar GitHub'a gonderilmez.
+- GitHub origin `suatciftci24/mikrotik-manager-v2`; mevcut doğrulanmış SSH
+  veya HTTPS kimliği korunur. Ortak kaynak dalı `main-guncel`; Ofis geliştirme
+  dalı `development/v2.6.2-pppoe`. Aktarımda amaçlanan dal ve tam ref açıkça seçilir.
+- Uzak aktarımdan önce `bash tools/check-git-transfer.sh` ile yerel terminal,
+  checkout, dal, etkin origin okuma/yazma adresleri ve mirror ayarını doğrula.
+  Komut çevrimdışıdır. Push, pull ve fetch yalnız yetkilendirilmiş kapsamda yapılır.
+- Kimlik bilgileri mevcut güvenli kaynağında kalır. Yalnız gözden geçirilmiş Git
+  commit'leri ve amaçlanan ref aktarılır. DB, kullanıcı, yerel yapılandırma ve
+  yedekler aktarım kapsamına girmez. Yerel değişiklikleri incelemeden silme.
+- Uzak Git eşitliğini yalnız gerçekten ölçüldüğünde bildir. Çalışma standardı
+  ve tarihsel relay sınırı [Git aktarım belgesinde](docs/V262_GITHUB_RELAY.md).
 
 ## ALTIN KURAL: EV-OFIS TAM SENKRONIZASYON
 

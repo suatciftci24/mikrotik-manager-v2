@@ -1,5 +1,18 @@
 # MikroTik Manager V2 — İlerleme
 
+## #51 Ev ve Ofis Git aktarım standardı — 2026-11-18 — yerel PASS
+
+- Ofis WSL, temiz `development/v2.6.2-pppoe` / `5f06d16`. Eski oturum
+  senkronizasyon kuralları ve tarihsel HTTPS relay metni normal aktarımı
+  yanlış dala veya farklı URL'ye yönlendirebiliyordu. #48 ham origin
+  kontrolü etkin pushurl/rewrite değerlerini kapsamıyordu.
+- Normal yol aynı GitHub origin'e mevcut SSH/HTTPS kimliğiyle doğrudan Git.
+  Yerel kontrol checkout/dal, etkin iki yönlü origin ve mirror ayarını
+  doğrular. Tarihsel pinli relay artık açık bayrak ve yerel ön kontrol ister.
+- Üç çevrimdışı test, gerçek Ofis yerel hedef kontrolü, Bash sözdizimi ve
+  diff PASS. Uzak Git/SSH doğrulaması yapılmadı. Anahtar, parola, ayar,
+  veri, servis veya uzak ref değişikliği yok.
+
 ## #50 V2.6.4 uçtan uca senaryo envanteri — 2026-11-18 — BLOCKED
 
 - [Tek kabul matrisi](V264_E2E_50_ACCEPTANCE.md), yedi senaryonun geçerli

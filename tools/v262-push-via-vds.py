@@ -1,21 +1,29 @@
 """Run in normal office WSL. Transfer only the pinned Git graph through the VDS."""
+import argparse
 import hashlib
 from pathlib import Path
 import shlex
 import subprocess
 import sys
-from v262_git_relay_remote import COMMIT, BASE, GITHUB, Blocked
+from v262_git_relay_remote import COMMIT, BASE, Blocked
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--execute-pinned-relay', action='store_true',
+                        help='explicitly request the historical pinned relay to GitHub')
+    if not parser.parse_args(argv).execute_pinned_relay:
+        raise Blocked('Tarihsel relay için --execute-pinned-relay açıkça gerekli; aktarım başlamadı.')
+    preflight = subprocess.run(['/bin/bash', str(ROOT/'tools/check-git-transfer.sh')],
+                               stdout=subprocess.DEVNULL)
+    if preflight.returncode:
+        raise Blocked('Yerel Git aktarım hedefi doğrulanamadı.')
     def git(*args, **kwargs):
         return subprocess.check_output(['git','-C',str(ROOT),*args], **kwargs)
     if git('branch','--show-current').strip() != b'development/v2.6.2-pppoe' or git('status','--porcelain').strip():
         raise Blocked('Yanlış dal/kirli yerel ağaç; aktarım başlamadı.')
-    if git('remote','get-url','origin').strip().decode() != GITHUB:
-        raise Blocked('Origin hedefi uyuşmuyor.')
     if git('rev-parse','b41deae^{commit}').strip().decode() != COMMIT:
         raise Blocked('Kaynak commit uyuşmuyor.')
     if git('rev-list','--parents','-n','1',COMMIT).decode().split() != [COMMIT, BASE]:
