@@ -1,5 +1,15 @@
 # MikroTik Manager V2 — İlerleme
 
+## Abone Merkezi İşlemler menüsü — 2026-11-18
+
+- Ev WSL ortak checkout, development/v2.6.2-pppoe, başlangıç 07dd80c.
+  Liste ve detayda Düzenle, İşlemler menüsünün ilk seçeneği. Mevcut
+  eylemler, yetki/onay akışları ve Rapor ekranındaki simge korundu.
+- subscriberQuickWorkflow, subscriberCenter ve subscriberMenuPosition
+  47/47 PASS. Üretim derlemesi ve diff kontrolü PASS.
+- Tarayıcı kabulü Chromium başlangıcında BLOCKED. GitHub aktarımı yerel
+  check-git-transfer.sh checkout/dal denetiminde BLOCKED.
+
 ## PPPoE oluşturma formu — 2026-11-18 — hedefli PASS
 
 - Ev WSL ortak checkout'unda a0d0c7d tabanına 8713e4d düzeltmeleri elle

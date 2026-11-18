@@ -40,17 +40,14 @@ test('compact menu uses an auto top-layer popover and restores focus on selectio
   tree.props.onClick({stopPropagation(){stopped=true;}});assert.ok(stopped);
   const trigger=nodes(tree).find(n=>n.type==='button'&&n.props['aria-haspopup']==='menu');
   const panel=nodes(tree).find(n=>n.props?.popover==='auto');assert.ok(panel);assert.equal(panel.props.role,'menu');
-  const edit=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Düzenle');
-  assert.ok(edit);
-  assert.deepEqual(nodes(panel).filter(n=>n.props?.role==='menuitem').map(n=>n.props.children),['Abonelik Uzat','Paket Değiştir','Hesabı Kapat','İşlem Geçmişi']);
-  edit.props.onClick();
-  assert.deepEqual(calls,['edit']);
-  assert.equal(isOpen,false);
+  assert.equal(nodes(tree).filter(n=>n.type==='button'&&n.props.role!=='menuitem').length,1);
+  assert.equal(trigger.props.children.props.children[0],'İşlemler ');
+  assert.deepEqual(nodes(panel).filter(n=>n.props?.role==='menuitem').map(n=>n.props.children),['Düzenle','Abonelik Uzat','Paket Değiştir','Hesabı Kapat','İşlem Geçmişi']);
   trigger.props.ref.current={focus(){focused=true;},getBoundingClientRect:()=>({left:280,right:350,top:400,bottom:440})};panel.props.ref.current=popup;
   trigger.props.onClick();assert.ok(isOpen&&focused);assert.equal(popup.style.left,'130px');
   panel.props.onToggle({nativeEvent:{newState:'open'}});tree=h.render('SubscriberQuickButtons',props);
   assert.equal(nodes(tree).find(n=>n.type==='button'&&n.props['aria-haspopup']==='menu').props['aria-expanded'],true);
-  for(const [text,action] of [['Abonelik Uzat','EXTEND'],['Paket Değiştir','PLAN'],['Hesabı Kapat','STATUS'],['İşlem Geçmişi','history']]){
+  for(const [text,action] of [['Düzenle','edit'],['Abonelik Uzat','EXTEND'],['Paket Değiştir','PLAN'],['Hesabı Kapat','STATUS'],['İşlem Geçmişi','history']]){
    isOpen=true;nodes(tree).find(n=>n.type==='button'&&n.props.children===text).props.onClick({currentTarget:{}});assert.equal(calls.at(-1),action);assert.equal(isOpen,false);
   }
   isOpen=true;panel.props.onKeyDown({key:'Escape',preventDefault(){},stopPropagation(){}});assert.equal(isOpen,false);

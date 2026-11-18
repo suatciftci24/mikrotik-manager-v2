@@ -1,11 +1,11 @@
-import {Ellipsis} from 'lucide-react';
+import {ChevronDown,Ellipsis} from 'lucide-react';
 import {useEffect,useId,useRef,useState,type MouseEvent,type KeyboardEvent} from 'react';
 import {accountActionLabel,type SubscriberQuickAction} from '../lib/subscriberActions';
 import {subscriberMenuPosition} from '../lib/subscriberMenu';
 
-type Props={status:string;onAction?:(action:SubscriberQuickAction)=>void;onHistory?:()=>void;onEdit?:()=>void;compact?:boolean;label?:string;available?:readonly SubscriberQuickAction[];unavailableReason?:string};
+type Props={status:string;onAction?:(action:SubscriberQuickAction)=>void;onHistory?:()=>void;onEdit?:()=>void;compact?:boolean;iconOnly?:boolean;label?:string;available?:readonly SubscriberQuickAction[];unavailableReason?:string};
 /** Selection only. Native auto-popover supplies top-layer stacking and light dismiss. */
-export function SubscriberQuickButtons({status,onAction,onHistory,onEdit,compact=false,label='Abone',available,unavailableReason}:Props){
+export function SubscriberQuickButtons({status,onAction,onHistory,onEdit,compact=false,iconOnly=false,label='Abone',available,unavailableReason}:Props){
  const id=useId(),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null);
  const [open,setOpen]=useState(false);
  function position(){
@@ -40,15 +40,14 @@ export function SubscriberQuickButtons({status,onAction,onHistory,onEdit,compact
   buttons[next]?.focus();
  }
  const buttons=<div className="subscriber-quick-buttons">
+ {onEdit&&<button type="button" role={compact?'menuitem':undefined} className="button-secondary" onClick={event=>choose(event,onEdit)}>Düzenle</button>}
  {onAction&&([['EXTEND','Abonelik Uzat'],['PLAN','Paket Değiştir'],['STATUS',accountActionLabel(status)]] as const).map(([action,text])=><button type="button" role={compact?'menuitem':undefined} className="button-secondary" key={action} disabled={!!available&&!available.includes(action)} onClick={event=>choose(event,()=>onAction(action))}>{text}</button>)}
  {!onAction&&unavailableReason&&<p className="subscriber-action-reason" role="note">{unavailableReason}</p>}
  {onHistory&&<button type="button" role={compact?'menuitem':undefined} className="button-secondary" onClick={event=>choose(event,onHistory)}>İşlem Geçmişi</button>}
  </div>;
- const edit=onEdit&&<button type="button" className="button-secondary" aria-label={label+' bilgilerini düzenle'} onClick={onEdit}>Düzenle</button>;
- if(!compact)return <>{edit}{buttons}</>;
+ if(!compact)return buttons;
  return <span className="subscriber-row-actions" onClick={event=>event.stopPropagation()}>
- {edit}
- <button type="button" className="button-secondary" ref={trigger} aria-label={label+' işlemleri'} aria-haspopup="menu" aria-controls={id} aria-expanded={open} onClick={()=>{if(panel.current?.matches(':popover-open'))close();else show();}} onKeyDown={event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();show(event.key==='ArrowUp');}}}><Ellipsis size={18} aria-hidden="true"/></button>
+ <button type="button" className="button-secondary" ref={trigger} aria-label={label+' işlemleri'} aria-haspopup="menu" aria-controls={id} aria-expanded={open} onClick={()=>{if(panel.current?.matches(':popover-open'))close();else show();}} onKeyDown={event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();show(event.key==='ArrowUp');}}}>{iconOnly?<Ellipsis size={18} aria-hidden="true"/>:<>İşlemler <ChevronDown size={14} aria-hidden="true"/></>}</button>
  <div ref={panel} id={id} popover="auto" className="subscriber-row-popover" role="menu" aria-label={label+' işlemleri'} onToggle={event=>setOpen((event.nativeEvent as ToggleEvent).newState==='open')} onKeyDown={navigate} onBlur={event=>{const next=event.relatedTarget as Node|null;if(next&&!event.currentTarget.contains(next)&&next!==trigger.current)close();}}>{buttons}</div>
  </span>;
 }
