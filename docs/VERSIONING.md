@@ -15,7 +15,11 @@ sürümünü doğruladığını iddia etmez. Dağıtım paketi `release.json` do
 korumalı; frontend yeni sürüm için yeniden derlenmelidir. Eksik/geçersiz backend
 kaydı başlangıcı durdurur, tahmini sürüme düşülmez.
 
-Her sonraki güncellemede, yerel proje kökünde:
+Ürün sürümü güncellemelerinde, yerel proje kökünde aşağıdaki adımları uygula.
+Yalnız belge, test veya yerel geliştirme aracı değiştiğinde mevcut ürün sürümü
+ve etiketi korunur. Geliştirme sürümü ile canlı panelin sürüm kanıtı ayrı
+kaydedilir. Güncel checkout ve canlı panel ayrımı [README'de](../README.md#current-development-status)
+gösterilir.
 
 1. Mevcut dal/HEAD, temiz çalışma ağacı, release.json, CHANGELOG ve mevcut
    etiketleri incele. Değişiklik kapsamına göre SemVer artışını seç.

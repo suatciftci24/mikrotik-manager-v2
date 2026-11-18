@@ -1,5 +1,16 @@
 # MikroTik Manager V2 — İlerleme
 
+## #53 V2.6.4 güncel kullanım belgeleri — 2026-11-18 — belge PASS
+
+- Ofis WSL, temiz `development/v2.6.2-pppoe` / `f49e67b`. Yerel ürün
+  sürümü 2.6.4 ve ürün etiketi `1567de8`; canlı 2.6.1 önceki kullanıcı kaydı.
+- README Ofis checkout/PGDATA yönü, Ev WSL bakım/kabul örnekleri, port
+  değişikliği ve Git aktarım bağlantısı düzeltildi. Stage 10 eski çalıştırıcı
+  yedi eksik CEBECI importu nedeniyle geçerli komut olarak sunulmuyor.
+- AGENTS ve VERSIONING yerel DB doğrulaması ile ürün sürümü kapsamında
+  güncellendi. #36 ve #50 BLOCKED, kullanıcı iptalleri ve tarihsel PASS
+  kayıtları korundu. Yalnız çevrimdışı belge ve komut kontrolleri yapıldı.
+
 ## #52 Kanıta dayalı sonuç raporlama standardı — 2026-11-18 — belge PASS
 
 - `AGENTS.md` içindeki tek sonuç raporu maddesi, geçici çözüm, kalıcı

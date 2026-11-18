@@ -1,25 +1,60 @@
 # MikroTik Manager V2
 
-A clean, independent local V2 workspace. The first phase uses synthetic records only. No real MikroTik, FreeRADIUS, V1 database, production API, or live service is configured or contacted.
+## Current development status
 
-## Start the local demo
+The Office WSL checkout is `~/v26-transfer/mikrotik-v26-next` on
+`development/v2.6.2-pppoe`. The current development version is **V2.6.4**.
+The local `v2.6.4` tag points to product commit `1567de8`; subsequent commits
+include test, development-tooling and documentation updates. The central
+panel uses [the existing HTTPS address](https://v26.mikmanager.com.tr/).
+Its recorded live version is **V2.6.1**, based on the prior user report.
+This documentation update used offline evidence.
+
+V2.6.4 retains the PPPoE search, source filters and expiry groups introduced
+in V2.6.2. **Düzenle** opens the subscriber information form. The three-dot
+menu opens account status, renewal, registered package changes and history.
+The local workspace uses synthetic V2 data. Prior evidence includes
+45/45 subscriber center and workflow tests for #39 and 5/5 targeted form
+tests for #50. See the [changelog](CHANGELOG.md), [progress](docs/PROGRESS.md)
+and [#50 acceptance matrix](docs/V264_E2E_50_ACCEPTANCE.md). #50 Office E2E
+acceptance and #36 Compose root-cause analysis remain **BLOCKED**.
+The user-cancelled CEBECI work remains closed.
+
+## Start the existing Office local demo
+
+In the **Office WSL terminal** as `suatpc@DESKTOP-VD5T7VG`, use the existing
+local PostgreSQL 16 cluster after its read-only connection check succeeds.
 
 ```bash
-cd /home/suatpc/Codex-Projects/mikrotik-manager-v2
-./dev.sh --prepare-demo  # Explicit first-time local DB/schema preparation; preserves existing demo data
-./dev.sh
+cd ~/v26-transfer/mikrotik-v26-next &&
+  ./dev.sh --check-target &&
+  export V2_LOCAL_PGDATA=/home/suatpc/Codex-Projects/mikrotik-manager-v2/.local/postgres-v2-demo &&
+  PYTHONPATH=backend .venv/bin/python -B -m app.local_demo_database
 ```
+
+After the check reports `V2 DB READY`, run `./dev.sh` in the same terminal.
+The last restricted Office session was unable to verify the connection.
+The existing cluster stays in its owner checkout. For the documented Home
+WSL workflow, the local checkout is `~/Codex-Projects/mikrotik-manager-v2`
+on `main-guncel`, with its own checkout-local demo cluster.
 
 Open `http://127.0.0.1:5173`. Before first ADMIN setup, `demo@local.test` is accepted as a login alias for the bootstrap demo user. The synthetic demo account is `demo` / `demo-only` (profile email `demo@local.test`). After setup only LOCAL accounts can log in. The login form never pre-fills credentials. Dashboard, Router Center, and Subscriber Center retain their synthetic data. The browser API is served by FastAPI at loopback; `/api/health` reports local demo storage connectivity and device-adapter isolation.
 
-The first run prepares V2-specific Python/frontend dependencies. First-time dependency installation needs normal package-registry access. Demo persistence uses the existing SQLAlchemy/psycopg stack and locally installed PostgreSQL 16; no additional Python/npm package is introduced. The explicit `--prepare-demo` maintenance command starts only a repo-owned development PostgreSQL cluster and applies/seeds only the isolated demo schema. Normal `./dev.sh` startup resumes only an existing repo-owned demo PostgreSQL cluster and checks its schema/marker/permissions read-only. Missing DB/schema or invalid credentials stop startup; no automatic creation, migration or seed occurs. API reads/writes connect on demand. The original `001_initial_v2.sql` domain design is not applied by demo setup.
+Normal startup prepares missing application dependencies and checks the
+existing local demo schema, marker and privileges. Package installation
+requires registry access. `--prepare-demo` is an explicit setup mode for a
+checkout-owned cluster. The current Office development checkout uses the
+existing cluster via `V2_LOCAL_PGDATA`. The repository-owned setup and runtime
+checks are described in [the local database section](#explicit-local-v2-database-repair).
 
 The optional V2 database URL is restricted to loopback and a non-default local port; it defaults to the separate database name `mikrotik_manager_v2` on port `55432`. Do not point it at V1 or production. See [AGENTS.md](AGENTS.md) for isolation and architecture rules.
 
 ## First real V2 ADMIN (local, one time)
 
-In the **office WSL terminal**, as the OS user owning this repository and its
-already running isolated PostgreSQL cluster, run:
+Use this one-time maintenance entry point only in the **Office WSL terminal**
+from the existing PostgreSQL cluster's owner checkout. The command validates
+PGDATA relative to that checkout. If first ADMIN setup is complete, use the
+existing LOCAL account.
 
 ```bash
 cd /home/suatpc/Codex-Projects/mikrotik-manager-v2 && ./local-admin.sh
@@ -790,19 +825,13 @@ override, startup only attaches to PostgreSQL and fails if the target is
 unavailable or mismatched. Maintenance and acceptance commands retain their
 checkout-local checks.
 
-For the Office WSL checkout, verify the database alone from the new repo root
-with the existing Python environment:
+Use the [Office read-only startup check](#start-the-existing-office-local-demo)
+with the existing Python environment.
 
-```bash
-V2_LOCAL_PGDATA=/home/suatpc/Codex-Projects/mikrotik-manager-v2/.local/postgres-v2-demo \
-  PYTHONPATH=backend .venv/bin/python -B -m app.local_demo_database
-```
-
-Use the same variable with `./dev.sh` for normal local development.
-
-The following **explicit maintenance** command additionally prepares missing
-schema/examples and exercises writes. Do not use it for a connection-only repair
-or when schema/seed/write operations have not been authorized:
+The following **explicit maintenance** example is for the **Home WSL
+terminal** with its checkout-owned demo cluster and authorization for
+schema/seed and synthetic write checks. The Office connection-only command is
+shown above:
 
 ```bash
 cd ~/Codex-Projects/mikrotik-manager-v2 && ./repair-demo.sh --check-writes
@@ -834,7 +863,8 @@ output; a successful helper/build/unit test alone is not real integration accept
 
 ## Final PPPoE acceptance on an already running local demo
 
-Once the local V2 DB/API/UI are working, run in a **normal WSL terminal**:
+In the **Home WSL terminal**, with the checkout-owned local V2 DB/API/UI
+running and synthetic acceptance writes authorized:
 
 ```bash
 cd ~/Codex-Projects/mikrotik-manager-v2 && ./accept-demo.sh
@@ -866,8 +896,8 @@ are not a substitute for running this command against the real local services.
 
 ### API readiness and one-command acceptance startup
 
-If acceptance reports DB PASS but cannot reach HTTP, use this single command in a
-**normal WSL terminal**:
+For authorized local HTTP/DB acceptance in the **Home WSL terminal**, the
+manager can start a missing loopback API for its checkout-owned demo cluster:
 
 ```bash
 cd ~/Codex-Projects/mikrotik-manager-v2 && ./dev.sh --accept-demo
@@ -915,53 +945,22 @@ uses the existing idempotency mechanism. Unknown authority or nonpersistent
 storage disables changes. Router links scope the existing bulk-selection list;
 query/router/plan filters remain in URL context across details and reload.
 
-Stage 9's local JSON artifact confirms **110 HTTP/PostgreSQL checks PASS and 9
-original subscribers preserved**. Stage 10 browser interactions are separate.
-In normal WSL, execute one browser acceptance step. The shared Stage 9 manager
-reuses ready API/UI services and temporarily starts only whichever service is missing:
+The historical Stage 9 local artifact recorded **110 HTTP/PostgreSQL checks
+PASS and 9 original subscribers preserved**. See [its acceptance history](docs/V2-ACCEPTANCE.md).
+The shared manager's browser sequence is API readiness, read-only checkout-local
+DB validation, UI readiness and Chromium. It reuses ready services and owns
+only new temporary children. The browser tooling directory is
+`.local/browser-tools`. The worker can install Playwright there and selects an
+existing Linux Chromium executable. Logs are under `.local/runtime/`.
 
-```bash
-cd ~/Codex-Projects/mikrotik-manager-v2 && ./browser-accept-demo.sh
-```
-
-The wrapper delegates API ownership/readiness to the same `ManagedAPI` used by
-`./dev.sh --accept-demo`; no second API launcher exists. A ready existing API is
-never stopped; only a child started by this command is cleaned up on success or
-failure. The same lifecycle manages Vite on 5173 through `dev.sh --ui-only`, which
-also supplies normal dev.sh startup using the existing Vite configuration. It
-never restarts existing API/UI or DB services. Before UI/tools/test writes, it
-checks the isolated DB read-only and verifies the running API DB health; a missing
-DB is BLOCKED without seed, schema or migration. On first use it downloads only
-Playwright/Chromium test tools into
-ignored `.local/browser-tools`; it does not alter app dependencies, install system
-libraries, prepare schemas or seed data. Tool/browser/network restrictions stop with BLOCKED.
-The browser blocks external page requests and follows no API redirects. It creates
-**two new, uniquely named PAUSED synthetic test subscribers**, mutates only its own
-first new record, and compares all preexisting records/audit afterward. Tests cover
-list-to-detail/router links, preview/cancel, confirmation/replay with one audit,
-plan/status/expiry automatic refresh, preserved query/router scope, Dashboard/report
-visibility, focus/Escape and 320/390 px overflow. Screenshots and actual results stay
-in `.local/browser-acceptance/<run-id>/`. No existing demo subscriber is modified.
-A prepared script or component test is not browser PASS; actual result.json and
-screenshots are required for that acceptance.
-
-
-### Browser acceptance owns both missing local services
-
-`./browser-accept-demo.sh` no longer requires a separately started UI or API. Its
-sequence is **API ready → read-only V2 DB ready → UI ready → real browser**. Existing
-ready services are reused; only its newly started children are stopped afterward,
-including when DB/UI/browser setup fails. Wrong services, occupied ports, permission
-errors and timeouts stop without restarting unknown processes. New-child startup
-waits are bounded; infrastructure failures are not retried in a diagnostic loop.
-
-Vite has one launch command in `dev.sh --ui-only`, shared with normal dev.sh. It
-executes the project's existing Vite entrypoint directly under `frontend/` so the
-owned PID is the server itself; no npm-wrapper child is left behind. Existing Vite
-config (loopback 5173, strictPort, API proxy 8000) is unchanged. API/UI logs remain
-in `.local/runtime/accept-api-*/api.log` and `accept-ui-*/ui.log`. Browser/Chromium
-absence or OS dependency failure remains BLOCKED and is never replaced with
-HTTP/projection PASS. No database service start, repair, seed or migration occurs.
+The historical `browser-accept-demo.sh` worker currently imports seven
+modules removed with the CEBECI cleanup. Its Stage 10 command and its
+report/alarm/user browser modes are historical for this checkout. The
+[Cebeci cleanup record](docs/V26_CEBECI_CLEANUP_ACCEPTANCE.md) and
+[#50 acceptance matrix](docs/V264_E2E_50_ACCEPTANCE.md) record their respective
+scope. The Office Chromium and loopback permission evidence remains in
+[#21](docs/V262_BROWSER_21_ACCEPTANCE.md) and the
+[Office isolated acceptance report](docs/V26_OFFICE_ISOLATED_ACCEPTANCE.md).
 
 Normal `./dev.sh` ile kabul komutları aynı `app.demo_api_runner` API/UI sahiplik
 ve readiness yönetimini kullanır. Mevcut sağlıklı servisler korunur; yalnız yeni
@@ -990,8 +989,7 @@ filtreli giriş vardır. Yeni salt okunur `/api/v1/reports/operations` sunucuda
 filtreler; audit SQL sayfalıdır, UI sayfa başına 25 kayıt getirir (API en fazla 50).
 Tarihler Europe/Istanbul, en fazla 366 gündür. Başarısız işlem audit kaynağı ve
 kanıtsız süreler Veri yok kalır; bugünkü snapshot geçmiş durum gibi sunulmaz.
-Yalnız raporların salt okunur tarayıcı kabulü:
-`V2_BROWSER_REPORTS_ONLY=1 ./browser-accept-demo.sh`.
+Salt okunur tarayıcı kabulü için tarihsel Stage 10 kapsamına bakın.
 
 Aşama 13 **Merkezi Alarm Yönetimi**, Operasyon Merkezi içinde mevcut sentetik
 WAN/MikAjanı/PPPoE kaynaklarını kullanır. Router/önem/durum/tür/tarih filtreleri,
@@ -1003,12 +1001,10 @@ kaynağını kullanır; harici mesaj gönderilmez.
 Alarm işlem tabloları uygulama başlangıcında oluşturulmaz. Açık, yalnız bu repo
 izole V2 kümesi için ek şema bakımı: `PYTHONPATH=backend .venv/bin/python -m app.demo_storage alarms-init`.
 Kaynak okuması bu tablolar olmadan da çalışır; ACK/okundu yazması kapalı kalır.
-Salt okunur kabul: `V2_BROWSER_ALARMS_ONLY=1 ./browser-accept-demo.sh`.
+Salt okunur tarayıcı kabulü tarihsel Stage 10 kapsamındadır.
 
-Tek komutla ek alarm şeması hazırlığı ve ayrı yetkili ACK/idempotency kabulü:
-`./browser-accept-demo.sh --alarm-acceptance`.
-Bu açık test modu yalnız yeni UUID'li `alarm.accept.*` başlangıç sentetik kaydını
-ekler; eski aboneleri/audit'i değiştirmez. Yeni kayıt ve alarm audit'i test sonunda
+Tarihsel Stage 10 alarm şeması ve ACK/idempotency kabul modu yalnız yeni
+UUID'li `alarm.accept.*` başlangıç sentetik kaydını ekliyordu; eski aboneleri/audit'i değiştirmez. Yeni kayıt ve alarm audit'i test sonunda
 silinmez. Kaynak kaybolursa kayıtlı kullanıcı işlem kanıtı tarihsel olarak korunur;
 çözülme varsayılmaz ve açık kritik sayımına eklenmez.
 
@@ -1029,10 +1025,8 @@ kümesi için açık hazırlık: `PYTHONPATH=backend .venv/bin/python -m app.dem
 hazırlık hesap/parola/izin sıfırlamaz. DB hatasında veya kurulmuş kimlik deposu
 kaybolursa eski demo-admin yetkisine geri düşülmez.
 
-Tek yerel kullanıcı/yetki kabulü: `./browser-accept-demo.sh --user-acceptance`.
-Komut mevcut DB/API/UI yöneticisini kullanır, yalnız ek kimlik şemasını hazırlar
-ve üç yeni sentetik test hesabıyla izolasyon/revocation/audit/mobil kontrollerini
-çalıştırır. Eski demo yönetici ve abone/audit kayıtları değiştirilmez. Yeni test
+Tarihsel Stage 10 kullanıcı/yetki kabul modu ek kimlik şeması ve üç sentetik
+hesapla izolasyon, yetki iptali, audit ve mobil kontrollerini kapsıyordu. Eski demo yönetici ve abone/audit kayıtları değiştirilmez. Yeni test
 hesapları silinmez; kabul/cleanup sonunda pasifleştirilir. Gerçek tarayıcı sonucu
 olmadan bu senaryo PASS sayılmaz.
 
@@ -1048,17 +1042,18 @@ hazırlığı, güvenlik sınırları ve hedefli kabul: [Router onboarding](docs
 ### Yerel port çakışması
 
 Varsayılan API/UI portları 8000/5173'tür. Başka servisleri durdurmadan ayrı V2
-portları seçmek için normal WSL terminalinde:
+portları seçmek için mevcut yerel DB doğrulamasından sonra **Ofis WSL terminalinde**:
 
 ```bash
-cd ~/Codex-Projects/mikrotik-manager-v2 && ./dev-db.sh && V2_API_PORT=18000 V2_UI_PORT=15173 ./dev.sh
+cd ~/v26-transfer/mikrotik-v26-next &&
+  V2_LOCAL_PGDATA=/home/suatpc/Codex-Projects/mikrotik-manager-v2/.local/postgres-v2-demo \
+  V2_API_PORT=18000 V2_UI_PORT=15173 ./dev.sh
 ```
 
 Panel `http://127.0.0.1:15173/` olur. API, UI proxy, hazır olma kontrolleri ve
 kabul araçları aynı port değişkenlerini kullanır. Dinleme adresi yalnız
 `127.0.0.1` kalır; otomatik port taraması/geçişi yapılmaz. PostgreSQL ayrı V2
-kümesinde 55432'de kalır; `dev-db.sh` mevcut DB'yi sıfırlamaz ve uygulama
-migration çalıştırmaz. Gerekli registry şeması için Router onboarding belgesini
+kümesinde 55432'de kalır ve yerel geliştirme mevcut kümeye bağlanır. Gerekli registry şeması için Router onboarding belgesini
 izleyin; HTTP hazır olması DB/migration kabulü değildir.
 
 `PORT_IN_USE` kullanımda portu, `SOCKET_PERMISSION_DENIED` izin/sandbox engelini,
@@ -1109,5 +1104,5 @@ geliştirme checkout'u `~/v26-transfer/mikrotik-v26-next`, dalı
 `./dev.sh --check-target` bu başlangıç kapısını servis açmadan denetler.
 Varsayılan yerel UI `http://127.0.0.1:5173/`, API ise
 `http://127.0.0.1:8000/`. Vite sayfası ilgili checkout ile doğrulanır.
-Ayrıntılar ve korunan demo dizinleri:
-[Merkezi API / ortak kullanım](docs/V26_SHARED_API_ACCEPTANCE.md).
+Ayrıntılar [merkezi API kaydında](docs/V26_SHARED_API_ACCEPTANCE.md) ve
+[ev/ofis Git aktarım standardında](docs/V262_GITHUB_RELAY.md).

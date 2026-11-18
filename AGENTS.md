@@ -76,8 +76,11 @@ Proje talimatları kendi aralarında çelişirse güvenli ve daha kısıtlayıc�
 
 - Bu depo, V1'in ayrı kardeş dizinidir; V1 kaynaklarını import etme, değiştirme veya kopyalama.
 - V1 `.env`, venv, veritabanı URL'si, portları, systemd unit'leri, yedekleri, sunucusu ve router/RADIUS uçları V2'de kullanılmaz.
-- Bu fazın tek komutu yalnızca `127.0.0.1` üzerinde V2 UI/API geliştirir; gerçek cihaz/RADIUS/DB bağlantısı başlatmaz.
-- V2 PostgreSQL URL'si ayrı `V2_DATABASE_URL` ile verilir ve yalnız localhost/loopback'e izin verir. Geliştirme başlangıcında DB'ye bağlanılmaz.
+- Yerel geliştirme V2 UI/API'yi yalnız `127.0.0.1` üzerinde çalıştırır.
+  Ortak VDS paneli ve gerçek cihaz/RADIUS erişimi ayrı yetki alanlarıdır.
+- Normal başlangıç ayrı loopback V2 PostgreSQL hedefini salt okunur doğrular.
+  Varsayılan küme checkout'a aittir. Mevcut Ofis kümesine bağlanmak için
+  [README'deki yerel PGDATA yönergesini](README.md#start-the-existing-office-local-demo) kullan.
 - `migrations/` yalnız V2 şemasına aittir. Üretim veya V1 migration'ı/seed'i çalıştırılmaz.
 - Gerçek bağlantı isteyen işler önce sentetik adaptörlerle geliştirilir; canlı erişim ve yazma ayrı, açık onay gerektirir.
 
@@ -156,9 +159,10 @@ regresyonda doğrula. Sunucu yetkilerini veya kaynak güvenliğini gevşetme.
 
 ## Kalıcı sürüm yönetimi
 
-Her sonraki güncellemede `docs/VERSIONING.md` prosedürünü uygula: merkezi
+Ürün sürümü güncellemelerinde `docs/VERSIONING.md` prosedürünü uygula: merkezi
 `release.json` sürümünü SemVer ile artır, CHANGELOG/paket kayıtlarını eşleştir,
 hedefli kontrollerden sonra commit ve aynı commit'e açıklamalı `vX.Y.Z` etiketi
-oluştur. Mevcut etiketleri taşıma veya silme; özellikle
+oluştur. Yalnız belge, test veya yerel araç kapsamındaki commit’lerde mevcut
+ürün sürümü ve etiketi korunur. Mevcut etiketleri taşıma veya silme; özellikle
 `v2.6-clean-baseline-20261117` korunur. Push ve canlı işlem sınırlarında
 kullanıcının güncel talimatı geçerlidir.
