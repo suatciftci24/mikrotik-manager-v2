@@ -1,5 +1,14 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.1 #20 oturumlu tarayıcı kabulü — 2026-11-18 — BLOCKED
+
+- V2.6.1 dalındaki yayın ve ilerleme kayıtları incelendi. Önceki API
+  login/me/logout PASS kontrolleri tekrar edilmedi.
+- Aynı WSL oturumundaki #21 Chromium başlatma hatası nedeniyle giriş,
+  yenileme sonrası oturum, çıkış ve korumalı ekrana dönüş sınanamadı.
+- Yerel rapor: `.local/browser-acceptance/v261-20/acceptance.md`.
+  Ekran görüntüsü oluşmadı. Ürün kodu, servisler ve veritabanları değişmedi.
+
 ## V2.6.2 #21 gerçek tarayıcı görsel kabulü — 2026-11-18 — BLOCKED
 
 - Ofis WSL2, temiz `development/v2.6.2-pppoe` / `89d0e6f` başlangıcı.
