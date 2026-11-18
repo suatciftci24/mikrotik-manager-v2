@@ -1,5 +1,16 @@
 # MikroTik Manager V2 — İlerleme
 
+## #38 Workspace API hata sözleşmesi — 2026-11-18 — yerel PASS
+
+- Temiz `development/v2.6.2-pppoe` / `c9b96d6` başlangıcı, sürüm 2.6.3.
+- `workspaceApiErrors.test.mjs` 0/1 sonucu bir kez yeniden üretildi.
+  `3b4f353` genel 404 mesajını düzeltti ve `ApiError.status` ekledi.
+  Test eski backend teşhisi beklemeye devam ediyordu.
+- Test artık genel rota 404 için teşhis mesajını ve kayıt 404 için özgün
+  sunucu metnini, her ikisinde de `ApiError` ve HTTP 404 ile doğruluyor.
+  Hedefli sonuç 1/1 PASS. Yalnız test ve ilerleme kaydı değişti, derleme
+  gerekmedi. Canlı erişim, deploy, restart, migration veya push yok.
+
 ## #37 Legacy overlay regresyonu — 2026-11-18 — yerel PASS
 
 - Başlangıç temiz `development/v2.6.2-pppoe` / `43ca713`. Mevcut
