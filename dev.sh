@@ -19,6 +19,9 @@ if [[ $# -gt 0 && "$1" != '--accept-demo' &&
   printf 'Geçersiz dev.sh argümanı.\n' >&2; exit 1
 fi
 
+source "$PROJECT_ROOT/tools/local-terminal-target.sh"
+require_local_terminal_target "$PROJECT_ROOT"
+
 # Check the current execution environment before starting an HTTP workflow.
 check_loopback() {
   PYTHONPATH="$PROJECT_ROOT/backend" python3 -B -m app.loopback_preflight
@@ -41,27 +44,13 @@ if [[ "${1:-}" == '--accept-demo' ]]; then
   exec .venv/bin/python -m app.demo_api_runner "$@"
 fi
 
-# The Office V2 development checkout is separate from older local panels.
-if [[ "$(hostname)" == 'DESKTOP-VD5T7VG' ]]; then
-  expected_root='/home/suatpc/v26-transfer/mikrotik-v26-next'
-  expected_branch='development/v2.6.2-pppoe'
-  if [[ "$PROJECT_ROOT" != "$expected_root" ||
-        "$(git rev-parse --show-toplevel 2>/dev/null)" != "$PROJECT_ROOT" ||
-        "$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" != "$expected_branch" ]]; then
-    printf 'DEV_TARGET_BLOCKED: Ofis WSL geliştirme hedefi %s (%s).
-' "$expected_root" "$expected_branch" >&2
-    exit 1
-  fi
-fi
 if [[ "${V2_DEPLOYMENT_PROFILE-local-demo}" != 'local-demo' ||
       "${V2_ENVIRONMENT-local-demo}" != 'local-demo' ]]; then
-  printf 'DEV_TARGET_BLOCKED: Yerel dev.sh yalnız local-demo ortamında çalışır.
-' >&2
+  printf 'TERMINAL_TARGET_BLOCKED: Yerel dev.sh yalnız local-demo ortamında çalışır.\n' >&2
   exit 1
 fi
 if [[ "${1:-}" == '--check-target' ]]; then
-  printf 'DEV_TARGET_OK: %s
-' "$PROJECT_ROOT"
+  printf 'DEV_TARGET_OK: %s\n' "$PROJECT_ROOT"
   exit 0
 fi
 

@@ -15,9 +15,8 @@ class DevDependencyBootstrapTests(unittest.TestCase):
         with TemporaryDirectory(prefix='v2-dev-bootstrap-unit-') as temporary:
             root = Path(temporary)
             shutil.copyfile(ROOT / 'dev.sh', root / 'dev.sh')
-            hostname = root / 'hostname'
-            hostname.write_text('#!/bin/sh\necho OTHER-WSL\n')
-            hostname.chmod(0o700)
+            (root / 'tools').mkdir()
+            (root / 'tools/local-terminal-target.sh').write_text('require_local_terminal_target() { return 0; }\n')
             system_python = root / 'python3'
             system_python.write_text('#!/bin/sh\ntest "$*" = "-B -m app.loopback_preflight"\n')
             system_python.chmod(0o700)
@@ -84,24 +83,17 @@ fi
                     self.assertIn('https://v26.mikmanager.com.tr/', result.stdout)
                     self.assertIn('Git eşitliği DB eşitliği değildir', result.stdout)
 
-    def test_office_wrong_checkout_and_nonlocal_profile_stop_before_bootstrap(self):
+    def test_nonlocal_profile_stops_before_bootstrap(self):
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             shutil.copyfile(ROOT / 'dev.sh', root / 'dev.sh')
-            hostname = root / 'hostname'
-            hostname.write_text('#!/bin/sh\necho DESKTOP-VD5T7VG\n')
-            hostname.chmod(0o700)
-            env = {'PATH': f'{root}:/usr/bin:/bin'}
-            result = subprocess.run(['/bin/bash', 'dev.sh'], cwd=root, env=env,
-                                    capture_output=True, text=True, timeout=5)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn('DEV_TARGET_BLOCKED', result.stderr)
-            self.assertIn('development/v2.6.2-pppoe', result.stderr)
-            hostname.write_text('#!/bin/sh\necho OTHER-WSL\n')
+            (root / 'tools').mkdir()
+            (root / 'tools/local-terminal-target.sh').write_text('require_local_terminal_target() { return 0; }\n')
             result = subprocess.run(['/bin/bash', 'dev.sh'], cwd=root,
-                                    env={**env, 'V2_DEPLOYMENT_PROFILE': 'v26-isolated-acceptance'},
+                                    env={'PATH': '/usr/bin:/bin', 'V2_DEPLOYMENT_PROFILE': 'v26-isolated-acceptance'},
                                     capture_output=True, text=True, timeout=5)
             self.assertNotEqual(result.returncode, 0)
+            self.assertIn('TERMINAL_TARGET_BLOCKED', result.stderr)
             self.assertIn('yalnız local-demo', result.stderr)
             self.assertFalse((root / '.venv').exists())
             self.assertFalse((root / '.local').exists())

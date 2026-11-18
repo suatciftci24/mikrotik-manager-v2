@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Explicit V2 development-cluster setup. Never manages system PostgreSQL services.
 set -euo pipefail
-PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$PROJECT_ROOT/tools/local-terminal-target.sh"
+require_local_terminal_target "$PROJECT_ROOT"
 V2_PG_BIN="/usr/lib/postgresql/16/bin"
 V2_PG_DATA="$PROJECT_ROOT/.local/postgres-v2-demo"
 V2_PG_SOCKET="$PROJECT_ROOT/.local/postgres-v2-socket"

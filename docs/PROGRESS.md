@@ -1,5 +1,18 @@
 # MikroTik Manager V2 — İlerleme
 
+## #48 Yerel işlem terminali doğrulaması — 2026-11-18 — yerel PASS
+
+- Başlangıç Ofis Linux WSL2, suatpc@DESKTOP-VD5T7VG, temiz
+  `development/v2.6.2-pppoe` / `4a699a8`.
+- #44 kontrolü Office host adı eşleşmediğinde devre dışı kalıyordu ve OS
+  ile kullanıcıyı doğrulamıyordu. Paylaşılan kontrol Linux WSL, makine,
+  kullanıcı, checkout, dal ve origin kimliğini işlem öncesinde doğrular.
+- Ofis ve belgelenen Ev WSL için ayrı kimlikler tanımlandı. Yerel dev,
+  bakım ve kabul girişleri yanlış terminali `TERMINAL_TARGET_BLOCKED`
+  ile reddeder. Merkezi adres gösterimi bilgi amaçlı kalır.
+- Dört odaklı test, Ofis `--check-target`, shell sözdizimi ve diff PASS.
+  Ev terminali sentetik kimliklerle sınandı. Servis/DB/cihaz işlemi yok.
+
 ## #47 Uçtan uca görev çalışma kuralı — 2026-11-18 — PASS
 
 - Mevcut `AGENTS.md` çalışma sözleşmesinde tek sorun zinciri, PASS kanıtını

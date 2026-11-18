@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Browser acceptance delegates API ownership to the existing Stage 9 manager.
 set -euo pipefail
-V2_BROWSER_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+V2_BROWSER_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$V2_BROWSER_ROOT/tools/local-terminal-target.sh"
+require_local_terminal_target "$V2_BROWSER_ROOT"
 cd "$V2_BROWSER_ROOT"
 export PYTHONPATH="$V2_BROWSER_ROOT/backend"
 if [[ ! -x .venv/bin/python ]]; then

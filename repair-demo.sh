@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Explicit repair of the repo-owned V2 synthetic database; never runs on app startup.
 set -euo pipefail
-V2_REPAIR_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+V2_REPAIR_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$V2_REPAIR_ROOT/tools/local-terminal-target.sh"
+require_local_terminal_target "$V2_REPAIR_ROOT"
 cd "$V2_REPAIR_ROOT"
 if [[ ! -x .venv/bin/python ]]; then
   printf 'BLOCKED: V2 .venv eksik; otomatik paket kurulumu yapılmadı.\n' >&2
