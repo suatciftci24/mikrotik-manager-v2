@@ -10,7 +10,8 @@ export const dailyLabels:Record<string,string>={EDIT:'Abone bilgisi',PLAN:'Paket
 export function dailyEntries(rows:CenterSubscriber[],action:DailyAction,value:string,days:number,today:string,id:()=>string,selection?:{package_id:string;package_revision:number}):DailyEntry[]{
  if(!rows.length||rows.length>100)throw new Error('1–100 sentetik abone seçin.');
  if(new Set(rows.map(row=>row.id)).size!==rows.length)throw new Error('Aynı abone iki kez seçilemez.');
- if(rows.length>1&&!['EXTEND','STATUS'].includes(action))throw new Error('Toplu işlem yalnız uzatma veya hesap durumu içindir.');
+ if(rows.length>1&&!['EXTEND','STATUS','PLAN'].includes(action))throw new Error('Toplu işlem yalnız uzatma, hesap durumu veya paket değişikliği içindir.');
+ if(rows.length>1&&action==='PLAN'&&(!selection||rows.some(row=>row.access_type!=='PPPOE')))throw new Error('Toplu paket değişikliği için sentetik PPPoE aboneleri ve kayıtlı bir paket seçin.');
  if(!Object.hasOwn(dailyLabels,action)||!['EDIT','PLAN','STATUS','EXPIRE','EXTEND','ROUTER'].includes(action))throw new Error('Desteklenen günlük işlem seçin.');
  if(action==='EXTEND'&&(!Number.isInteger(days)||days<1||days>maxDailyExtensionDays))throw new Error(`Uzatma süresi 1–${maxDailyExtensionDays} arasında tam gün olmalı.`);
  return rows.map(row=>{

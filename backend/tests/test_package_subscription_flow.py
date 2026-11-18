@@ -72,6 +72,48 @@ class PackageSubscription(TestCase):
             new=self.command();new['fields'].update(package_id=package['id'],package_revision=revision)
             self.assertEqual(self.post('/subscriber-workspace',new).status_code,409)
         self.assertEqual(self.counts(),before)
+
+    def test_bulk_pppoe_package_change_preserves_sources_expiry_and_per_item_audit(self):
+        _,old=self.make_package()
+        _,new=self.make_package('Business 500',download_mbps=500,upload_mbps=50)
+        self.operator()
+        rows=[]
+        for source in ('LOCAL','RADIUS','LOCAL'):
+            command=self.command()
+            command['fields'].update(source=source,package_id=old['id'],package_revision=old['revision'])
+            rows.append(self.create(command)[1])
+        entries=[dict(self.operation(row,'PLAN',new['fields']['name']),package_id=new['id'],package_revision=new['revision']) for row in rows]
+        path='/subscriber-workspace/management/execute'
+        before=self.counts()
+        for invalid in (
+            {**entries[1],'package_id':None,'package_revision':None},
+            {**entries[1],'package_revision':2},
+            {**entries[1],'confirmed':False},
+        ):
+            self.assertEqual(self.post(path,{'entries':[entries[0],invalid]}).status_code,422)
+        self.user['permissions'][self.allowed]['can_manage_pppoe']=False
+        self.assertEqual(self.post(path,{'entries':entries}).status_code,403)
+        self.user['permissions'][self.allowed]['can_manage_pppoe']=True
+        self.assertEqual(self.counts(),before)
+
+        entries[2]['expected_source']='RADIUS'
+        response=self.post(path,{'entries':entries})
+        self.assertEqual(response.status_code,200,response.text)
+        result=response.json()
+        self.assertEqual([receipt['success'] for receipt in result['results']],[True,True,False])
+        self.assertEqual(self.post(path,{'entries':entries}).json(),result)
+        self.assertEqual(self.counts(),(3,6))
+        for index,(row,entry) in enumerate(zip(rows,entries)):
+            detail=self.client.get('/api/v1/subscriber-center/'+row['id']).json()
+            self.assertEqual(detail['item']['source'],row['source'])
+            self.assertEqual(detail['item']['expires_on'],row['expires_on'])
+            self.assertEqual(detail['item']['package_id'],(old if index==2 else new)['id'])
+            events=[event for event in detail['history'] if event['request_id']==entry['request_id']]
+            self.assertEqual(len(events),1)
+            self.assertEqual(events[0]['result'],'FAILED' if index==2 else 'APPLIED')
+            if index!=2:
+                self.assertEqual(events[0]['previous_values']['package_id'],old['id'])
+                self.assertEqual(events[0]['new_values']['package_id'],new['id'])
     def test_catalog_permission_boundaries_and_subscription_write_scope(self):
         command=self.package_command()
         self.assertEqual(self.package_post(command).status_code,403)

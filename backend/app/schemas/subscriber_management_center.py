@@ -31,8 +31,9 @@ class SubscriberOperations(BaseModel):
     @model_validator(mode='after')
     def unique(self):
         if len({e.item_id for e in self.entries})!=len(self.entries) or len({e.request_id for e in self.entries})!=len(self.entries):raise ValueError('Tekrarlanan abone veya istek kimliği.')
-        if len(self.entries)>1 and any(e.operation not in ('STATUS','EXTEND') for e in self.entries):raise ValueError('Toplu işlem yalnız hesap durumu veya uzatma içindir.')
-        if len({(e.operation,e.days,e.value if e.operation=='STATUS' else None) for e in self.entries})>1:raise ValueError('Toplu işlem türü ve parametreleri aynı olmalı.')
+        if len(self.entries)>1 and any(e.operation not in ('STATUS','EXTEND','PLAN') for e in self.entries):raise ValueError('Toplu işlem yalnız hesap durumu, uzatma veya paket değişikliği içindir.')
+        if len(self.entries)>1 and any(e.operation=='PLAN' and not e.package_id for e in self.entries):raise ValueError('Toplu paket değişikliği için kayıtlı paket ve revizyon seçin.')
+        if len({(e.operation,e.days,e.value if e.operation in ('STATUS','PLAN') else None,e.package_id,e.package_revision) for e in self.entries})>1:raise ValueError('Toplu işlem türü ve parametreleri aynı olmalı.')
         return self
 
 class OperationReceipt(BaseModel):

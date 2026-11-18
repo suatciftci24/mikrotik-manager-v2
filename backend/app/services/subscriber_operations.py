@@ -106,6 +106,7 @@ class SubscriberOperationsService:
                 if command.package_id:
                     from app.services.packages import binding
                     package_values=binding(session,command.package_id,command.package_revision)
+                    if value!=package_values['plan']:raise WorkspaceError(409,'Seçilen paket önizlemeyle uyuşmuyor; yeniden seçip önizleyin.')
                     value=package_values['plan']
                 else:package_values=dict(package_id=None,package_revision=None,package_snapshot=None)
             old=row.fields.get(field)

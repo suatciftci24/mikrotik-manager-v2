@@ -1,5 +1,20 @@
 # MikroTik Manager V2 — İlerleme
 
+## PPPoE toplu paket değişikliği — V2.6.4
+
+- Ev WSL ortak checkout, `development/v2.6.2-pppoe`, taban `2c369cb`.
+  Mevcut çoklu seçim ve günlük işlem API'si paket değişikliğini engelliyordu.
+  Sentetik PPPoE seçimi için aynı aktif katalog paketi ve revizyonu uygulanır.
+  Mevcut abone bazlı paket/hız önizlemesi, onay, kaynak/yetki doğrulaması ve
+  atomik audit kullanılır. Belirsiz satır, doğrulanmış sonuçları gizlemez.
+- Hedefli PASS: `subscriberQuickWorkflow`, `subscriberDailyManagement` ve
+  `operationGetRecovery` 28/28. İzole ASGI/SQLite
+  `test_package_subscription_flow` ve `test_subscriber_daily_management`
+  16/16. Üretim derlemesi ve diff kontrolü PASS. Görsel tarayıcı kabulü
+  çalıştırılmadı.
+- Push BLOCKED. `bash tools/check-git-transfer.sh` mevcut checkout/dal
+  eşleşmesini Ev WSL aktarımına uygun bulmadı. Uzak aktarım başlatılmadı.
+
 ## PPPoE toplu abonelik uzatma — V2.6.4
 
 - Ev WSL ortak checkout, `development/v2.6.2-pppoe`, taban `9fe4aeb`.

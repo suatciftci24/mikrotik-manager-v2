@@ -57,8 +57,11 @@ from app.services.subscriber_operations import operations
 
 @router.post('/subscriber-workspace/management/execute',response_model=OperationResults)
 def manage(payload:SubscriberOperations,user:dict=Depends(mutator)):
+    bulk_plan=len(payload.entries)>1 and payload.entries[0].operation=='PLAN'
     for entry in payload.entries:
-        execute(workspace.detail,entry.item_id,user=user,write=True)
+        detail=execute(workspace.detail,entry.item_id,user=user,write=True)
+        if bulk_plan and detail.item.access_type!='PPPOE':
+            raise HTTPException(422,'Toplu paket değişikliği yalnız sentetik PPPoE aboneleri içindir.')
         if entry.operation=='ROUTER':current_admin(user)
     return {'results':[execute(operations.execute,entry,user['id'],user=user) for entry in payload.entries],'is_demo':True}
 
