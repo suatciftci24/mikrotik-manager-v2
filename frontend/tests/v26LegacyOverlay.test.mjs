@@ -18,7 +18,7 @@ const sha=data=>createHash('sha256').update(data).digest('hex');
 const row={id:'demo-sub-fixture',customer_name:'Synthetic Subscriber',username:'synthetic.test',is_demo:true,can_manage_pppoe:true,router_id:'demo-router-001',router_name:'Synthetic Router',source:'LOCAL',plan:'Demo 100',monthly_price:10,status:'PAUSED',expires_on:'2099-11-06',revision:1};
 const detail={item:row,is_demo:true,persistence:'local-postgresql-demo',history:[]};
 const center={source:'LEGACY_DEMO',is_demo:true,device_connection_started:false,persistence:'local-postgresql-demo',item:{...row,router_source:'STATIC_DEMO',session_status:'UNKNOWN',access_type:'PPPOE'},history:[],connection_history:[]};
-const simpleHooks={...React,useEffect(){},useCallback:fn=>fn,useRef:value=>({current:value}),useState:value=>[typeof value==='function'?value():value,()=>{}]};
+const simpleHooks={...React,useEffect(){},useContext:()=>null,useCallback:fn=>fn,useRef:value=>({current:value}),useState:value=>[typeof value==='function'?value():value,()=>{}]};
 function bundle(name,hooks=simpleHooks){
  const result=buildSync({entryPoints:[path.join(root,'src',name)],bundle:true,metafile:true,write:false,loader:{'.css':'empty'},platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime']});
  const module={exports:{}};new Function('require','module','exports',result.outputFiles[0].text)(name=>name==='react'?hooks:require(name),module,module.exports);
@@ -42,28 +42,38 @@ test('legacy quick actions do not pull recovery hooks, pending journal or ApiErr
  assert.ok(inputs.some(p=>p.endsWith('subscriber-edit-highlight.css')));
  assert.ok(!inputs.some(p=>/useSubscriberSave|pendingSubscriberOperations|subscriberOperationRecovery/.test(p)));
 });
-test('legacy detail retains all five tabs, router link and VDS disclosure while exposing source-specific actions',()=>{
+test('legacy detail exposes source-specific actions on the actions tab and preserves router and VDS context',()=>{
  const view=bundle('components/SubscriberDeviceCenter.tsx').SubscriberDeviceCenterView;
- for(const tab of ['overview','package','expiry','history','connections']){
+ for(const tab of ['overview','package','expiry','actions','history','connections']){
   const tree=view({data:center,tab,onTab(){},onEdit(){throw Error('workspace editor must not handle legacy');},legacy:React.createElement('p',null,'VDS reports')});
-  assert.equal(nodes(tree).filter(n=>n.props?.role==='tab').length,5);
-  assert.ok(nodes(tree).some(n=>typeof n.type==='function'&&n.type.name==='LegacySubscriberActions'));
+  const tabs=nodes(tree).filter(n=>n.props?.role==='tab');
+  assert.deepEqual(tabs.map(n=>n.props.children),['Abonelik','İşlemler','Geçmiş','Bağlantı']);
+  assert.equal(tabs.find(n=>n.props['aria-selected']).props.id,'subscriber-tab-'+(['package','expiry'].includes(tab)?'overview':tab));
+  assert.equal(nodes(tree).some(n=>typeof n.type==='function'&&n.type.name==='LegacySubscriberActions'),tab==='actions');
   assert.ok(html(tree).includes('id='+row.router_id));
-  if(tab==='overview')assert.ok(nodes(tree).some(n=>n.type==='details'));
+  if(tab==='overview'){assert.ok(nodes(tree).some(n=>n.type==='details'));assert.match(html(tree),/VDS reports/);}
   if(tab==='connections')assert.match(html(tree),/Ölçülmedi/);
  }
 });
 test('legacy toolbar exposes one action entry and fails closed for stale, foreign or unauthorized records',()=>{
  let action=null,data=detail;
- const hooks={...simpleHooks,useState:initial=>initial?.path?[{...initial,loading:false,data},()=>{}]:initial===null?[action,value=>{action=value;}]:[typeof initial==='function'?initial():initial,()=>{}]};
+ const selected={current:null};
+ const hooks={...simpleHooks,useRef:value=>value===null?selected:{current:value},useState:initial=>initial?.path?[{...initial,loading:false,data},()=>{}]:initial===null?[action,value=>{action=value;}]:[typeof initial==='function'?initial():initial,()=>{}]};
  const component=bundle('components/LegacySubscriberActions.tsx',hooks).LegacySubscriberActions;
  const render=()=>component({id:row.id});
- nodes(render()).find(n=>n.type==='button'&&n.props.children==='Hızlı İşlemler').props.onClick();
- const dialog=nodes(render()).find(n=>typeof n.type==='function'&&n.type.name==='QuickActions');
- assert.equal(dialog.props.initialAction,'EXTEND');assert.equal(dialog.props.rows[0].id,row.id);
+ const menu=tree=>nodes(tree).filter(n=>n.type?.name==='SubscriberQuickButtons');
  for(const patch of [{persistence:'process-memory'},{is_demo:false},{item:{...row,id:'demo-sub-other'}},{item:{...row,source:null}},{item:{...row,router_id:null}},{item:{...row,can_manage_pppoe:false}}]){
-  data={...detail,...patch};assert.equal(nodes(render()).filter(n=>n.type==='button').length,0);
-  assert.ok(!nodes(render()).some(n=>typeof n.type==='function'&&n.type.name==='QuickActions'));
+  data=detail;
+  const entries=menu(render());
+  assert.equal(entries.length,1);
+  entries[0].props.onAction('EXTEND');
+  const dialog=nodes(render()).find(n=>n.type?.name==='QuickActions');
+  assert.equal(dialog.props.initialAction,'EXTEND');assert.equal(dialog.props.rows[0].id,row.id);
+  data={...detail,...patch};
+  const denied=render();
+  assert.equal(menu(denied)[0].props.onAction,undefined);
+  assert.ok(!nodes(denied).some(n=>n.type?.name==='QuickActions'));
+  assert.equal(action,null);
  }
 });
 for(const action of ['EXTEND','PLAN','STATUS'])test(`merged legacy ${action}: preview, consent, existing API, revision/source and dependent refresh`,async()=>{
@@ -91,13 +101,16 @@ test('VDS workspace renewal keeps current plan, all durations and preview withou
  const tree=render();assert.match(html(tree),/Demo 100/);
  const options=nodes(tree).filter(n=>n.type==='option').map(n=>n.props.value);
  for(const value of ['7','15','30','60','90','CUSTOM'])assert.ok(options.includes(value));
- nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});assert.match(html(render()),/Eski → Yeni/);
+ nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});const preview=html(render());
+ assert.match(preview,/Önceki → Yeni/);
+ assert.match(preview,/Bitiş tarihi/);
+ assert.match(preview,/Onayla ve uygula/);
 });
 test('merged audit keeps package context with changed expiry, actor, Istanbul time and failed result',()=>{
  const view=bundle('components/SubscriberDeviceCenter.tsx').SubscriberDeviceCenterView;
  const data={...center,history:[{operation:'RENEWAL',occurred_at:'2026-11-05T21:30:00Z',actor_id:'synthetic.actor',date_changed:true,previous_expires_on:'2026-11-01',expires_on:'2026-12-06',previous_values:{plan:'Historical Plan'},new_values:{plan:'Historical Plan'},revision:2,result:'APPLIED'},{operation:'STATUS',occurred_at:'2026-11-05T21:31:00Z',actor_id:'synthetic.actor',date_changed:false,revision:2,result:'FAILED',error:'Revision conflict'}]};
  const content=html(view({data,tab:'history',onTab(){}}));
- for(const value of ['Historical Plan','synthetic.actor','00:30','İstanbul','Eski bitiş','Yeni bitiş','Başarısız','Revision conflict'])assert.ok(content.includes(value));
+ for(const value of ['Historical Plan','synthetic.actor','00:30','Europe/Istanbul','Bitiş','1 Kas 2026 → 6 Ara 2026','Başarısız','Revision conflict'])assert.ok(content.includes(value),value);
 });
 test('candidate preparation rejects existing outputs and reference drift without touching source files',()=>{
  const repo=path.dirname(frontend),output=path.join(repo,'.local','v26-legacy-safety-'+randomUUID());

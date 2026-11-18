@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.3] - 2026-11-18
+
+- Legacy PPPoE hızlı işlem penceresini geçersiz yetki veya kayıt doğrulandığında kapat.
+
 ## [2.6.2] - 2026-11-17
 
 - PPPoE Abone Merkezi: birleşik kullanıcı/alan araması, kaynak filtreleri ve Türkiye gününe göre tekil bitiş grupları; liste/detay ve mobil görünüm iyileştirmeleri.

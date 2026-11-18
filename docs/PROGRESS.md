@@ -1,5 +1,22 @@
 # MikroTik Manager V2 — İlerleme
 
+## #37 Legacy overlay regresyonu — 2026-11-18 — yerel PASS
+
+- Başlangıç temiz `development/v2.6.2-pppoe` / `43ca713`. Mevcut
+  kaynakta 14 testin 10'u geçti. İki detay testi React bağlamını
+  hazırlamıyordu, işlem ve yenileme testleri önceki arayüzü bekliyordu.
+- Güncel menüden açılan eski bir önizleme, dönen kayıt artık yetkili
+  değilse veya kimlik değiştiyse kapatılır. Yetkili kaydın geçici
+  yenilemesi sırasında dondurulmuş revizyon korunur.
+- Test düzeneği güncel dört sekmeyi, eski URL sekme yönlendirmelerini,
+  reddedilen işlemleri, yenileme önizlemesini ve audit içeriğini doğrular.
+- Mevcut kaynakta overlay 14/14 ve doğrudan işlem akışı 20/20 PASS.
+  TypeScript/Vite build ve sürüm kontrolü PASS. Yerel patch 2.6.3.
+- Ayrı tarihsel VDS referans adayı 3/15: pinli 109 dosya doğrulandı,
+  ancak 10 dosyalık overlay, güncel bileşenlerin yeni bağımlılıklarını
+  içermiyor. Bu aday #37'nin 14 testlik çalışma ağacı sonucu kapsamında
+  kabul edilmedi. Canlı bağlantı, deploy, restart, migration veya push yok.
+
 ## V2.6.1 #20 oturumlu tarayıcı kabulü — 2026-11-18 — BLOCKED
 
 - V2.6.1 dalındaki yayın ve ilerleme kayıtları incelendi. Önceki API
