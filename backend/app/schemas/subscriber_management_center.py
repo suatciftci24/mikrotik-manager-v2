@@ -15,7 +15,7 @@ class SubscriberOperation(BaseModel):
     package_id:str|None=Field(default=None,pattern=r'^demo-package-[0-9a-f-]{36}$')
     package_revision:int|None=Field(default=None,ge=1)
     value:str|None=Field(default=None,max_length=160)
-    days:Literal[30,60,90]|None=None
+    days:int|None=Field(default=None,strict=True,ge=1,le=365)
     expected_expires_on:str|None=Field(default=None,max_length=10)
     confirmed:Literal[True]
     @model_validator(mode='after')

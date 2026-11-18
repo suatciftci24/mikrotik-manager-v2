@@ -94,8 +94,10 @@ class SubscriberOperationsService:
                 except ValueError:raise WorkspaceError(422,'Bitiş tarihi YYYY-MM-DD biçiminde olmalı.') from None
             elif command.operation=='EXTEND':
                 old=row.fields.get('expires_on');today=datetime.now(ZoneInfo('Europe/Istanbul')).date()
-                if not old or old!=command.expected_expires_on or command.days not in (30,60,90):raise WorkspaceError(409,'Bitiş tarihi bilinmiyor/değişti veya uzatma süresi geçersiz.')
-                try:expected=(max(date.fromisoformat(old),today)+timedelta(days=command.days)).isoformat()
+                if not old or old!=command.expected_expires_on or command.days is None:raise WorkspaceError(409,'Bitiş tarihi bilinmiyor/değişti veya uzatma süresi eksik.')
+                try:
+                    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',old):raise ValueError()
+                    expected=(max(date.fromisoformat(old),today)+timedelta(days=command.days)).isoformat()
                 except (ValueError,OverflowError):raise WorkspaceError(422,'Kayıtlı tarih veya uzatma aralığı geçersiz.') from None
                 if value!=expected:raise WorkspaceError(409,'Türkiye gününe göre uzatma önizlemesi değişti; yeniden inceleyin.')
             if field=='expires_on' and value and row.fields.get('started_on') and value<row.fields['started_on']:raise WorkspaceError(422,'Bitiş tarihi başlangıçtan önce olamaz.')

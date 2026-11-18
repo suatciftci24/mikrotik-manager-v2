@@ -72,6 +72,35 @@ class DailyManagement(cases.SubscriberTransactions):
         applied=self.ops.execute(command,'actor');self.assertTrue(applied['success'])
         conflict=self.operation(item,'PLAN','Different',request_id=command.request_id)
         failed=self.ops.execute(conflict,'actor');self.assertFalse(failed['success']);self.assertFalse(failed['recorded']);self.assertEqual(self.workspace.detail(item.id).item.plan,'Demo 800')
+
+    def test_custom_pppoe_bulk_extension_audit_and_stale_row(self):
+        today=datetime.now(ZoneInfo('Europe/Istanbul')).date()
+        old=today+timedelta(days=10)
+        next_expiry=old+timedelta(days=17)
+        rows=[self.workspace.save(self.command(username=f'pppoe.{i}',source=source,expires_on=old.isoformat()),'actor')
+              for i,source in enumerate(('LOCAL','RADIUS','LOCAL'))]
+        entries=[self.operation(row,'EXTEND',next_expiry.isoformat(),17) for row in rows]
+        entries[2]=self.operation(rows[2],'EXTEND',next_expiry.isoformat(),17,expected_revision=999)
+        user={'id':'actor','is_demo':True,'role_code':'ADMIN','can_manage_users':True}
+        payload=SubscriberOperations(entries=entries)
+        with patch.object(routes,'operations',self.ops),patch.object(routes,'workspace',self.workspace):
+            result=routes.manage(payload,user)
+            self.assertEqual(routes.manage(payload,user),result)
+        self.assertEqual([receipt['success'] for receipt in result['results']],[True,True,False])
+        for row,entry in zip(rows[:2],entries[:2]):
+            detail=self.workspace.detail(row.id)
+            self.assertEqual(detail.item.expires_on,next_expiry)
+            self.assertEqual(detail.item.source,row.source)
+            events=[event for event in detail.history if event.request_id==str(entry.request_id)]
+            self.assertEqual(len(events),1)
+            self.assertEqual(events[0].source,row.source)
+            self.assertEqual(events[0].previous_values['expires_on'],old.isoformat())
+            self.assertEqual(events[0].new_values['expires_on'],next_expiry.isoformat())
+        self.assertEqual(self.workspace.detail(rows[2].id).item.expires_on,old)
+        for days in (0,366,1.5,True,'17'):
+            with self.assertRaises(ValidationError):
+                self.operation(rows[0],'EXTEND',next_expiry.isoformat(),days)
+
     def test_real_target_rejected_and_no_effect_on_source_or_original_router(self):
         item=self.workspace.save(self.command(),'actor')
         result=self.ops.execute(self.operation(item,'ROUTER','registered-'+str(uuid4())),'actor');self.assertFalse(result['success']);self.assertTrue(result['recorded'])

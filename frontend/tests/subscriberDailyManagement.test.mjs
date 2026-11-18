@@ -22,7 +22,7 @@ test('preview rejects unsupported authority, router, revision, dates and unchang
   assert.throws(()=>dailyEntries([{...item,...change}],'STATUS','ACTIVE',30,'2026-10-29',id));
  }
  assert.equal(ids,0);
- for(const [action,value,days] of [['EXTEND','',15],['PLAN',item.plan,30],['STATUS',item.status,30],
+ for(const [action,value,days] of [['EXTEND','',0],['EXTEND','',366],['EXTEND','',1.5],['PLAN',item.plan,30],['STATUS',item.status,30],
   ['EDIT',item.customer_name,30],['ROUTER',item.router_id,30],['EXPIRE',item.expires_on,30],
   ['EXPIRE','2026-02-30',30],['EDIT','\u0000bad',30],['DELETE','',30]]){
   assert.throws(()=>dailyEntries([item],action,value,days,'2026-10-29',id));
@@ -43,12 +43,19 @@ test('bulk preview requires explicit consent and does not resend resolved mixed-
  const module={exports:{}};new Function('require','module','exports',code)(name=>name==='react'?hooks:require(name),module,module.exports);
  const previousFetch=globalThis.fetch,previousWindow=globalThis.window;globalThis.window={dispatchEvent:()=>{}};
  globalThis.fetch=async(url,init)=>{calls.push({url,init});const entries=JSON.parse(init.body).entries;return {ok:true,json:async()=>({results:entries.map((e,i)=>({item_id:e.item_id,request_id:e.request_id,operation:e.operation,actor_id:'synthetic.actor',router_id:e.expected_router_id,previous_router_id:e.expected_router_id,revision:2,previous:{},success:i===0,recorded:true,values:{expires_on:e.value},occurred_at:'2026-10-29T12:00:00Z',error:i?'Revizyon değişti':null}))})};};
- const render=()=>{cursor=0;return module.exports.SubscriberDailyActions({rows,onClose:()=>{}});};
+ const pppoeRows=[item,{...rows[1],access_type:'PPPOE',source:'RADIUS',expires_on:'9998-01-01'}];
+ const render=()=>{cursor=0;return module.exports.SubscriberDailyActions({rows:pppoeRows,onClose:()=>{}});};
  try{
-  let tree=render();assert.match(renderToStaticMarkup(tree),/2 seçili abone/);nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});tree=render();assert.equal(calls.length,0);
+  let tree=render();assert.match(renderToStaticMarkup(tree),/2 seçili abone/);
+  nodes(tree).find(n=>n.type==='select'&&n.props.value==='30').props.onChange({target:{value:'CUSTOM'}});
+  tree=render();nodes(tree).find(n=>n.type==='input'&&n.props.type==='number').props.onChange({target:{value:'17'}});
+  tree=render();nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});tree=render();assert.equal(calls.length,0);
+  assert.match(renderToStaticMarkup(tree),/17 gün/);
+  assert.match(renderToStaticMarkup(tree),/1 Oca 9998 → 18 Oca 9998/);
   let button=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula');assert.equal(button.props.disabled,true);
   nodes(tree).find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=render();nodes(tree).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();await new Promise(setImmediate);tree=render();
   assert.match(renderToStaticMarkup(tree),/Başarılı: 1/);assert.match(renderToStaticMarkup(tree),/Başarısız: 1/);assert.match(renderToStaticMarkup(tree),/Revizyon değişti/);
   const resolved=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Aynı UUID ile sonuçları sorgula');assert.equal(resolved,undefined);await new Promise(setImmediate);assert.equal(calls.length,1);assert.match(calls[0].url,/management\/execute$/);
+  assert.deepEqual(JSON.parse(calls[0].init.body).entries.map(({days,expected_source})=>[days,expected_source]),[[17,'LOCAL'],[17,'RADIUS']]);
  }finally{globalThis.fetch=previousFetch;globalThis.window=previousWindow;}
 });

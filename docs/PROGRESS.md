@@ -1,5 +1,22 @@
 # MikroTik Manager V2 — İlerleme
 
+## PPPoE toplu abonelik uzatma — V2.6.4
+
+- Ev WSL ortak checkout, `development/v2.6.2-pppoe`, taban `9fe4aeb`.
+  Kalıcı sentetik abonelerde mevcut 30/60/90 gün seçeneklerine 1–365 tam gün
+  girişi eklendi. API gün aralığını doğruluyor ve tarih hesabını yeniden
+  yapıyor. Önizleme, kaynak, onay, abone bazında sonuç ve audit için mevcut
+  toplu işlem kullanılıyor. Seçim araçları mobilde saran düzende ve eski demo
+  listesindeki uzatma düğmesi seçili abone sayısının yanında.
+- Hedefli PASS: frontend `subscriberDailyManagement` ve
+  `subscriberQuickWorkflow` 23/23, izole SQLite
+  `test_subscriber_daily_management` 10/10. Özel süre, LOCAL/RADIUS, eski/yeni
+  tarih, onay, revizyon uyuşmazlığı ve yeniden sorguda yinelenmeyen audit
+  doğrulandı. `npm run build` ve `git diff --check` PASS.
+- Push BLOCKED. `bash tools/check-git-transfer.sh` Ev WSL için kayıtlı
+  `~/Codex-Projects/mikrotik-manager-v2` ve `main-guncel` eşleşmesini bekliyor.
+  Görsel tarayıcı kabulü çalıştırılmadı.
+
 ## PPPoE mobil İşlemler menüsü — 2026-11-18
 
 - Ev WSL, `/home/suat/mikrotik-v2-ortak`, `development/v2.6.2-pppoe`,
