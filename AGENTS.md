@@ -96,7 +96,12 @@ Her göreve başlarken AGENTS.md, docs/PROGRESS.md dosyasının güncel bölüm�
 9. Gerçek veri, örnek veri ve henüz uygulanmamış özellikleri açıkça ayır. Yapılmayan işlemi yapılmış, çalıştırılmayan testi geçmiş gibi bildirme.
 10. Ortama bağlı komutlarda terminali, kullanıcıyı ve checkout’u doğrula. Güncel Ofis hedefi `suatpc@DESKTOP-VD5T7VG`, `/home/suatpc/v26-transfer/mikrotik-v26-next`, `development/v2.6.2-pppoe`. Belgelenen Ev WSL hedefi `suat@DESKTOP-MT2JS7H`, `/home/suat/Codex-Projects/mikrotik-manager-v2`, `main-guncel`. VDS ve MikroTik kendi terminal ve yetki sınırlarında ele alınır. Kullanıcıya komut vermek gerekirse önce terminali belirt.
 11. BLOCKED durumunda engeli, gerçekleştiği aşamayı ve kanıtı kaydet. Aynı komutu aynı koşullarda tekrar çalıştırma. Engeli etkileyen ortam değişikliği, yeni kanıt veya farklı bir doğrulama yolu oluştuğunda yalnız eksik kontrolü yeniden dene.
-12. Görev sonunda tek bir sonuç raporu ver. PASS, BLOCKED veya ROLLBACK durumunu, kök nedenin kanıtını, yapılan değişikliği, hedefli doğrulama sonucunu ve varsa commit kimliğini yaz. Engel sürüyorsa sonraki somut adımı belirt. Sonucu mevcut proje ilerleme belgesine kaydet.
+12. Görev sonunda tek bir sonuç raporu ver ve mevcut proje ilerleme belgesine kaydet. Her sonuçta kapsamı, kaynak commit'i veya sürümü, ortamı ve kanıtı (test komutu ve sonucu, kabul kaydı veya artifact yolu) belirt. Düzeltmelerde kanıtlanan kök nedeni ve değişikliği, engellerde aşamayı ve sonraki somut adımı yaz.
+    - **Geçici çözüm:** Belirtiyi azaltan müdahaleyi, sınırını ve açık kalan kök nedeni belirt. Kök nedenin durumunu açık tut.
+    - **Kalıcı düzeltme PASS:** Kök nedenin kanıtı, onu gideren değişiklik ve aynı sorunu kapsayan ilgili doğrulamanın başarı kanıtı birlikte gerekir.
+    - **Hedefli test PASS:** Başarıyı yalnız çalıştırılan test ve doğruladığı katman için yaz. Geçerli önceki kanıtı 4. maddeye göre kullan. Yerel ön kontrol, sentetik test ve Git hedef doğrulaması kendi kapsamlarıyla raporlanır.
+    - **Uçtan uca kabul PASS:** İstenen senaryo, hedeflenen sürüm ve ortamda gerekli gerçek çalışma zamanı adımlarıyla tamamlandığında verilir. Yalnız bir bölümü doğrulandıysa o bölümün PASS sonucunu ve açık kalan kabulü ayrı belirt.
+    - **Açık durum:** Ortam veya izin engelinde **BLOCKED** yaz ve 11. maddeyi uygula. Doğrulama henüz yapılmadıysa **EKSİK / DOĞRULANMADI**, çalıştırılan senaryo başarısızsa **FAIL**, geri alma uygulandıysa **ROLLBACK** yaz.
 
 ## V2.6 kalıcı özellik koruma
 

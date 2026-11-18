@@ -1,5 +1,17 @@
 # MikroTik Manager V2 — İlerleme
 
+## #52 Kanıta dayalı sonuç raporlama standardı — 2026-11-18 — belge PASS
+
+- `AGENTS.md` içindeki tek sonuç raporu maddesi, geçici çözüm, kalıcı
+  düzeltme PASS, hedefli test PASS ve gerçek uçtan uca kabul PASS için
+  ayrı kanıt ölçütlerini tanımlar. Ortam engeli ve eksik doğrulama açık kalır.
+- #47'nin tek rapor kuralı, #45'in ortam engeli, #49'un hedefli test
+  seçimi ve #51'in Git hedef kontrolü aynı kapsam kurallarına bağlandı.
+- #36 Compose kök nedeni kanıtlanamadığı için BLOCKED. #50 Ofis uçtan uca
+  kabulü [mevcut raporuyla](V264_E2E_50_ACCEPTANCE.md) BLOCKED. Geçmiş
+  kayıtlar değiştirilmedi. Yalnız belge içeriği, geçmiş koruması ve diff
+  doğrulandı.
+
 ## #51 Ev ve Ofis Git aktarım standardı — 2026-11-18 — yerel PASS
 
 - Ofis WSL, temiz `development/v2.6.2-pppoe` / `5f06d16`. Eski oturum
