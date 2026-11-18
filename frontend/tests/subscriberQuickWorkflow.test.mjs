@@ -35,11 +35,17 @@ test('compact menu uses an auto top-layer popover and restores focus on selectio
  const popup={style:{},matches:()=>isOpen,showPopover(){isOpen=true;},hidePopover(){isOpen=false;},querySelectorAll:()=>[first],getBoundingClientRect:()=>({width:220,height:180})};
  const before=globalThis.window;globalThis.window={innerWidth:360,innerHeight:640};
  try{
-  const props={compact:true,status:'ACTIVE',label:row.customer_name,onAction:a=>calls.push(a),onHistory:()=>calls.push('history')};
+  const props={compact:true,status:'ACTIVE',label:row.customer_name,onAction:a=>calls.push(a),onHistory:()=>calls.push('history'),onEdit:()=>calls.push('edit')};
   let tree=h.render('SubscriberQuickButtons',props);
   tree.props.onClick({stopPropagation(){stopped=true;}});assert.ok(stopped);
   const trigger=nodes(tree).find(n=>n.type==='button'&&n.props['aria-haspopup']==='menu');
   const panel=nodes(tree).find(n=>n.props?.popover==='auto');assert.ok(panel);assert.equal(panel.props.role,'menu');
+  const edit=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Düzenle');
+  assert.ok(edit);
+  assert.deepEqual(nodes(panel).filter(n=>n.props?.role==='menuitem').map(n=>n.props.children),['Abonelik Uzat','Paket Değiştir','Hesabı Kapat','İşlem Geçmişi']);
+  edit.props.onClick();
+  assert.deepEqual(calls,['edit']);
+  assert.equal(isOpen,false);
   trigger.props.ref.current={focus(){focused=true;},getBoundingClientRect:()=>({left:280,right:350,top:400,bottom:440})};panel.props.ref.current=popup;
   trigger.props.onClick();assert.ok(isOpen&&focused);assert.equal(popup.style.left,'130px');
   panel.props.onToggle({nativeEvent:{newState:'open'}});tree=h.render('SubscriberQuickButtons',props);

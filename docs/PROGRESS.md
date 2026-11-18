@@ -1,5 +1,18 @@
 # MikroTik Manager V2 — İlerleme
 
+## #39 PPPoE Abone Merkezi işlem ayrımı — 2026-11-18 — yerel PASS
+
+- Temiz `development/v2.6.2-pppoe` / `0d9b9a0` başlangıcı.
+- Ortak satır/detay menüsü bilgi düzenlemeyi de içeriyordu. Düzenleme
+  formu hesap durumu ve kayıtlı paket alanlarını yeniden sunuyordu.
+- Düzenle ayrı düğme olarak mevcut editörü açar. Üç nokta menüsünde
+  aç/kapat, uzatma, kayıtlı paket değişikliği ve geçmiş korunur.
+  Tarih düzeltmesi ve eski metin profili bilgisi editörde kalır.
+- Kaynak ve yetki kontrolleri, önizleme/onay, UUID ve audit akışları korunur.
+  subscriberCenter ve subscriberQuickWorkflow toplam 45/45, TypeScript/Vite
+  build, sürüm 2.6.4 ve diff kontrolü PASS. Canlı erişim, deploy, restart,
+  migration veya push yok.
+
 ## #38 Workspace API hata sözleşmesi — 2026-11-18 — yerel PASS
 
 - Temiz `development/v2.6.2-pppoe` / `c9b96d6` başlangıcı, sürüm 2.6.3.

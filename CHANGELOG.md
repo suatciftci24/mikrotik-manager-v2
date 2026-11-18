@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.4] - 2026-11-18
+
+- PPPoE Abone Merkezi'nde bilgi düzenleme ile hesap, paket ve yenileme işlemlerini ayır.
+
 ## [2.6.3] - 2026-11-18
 
 - Legacy PPPoE hızlı işlem penceresini geçersiz yetki veya kayıt doğrulandığında kapat.

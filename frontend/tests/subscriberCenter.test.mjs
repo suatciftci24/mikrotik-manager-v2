@@ -218,8 +218,10 @@ test('operator editor filters writable router choices and exposes scoped profile
  const react={...hooks,useContext:()=>identity,useCallback:fn=>fn,useState:initial=>{const value=typeof initial==='function'?initial():initial;return [value?.path?{...value,loading:false,data:value.path.includes('/options')?{plans:['Scoped Profile']}:{items:[{id:'demo-managed-router-write',fields:{name:'Allowed'}},{id:'demo-managed-router-read',fields:{name:'Read only'}}],total:2}}:value,()=>{}];}};
  const mod={exports:{}};new Function('require','module','exports',built)(name=>name==='react'?react:require(name),mod,mod.exports);
  const tree=mod.exports.SyntheticSubscriberEditor({onClose(){},onSaved(){}});
- const html=renderToStaticMarkup(tree);assert.match(html,/Başlangıç tarihi/);assert.doesNotMatch(html,/synthetic-plans/);
- const legacy=mod.exports.SyntheticSubscriberEditor({item:{...data.item,package_id:null,router_id:'demo-managed-router-write'},onClose(){},onSaved(){}});assert.match(renderToStaticMarkup(legacy),/Scoped Profile/);
+ const html=renderToStaticMarkup(tree);assert.match(html,/Başlangıç tarihi/);assert.match(html,/Hesap durumu/);assert.match(html,/Kayıtlı aktif paket/);assert.doesNotMatch(html,/synthetic-plans/);
+ const legacy=mod.exports.SyntheticSubscriberEditor({item:{...data.item,package_id:null,router_id:'demo-managed-router-write'},onClose(){},onSaved(){}});const editHtml=renderToStaticMarkup(legacy);
+ assert.match(editHtml,/Scoped Profile/);assert.match(editHtml,/Abone adı/);assert.match(editHtml,/Bitiş tarihi/);
+ assert.doesNotMatch(editHtml,/Hesap durumu|Kayıtlı aktif paket/);
  const routerSelect=nodes(tree).find(n=>n.type==='select'&&n.props.required);
  assert.deepEqual(nodes(routerSelect).filter(n=>n.type==='option').map(n=>n.props.value),['','demo-managed-router-write']);
 });

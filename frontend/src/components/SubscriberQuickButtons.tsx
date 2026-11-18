@@ -1,3 +1,4 @@
+import {Ellipsis} from 'lucide-react';
 import {useEffect,useId,useRef,useState,type MouseEvent,type KeyboardEvent} from 'react';
 import {accountActionLabel,type SubscriberQuickAction} from '../lib/subscriberActions';
 import {subscriberMenuPosition} from '../lib/subscriberMenu';
@@ -41,12 +42,13 @@ export function SubscriberQuickButtons({status,onAction,onHistory,onEdit,compact
  const buttons=<div className="subscriber-quick-buttons">
  {onAction&&([['EXTEND','Abonelik Uzat'],['PLAN','Paket Değiştir'],['STATUS',accountActionLabel(status)]] as const).map(([action,text])=><button type="button" role={compact?'menuitem':undefined} className="button-secondary" key={action} disabled={!!available&&!available.includes(action)} onClick={event=>choose(event,()=>onAction(action))}>{text}</button>)}
  {!onAction&&unavailableReason&&<p className="subscriber-action-reason" role="note">{unavailableReason}</p>}
- {onEdit&&<button type="button" role={compact?'menuitem':undefined} className="button-secondary" onClick={event=>choose(event,onEdit)}>Abone bilgilerini düzenle</button>}
  {onHistory&&<button type="button" role={compact?'menuitem':undefined} className="button-secondary" onClick={event=>choose(event,onHistory)}>İşlem Geçmişi</button>}
  </div>;
- if(!compact)return buttons;
+ const edit=onEdit&&<button type="button" className="button-secondary" aria-label={label+' bilgilerini düzenle'} onClick={onEdit}>Düzenle</button>;
+ if(!compact)return <>{edit}{buttons}</>;
  return <span className="subscriber-row-actions" onClick={event=>event.stopPropagation()}>
- <button type="button" className="button-secondary" ref={trigger} aria-label={label+' işlemleri'} aria-haspopup="menu" aria-controls={id} aria-expanded={open} onClick={()=>{if(panel.current?.matches(':popover-open'))close();else show();}} onKeyDown={event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();show(event.key==='ArrowUp');}}}>İşlemler</button>
+ {edit}
+ <button type="button" className="button-secondary" ref={trigger} aria-label={label+' işlemleri'} aria-haspopup="menu" aria-controls={id} aria-expanded={open} onClick={()=>{if(panel.current?.matches(':popover-open'))close();else show();}} onKeyDown={event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();show(event.key==='ArrowUp');}}}><Ellipsis size={18} aria-hidden="true"/></button>
  <div ref={panel} id={id} popover="auto" className="subscriber-row-popover" role="menu" aria-label={label+' işlemleri'} onToggle={event=>setOpen((event.nativeEvent as ToggleEvent).newState==='open')} onKeyDown={navigate} onBlur={event=>{const next=event.relatedTarget as Node|null;if(next&&!event.currentTarget.contains(next)&&next!==trigger.current)close();}}>{buttons}</div>
  </span>;
 }

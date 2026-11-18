@@ -123,7 +123,6 @@
  .v26-ui .subscriber-summary .detail-facts>div{padding:4px 0;gap:4px;display:block}
  .v26-ui .subscriber-summary dt{font-size:11px}
  .v26-ui .subscriber-summary dd{margin-top:4px;font-size:13px;text-align:left}
- .v26-ui .subscriber-actions-menu .subscriber-row-actions>button{min-width:120px}
  .v26-ui .compact-subscriber-content{display:grid;gap:2px}
  .v26-ui .compact-subscriber-meta{font-size:11px}
 }
