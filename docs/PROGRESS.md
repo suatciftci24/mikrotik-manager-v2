@@ -1,5 +1,15 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.2 #21 gerçek tarayıcı görsel kabulü — 2026-11-18 — BLOCKED
+
+- Ofis WSL2, temiz `development/v2.6.2-pppoe` / `89d0e6f` başlangıcı.
+- Playwright Core 1.64.1 ile Chromium ve Headless Shell başlatma kontrolleri,
+  sırasıyla `setsockopt` ve `shutdown` izin hatalarıyla ilk sayfa öncesinde durdu.
+- 1920×1080 ve 390×844 Dashboard, Router ve PPPoE liste/detay kabulü bekliyor.
+  Ekran görüntüsü veya ürün düzeltmesi yok. Ayrıntı ve tanı yolu
+  `docs/V262_BROWSER_21_ACCEPTANCE.md` içinde.
+- Canlı erişim, deploy, migration, restart veya push yapılmadı.
+
 ## V2.6.2 VDS üzerinden güvenli GitHub aktarımı — 2026-11-17
 
 - Başlangıç development/v2.6.2-pppoe / b41deae temiz; AGENTS ve son kabul
