@@ -136,6 +136,25 @@ test('workspace create displays selected package speed and term; derived expiry 
  assert.equal(dates()[1].props.value,'2030-06-01','an explicit expiry stays intact');
 });
 
+test('choosing a package preserves the manual PPPoE expiry date',()=>{
+ const h=harness('workspace','create');
+ const dates=()=>nodes(h.render()).filter(node=>node.type==='input'&&node.props.type==='date');
+ dates()[0].props.onChange({target:{value:'2030-04-12'}});
+ dates()[1].props.onChange({target:{value:'2030-06-01'}});
+ h.control(node=>node.props.id==='synthetic-package-choice',pkg.id);
+ assert.equal(dates()[1].props.value,'2030-06-01');
+ dates()[0].props.onChange({target:{value:'2030-04-20'}});
+ assert.equal(dates()[1].props.value,'2030-06-01');
+});
+
+test('PPPoE username pattern validates under HTML Unicode sets rules',()=>{
+ const h=harness('workspace','create');
+ const input=nodes(h.render()).find(node=>node.type==='input'&&node.props.maxLength===96);
+ const pattern=new RegExp(`^(?:${input.props.pattern})$`,'v');
+ assert.ok(pattern.test('demo-user@local'));
+ assert.ok(!pattern.test('demo user'));
+});
+
 test('workspace info edit preserves assigned package, status and expiry through consented save',async t=>{
  const existing={package_id:pkg.id,package_revision:pkg.revision,plan:pkg.fields.name,status:'ACTIVE',started_on:'2030-01-01',expires_on:'2030-02-15'};
  const h=harness('workspace','edit',existing),calls=[];

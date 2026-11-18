@@ -1,5 +1,14 @@
 # MikroTik Manager V2 — İlerleme
 
+## PPPoE oluşturma formu — 2026-11-18 — hedefli PASS
+
+- Ev WSL ortak checkout'unda a0d0c7d tabanına 8713e4d düzeltmeleri elle
+  uyarlandı. Paket seçimi manuel bitişi korur. HTML kullanıcı adı deseninde
+  tire Unicode sets kurallarına uygun kaçırılır.
+- İki regresyon düzeltme öncesi başarısızdı. Düzeltme sonrası
+  `node tests/subscriberSaveRecovery.test.mjs` 40/40, `npm run build` ve
+  `git diff --check` geçti. Push, yayın ve canlı işlem yapılmadı.
+
 ## #55 Arşiv kaynağının kayda alınması — 2026-11-18 — BLOCKED
 
 - Kullanıcı orijinal listenin ChatGPT dosya arşivindeki
