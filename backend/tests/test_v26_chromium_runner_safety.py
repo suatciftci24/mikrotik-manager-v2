@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch
 
 from backend.tests import run_v26_chromium_acceptance_wsl as runner
 
@@ -65,7 +66,7 @@ class V26ChromiumRunnerSafety(TestCase):
     def test_browser_diagnostic_skips_broad_suites_and_classifies_only_safe_error_fields(self):
         source = (runner.REPO / 'backend/tests/run_v26_chromium_acceptance_wsl.py').read_text()
         browser = (runner.REPO / 'frontend/tests/managementCenters.browser.mjs').read_text()
-        self.assertIn("parser.add_argument('--browser-only-diagnostic'", source)
+        self.assertIn("mode.add_argument('--browser-only-diagnostic'", source)
         self.assertIn('if not args.browser_only_diagnostic:', source)
         self.assertIn('browser_only=args.browser_only_diagnostic', source)
         self.assertIn("phase='STATIC_HTTP_BIND'", browser)
@@ -85,6 +86,32 @@ class V26ChromiumRunnerSafety(TestCase):
         self.assertIn('let browser,base,server;', browser)
         self.assertIn('server=createServer(', browser)
         self.assertNotIn('const server=createServer(', browser)
+
+    def test_selected_contracts_run_once_without_browser_or_http(self):
+        first, second = runner.NODE_TESTS[:2]
+        with patch.object(runner, 'preflight', return_value=None) as preflight, \
+             patch.object(runner.shutil, 'which', return_value='/usr/bin/node'), \
+             patch.object(runner, '_run', return_value=7) as run, \
+             patch.object(runner.http_runner, 'main') as http:
+            result = runner.main(['--contract-test', first, '--contract-test', second,
+                                  '--contract-test', first])
+        self.assertEqual(result, 7)
+        preflight.assert_called_once_with(contracts_only=True)
+        run.assert_called_once()
+        self.assertEqual(run.call_args.args[0],
+                         ['/usr/bin/node', '--experimental-transform-types', '--test', first, second])
+        http.assert_not_called()
+
+    def test_contract_only_preflight_does_not_require_browser_or_http(self):
+        with patch.object(runner, 'blocked_precondition', return_value=None) as identity, \
+             patch.object(runner, '_git', return_value=''), \
+             patch.object(runner, 'REPO', Path.cwd()), \
+             patch.object(runner.http_runner, 'preflight') as http:
+            self.assertIsNone(runner.preflight(contracts_only=True))
+        self.assertTrue(identity.call_args.kwargs['contracts_only'])
+        self.assertIsNone(self.context(contracts_only=True, playwright_exists=False, esbuild_exists=False))
+        self.assertEqual(self.context(contracts_only=True, node_path=None), 'LOCAL_BROWSER_TOOLCHAIN_UNAVAILABLE')
+        http.assert_not_called()
 
     def test_playwright_dependency_is_exact_and_lockfile_matches(self):
         frontend = runner.REPO / 'frontend'

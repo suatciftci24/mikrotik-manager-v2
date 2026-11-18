@@ -34,7 +34,7 @@ NODE_TESTS = (
 def blocked_precondition(*, repo: Path, cwd: Path, hostname: str, wsl: bool,
                          uid: int, owner_uid: int, branch: str, clean: bool,
                          node_path: str | None, playwright_exists: bool,
-                         esbuild_exists: bool) -> str | None:
+                         esbuild_exists: bool, contracts_only: bool = False) -> str | None:
     """Pure gates with fixed diagnostics; no ports, subprocesses, or browser used."""
     if repo != EXPECTED_REPO or cwd != EXPECTED_REPO:
         return 'REPOSITORY_PATH_REJECTED'
@@ -46,7 +46,7 @@ def blocked_precondition(*, repo: Path, cwd: Path, hostname: str, wsl: bool,
         return 'BRANCH_REJECTED'
     if not clean:
         return 'DIRTY_WORKTREE_REJECTED'
-    if not node_path or not playwright_exists or not esbuild_exists:
+    if not node_path or (not contracts_only and (not playwright_exists or not esbuild_exists)):
         return 'LOCAL_BROWSER_TOOLCHAIN_UNAVAILABLE'
     return None
 
@@ -71,7 +71,7 @@ def safe_environment(values: dict[str, str] | None = None) -> dict[str, str]:
     return safe
 
 
-def preflight() -> str | None:
+def preflight(*, contracts_only: bool = False) -> str | None:
     """Read-only host/repository/tool and disposable HTTP fixture checks."""
     try:
         proc_version = Path('/proc/version').read_text(encoding='utf-8')
@@ -82,9 +82,9 @@ def preflight() -> str | None:
             branch=_git('branch', '--show-current').strip(),
             clean=not bool(_git('status', '--porcelain=v1', '--untracked-files=normal')),
             node_path=shutil.which('node'), playwright_exists=PLAYWRIGHT.is_file(),
-            esbuild_exists=ESBUILD.is_file(),
+            esbuild_exists=ESBUILD.is_file(), contracts_only=contracts_only,
         )
-        if state:
+        if state or contracts_only:
             return state
         http_state = http_runner.preflight()
         if http_state:
@@ -104,10 +104,13 @@ def _run(command: list[str], *, cwd: Path, env: dict[str, str]) -> int:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--browser-only-diagnostic', action='store_true',
-                        help='skip contract and HTTP business suites; run browser against fresh owned PG and verified loopback readiness only')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--browser-only-diagnostic', action='store_true',
+                      help='skip contract and HTTP business suites; run browser against fresh owned PG and verified loopback readiness only')
+    mode.add_argument('--contract-test', action='append', choices=NODE_TESTS, default=[],
+                      help='run only the specified socketless frontend test file; repeat to select several files')
     args = parser.parse_args(argv)
-    blocked = preflight()
+    blocked = preflight(contracts_only=True) if args.contract_test else preflight()
     if blocked:
         print('BLOCKED: HOME_WSL_' + blocked)
         return 1
@@ -116,6 +119,11 @@ def main(argv=None) -> int:
     assert node is not None
     env = safe_environment()
     frontend = REPO / 'frontend'
+    if args.contract_test:
+        selected = list(dict.fromkeys(args.contract_test))
+        return _run([node, '--experimental-transform-types', '--test', *selected],
+                    cwd=frontend, env=env)
+
     preflight_result = _run([node, 'tests/v26BrowserPreflight.mjs'], cwd=frontend, env=env)
     if preflight_result:
         print('BLOCKED: HOME_WSL_LOCAL_BROWSER_PREFLIGHT')

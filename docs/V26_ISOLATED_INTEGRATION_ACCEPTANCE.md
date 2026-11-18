@@ -255,6 +255,15 @@ already installed and the committed worktree is clean, the one command is:
 cd /home/suat/Codex-Projects/mikrotik-manager-v2 && PYTHONPATH=backend backend/.venv/bin/python -m backend.tests.run_v26_chromium_acceptance_wsl
 ```
 
+For a change limited to known frontend contracts, use this same command with
+`--contract-test tests/<file>.test.mjs` for each affected file. The runner lists
+its supported paths in `--help`, runs each selected file once and returns the
+Node test exit code. The selected files run against the current checkout and
+toolchain. This mode starts neither the browser nor the disposable HTTP and
+PostgreSQL fixture. For browser-only work, use the existing
+`--browser-only-diagnostic`. Run the full command when the change requires
+verification across all three stages.
+
 Expected success is exit 0 after ten listed Node contract files pass, the
 isolated PostgreSQL/real HTTP assertions pass, the backend readiness profile is
 verified from `/api/ready`, browser checks pass and all owned resources clean

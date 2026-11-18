@@ -1,5 +1,18 @@
 # MikroTik Manager V2 — İlerleme
 
+## #49 Hedefli sözleşme testi seçimi — 2026-11-18 — yerel PASS
+
+- Ofis WSL, temiz `development/v2.6.2-pppoe` / `f1f62a9`.
+  Tarihsel 52 Node testi ve ayrı tarayıcı kabul kaydı incelendi.
+- Ev WSL kabul çalıştırıcısında tam paket ve tarayıcı tanısı vardı.
+  Tek frontend sözleşme değişikliğinde çalıştırıcı üzerinden dosya seçimi
+  yapılamıyordu. `--contract-test` mevcut listeden dosya seçer, yinelenen
+  argümanı tekilleştirir, yalnız Node sonucunu döndürür.
+- Tarayıcı ve HTTP fixture'ı hedefli Node modunda başlamaz. Tam ve
+  tarayıcı odaklı modların davranışı korunur. Geçmiş PASS otomatik taşınmaz.
+- Üç hedefli çalıştırıcı testi ve diff PASS. Önceki Node/HTTP/Chromium
+  kabulleri tekrarlanmadı. Canlı servis, DB, deploy, restart veya push yok.
+
 ## #48 Yerel işlem terminali doğrulaması — 2026-11-18 — yerel PASS
 
 - Başlangıç Ofis Linux WSL2, suatpc@DESKTOP-VD5T7VG, temiz
