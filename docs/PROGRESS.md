@@ -1,5 +1,17 @@
 # MikroTik Manager V2 — İlerleme
 
+## #42 Ofis WSL mevcut PGDATA ile yerel başlangıç — 2026-11-18
+
+- DESKTOP-VD5T7VG, temiz `development/v2.6.2-pppoe` / `1567de8`. Kullanıcı
+  mevcut PG16 PID 9291, loopback 55432 ve eski checkout PGDATA yolunu doğruladı.
+- Yerel geliştirme `V2_LOCAL_PGDATA` ile mevcut kümeyi yerinde kullanabilir.
+  Mutlak canonical yol, kullanıcı sahipliği, 0700, PG16 ve standart V2 hedefi
+  zorunlu. `SHOW data_directory` eşleşmesi, demo marker ve yetkiler kontrol
+  edilir. Override küme sürecini yönetmez. Varsayılan ve bakım davranışı korunur.
+- Üç hedefli soketsiz test dosyası, toplam 20/20 PASS. Yeni yol ile tek gerçek
+  salt okunur bağlantı denemesi OperationalError verdi, DB doğrulaması BLOCKED.
+  Kümeye, veriye, servislere ve kullanıcı bilgilerine değişiklik yapılmadı.
+
 ## #39 PPPoE Abone Merkezi işlem ayrımı — 2026-11-18 — yerel PASS
 
 - Temiz `development/v2.6.2-pppoe` / `0d9b9a0` başlangıcı.

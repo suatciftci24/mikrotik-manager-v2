@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest import TestCase
-from unittest.mock import patch,MagicMock
+from unittest.mock import patch
 from app import local_demo_database as local
 from app.demo_repair import RepairBlocked
 
@@ -62,3 +62,25 @@ class LocalDemoDatabaseTests(TestCase):
         self.verify.side_effect=RepairBlocked('missing schema')
         with self.assertRaises(RepairBlocked):self.ensure()
         self.assertEqual(self.run.call_count,1)
+
+    def test_existing_pgdata_attaches_without_cluster_lifecycle(self):
+        cluster=self.root/'existing';cluster.mkdir(mode=0o700)
+        (cluster/'PG_VERSION').write_text('16\n')
+        local.ensure_database(local.engine,self.root,existing_pgdata=str(cluster))
+        self.verify.assert_called_once_with(local.engine,expected_pgdata=cluster)
+        self.run.assert_not_called();self.socket.assert_not_called()
+
+    def test_existing_pgdata_rejects_unsafe_paths_and_connection_overrides(self):
+        cluster=self.root/'existing';cluster.mkdir(mode=0o700)
+        (cluster/'PG_VERSION').write_text('16\n')
+        link=self.root/'link';link.symlink_to(cluster,target_is_directory=True)
+        for path in ('relative',self.root/'missing',link):
+            with self.subTest(path=path),self.assertRaises(RepairBlocked):
+                local.ensure_database(local.engine,self.root,existing_pgdata=str(path))
+        destination=SimpleNamespace(url=local.engine.url.update_query_dict({'host':'localhost'}))
+        with self.assertRaises(RepairBlocked):
+            local.ensure_database(destination,self.root,existing_pgdata=str(cluster))
+        cluster.chmod(0o755)
+        with self.assertRaises(RepairBlocked):
+            local.ensure_database(local.engine,self.root,existing_pgdata=str(cluster))
+        self.run.assert_not_called();self.socket.assert_not_called();self.verify.assert_not_called()

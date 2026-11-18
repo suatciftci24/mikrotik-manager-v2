@@ -59,14 +59,14 @@ def socket_permission():
         raise RepairBlocked('Loopback soketi açılamıyor. Bu komutu normal WSL terminalinde çalıştırın; yeniden denenmedi.') from None
 
 
-def verify_database(destination):
+def verify_database(destination,*,expected_pgdata=ROOT / '.local/postgres-v2-demo'):
     adapter = PostgresDemoStore(destination)
     with destination.connect() as connection:
         connection.execute(text('SET TRANSACTION READ ONLY'))
-        adapter._verify(connection)
         directory = connection.execute(text('SHOW data_directory')).scalar_one()
-        require(Path(directory).resolve() == (ROOT / '.local/postgres-v2-demo').resolve(),
-                'Bağlı PostgreSQL kümesi bu V2 deposuna ait değil; duruldu.')
+        require(Path(directory).resolve() == expected_pgdata.resolve(),
+                'Bağlı PostgreSQL veri dizini beklenen yerel V2 kümesiyle eşleşmiyor; duruldu.')
+        adapter._verify(connection)
         for table, privileges in [('schema_state','SELECT'),('subscribers','SELECT,INSERT,UPDATE'),
                                   ('events','SELECT,INSERT'),('requests','SELECT,INSERT')]:
             # PostgreSQL comma-separated privilege lists mean ANY, so check each separately.

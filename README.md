@@ -781,6 +781,25 @@ after WSL restarts, run the usual `./dev.sh` again. `--ui-only` and acceptance
 launchers keep their existing behavior. A completed first ADMIN setup continues
 to disable legacy demo login; use the existing LOCAL ADMIN account.
 
+To use an already running local V2 demo cluster from a different checkout,
+set `V2_LOCAL_PGDATA` to its absolute, canonical PostgreSQL 16 data directory.
+The directory must belong to the current OS user and have mode `0700`.
+Normal startup checks that the standard local V2 connection reports this
+directory and passes the existing demo schema and privileges checks. With the
+override, startup only attaches to PostgreSQL and fails if the target is
+unavailable or mismatched. Maintenance and acceptance commands retain their
+checkout-local checks.
+
+For the Office WSL checkout, verify the database alone from the new repo root
+with the existing Python environment:
+
+```bash
+V2_LOCAL_PGDATA=/home/suatpc/Codex-Projects/mikrotik-manager-v2/.local/postgres-v2-demo \
+  PYTHONPATH=backend .venv/bin/python -B -m app.local_demo_database
+```
+
+Use the same variable with `./dev.sh` for normal local development.
+
 The following **explicit maintenance** command additionally prepares missing
 schema/examples and exercises writes. Do not use it for a connection-only repair
 or when schema/seed/write operations have not been authorized:

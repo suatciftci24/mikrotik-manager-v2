@@ -83,3 +83,20 @@ class DemoRepairSafety(TestCase):
         destination=self.target();destination.connect=connect
         with self.assertRaisesRegex(repair.RepairBlocked,'subscribers/INSERT'):
             repair.verify_database(destination)
+
+    def test_explicit_pgdata_mismatch_is_rejected_before_reading_demo_schema(self):
+        from contextlib import contextmanager
+        from unittest.mock import Mock
+        connection=Mock()
+        connection.execute.return_value.scalar_one.return_value=str(repair.ROOT/'.local/postgres-v2-demo')
+
+        @contextmanager
+        def connect():
+            yield connection
+
+        destination=self.target()
+        destination.connect=connect
+        with self.assertRaisesRegex(repair.RepairBlocked,'veri dizini'):
+            repair.verify_database(destination,expected_pgdata=Path('/tmp/other-demo-cluster'))
+        self.assertEqual([str(call.args[0]) for call in connection.execute.call_args_list],
+                         ['SET TRANSACTION READ ONLY','SHOW data_directory'])
