@@ -136,12 +136,44 @@ test('workspace create displays selected package speed and term; derived expiry 
  assert.equal(dates()[1].props.value,'2030-06-01','an explicit expiry stays intact');
 });
 
-test('editing an assigned package keeps the existing expiry date',()=>{
- const h=harness('workspace','edit',{package_id:pkg.id,package_revision:pkg.revision,plan:pkg.fields.name,started_on:'2030-01-01',expires_on:'2030-02-15'});
- h.control(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===pkg.id),pkg.id);
- const dates=nodes(h.render()).filter(n=>n.type==='input'&&n.props.type==='date');
- dates[0].props.onChange({target:{value:'2030-01-10'}});
- assert.equal(nodes(h.render()).filter(n=>n.type==='input'&&n.props.type==='date')[1].props.value,'2030-02-15');
+test('workspace info edit preserves assigned package, status and expiry through consented save',async t=>{
+ const existing={package_id:pkg.id,package_revision:pkg.revision,plan:pkg.fields.name,status:'ACTIVE',started_on:'2030-01-01',expires_on:'2030-02-15'};
+ const h=harness('workspace','edit',existing),calls=[];
+ t.mock.method(globalThis,'fetch',async(url,init)=>{
+  const payload=JSON.parse(init.body);
+  calls.push({url,method:init.method,payload});
+  return {ok:true,json:async()=>({id:h.original.id,...payload.fields,revision:h.original.revision+1})};
+ });
+ const oldWindow=globalThis.window;
+ t.after(()=>{globalThis.window=oldWindow;});
+ globalThis.window={dispatchEvent(){}};
+
+ const form=nodes(h.render());
+ assert.equal(form.some(n=>n.props?.id==='synthetic-package-choice'),false);
+ assert.equal(form.some(n=>n.type==='option'&&n.props.value==='PAUSED'),false);
+ const dates=()=>nodes(h.render()).filter(n=>n.type==='input'&&n.props.type==='date');
+ dates()[0].props.onChange({target:{value:'2030-01-10'}});
+ assert.equal(dates()[1].props.value,existing.expires_on);
+
+ await h.send();  // Prepare the preview.
+ const preview=nodes(h.render()).find(n=>n.type?.name==='SubscriberOperationPreview');
+ assert.deepEqual(preview.props.changes.map(change=>change.label),['Başlangıç tarihi']);
+ await h.send();
+ assert.equal(calls.length,0);
+ h.control(n=>n.type==='input'&&n.props.type==='checkbox',true);
+ await h.send();
+
+ assert.equal(calls.length,1);
+ const {url,method,payload}=calls[0];
+ assert.equal(url,'/api/v1/subscriber-workspace/'+h.original.id);
+ assert.equal(method,'POST');
+ assert.equal(payload.confirmed,true);
+ assert.equal(payload.expected_revision,h.original.revision);
+ assert.equal(payload.fields.started_on,'2030-01-10');
+ for(const key of ['package_id','package_revision','plan','status','expires_on']){
+  assert.equal(payload.fields[key],existing[key],key);
+ }
+ assert.deepEqual(h.saved,[h.original.id]);
 });
 
 test('workspace create rejects missing authorized router and invalid dates before preview or write',()=>{

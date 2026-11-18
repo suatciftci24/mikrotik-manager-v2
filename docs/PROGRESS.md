@@ -1,5 +1,15 @@
 # MikroTik Manager V2 — İlerleme
 
+## #50 V2.6.4 uçtan uca senaryo envanteri — 2026-11-18 — BLOCKED
+
+- [Tek kabul matrisi](V264_E2E_50_ACCEPTANCE.md), yedi senaryonun geçerli
+  kanıtını ve açık Ofis uçtan uca kapsamını kaydeder.
+- #39 sonrası eski düzenleme fixture'ı kaldırılan paket seçicisini arıyordu.
+  Hedefli FAIL yeniden üretildi. Güncel form testi onayı, tek isteği ve
+  kayıtlı paket/durum/bitiş tarihinin korunduğunu doğrular. Ürün kodu değişmedi.
+- Beş hedefli sentetik frontend kontrolü PASS. Tarihsel PASS kanıtları
+  tekrar edilmedi. Bilinen Chromium ve loopback engelleri yeniden denenmedi.
+
 ## #49 Hedefli sözleşme testi seçimi — 2026-11-18 — yerel PASS
 
 - Ofis WSL, temiz `development/v2.6.2-pppoe` / `f1f62a9`.
