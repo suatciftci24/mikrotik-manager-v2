@@ -63,6 +63,33 @@ class DailyManagement(cases.SubscriberTransactions):
         self.assertEqual(self.ops.history(result='FAILED')['total'],1)
         self.assertEqual(self.ops.history(result='SUCCESS')['total'],3)  # Two creates + one status change.
         self.assertEqual(self.ops.history(page=2,page_size=100)['items'],[])
+    def test_bulk_pppoe_status_preserves_sources_and_expiry_in_both_directions(self):
+        accounts = [
+            self.workspace.save(self.command(username='local.test', expires_on='2027-01-02'), 'actor'),
+            self.workspace.save(self.command(username='radius.test', source='RADIUS', expires_on='2027-02-03'), 'actor'),
+        ]
+        user = {'id': 'actor', 'is_demo': True, 'role_code': 'ADMIN', 'can_manage_users': True}
+        with patch.object(routes, 'operations', self.ops), patch.object(routes, 'workspace', self.workspace):
+            for previous, target in (('PAUSED', 'ACTIVE'), ('ACTIVE', 'PAUSED')):
+                payload = SubscriberOperations(entries=[self.operation(item, 'STATUS', target) for item in accounts])
+                result = routes.manage(payload, user)
+                OperationResults.model_validate(result)
+                self.assertEqual(routes.manage(payload, user), result)
+
+                updated = []
+                for item, receipt in zip(accounts, result['results'], strict=True):
+                    self.assertTrue(receipt['success'])
+                    self.assertEqual(receipt['previous'], {'status': previous})
+                    self.assertEqual(receipt['values'], {'status': target})
+                    detail = self.workspace.detail(item.id)
+                    self.assertEqual(detail.item.status, target)
+                    self.assertEqual(detail.item.source, item.source)
+                    self.assertEqual(detail.item.expires_on, item.expires_on)
+                    self.assertEqual(detail.history[0].new_values, {'status': target})
+                    updated.append(detail.item)
+                accounts = updated
+        self.assertEqual(self.ops.history(operation='STATUS')['total'], 4)
+
     def test_audit_failure_and_conflicting_request_do_not_mutate(self):
         item=self.workspace.save(self.command(),'actor');baseline=self.workspace.detail(item.id)
         command=self.operation(item,'PLAN','Demo 800')

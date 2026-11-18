@@ -1,5 +1,18 @@
 # MikroTik Manager V2 — İlerleme
 
+## PPPoE toplu hesap durumu — V2.6.4
+
+- Ev WSL ortak checkout, development/v2.6.2-pppoe, taban f8379f9.
+  Mevcut toplu işlem hedef durumdaki hesapları da API'ye gönderiyordu.
+  Etkinleştirme ve pasifleştirme önizlemesi her satırı gösterir. Yalnız
+  değişecek satırlar açık onaydan sonra gönderilir. Atlanan satırlar
+  ayrı gösterilir ve audit üretmez. Mevcut API sonuç ve geçmişi kaydeder.
+- Hedefli testler PASS: subscriberDailyManagement, subscriberQuickWorkflow
+  ve operationGetRecovery 31/31, izole SQLite test_subscriber_daily_management
+  11/11. Üretim derlemesi ve diff kontrolü PASS. Görsel kabul çalıştırılmadı.
+- GitHub push BLOCKED: check-git-transfer.sh Ev WSL checkout ve dal
+  eşleşmesini reddetti. Uzak aktarım başlatılmadı.
+
 ## PPPoE toplu paket değişikliği — V2.6.4
 
 - Ev WSL ortak checkout, `development/v2.6.2-pppoe`, taban `2c369cb`.
