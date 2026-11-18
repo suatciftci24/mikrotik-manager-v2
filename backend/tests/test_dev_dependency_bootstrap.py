@@ -16,7 +16,7 @@ class DevDependencyBootstrapTests(unittest.TestCase):
             root = Path(temporary)
             shutil.copyfile(ROOT / 'dev.sh', root / 'dev.sh')
             (root / 'tools').mkdir()
-            (root / 'tools/local-terminal-target.sh').write_text('require_local_terminal_target() { return 0; }\n')
+            (root / 'tools/local-terminal-target.sh').write_text('require_local_terminal_target() { return 0; }\nrequire_local_demo_environment() { return 0; }\n')
             system_python = root / 'python3'
             system_python.write_text('#!/bin/sh\ntest "$*" = "-B -m app.loopback_preflight"\n')
             system_python.chmod(0o700)
@@ -88,12 +88,16 @@ fi
             root = Path(temporary)
             shutil.copyfile(ROOT / 'dev.sh', root / 'dev.sh')
             (root / 'tools').mkdir()
-            (root / 'tools/local-terminal-target.sh').write_text('require_local_terminal_target() { return 0; }\n')
+            (root / 'tools/local-terminal-target.sh').write_text(
+                (ROOT / 'tools/local-terminal-target.sh').read_text()
+                + '\nrequire_local_terminal_target() { return 0; }\n')
+            (root / 'backend/app/core').mkdir(parents=True)
+            shutil.copyfile(ROOT / 'backend/app/core/config.py', root / 'backend/app/core/config.py')
             result = subprocess.run(['/bin/bash', 'dev.sh'], cwd=root,
                                     env={'PATH': '/usr/bin:/bin', 'V2_DEPLOYMENT_PROFILE': 'v26-isolated-acceptance'},
                                     capture_output=True, text=True, timeout=5)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('TERMINAL_TARGET_BLOCKED', result.stderr)
-            self.assertIn('yalnız local-demo', result.stderr)
+            self.assertIn('LOCAL_DEMO_PROFILE_REQUIRED', result.stderr)
             self.assertFalse((root / '.venv').exists())
             self.assertFalse((root / '.local').exists())

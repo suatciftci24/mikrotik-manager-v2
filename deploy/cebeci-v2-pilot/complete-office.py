@@ -336,8 +336,5 @@ def failure_code(error):
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except (Exception, KeyboardInterrupt) as error:
-        print('BLOCKED: ' + failure_code(error), file=sys.stderr)
-        sys.exit(1)
+    print('PUBLICATION_TARGET_BLOCKED: Arşivlenmiş CEBECI pilot aktarım yolu kapalı.', file=sys.stderr)
+    sys.exit(1)

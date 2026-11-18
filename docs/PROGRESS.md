@@ -1,5 +1,20 @@
 # MikroTik Manager V2 — İlerleme
 
+## #54 Geliştirme, Git aktarımı ve yayın sınırları — 2026-11-18 — yerel PASS
+
+- Ofis WSL, temiz `development/v2.6.2-pppoe` / `5e72762`. Profil kontrolü
+  erken UI/kabul dallarını kapsamıyordu. Yerel komut ortamı cihaz bayrağı veya
+  DB URL query/libpq yönlendirmesiyle farklı hedefe açılabiliyordu.
+- Ortak yerel ortam koruması terminal doğrulamasından sonra ve bootstrap/API
+  öncesinde local-demo, kapalı cihaz erişimi ve 127.0.0.1:55432 V2 DB hedefini
+  doğrular. #42 PGDATA seçimi korunur. Relay iki etkin GitHub URL’sini doğrular.
+- Eski CEBECI Ofis yürütücüleri varsayılan çağrıyla SSH yayını veya hesap
+  aktarımı başlatabiliyordu. Emekli girişler artık hemen BLOCKED.
+- Altı hedefli test ve shell/diff kontrolleri PASS. Pinned ve güncel Git
+  geçmişinde `.local`, dump, kimlik handoff ve özel yapılandırma yolu
+  eşleşmesi bulunmadı. Yalnız yol envanteri incelendi. Canlı bağlantı,
+  yayın denemesi, push/pull/fetch, DB veya servis işlemi yapılmadı.
+
 ## #53 V2.6.4 güncel kullanım belgeleri — 2026-11-18 — belge PASS
 
 - Ofis WSL, temiz `development/v2.6.2-pppoe` / `f49e67b`. Yerel ürün

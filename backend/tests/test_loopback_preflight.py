@@ -71,7 +71,7 @@ class LoopbackPreflightTests(TestCase):
             root = Path(folder)
             shutil.copyfile(source / 'dev.sh', root / 'dev.sh')
             (root / 'tools').mkdir()
-            (root / 'tools/local-terminal-target.sh').write_text('require_local_terminal_target() { return 0; }\n')
+            (root / 'tools/local-terminal-target.sh').write_text('require_local_terminal_target() { return 0; }\nrequire_local_demo_environment() { return 0; }\n')
             for name, script in {
                 'python3': 'test "$*" = "-B -m app.loopback_preflight" || exit 97; echo "BLOCKED: errno=EPERM" >&2; exit 1',
             }.items():

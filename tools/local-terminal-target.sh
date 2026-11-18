@@ -44,3 +44,7 @@ require_local_terminal_target() {
     return 1
   fi
 }
+
+require_local_demo_environment() {
+  PYTHONPATH="$1/backend" python3 -B -m app.core.config
+}

@@ -47,7 +47,8 @@ def transfer(pack, expected_hash):
         need(json.loads(git(repo, 'show', COMMIT+':release.json'))['version'] == '2.6.2', 'Kaynak sürüm yanlış.')
         git(repo, 'remote', 'add', 'origin', GITHUB)
         # Refuse global URL rewrites to a different destination.
-        need(git(repo, 'remote', 'get-url', '--push', 'origin').strip().decode() == GITHUB,
+        need(git(repo, 'remote', 'get-url', '--all', 'origin').strip().decode() == GITHUB
+             and git(repo, 'remote', 'get-url', '--push', '--all', 'origin').strip().decode() == GITHUB,
              'GitHub hedef URL yeniden yazılıyor; gönderim durduruldu.')
         before = git(repo, 'ls-remote', 'origin', BRANCH).decode().split()
         need(not before or (len(before)==2 and before[1]==BRANCH), 'Uzak branch yanıtı belirsiz.')

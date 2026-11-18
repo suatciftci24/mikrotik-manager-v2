@@ -21,6 +21,8 @@ fi
 
 source "$PROJECT_ROOT/tools/local-terminal-target.sh"
 require_local_terminal_target "$PROJECT_ROOT"
+require_local_demo_environment "$PROJECT_ROOT"
+export V2_DATABASE_URL="${V2_DATABASE_URL:-postgresql+psycopg://v2_local:v2_local@127.0.0.1:55432/mikrotik_manager_v2}"
 
 # Check the current execution environment before starting an HTTP workflow.
 check_loopback() {
@@ -44,11 +46,6 @@ if [[ "${1:-}" == '--accept-demo' ]]; then
   exec .venv/bin/python -m app.demo_api_runner "$@"
 fi
 
-if [[ "${V2_DEPLOYMENT_PROFILE-local-demo}" != 'local-demo' ||
-      "${V2_ENVIRONMENT-local-demo}" != 'local-demo' ]]; then
-  printf 'TERMINAL_TARGET_BLOCKED: Yerel dev.sh yalnız local-demo ortamında çalışır.\n' >&2
-  exit 1
-fi
 if [[ "${1:-}" == '--check-target' ]]; then
   printf 'DEV_TARGET_OK: %s\n' "$PROJECT_ROOT"
   exit 0
@@ -66,7 +63,6 @@ if [[ ! -x frontend/node_modules/.bin/vite ]]; then
   npm --prefix frontend install
 fi
 
-export V2_DATABASE_URL="${V2_DATABASE_URL:-postgresql+psycopg://v2_local:v2_local@127.0.0.1:55432/mikrotik_manager_v2}"
 # Explicit maintenance mode; normal UI/API startup never applies migrations.
 if [[ "${1:-}" == '--prepare-demo' ]]; then
   ./dev-db.sh

@@ -62,7 +62,8 @@ okur. Commit/parent/release.json tekrar doğrulanır. Canlı proje klasörüne,
 
 Yalnız https://github.com/suatciftci24/mikrotik-manager-v2.git hedefindeki
 refs/heads/development/v2.6.2-pppoe ref'ine exact kaynak SHA normal push edilir.
-URL başka hedefe rewrite ediliyorsa durur. Git hooks çalıştırılmaz. Tag/ref
+Relay, GitHub okuma ve yazma URL’lerini ayrı doğrular. Bir URL başka
+hedefe yönleniyorsa uzak sorgu veya gönderim başlamadan durur. Git hooks çalıştırılmaz. Tag/ref
 mirror veya force yoktur. Var olan farklı uzak dal fast-forward değilse
 korunur ve BLOCKED verilir. Kaynak zaten uzaktaysa idempotent doğrulanır.
 Gönderim sonrası ls-remote exact SHA eşitliği zorunludur. Geçici depo başarı

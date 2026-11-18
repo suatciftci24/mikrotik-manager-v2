@@ -4,6 +4,7 @@ set -euo pipefail
 V2_BROWSER_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$V2_BROWSER_ROOT/tools/local-terminal-target.sh"
 require_local_terminal_target "$V2_BROWSER_ROOT"
+require_local_demo_environment "$V2_BROWSER_ROOT"
 cd "$V2_BROWSER_ROOT"
 export PYTHONPATH="$V2_BROWSER_ROOT/backend"
 if [[ ! -x .venv/bin/python ]]; then

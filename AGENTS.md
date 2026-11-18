@@ -146,6 +146,13 @@ regresyonda doğrula. Sunucu yetkilerini veya kaynak güvenliğini gevşetme.
 - Uzak Git eşitliğini yalnız gerçekten ölçüldüğünde bildir. Çalışma standardı
   ve tarihsel relay sınırı [Git aktarım belgesinde](docs/V262_GITHUB_RELAY.md).
 
+Geliştirme girişleri yalnız izole `local-demo` profilini ve V2 loopback
+PostgreSQL hedefini kabul eder. Cihaz bağlantı bayrakları ve alternatif DB
+yönlendirmeleri yerel başlangıcı durdurur. Yayın ayrı VDS hedefi, kaynak commit
+ve işleme özel kullanıcı onayıyla ele alınır. Git ön kontrolü veya transfer
+onayı yayın yetkisi vermez. Emekliye ayrılan CEBECI Ofis yayın ve hesap aktarım
+girişleri işlem başlamadan durur.
+
 ## ALTIN KURAL: EV-OFIS TAM SENKRONIZASYON
 
 - Git kodunun eslesmesi tam sistem senkronizasyonu degildir.

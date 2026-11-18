@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 from app.local_ports import api_base
 from app.adapters.demo_subscriptions import PostgresDemoStore
+from app.core.config import local_demo_blocker
 from app.core.database import engine
 from app.demo_storage import initialize_demo, seed_examples
 from app.schemas.details import SubscriberRecord
@@ -35,6 +36,9 @@ def require(condition, message):
 
 def preflight(destination, root=ROOT):
     # Validate before starting anything. dev-db.sh owns this exact standard local cluster.
+    if blocker := local_demo_blocker():
+        raise RepairBlocked(blocker)
+    require(not destination.url.query, 'LOCAL_DEMO_DATABASE_OVERRIDE_REJECTED')
     try:
         PostgresDemoStore(destination)
     except DemoStorageUnavailable:

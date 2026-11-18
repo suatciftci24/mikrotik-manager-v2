@@ -53,13 +53,13 @@ class DatabaseIdentityTests(unittest.TestCase):
             self.assertEqual(self.ns['REASON'], reason)
             self.assertNotIn('synthetic', reason)
 
-    def test_office_transfers_worktree_updater_separately(self):
+    def test_retired_office_launcher_contains_only_a_blocked_exit(self):
         script = SOURCE.with_name('update-approved-office.sh').read_text()
-        self.assertIn('git archive --format=tar "$sha"', script)
-        self.assertIn('cp deploy/cebeci-v2-pilot/update-approved-vds.py "$work/update.py"', script)
-        self.assertIn('source.sha256 update.py updater.sha256 version | ssh', script)
-        self.assertIn('sha256sum --check updater.sha256 && sudo python3', script)
-        self.assertIn("'$remote/update.py' '$remote' $mode", script)
+        commands = [line for line in script.splitlines() if line and not line.startswith('#')]
+        self.assertEqual(commands, [
+            "printf '%s\\n' 'PUBLICATION_TARGET_BLOCKED: Arşivlenmiş CEBECI pilot yayın yolu kapalı.' >&2",
+            'exit 1',
+        ])
 
     def test_probe_exits_identify_each_mismatching_field(self):
         expected = ('mikrotik_manager_v2', 'v2_local', '127.0.0.1', 55432, 'on')
@@ -202,7 +202,6 @@ class ReleaseTests(unittest.TestCase):
         stop = source.index("    # Preserve certificates", start)
         self.assertIn("sys.argv[2:] == ['--release-check-only']", source[start:stop])
         self.assertIn('sys.exit(0)', source[start:stop])
-        self.assertIn('$mode == --release-check-only', SOURCE.with_name('update-approved-office.sh').read_text())
 
     def test_archive_revision(self):
         self.archive(revision='0'*40)

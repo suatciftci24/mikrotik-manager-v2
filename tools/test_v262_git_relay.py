@@ -51,4 +51,21 @@ class RelayTests(unittest.TestCase):
             git.assert_not_called()
 
 
+class RelayTargetBoundaryTests(unittest.TestCase):
+    def test_rewritten_read_target_blocks_before_any_network_operation(self):
+        pack = b'synthetic Git pack'
+        with patch.object(relay.tempfile, 'TemporaryDirectory') as directory, \
+             patch.object(relay.os, 'chmod'), patch.object(Path, 'mkdir'), \
+             patch.object(relay, 'git') as git:
+            directory.return_value.__enter__.return_value = '/synthetic-relay'
+            git.side_effect = [
+                b'', b'', relay.COMMIT.encode(), f'{relay.COMMIT} {relay.BASE}'.encode(),
+                b'{"version":"2.6.2"}', b'', b'https://wrong.example/other.git',
+            ]
+            with self.assertRaisesRegex(relay.Blocked, 'yeniden yazılıyor'):
+                relay.transfer(pack, hashlib.sha256(pack).hexdigest())
+        self.assertEqual(git.call_args.args[1:], ('remote', 'get-url', '--all', 'origin'))
+        self.assertFalse(any(call.args[1] in ('ls-remote', 'fetch', 'push') for call in git.call_args_list))
+
+
 if __name__=='__main__':unittest.main()
