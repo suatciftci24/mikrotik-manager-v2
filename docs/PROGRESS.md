@@ -1,5 +1,12 @@
 # MikroTik Manager V2 — İlerleme
 
+## #47 Uçtan uca görev çalışma kuralı — 2026-11-18 — PASS
+
+- Mevcut `AGENTS.md` çalışma sözleşmesinde tek sorun zinciri, PASS kanıtını
+  yeniden kullanma, koşul değişmeden BLOCKED komutunu tekrar etmeme ve
+  tek sonuç raporu kuralları netleştirildi.
+- Belge içeriği ve diff doğrulandı. Uygulama testi veya build çalıştırılmadı.
+
 ## #45 Yerel komutlar için EPERM ön kontrolü — 2026-11-18 — yerel PASS
 
 - Ofis WSL DESKTOP-VD5T7VG, temiz `development/v2.6.2-pppoe` / `0b534e2`.

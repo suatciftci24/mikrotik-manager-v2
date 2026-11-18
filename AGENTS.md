@@ -85,18 +85,18 @@ Proje talimatları kendi aralarında çelişirse güvenli ve daha kısıtlayıc�
 
 Her göreve başlarken AGENTS.md, docs/PROGRESS.md dosyasının güncel bölümü ve görevle ilgili en son kabul raporunu oku; ilerleme belgesi yoksa oluştur. Çalışma kurallarını kullanıcıya tekrar sordurma. Görev sonunda ilerleme belgesini güncelle.
 
-1. Sonuç odaklı çalış. Görevi gereksiz parçalara bölme; kodlama, gerekli kontrol, düzeltme, commit ve normal push işlemlerini uçtan uca tamamla.
+1. Tek sorun → Kök neden → Kapsamlı düzeltme → Hedefli doğrulama → Sonuç. Aynı sorunun incelemesini, kanıtlanan kök nedeninin kapsam dahilindeki düzeltmesini, doğrulamasını ve yetkilendirilmiş teslim adımlarını tek uçtan uca görevde tamamla. Bunları ayrı görev veya gereksiz onay noktalarına bölme.
 2. Kullanıcıya sürekli terminal komutu, test ve teşhis işi verme. Yapabildiğin işleri kendin yap.
 3. Güvenli yerel inceleme, kodlama, hedefli test, hata düzeltme ve commit için tekrar tekrar onay isteme.
-4. Yalnızca değişikliğe uygun gerekli kontrolleri çalıştır. Yeni bir hata veya değişiklik yoksa aynı kontrolleri tekrarlama. Zorunlu proje kontrollerini atlama.
+4. İlgili PASS kanıtını yeniden kullan. Değişen kod, veri, ortam veya yeni bulgu önceki kanıtı etkiliyorsa yalnız etkilenen kapsamı yeniden doğrula. Zorunlu proje kontrollerini tamamla.
 5. Önce mevcut kodu ve proje durumunu incele; yapılmış işi yeniden yapma. Kullanıcının yerel değişikliklerini koru. Yıkıcı Git komutları kullanma.
 6. Mevcut tasarımı ve çalışan özellikleri koru. Kapsam dışı yeniden yazım, bağımlılık veya karmaşıklık ekleme.
 7. MikroTik Manager V1 ve canlı sistemlere değişiklik yetkisi yoktur. Her yeni canlı deploy, DB yazımı, migration, servis restartı, router/RADIUS/PPPoE veya gerçek abone verisini değiştiren işlem için yeni, açık ve o işleme özgü kullanıcı onayı gerekir. Önceki görevin onayı yeni işleme devredilmez; aynı açıkça onaylanmış işlem kapsamını gereksiz yere tekrar onaylatma.
 8. İptal edilmiş veya ertelenmiş işleri yeni açık talimat olmadan yeniden başlatma.
 9. Gerçek veri, örnek veri ve henüz uygulanmamış özellikleri açıkça ayır. Yapılmayan işlemi yapılmış, çalıştırılmayan testi geçmiş gibi bildirme.
 10. Kullanıcıya komut vermek gerekirse önce hangi bilgisayar ve terminalde çalışacağını belirt. V2 ofis yolu: `/home/suatpc/Codex-Projects/mikrotik-manager-v2`.
-11. Gerçek bir engelde nedenini ve gereken tek eylemi kısa bildir. Gereksiz deneme döngüsüne girme.
-12. Her görev sonunda tamamlananları, kontrol sonucunu, commit kimliğini ve sıradaki işi kısa bildir. Kaldığımız noktayı mevcut proje ilerleme belgesine kaydet; böyle bir belge yoksa `docs/PROGRESS.md` oluştur.
+11. BLOCKED durumunda engeli, gerçekleştiği aşamayı ve kanıtı kaydet. Aynı komutu aynı koşullarda tekrar çalıştırma. Engeli etkileyen ortam değişikliği, yeni kanıt veya farklı bir doğrulama yolu oluştuğunda yalnız eksik kontrolü yeniden dene.
+12. Görev sonunda tek bir sonuç raporu ver. PASS, BLOCKED veya ROLLBACK durumunu, kök nedenin kanıtını, yapılan değişikliği, hedefli doğrulama sonucunu ve varsa commit kimliğini yaz. Engel sürüyorsa sonraki somut adımı belirt. Sonucu mevcut proje ilerleme belgesine kaydet.
 
 ## V2.6 kalıcı özellik koruma
 
