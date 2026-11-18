@@ -100,6 +100,37 @@ class DailyManagement(cases.SubscriberTransactions):
         conflict=self.operation(item,'PLAN','Different',request_id=command.request_id)
         failed=self.ops.execute(conflict,'actor');self.assertFalse(failed['success']);self.assertFalse(failed['recorded']);self.assertEqual(self.workspace.detail(item.id).item.plan,'Demo 800')
 
+    def test_bulk_status_skips_current_targets_and_rejects_preview_drift(self):
+        user={'id':'actor','is_demo':True,'role_code':'ADMIN','can_manage_users':True}
+        for target,other in (('ACTIVE','PAUSED'),('PAUSED','ACTIVE')):
+            with self.subTest(target=target):
+                rows=[
+                    self.workspace.save(self.command(username=f'{target.lower()}.{index}',status=status,source=source),'actor')
+                    for index,(status,source) in enumerate(((target,'LOCAL'),(other,'RADIUS'),(target,'RADIUS'),(other,'LOCAL')))
+                ]
+                entries=[self.operation(row,'STATUS',target,expected_status=row.status) for row in rows]
+                self.assertTrue(self.ops.execute(self.operation(rows[1],'STATUS',target),'actor')['success'])
+                self.assertTrue(self.ops.execute(self.operation(rows[2],'STATUS',other),'actor')['success'])
+                baseline=[self.workspace.detail(row.id) for row in rows]
+                with patch.object(routes,'operations',self.ops),patch.object(routes,'workspace',self.workspace):
+                    receipts=OperationResults.model_validate(routes.manage(SubscriberOperations(entries=entries),user)).results
+                self.assertEqual([(r.success,r.skipped,r.recorded) for r in receipts],
+                                 [(False,True,False),(False,True,False),(False,False,True),(True,False,True)])
+                for index,row in enumerate(rows):
+                    detail=self.workspace.detail(row.id)
+                    self.assertEqual(detail.item.source,row.source)
+                    self.assertEqual(detail.item.expires_on,row.expires_on)
+                    self.assertEqual(detail.item.status,other if index==2 else target)
+                    if index<2:
+                        self.assertEqual(detail,baseline[index])
+                        self.assertEqual(self.ops.request_result(entries[index].request_id,'actor')['status'],'UNKNOWN')
+                    elif index==2:
+                        self.assertEqual(detail.item,baseline[index].item)
+                        self.assertIn('önizlemeden sonra',receipts[index].error)
+                    else:
+                        self.assertEqual(detail.history[0].previous_values,{'status':other})
+                        self.assertEqual(detail.history[0].new_values,{'status':target})
+
     def test_custom_pppoe_bulk_extension_audit_and_stale_row(self):
         today=datetime.now(ZoneInfo('Europe/Istanbul')).date()
         old=today+timedelta(days=10)

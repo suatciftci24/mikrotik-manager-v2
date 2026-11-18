@@ -4,8 +4,9 @@ import {extensionDate} from './quick.ts';
 import {canChangeWorkspaceItem} from './subscriberActions.ts';
 export type DailyAction='EDIT'|'PLAN'|'STATUS'|'EXPIRE'|'EXTEND'|'ROUTER';
 export const maxDailyExtensionDays=365;
-export type DailyEntry={request_id:string;item_id:string;expected_revision:number;expected_router_id:string;expected_source:'LOCAL'|'RADIUS';operation:DailyAction;value:string|null;days:number|null;expected_expires_on:string|null;confirmed:true;package_id?:string;package_revision?:number};
-export type OperationReceipt={source?:'LOCAL'|'RADIUS'|null;item_id:string;request_id:string;success:boolean;recorded:boolean;operation:string;actor_id:string;router_id:string|null;previous_router_id:string|null;previous:Record<string,string|null>;values:Record<string,string|null>;occurred_at:string;revision:number;error:string|null};
+export type DailyEntry={request_id:string;item_id:string;expected_revision:number;expected_router_id:string;expected_source:'LOCAL'|'RADIUS';operation:DailyAction;value:string|null;days:number|null;expected_expires_on:string|null;expected_status?:'ACTIVE'|'PAUSED';confirmed:true;package_id?:string;package_revision?:number};
+export type OperationReceipt={source?:'LOCAL'|'RADIUS'|null;item_id:string;request_id:string;success:boolean;recorded:boolean;skipped?:boolean;operation:string;actor_id:string;router_id:string|null;previous_router_id:string|null;previous:Record<string,string|null>;values:Record<string,string|null>;occurred_at:string;revision:number;error:string|null};
+export const operationResolved=(receipt:OperationReceipt)=>receipt.recorded||receipt.skipped===true;
 export const dailyLabels:Record<string,string>={EDIT:'Abone bilgisi',PLAN:'Paket / profil',STATUS:'Hesap durumu',EXPIRE:'Bitiş tarihi',EXTEND:'Abonelik uzatma',ROUTER:'Router değişikliği',CREATE:'Sentetik kayıt eklendi',UPDATE:'Sentetik kayıt düzenlendi',RENEWAL:'Abonelik uzatıldı'};
 export function dailyEntries(rows:CenterSubscriber[],action:DailyAction,value:string,days:number,today:string,id:()=>string,selection?:{package_id:string;package_revision:number}):DailyEntry[]{
  if(!rows.length||rows.length>100)throw new Error('1–100 sentetik abone seçin.');
@@ -26,9 +27,11 @@ export function dailyEntries(rows:CenterSubscriber[],action:DailyAction,value:st
   if(action==='EXPIRE'&&next&&expiryInfo(next,today).status==='UNKNOWN')throw new Error('Geçerli YYYY-MM-DD tarihi seçin.');
   if((action==='EDIT'||action==='PLAN')&&!next)throw new Error('Yeni ad veya paket/profil gerekli.');
   if(action==='STATUS'&&!['ACTIVE','PAUSED'].includes(next??''))throw new Error('Aktif veya Pasif seçin.');
+  const expectedStatus=row.status==='ACTIVE'||row.status==='PAUSED'?row.status:undefined;
+  if(action==='STATUS'&&!expectedStatus)throw new Error(`${row.username}: Mevcut hesap durumu doğrulanamadı.`);
   if(action==='ROUTER'&&!next?.startsWith('demo-managed-router-'))throw new Error('Kalıcı sentetik router seçin.');
-  if(rows.length===1&&next===previousDailyValue(row,action)&&!(action==='PLAN'&&selection&&(selection.package_id!==row.package_id||selection.package_revision!==row.package_revision)))throw new Error('Yeni değer mevcut değerden farklı olmalı.');
-  return {request_id:id(),item_id:row.id,expected_revision:row.revision,expected_router_id:row.router_id,expected_source:row.source,operation:action,value:next,days:action==='EXTEND'?days:null,expected_expires_on:row.expires_on,confirmed:true,...(action==='PLAN'?selection:{})};
+  if(rows.length===1&&action!=='STATUS'&&next===previousDailyValue(row,action)&&!(action==='PLAN'&&selection&&(selection.package_id!==row.package_id||selection.package_revision!==row.package_revision)))throw new Error('Yeni değer mevcut değerden farklı olmalı.');
+  return {request_id:id(),item_id:row.id,expected_revision:row.revision,expected_router_id:row.router_id,expected_source:row.source,operation:action,value:next,days:action==='EXTEND'?days:null,expected_expires_on:row.expires_on,confirmed:true,...(action==='STATUS'?{expected_status:expectedStatus}:{}),...(action==='PLAN'?selection:{})};
  });
 }
 export function previousDailyValue(row:CenterSubscriber,action:DailyAction){return ({EDIT:row.customer_name,PLAN:row.plan,STATUS:row.status,EXPIRE:row.expires_on,EXTEND:row.expires_on,ROUTER:row.router_id})[action];}

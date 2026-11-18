@@ -1,5 +1,22 @@
 # MikroTik Manager V2 — İlerleme
 
+## PPPoE toplu hesap durumu kök neden düzeltmesi
+
+- Ev WSL ortak checkout, `development/v2.6.2-pppoe`, taban `50d7d207`.
+  Backend, hedefe eşit durumu genel değişiklik zorunluluğuyla reddedip başarısız
+  audit yazıyordu. Önizleme filtresi yalnız seçildiği andaki durumu biliyordu.
+- API, yetki ve kaynak/router bağını doğruladıktan sonra kilitli güncel satır
+  hedefteyse revizyonu ve audit'i değiştirmeden Atlandı döndürür. Hedefin
+  dışındaki değişmiş kayıt yeniden önizleme ister. Normal güncelleme kaynak
+  ve bitiş tarihini korur. Sonuç ekranı üç sonucu ayrı gösterir. Yanıtı
+  kaybolan atlama için kalıcı kanıt olmadığından sonuç belirsiz kalır.
+- Hedefli PASS: frontend `subscriberDailyManagement`, `subscriberQuickWorkflow`,
+  `operationGetRecovery`, `subscriberOperationResults` 33/33. İzole
+  `test_subscriber_daily_management` ve `test_package_subscription_flow`
+  18/18. Üretim derlemesi ve diff kontrolü PASS. Canlı kabul tekrarlanmadı.
+- Push BLOCKED. `bash tools/check-git-transfer.sh` kayıtlı Ev WSL checkout
+  ve dal eşleşmesini bekliyor. Uzak aktarım başlatılmadı.
+
 ## PPPoE toplu hesap durumu — V2.6.4
 
 - Ev WSL ortak checkout, development/v2.6.2-pppoe, taban f8379f9.

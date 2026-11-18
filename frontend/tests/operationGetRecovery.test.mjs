@@ -4,7 +4,7 @@ import {buildSync} from 'esbuild';
 import {fileURLToPath} from 'node:url';
 const code=buildSync({entryPoints:[fileURLToPath(new URL('../src/lib/subscriberOperationRecovery.ts',import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs'}).outputFiles[0].text;
 const module={exports:{}};new Function('module','exports',code)(module,module.exports);
-const {subscriberOperationError,readOperationResults,unknownOperation}=module.exports;
+const {subscriberOperationError,readOperationResults,unknownOperation,operationReceiptMatches}=module.exports;
 const entry=index=>({request_id:'synthetic-request-'+index,item_id:'demo-managed-sub-'+index,operation:'STATUS',value:'ACTIVE',expected_revision:1,expected_router_id:'demo-managed-router-fixture'});
 const receipt=(e,success=true)=>({...unknownOperation(e),actor_id:'synthetic.actor',router_id:e.expected_router_id,previous_router_id:e.expected_router_id,recorded:true,success,revision:2,occurred_at:'2026-11-06T12:00:00Z',values:success?{status:'ACTIVE'}:{},error:success?null:'Synthetic revision conflict'});
 
@@ -44,6 +44,21 @@ test('malformed/mismatched GET receipts never become saved successes',async()=>{
    const result=await readOperationResults([e],[],new AbortController().signal);assert.equal(result[0].recorded,false);
   }
  }finally{globalThis.fetch=oldFetch;}
+});
+test('verified skips survive recovery without a lookup and reject inconsistent evidence',async t=>{
+ const skippedEntry={...entry(1),expected_source:'RADIUS'},pending=entry(2);
+ const skip={...receipt(skippedEntry),recorded:false,success:false,skipped:true,source:'RADIUS',previous:{status:'ACTIVE'}};
+ assert.equal(operationReceiptMatches(skippedEntry,skip),true);
+ for(const change of [{source:'LOCAL'},{previous:{status:'PAUSED'}},{recorded:true},{success:true}]){
+  assert.equal(operationReceiptMatches(skippedEntry,{...skip,...change}),false);
+ }
+ const fetch=t.mock.method(globalThis,'fetch',async url=>{
+  assert.ok(url.endsWith('/'+pending.request_id));
+  return {ok:true,json:async()=>({request_id:pending.request_id,status:'UNKNOWN',response:null})};
+ });
+ const results=await readOperationResults([skippedEntry,pending],[skip],new AbortController().signal);
+ assert.deepEqual(results,[skip,unknownOperation(pending)]);
+ assert.equal(fetch.mock.callCount(),1);
 });
 test('GET fanout is capped at five; aborted recovery never starts more work',async()=>{
  const entries=Array.from({length:12},(_,i)=>entry(i)),oldFetch=globalThis.fetch;

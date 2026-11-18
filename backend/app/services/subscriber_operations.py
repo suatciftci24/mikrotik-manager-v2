@@ -13,7 +13,7 @@ PUBLIC_FIELDS={'customer_name','plan','status','expires_on','started_on','router
 
 def fingerprint(command,actor):
     values=command.model_dump(mode='json')
-    for key in ('package_id','package_revision'):
+    for key in ('package_id','package_revision','expected_status'):
         if key not in command.model_fields_set:values.pop(key,None)
     return hashlib.sha256(json.dumps([actor,values],sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
@@ -80,7 +80,17 @@ class SubscriberOperationsService:
             SubscriberWorkspace.authorize(row,user,True)
             prior=self.prior(session,command,actor,user=user)
             if prior:return prior
-            if row.revision!=command.expected_revision or row.router_id!=command.expected_router_id or row.source!=command.expected_source or row.fields.get('source')!=row.source or row.fields.get('router_id')!=row.router_id:raise WorkspaceError(409,'Abone, router veya kaynak değişti. Güncel kaydı yeniden seçin.')
+            if row.router_id!=command.expected_router_id or row.source!=command.expected_source or row.fields.get('source')!=row.source or row.fields.get('router_id')!=row.router_id:raise WorkspaceError(409,'Abone, router veya kaynak değişti. Güncel kaydı yeniden seçin.')
+            if command.operation=='STATUS' and command.value in ('ACTIVE','PAUSED'):
+                current=row.fields.get('status')
+                if current==command.value and row.revision>=command.expected_revision:
+                    return dict(item_id=row.id,request_id=str(command.request_id),success=False,recorded=False,skipped=True,
+                                operation='STATUS',actor_id=actor,source=row.source,router_id=row.router_id,previous_router_id=row.router_id,
+                                previous={'status':current},values={'status':current},occurred_at=datetime.now(timezone.utc).isoformat(),
+                                revision=row.revision,error=None)
+                if command.expected_status is not None and current!=command.expected_status:
+                    raise WorkspaceError(409,'Hesap durumu önizlemeden sonra değişti. Güncel kaydı yeniden seçin.')
+            if row.revision!=command.expected_revision:raise WorkspaceError(409,'Abone revizyonu değişti. Güncel kaydı yeniden seçin.')
             field={'EDIT':'customer_name','PLAN':'plan','STATUS':'status','EXPIRE':'expires_on','EXTEND':'expires_on','ROUTER':'router_id'}[command.operation]
             value=command.value
             if command.operation in ('EDIT','PLAN'):

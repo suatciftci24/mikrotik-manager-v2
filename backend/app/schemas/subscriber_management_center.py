@@ -17,11 +17,13 @@ class SubscriberOperation(BaseModel):
     value:str|None=Field(default=None,max_length=160)
     days:int|None=Field(default=None,strict=True,ge=1,le=365)
     expected_expires_on:str|None=Field(default=None,max_length=10)
+    expected_status:Literal['ACTIVE','PAUSED']|None=None
     confirmed:Literal[True]
     @model_validator(mode='after')
     def package_selection(self):
         if bool(self.package_id)!=(self.package_revision is not None):raise ValueError('Paket kimliği ve revizyonu birlikte gerekli.')
         if self.package_id and self.operation!='PLAN':raise ValueError('Paket seçimi yalnız PLAN işleminde kullanılır.')
+        if self.expected_status is not None and self.operation!='STATUS':raise ValueError('Beklenen hesap durumu yalnız STATUS işleminde kullanılır.')
         return self
     _confirmed=field_validator('confirmed',mode='before')(SyntheticSubscriberCommand.explicit.__func__)
 
@@ -42,6 +44,7 @@ class OperationReceipt(BaseModel):
     request_id:str
     success:bool
     recorded:bool
+    skipped:bool=False
     operation:str
     actor_id:str
     router_id:str|None=None

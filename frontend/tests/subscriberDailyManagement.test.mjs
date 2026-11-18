@@ -22,7 +22,7 @@ test('preview rejects unsupported authority, router, revision, dates and unchang
   assert.throws(()=>dailyEntries([{...item,...change}],'STATUS','ACTIVE',30,'2026-10-29',id));
  }
  assert.equal(ids,0);
- for(const [action,value,days] of [['EXTEND','',0],['EXTEND','',366],['EXTEND','',1.5],['PLAN',item.plan,30],['STATUS',item.status,30],
+ for(const [action,value,days] of [['EXTEND','',0],['EXTEND','',366],['EXTEND','',1.5],['PLAN',item.plan,30],['STATUS','UNKNOWN',30],
   ['EDIT',item.customer_name,30],['ROUTER',item.router_id,30],['EXPIRE',item.expires_on,30],
   ['EXPIRE','2026-02-30',30],['EDIT','\u0000bad',30],['DELETE','',30]]){
   assert.throws(()=>dailyEntries([item],action,value,days,'2026-10-29',id));
@@ -65,7 +65,7 @@ test('bulk preview requires explicit consent and does not resend resolved mixed-
 });
 
 for(const target of ['ACTIVE','PAUSED']){
- test(`bulk ${target} previews every PPPoE account and submits only changes after consent`,async t=>{
+ test(`bulk ${target} previews every PPPoE account and confirms the server outcome for every account`,async t=>{
   const opposite=target==='ACTIVE'?'PAUSED':'ACTIVE';
   const selected=[
    {...item,status:opposite},
@@ -81,8 +81,9 @@ for(const target of ['ACTIVE','PAUSED']){
    return {ok:true,json:async()=>({results:entries.map((entry,index)=>({
     item_id:entry.item_id,request_id:entry.request_id,operation:'STATUS',
     actor_id:'actor',router_id:entry.expected_router_id,previous_router_id:entry.expected_router_id,
-    revision:2,previous:{status:opposite},values:{status:target},recorded:true,success:index===0,
-    occurred_at:'2026-11-18T12:00:00Z',error:index===0?null:'Revizyon değişti',
+    source:entry.expected_source,revision:index===2?1:2,previous:{status:index===2?target:opposite},values:{status:target},
+    recorded:index!==2,skipped:index===2,success:index===0,
+    occurred_at:'2026-11-18T12:00:00Z',error:index===1?'Revizyon değişti':null,
    }))})};
   });
   nodes(render()).find(n=>n.type==='select'&&n.props.value==='').props.onChange({target:{value:target}});
@@ -99,21 +100,36 @@ for(const target of ['ACTIVE','PAUSED']){
   await new Promise(setImmediate);
   assert.equal(fetch.mock.callCount(),1);
   const {entries}=JSON.parse(fetch.mock.calls[0].arguments[1].body);
-  assert.deepEqual(entries.map(e=>[e.item_id,e.expected_source,e.value,e.expected_expires_on]),selected.slice(0,2).map(row=>[row.id,row.source,target,row.expires_on]));
+  assert.deepEqual(entries.map(e=>[e.item_id,e.expected_source,e.value,e.expected_expires_on,e.expected_status]),selected.map(row=>[row.id,row.source,target,row.expires_on,row.status]));
   const result=renderToStaticMarkup(render());
   assert.match(result,/Başarılı: 1/);
   assert.match(result,/Başarısız: 1/);
   assert.match(result,/Atlandı: 1/);
-  assert.match(result,/Skipped User · Önizlemede zaten hedef durumda/);
+  assert.match(result,/Skipped User.*Atlandı · Hesap zaten hedef durumda/s);
  });
 }
-test('an all-unchanged bulk status preview has no consent or write action',t=>{
- const fetch=t.mock.method(globalThis,'fetch',()=>{throw new Error('unexpected request');});
+test('an all-unchanged status batch settles without a recovery query',async t=>{
+ const originalWindow=globalThis.window;
+ globalThis.window={dispatchEvent(){}};
+ t.after(()=>{globalThis.window=originalWindow;});
+ const fetch=t.mock.method(globalThis,'fetch',async (_url,init)=>{
+  const {entries}=JSON.parse(init.body);
+  return {ok:true,json:async()=>({results:entries.map(entry=>({
+   item_id:entry.item_id,request_id:entry.request_id,operation:'STATUS',actor_id:'actor',
+   router_id:entry.expected_router_id,previous_router_id:entry.expected_router_id,source:entry.expected_source,
+   revision:entry.expected_revision,previous:{status:entry.value},values:{status:entry.value},
+   recorded:false,skipped:true,success:false,occurred_at:'2026-11-18T12:00:00Z',error:null,
+  }))})};
+ });
  const render=dailyDialog({rows:[item,{...item,id:'demo-managed-sub-same'}],initialAction:'STATUS',onClose(){}});
  nodes(render()).find(n=>n.type==='select'&&n.props.value==='').props.onChange({target:{value:'PAUSED'}});
  nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
- const tree=render();
- assert.match(renderToStaticMarkup(tree),/Atlandı: 2/);
- assert.ok(!nodes(tree).some(n=>n.type==='input'&&n.props.type==='checkbox'||n.type==='button'&&n.props.children==='Onayla ve uygula'));
+ assert.match(renderToStaticMarkup(render()),/0 abone etkilenecek/);
  assert.equal(fetch.mock.callCount(),0);
+ nodes(render()).find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});
+ nodes(render()).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();
+ await new Promise(setImmediate);
+ assert.match(renderToStaticMarkup(render()),/Başarılı: 0.*Atlandı: 2.*Başarısız: 0/s);
+ assert.doesNotMatch(renderToStaticMarkup(render()),/Aynı UUID ile sonuçları sorgula/);
+ assert.equal(fetch.mock.callCount(),1);
 });

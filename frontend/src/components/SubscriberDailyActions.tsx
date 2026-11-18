@@ -17,7 +17,7 @@ import {subscriberSaveDependencies} from '../lib/useSubscriberSave';
 import {useResource} from '../lib/useResource';
 import {invalidateResources} from '../lib/resourceEvents';
 import {useTurkeyToday} from '../lib/useTurkeyToday';
-import {dailyEntries,dailyLabels,maxDailyExtensionDays,previousDailyValue,type DailyAction,type DailyEntry,type OperationReceipt} from '../lib/subscriberManagementCenter';
+import {dailyEntries,dailyLabels,maxDailyExtensionDays,operationResolved,previousDailyValue,type DailyAction,type DailyEntry,type OperationReceipt} from '../lib/subscriberManagementCenter';
 import type {CenterSubscriber} from '../lib/subscriberCenter';
 import {ResourceState,dateTime} from './Resource';
 import {expiryDate} from '../lib/expiry';
@@ -39,15 +39,11 @@ export function SubscriberDailyActions({rows,onClose,initialAction='EXTEND',fixe
   const selected=action==='PLAN'?activePackages.find(row=>row.id===packageId):undefined;
   if(action==='PLAN'&&(catalog.loading||catalog.error||!selected))throw new Error('Kayıtlı aktif paket seçin.');
   const entries=dailyEntries(rows,action,selected?.fields.name??value,days,today,()=>crypto.randomUUID(),selected?{package_id:selected.id,package_revision:selected.revision}:undefined);
-  // Keep all rows in the preview, but send only real status changes to the audit-backed API.
-  const changes=action==='STATUS'&&rows.length>1
-   ? entries.filter((entry,index)=>entry.value!==rows[index].status)
-   : entries;
-  frozen.current={entries:changes,body:JSON.stringify({entries:changes}),package:selected?{...selected.fields}:undefined};attempted.current=false;
+  frozen.current={entries,body:JSON.stringify({entries}),package:selected?{...selected.fields}:undefined};attempted.current=false;
   setReview(entries);setConfirmed(false);setResults(null);setUncertain(false);setRejected(false);
  }catch(e){setError(e instanceof Error?e.message:'Alanları kontrol edin.');}}
  async function save(){
-  if(!frozen.current?.entries.length||!confirmed||sending.current||rejected||results?.every(r=>r.recorded))return;
+  if(!frozen.current?.entries.length||!confirmed||sending.current||rejected||results?.every(operationResolved))return;
   const command=frozen.current,query=attempted.current;attempted.current=true;
   sending.current=true;setBusy(true);setError('');
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
@@ -59,21 +55,19 @@ export function SubscriberDailyActions({rows,onClose,initialAction='EXTEND',fixe
     const data=await api<{results:OperationReceipt[]}>('/subscriber-workspace/management/execute',{method:'POST',signal:controller.signal,headers:{'X-V2-Demo-Action':'subscriber-workspace'},body:command.body});
     if(!Array.isArray(data?.results)||data.results.length!==command.entries.length||new Set(data.results.map(r=>r?.request_id)).size!==command.entries.length)throw new Error('İşlem sonuçları onaylanan kayıtlarla eşleşmedi.');
     receipts=command.entries.map(entry=>data.results.find(receipt=>operationReceiptMatches(entry,receipt))??unknownOperation(entry));
-    if(!receipts.some(receipt=>receipt.recorded))throw new Error('İşlem sonuçları onaylanan kayıtlarla eşleşmedi.');
+    if(!receipts.some(operationResolved))throw new Error('İşlem sonuçları onaylanan kayıtlarla eşleşmedi.');
    }
-   for(const receipt of receipts)if(receipt.recorded)forgetPending(receipt.request_id);
-   setResults(receipts);setUncertain(receipts.some(r=>!r.recorded));
+   for(const receipt of receipts)if(operationResolved(receipt))forgetPending(receipt.request_id);
+   setResults(receipts);setUncertain(receipts.some(r=>!operationResolved(r)));
   }catch(e){
    const failed=!query&&e instanceof ApiError&&[400,401,403,404,409,422].includes(e.status);
    if(failed)for(const entry of command.entries)forgetPending(entry.request_id);
    setRejected(failed);setUncertain(!failed);
-   if(!failed)setResults(command.entries.map(entry=>results?.find(r=>r.recorded&&operationReceiptMatches(entry,r))??unknownOperation(entry)));
+   if(!failed)setResults(command.entries.map(entry=>results?.find(r=>operationResolved(r)&&operationReceiptMatches(entry,r))??unknownOperation(entry)));
    setError(subscriberOperationError(e));
   }finally{clearTimeout(timer);sending.current=false;setBusy(false);invalidateResources([...subscriberSaveDependencies]);}
  }
- const changeIds=new Set(frozen.current?.entries.map(entry=>entry.item_id));
- const unchanged=review?.filter(entry=>!changeIds.has(entry.item_id))??[];
- const changeCount=changeIds.size;
+ const changeCount=review?.filter(entry=>entry.operation!=='STATUS'||entry.expected_status!==entry.value).length??0;
  const display=(v:string|null)=>action==='EXTEND'||action==='EXPIRE'?expiryDate(v):action==='STATUS'?(v==='ACTIVE'?'Aktif hesap':v==='PAUSED'?'Pasif hesap':'Bilinmiyor'):action==='ROUTER'?`${routers.data?.items.find(r=>r.id===v)?.fields.name??rows.find(r=>r.router_id===v)?.router_name??'Ad bilinmiyor'} · ${v}`:v??'Bilinmiyor';
  return <dialog ref={dialog} className={'expiry-dialog router-onboarding'+(entryAction.current?' fixed-subscriber-operation':'')} aria-busy={busy} aria-labelledby="daily-title" onCancel={e=>{e.preventDefault();if(!busy)onClose();}}><h2 id="daily-title">{title} · SENTETİK</h2><p>{rows.length} seçili abone · Yalnız sentetik kayıt ve audit değişir. Her abone için sonuç ayrı doğrulanır.</p>
  <details><summary>Seçilen aboneler ({rows.length})</summary><ul>{rows.map(row=><li key={row.id}>{row.customer_name} · {row.username} · {row.access_type} · {row.router_name}</li>)}</ul></details>
@@ -85,20 +79,16 @@ export function SubscriberDailyActions({rows,onClose,initialAction='EXTEND',fixe
   {!attempted.current&&<button className="button-secondary" onClick={()=>{setReview(null);setConfirmed(false);frozen.current=null;}}>Önizlemeyi düzenle</button>}
   <div className="daily-review">{review.map(entry=>{
    const row=rows.find(r=>r.id===entry.item_id)!;
-   const outcome=!changeIds.has(entry.item_id)
-    ? 'Önizlemede zaten hedef durumda; işlem gönderilmeyecek.'
+   const outcome=entry.operation==='STATUS'&&entry.expected_status===entry.value
+    ? 'Önizlemede zaten hedef durumda. Uygulamada yeniden doğrulanacak.'
     : action==='STATUS'?'Hesap durumu değişecek; abonelik bitişi korunacak.':action==='PLAN'?'Paket değişecek; abonelik bitişi korunacak.':'Yalnız önizlenen alan ve audit kaydı değişecek.';
-   return <SubscriberOperationPreview key={entry.item_id} subscriber={row.customer_name} username={row.username} router={row.router_name??'Bilinmiyor'} changes={[{label:action==='EXTEND'?'Bitiş tarihi':dailyLabels[action],previous:display(action==='EXTEND'?entry.expected_expires_on:previousDailyValue(row,action)),next:display(entry.value)},...(action==='PLAN'?[{label:'Hız',previous:packageSpeed(row.package_snapshot),next:packageSpeed(frozen.current?.package)}]:[])]} outcome={outcome}/>;
+   return <SubscriberOperationPreview key={entry.item_id} subscriber={row.customer_name} username={row.username} router={row.router_name??'Bilinmiyor'} changes={[{label:action==='EXTEND'?'Bitiş tarihi':dailyLabels[action],previous:display(action==='EXTEND'?entry.expected_expires_on:action==='STATUS'?entry.expected_status??null:previousDailyValue(row,action)),next:display(entry.value)},...(action==='PLAN'?[{label:'Hız',previous:packageSpeed(row.package_snapshot),next:packageSpeed(frozen.current?.package)}]:[])]} outcome={outcome}/>;
   })}</div>
-  {changeCount>0&&<><label className="registry-consent"><input type="checkbox" disabled={busy} checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>Değişecek {changeCount} sentetik kayıt için önceki/yeni değerleri inceledim ve onaylıyorum.</label>
-  {!attempted.current&&<button className="button-primary" disabled={!confirmed||busy} onClick={()=>void save()}>Onayla ve uygula</button>}</>}
+  <label className="registry-consent"><input type="checkbox" disabled={busy} checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>Seçili {review.length} sentetik kayıt için önceki/yeni değerleri inceledim ve onaylıyorum.</label>
+  {!attempted.current&&<button className="button-primary" disabled={!confirmed||busy} onClick={()=>void save()}>Onayla ve uygula</button>}
  </>}
  {busy&&<p role="status">İşlem sonucu bekleniyor…</p>}
  {results&&<SubscriberOperationResults results={results} rows={rows} routerName={id=>routers.data?.items.find(r=>r.id===id)?.fields.name}>{attempted.current&&!rejected&&uncertain&&<button className="button-secondary" disabled={busy||!confirmed} onClick={()=>void save()}>Aynı UUID ile sonuçları sorgula</button>}</SubscriberOperationResults>}
- {!!unchanged.length&&(results||rejected||!changeCount)&&<section aria-label="Değişiklik yapılmayan aboneler">
-  <h3>Atlandı: {unchanged.length}</h3>
-  <ul>{unchanged.map(entry=><li key={entry.item_id}>{rows.find(row=>row.id===entry.item_id)?.customer_name} · Önizlemede zaten hedef durumda</li>)}</ul>
- </section>}
  {!results&&attempted.current&&<details className="technical-info"><summary>Teknik detaylar</summary><p>İstekler: {frozen.current?.entries.map(e=>e.request_id).join(', ')}</p>{!rejected&&uncertain&&<button className="button-secondary" disabled={busy||!confirmed} onClick={()=>void save()}>Aynı UUID ile sonuçları sorgula</button>}</details>}
  </>}
 
