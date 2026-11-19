@@ -116,6 +116,15 @@ class DailyManagement(cases.SubscriberTransactions):
                     receipts=OperationResults.model_validate(routes.manage(SubscriberOperations(entries=entries),user)).results
                 self.assertEqual([(r.success,r.skipped,r.recorded) for r in receipts],
                                  [(False,True,False),(False,True,False),(False,False,True),(True,False,True)])
+                self.assertEqual({r.execution_type for r in receipts},{'BULK'})
+                self.assertEqual(len({r.group_id for r in receipts}),1)
+                group_id=str(receipts[0].group_id)
+                report=self.ops.history(daily=True,result='SKIPPED',group_filter=group_id,page_size=1)
+                self.assertEqual(report['total'],2)
+                self.assertEqual(report['groups'],[dict(group_id=group_id,total=4,success=1,failed=1,skipped=2)])
+                with patch.object(routes,'operations',self.ops),patch.object(routes,'workspace',self.workspace):
+                    replay=routes.manage(SubscriberOperations(entries=list(reversed(entries))),user)
+                self.assertEqual(OperationResults.model_validate(replay).results,list(reversed(receipts)))
                 for index,row in enumerate(rows):
                     detail=self.workspace.detail(row.id)
                     self.assertEqual(detail.item.source,row.source)
@@ -123,7 +132,11 @@ class DailyManagement(cases.SubscriberTransactions):
                     self.assertEqual(detail.item.status,other if index==2 else target)
                     if index<2:
                         self.assertEqual(detail,baseline[index])
-                        self.assertEqual(self.ops.request_result(entries[index].request_id,'actor')['status'],'UNKNOWN')
+                        recovered=self.ops.request_result(entries[index].request_id,'actor')
+                        self.assertEqual(recovered['status'],'SKIPPED')
+                        self.assertEqual(recovered['response']['group_id'],str(receipts[index].group_id))
+                        self.assertNotIn('audit',recovered)
+                        self.assertEqual(self.ops.request_result(entries[index].request_id,'other')['status'],'UNKNOWN')
                     elif index==2:
                         self.assertEqual(detail.item,baseline[index].item)
                         self.assertIn('önizlemeden sonra',receipts[index].error)

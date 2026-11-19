@@ -32,8 +32,11 @@ export async function readOperationResults(entries:DailyEntry[],known:OperationR
    const index=cursor++;if(operationResolved(results[index]))continue;
    const entry=entries[index];
    try{
-    const result=await api<{request_id:string;status:'SUCCESS'|'FAILED'|'UNKNOWN';response:OperationReceipt|null}>('/subscriber-workspace/management/requests/'+encodeURIComponent(entry.request_id),{signal});
-    if(result?.request_id===entry.request_id&&result.status!=='UNKNOWN'&&result.response?.recorded===true&&operationReceiptMatches(entry,result.response)&&((result.status==='SUCCESS'&&result.response.success)||(result.status==='FAILED'&&!result.response.success)))results[index]=result.response;
+    const result=await api<{request_id:string;status:'SUCCESS'|'FAILED'|'SKIPPED'|'UNKNOWN';response:OperationReceipt|null}>('/subscriber-workspace/management/requests/'+encodeURIComponent(entry.request_id),{signal});
+    const receipt=result?.response;
+    if(result?.request_id!==entry.request_id||!receipt||!operationReceiptMatches(entry,receipt))continue;
+    if((receipt.recorded&&result.status===(receipt.success?'SUCCESS':'FAILED'))||
+       (receipt.skipped===true&&result.status==='SKIPPED'))results[index]=receipt;
    }catch{/* A failed GET cannot determine the original write's outcome. */}
   }
  }

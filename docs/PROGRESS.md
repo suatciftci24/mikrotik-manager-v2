@@ -1,5 +1,28 @@
 # MikroTik Manager V2 — İlerleme
 
+## Toplu işlem takibi V2 — V2.6.4
+
+- Ofis WSL, `~/mikrotik-v2-ortak`, `development/v2.6.2-pppoe`, taban
+  `b89dbc2f04a3a3f35067d88f179349bd2fa13e99`. Eski API her abone için
+  ayrı istek kimliği kullanıyor ve atlamayı yalnız yanıtında taşıyordu.
+- Yönetim API'si aktör ve onaylı istek UUID'lerinden sabit toplu grup kimliği
+  üretir. Başarılı ve başarısız sonuçlar mevcut audit'te, atlamalar ayrı sonuç
+  tablosunda saklanır. Atlanan abonede revizyon ve audit değişmez. Aynı UUID
+  ile sonuç kurtarma aktöre ve router yetkisine bağlıdır.
+- Günlük rapor tekil, toplu ve kapsamı bilinmeyen kayıtları ayırır.
+  Grup özeti yetkili router sonuçlarından hesaplanır. CSV işlem, kapsam,
+  grup ve sonucu içerir. Eski audit'e grup veya atlama bilgisi eklenmedi.
+- PostgreSQL şeması repo DDL'inden incelendi. Migration 012 ve geri alma SQL'i
+  hazırlandı. Migration uygulanmadı, PostgreSQL çalışma zamanı doğrulanmadı.
+- PASS: İzole SQLite/ASGI `test_v26_test001_acceptance`,
+  `test_subscriber_daily_management`, `test_pppoe_workspace_access`,
+  `test_package_subscription_flow`, `test_audit_center` 41/41.
+  Frontend `node --test --test-isolation=none` ile audit, rapor, günlük işlem
+  ve sonuç kurtarma 41/41. `npm run build --prefix frontend` ve diff kontrolü PASS.
+- Push BLOCKED. `bash tools/check-git-transfer.sh` kayıtlı Ofis checkout'u
+  olarak `~/v26-transfer/mikrotik-v26-next` yolunu bekliyor. Uzak aktarım
+  başlatılmadı.
+
 ## Abone toplu işlem geçmişi ve raporu — V2.6.4
 
 - Ev WSL ortak checkout, `development/v2.6.2-pppoe`, taban `6a8455f4`.

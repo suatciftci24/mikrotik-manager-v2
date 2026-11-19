@@ -32,6 +32,8 @@ def storage_error_detail(error):
     if state in ('42P01','3F000'):
         # Only our own qualified SQL identifies which migration owns the missing object.
         statement=(getattr(error,'statement',None) or '').replace('"','')
+        if 'v2_subscriber_workspace.operation_skips' in statement:
+            return 'Abone işlem sonuçları için migration 012 tablosu bulunamadı.'
         if 'v2_subscriber_workspace.' in statement and 'v2_router_workspace.' in statement:
             return 'Yerel çalışma alanı sorgusunda şema veya tablo bulunamadı. Sorgu 007 ve 008 kapsamını birlikte kullanıyor; eksik nesne salt okunur katalog kontrolüyle belirlenmeli. Otomatik migration yapılmadı.'
         if 'v2_subscriber_workspace.packages' in statement or 'v2_subscriber_workspace.package_events' in statement:

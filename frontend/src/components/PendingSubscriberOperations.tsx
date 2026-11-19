@@ -19,7 +19,7 @@ export function PendingSubscriberOperations(){
      const status=await recoverPending(item,AbortSignal.any([controller.signal,AbortSignal.timeout(15000)]),api);
      if(controller.signal.aborted)break;
      if(status==='DENIED'){controller.abort();setItems([]);setMessages([]);break;}
-     if(status!=='UNKNOWN')setMessages(m=>[...m,`${item.id}: ${status==='SUCCESS'?'İşlemin atomik kaydı ve güncel abone okuması doğrulandı':'İşlem başarısız olarak kaydedildi'}`]);
+     if(status!=='UNKNOWN')setMessages(m=>[...m,`${item.id}: ${status==='SUCCESS'?'İşlemin atomik kaydı ve güncel abone okuması doğrulandı':status==='SKIPPED'?'Kayıtlı atlama sonucu doğrulandı':'İşlem başarısız olarak kaydedildi'}`]);
      invalidateResources([...subscriberSaveDependencies]);
     }catch(e){if(e instanceof ApiError&&[401,403].includes(e.status)){pendingIdentity(null);controller.abort();setItems([]);setMessages([]);break;}}
    }}finally{busy=false;if(!controller.signal.aborted)setItems(pendingOperations().filter(i=>i.actor===user?.id&&user.role_code==='ADMIN'));}

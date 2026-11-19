@@ -59,6 +59,10 @@ test('verified skips survive recovery without a lookup and reject inconsistent e
  const results=await readOperationResults([skippedEntry,pending],[skip],new AbortController().signal);
  assert.deepEqual(results,[skip,unknownOperation(pending)]);
  assert.equal(fetch.mock.callCount(),1);
+ fetch.mock.mockImplementation(async()=>({ok:true,json:async()=>({request_id:skippedEntry.request_id,status:'SKIPPED',response:skip})}));
+ assert.deepEqual(await readOperationResults([skippedEntry],[],new AbortController().signal),[skip]);
+ fetch.mock.mockImplementation(async()=>({ok:true,json:async()=>({request_id:skippedEntry.request_id,status:'FAILED',response:skip})}));
+ assert.deepEqual(await readOperationResults([skippedEntry],[],new AbortController().signal),[unknownOperation(skippedEntry)]);
 });
 test('GET fanout is capped at five; aborted recovery never starts more work',async()=>{
  const entries=Array.from({length:12},(_,i)=>entry(i)),oldFetch=globalThis.fetch;

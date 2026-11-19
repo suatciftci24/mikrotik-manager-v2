@@ -10,7 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError,IntegrityError
 from fastapi import HTTPException
 from pydantic import ValidationError
 from app.models.router_workspace import RouterWorkspaceRecord as Router,RouterWorkspaceAudit as RouterAudit
-from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as Event
+from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as Event, SyntheticSubscriberSkip as Skip
 from app.schemas.subscriber_center import SyntheticSubscriberCommand,SubscriberCenterData
 from app.services.subscriber_center import SubscriberWorkspace,legacy_center
 from app.services.router_workspace import WorkspaceError
@@ -24,7 +24,7 @@ class SubscriberTransactions(TestCase):
         event.listen(self.engine,'connect',lambda connection,_:connection.execute('PRAGMA foreign_keys=ON'))
         from sqlalchemy.schema import BLANK_SCHEMA
         metadata=MetaData()
-        for table in (Router.__table__,RouterAudit.__table__,Account.__table__,Event.__table__):table.to_metadata(metadata,schema=None,referred_schema_fn=lambda *args:BLANK_SCHEMA)
+        for table in (Router.__table__,RouterAudit.__table__,Account.__table__,Event.__table__,Skip.__table__):table.to_metadata(metadata,schema=None,referred_schema_fn=lambda *args:BLANK_SCHEMA)
         metadata.create_all(self.engine)
         self.sessions=sessionmaker(bind=self.engine,expire_on_commit=False)
         self.router_id='demo-managed-router-'+str(uuid4())

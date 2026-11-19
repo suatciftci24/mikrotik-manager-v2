@@ -32,9 +32,9 @@ def request_audit(event,account,router_id,source,success):
                 source=source,revision=event.revision,operation=event.operation,occurred_at=event.occurred_at,
                 success=success,storage='PERSISTENT_WORKSPACE',is_demo=True)
 
-def event_scope(ids):
-    recorded=func.coalesce(Event.changes['_router_id'].as_string(),Event.changes['_management']['receipt']['router_id'].as_string())
-    previous=Event.changes['_management']['receipt']['previous_router_id'].as_string()
+def event_scope(ids, event=Event):
+    recorded=func.coalesce(event.changes['_router_id'].as_string(),event.changes['_management']['receipt']['router_id'].as_string())
+    previous=event.changes['_management']['receipt']['previous_router_id'].as_string()
     return [recorded.in_(ids),or_(previous.is_(None),previous.in_(ids))]
 
 class SubscriberWorkspace:

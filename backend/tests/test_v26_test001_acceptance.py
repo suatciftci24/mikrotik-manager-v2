@@ -11,6 +11,7 @@ import test_subscriber_center as fixtures
 from test_v26_subscriber_consistency import ASGIClient as SocketFreeASGIClient
 from app.models.subscriber_workspace import SyntheticSubscriber as Account, SyntheticSubscriberEvent as Event
 from app.services.subscriber_operations import SubscriberOperationsService
+from app.schemas.subscriber_management_center import OperationHistoryItem
 
 
 class ASGIClient(SocketFreeASGIClient):
@@ -43,6 +44,8 @@ class Test001Workspace(TestCase):
         self.ops = SubscriberOperationsService(self.sessions, lambda s:None)
         for target, name, value in [(routes,'workspace',self.workspace),(routes,'operations',self.ops)]:
             p=patch.object(target,name,value);p.start();self.addCleanup(p.stop)
+        names=patch('app.services.identity.audit_actor_usernames',return_value={})
+        names.start();self.addCleanup(names.stop)
         # A mistaken route to the configured PostgreSQL engine fails before any IO.
         for name in ('connect','begin'):
             p=patch.object(configured_engine,name,side_effect=AssertionError('configured DB forbidden'))
@@ -85,6 +88,7 @@ class Test001Workspace(TestCase):
                 self.assertEqual(response.status_code,200,response.text)
                 receipt=response.json()['results'][0]
                 self.assertTrue(receipt['success']);self.assertTrue(receipt['recorded'])
+                self.assertEqual(receipt['execution_type'],'SINGLE');self.assertIsNone(receipt['group_id'])
                 detail=self.client.get('/api/v1/subscriber-center/'+self.item['id'])
                 self.assertEqual(detail.status_code,200,detail.text)
                 detail=detail.json();current=detail['item']
@@ -110,7 +114,8 @@ class Test001Workspace(TestCase):
                 self.assertEqual(audit['previous_values'][field],old.model_dump(mode='json')[field])
                 history=self.client.get('/api/v1/subscriber-workspace/management/history',params={'item_id':self.item['id']})
                 self.assertEqual(history.status_code,200)
-                self.assertEqual(next(e for e in history.json()['items'] if e['request_id']==command['request_id']),receipt)
+                self.assertEqual(next(e for e in history.json()['items'] if e['request_id']==command['request_id']),
+                                 OperationHistoryItem.model_validate(receipt).model_dump(mode='json'))
                 stable=self.snapshot()
                 self.assertEqual(self.client.post(self.path,headers=self.headers,json={'entries':[command]}).json(),response.json())
                 self.assertEqual(self.snapshot(),stable)

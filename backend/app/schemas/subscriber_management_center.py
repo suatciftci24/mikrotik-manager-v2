@@ -45,6 +45,8 @@ class OperationReceipt(BaseModel):
     success:bool
     recorded:bool
     skipped:bool=False
+    execution_type:Literal['SINGLE','BULK']|None=None
+    group_id:UUID|None=None
     operation:str
     actor_id:str
     router_id:str|None=None
@@ -67,7 +69,11 @@ class OperationHistoryItem(OperationReceipt):
 class OperationHistoryCounts(BaseModel):
     success:int
     failed:int
-    skipped:None=None
+    skipped:int
+
+class OperationGroupCounts(OperationHistoryCounts):
+    group_id:UUID
+    total:int
 
 class OperationHistory(BaseModel):
     items:list[OperationHistoryItem]
@@ -75,11 +81,12 @@ class OperationHistory(BaseModel):
     page:int
     page_size:int
     counts:OperationHistoryCounts|None=None
+    groups:list[OperationGroupCounts]=Field(default_factory=list)
     is_demo:Literal[True]=True
 
 
 class OperationRequestResult(BaseModel):
     request_id:UUID
-    status:Literal['SUCCESS','FAILED','UNKNOWN']
+    status:Literal['SUCCESS','FAILED','SKIPPED','UNKNOWN']
     response:OperationReceipt|None=None
     audit:SubscriberRequestAudit|None=None

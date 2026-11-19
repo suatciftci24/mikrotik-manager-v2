@@ -44,8 +44,8 @@ class OperatorAccess(TestCase):
         directory=tempfile.TemporaryDirectory();self.addCleanup(directory.cleanup)
         engine=create_engine('sqlite+pysqlite:///'+str(Path(directory.name)/'workspace.db'),connect_args={'check_same_thread':False},execution_options={'schema_translate_map':{'v2_router_workspace':None,'v2_subscriber_workspace':None}});self.addCleanup(engine.dispose)
         Record.__table__.create(engine);Audit.__table__.create(engine)
-        from app.models.subscriber_workspace import SyntheticSubscriber,SyntheticSubscriberEvent
-        SyntheticSubscriber.__table__.create(engine);SyntheticSubscriberEvent.__table__.create(engine)
+        from app.models.subscriber_workspace import SyntheticSubscriber,SyntheticSubscriberEvent,SyntheticSubscriberSkip
+        SyntheticSubscriber.__table__.create(engine);SyntheticSubscriberEvent.__table__.create(engine);SyntheticSubscriberSkip.__table__.create(engine)
         self.sessions=sessionmaker(bind=engine,expire_on_commit=False)
         self.store=RouterWorkspace(self.sessions,lambda session:None)
         self.allowed='demo-managed-router-b';self.hidden='demo-managed-router-a'

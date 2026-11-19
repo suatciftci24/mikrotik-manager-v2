@@ -37,7 +37,7 @@ export function rememberPending(id:string,resultPath:string){
  if(!kind)return;
  try{localStorage.setItem(pendingPrefix+id,JSON.stringify({actor:identity.id,id,kind,created:Date.now()}));window.dispatchEvent(new Event('v2-pending-change'));}catch{}
 }
-export async function recoverPending(item:PendingOperation,signal:AbortSignal,request:<T>(path:string,init?:RequestInit)=>Promise<T>):Promise<'SUCCESS'|'FAILED'|'UNKNOWN'|'DENIED'>{
+export async function recoverPending(item:PendingOperation,signal:AbortSignal,request:<T>(path:string,init?:RequestInit)=>Promise<T>):Promise<'SUCCESS'|'FAILED'|'SKIPPED'|'UNKNOWN'|'DENIED'>{
  const stamp=generation,actor=identity;
  const valid=()=>!signal.aborted&&stamp===generation&&actor?.id===item.actor&&actor.role_code==='ADMIN'&&actor.active!==false&&identity?.id===item.actor;
  if(!valid())return 'DENIED';
@@ -47,8 +47,24 @@ export async function recoverPending(item:PendingOperation,signal:AbortSignal,re
  if(!valid())return 'DENIED';
  const result=await request<{request_id:string;status:string;response:unknown;audit?:Record<string,unknown>}>(paths[item.kind]+item.id,{signal});
  if(!valid())return 'DENIED';
- if(result?.request_id!==item.id||!['SUCCESS','FAILED'].includes(result.status)||!result.response||typeof result.response!=='object')return 'UNKNOWN';
+ if(result?.request_id!==item.id||!['SUCCESS','FAILED','SKIPPED'].includes(result.status)||!result.response||typeof result.response!=='object')return 'UNKNOWN';
  const response=result.response as Record<string,unknown>;
+ if(result.status==='SKIPPED'){
+  const previous=response.previous as Record<string,unknown>|undefined;
+  const next=response.values as Record<string,unknown>|undefined;
+  if(item.kind!=='bulk'||result.audit||response.request_id!==item.id||response.actor_id!==item.actor||
+     response.operation!=='STATUS'||response.skipped!==true||response.success!==false||
+     response.recorded!==false||response.error!==null||!['ACTIVE','PAUSED'].includes(String(previous?.status))||
+     next?.status!==previous?.status||typeof response.item_id!=='string'||!response.item_id.startsWith('demo-managed-sub-')||
+     typeof response.router_id!=='string'||!response.router_id.startsWith('demo-managed-router-')||
+     response.router_id!==response.previous_router_id||!['LOCAL','RADIUS'].includes(String(response.source))||
+     !Number.isInteger(response.revision)||Number(response.revision)<1||
+     typeof response.occurred_at!=='string'||!Number.isFinite(Date.parse(response.occurred_at)))return 'UNKNOWN';
+  const verified=await request<User>('/auth/me',{signal});
+  if(!valid()||identityStamp(verified)!==identityStamp(actor)){pendingIdentity(verified);return 'DENIED';}
+  forgetPending(item.id);
+  return 'SKIPPED';
+ }
  if(item.kind==='bulk'&&(response.request_id!==item.id||response.actor_id!==item.actor||response.recorded!==true||response.success!==(result.status==='SUCCESS')))return 'UNKNOWN';
  const audit=result.audit;
  if(item.kind!=='legacy'){

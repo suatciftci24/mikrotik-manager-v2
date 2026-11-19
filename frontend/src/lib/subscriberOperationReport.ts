@@ -9,6 +9,7 @@ export type OperationReportRow=OperationReceipt & {
 };
 
 export const operationReportResults={SUCCESS:'Başarılı',SKIPPED:'Atlandı',FAILED:'Başarısız'} as const;
+export const executionLabels={SINGLE:'Tekil',BULK:'Toplu',UNKNOWN:'Veri yok'} as const;
 export const operationReportTypes=['EXTEND','PLAN','STATUS'] as const;
 export const operationReportPath='/subscriber-workspace/management/history';
 
@@ -18,10 +19,10 @@ export function operationReportResult(row:OperationReportRow){
 
 export function operationReportCsv(rows:OperationReportRow[]){
  return excelCsv(
-  ['İşlem zamanı (Türkiye saati)','İşlemi yapan','Aktör kimliği','Abone','Abone kullanıcı adı','Abone kimliği','Yetkili kaynak','İşlem','Sonuç','Önceki değerler','Yeni değerler','Audit UUID'],
+  ['İşlem zamanı (Türkiye saati)','İşlemi yapan','Aktör kimliği','Abone','Abone kullanıcı adı','Abone kimliği','Yetkili kaynak','İşlem','İşlem kapsamı','Grup kimliği','Sonuç','Önceki değerler','Yeni değerler','İstek UUID'],
   rows.map(row=>[
    auditLocalTime(row.occurred_at),historyActor(row),row.actor_id,row.subscriber_name,row.subscriber_username,row.item_id,
-   row.source,dailyLabels[row.operation]??row.operation,operationReportResult(row),valuesText(row.previous),valuesText(row.values),row.request_id,
+   row.source,dailyLabels[row.operation]??row.operation,row.execution_type?executionLabels[row.execution_type]:null,row.group_id,operationReportResult(row),valuesText(row.previous),valuesText(row.values),row.request_id,
   ]),
  );
 }

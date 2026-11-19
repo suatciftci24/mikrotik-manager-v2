@@ -15,9 +15,7 @@ class SyntheticSubscriber(Base):
     revision:Mapped[int]=mapped_column(Integer)
     fields:Mapped[dict]=mapped_column(JSON)
 
-class SyntheticSubscriberEvent(Base):
-    __tablename__='events'
-    __table_args__={'schema':'v2_subscriber_workspace'}
+class SubscriberOperationRecord:
     id:Mapped[str]=mapped_column(String(36),primary_key=True)
     subscriber_id:Mapped[str]=mapped_column(String(64),index=True)
     actor_id:Mapped[str]=mapped_column(String(80))
@@ -25,3 +23,13 @@ class SyntheticSubscriberEvent(Base):
     revision:Mapped[int]=mapped_column(Integer)
     operation:Mapped[str]=mapped_column(String(20))
     changes:Mapped[dict]=mapped_column(JSON)
+
+
+class SyntheticSubscriberEvent(SubscriberOperationRecord, Base):
+    __tablename__ = 'events'
+    __table_args__ = {'schema': 'v2_subscriber_workspace'}
+
+
+class SyntheticSubscriberSkip(SubscriberOperationRecord, Base):
+    __tablename__ = 'operation_skips'
+    __table_args__ = (CheckConstraint("operation = 'STATUS'"), {'schema': 'v2_subscriber_workspace'})

@@ -111,3 +111,20 @@ test('expired tracking stays visibly UNKNOWN for this session, removes persisted
  assert.equal(await m.recoverPending(expired,new AbortController().signal,()=>{throw Error('expired requests must not query');}),'UNKNOWN');assert.equal(m.pendingOperations().length,1);
  m.pendingIdentity(null);assert.equal(m.pendingOperations().length,0);
 });
+
+test('reopened status skip resolves from its outcome without a change audit',async()=>{
+ const m=setup();m.pendingIdentity(user);
+ const resultPath='/subscriber-workspace/management/requests/'+id;
+ m.rememberPending(id,resultPath);
+ const {response}=proof('bulk');
+ const skip={...response,previous:response.values,previous_router_id:response.router_id,
+  skipped:true,success:false,recorded:false,source:'LOCAL',error:null};
+ const paths=[];
+ const result=await m.recoverPending(m.pendingOperations()[0],new AbortController().signal,async path=>{
+  paths.push(path);
+  return path==='/auth/me'?user:{request_id:id,status:'SKIPPED',response:skip,audit:null};
+ });
+ assert.equal(result,'SKIPPED');
+ assert.deepEqual(paths,['/auth/me',resultPath,'/auth/me']);
+ assert.deepEqual(m.pendingOperations(),[]);
+});

@@ -5,18 +5,21 @@ import {linkedDetailHash} from '../lib/detailLinks';
 import {reportPages} from '../lib/managementReport';
 import {dailyLabels} from '../lib/subscriberManagementCenter';
 import {historyActor,valuesText} from '../lib/subscriberHistory';
-import {operationReportCsv,operationReportPath,operationReportResult,operationReportResults,operationReportTypes,type OperationReportRow} from '../lib/subscriberOperationReport';
+import {executionLabels,operationReportCsv,operationReportPath,operationReportResult,operationReportResults,operationReportTypes,type OperationReportRow} from '../lib/subscriberOperationReport';
 import {useResource} from '../lib/useResource';
 
-type ReportPage={items:OperationReportRow[];total:number;counts:{success:number;failed:number;skipped:null};is_demo:true};
-const emptyFilters={start:'',end:'',actor_id:'',operation:'ALL',result:'ALL'};
+type Counts={success:number;failed:number;skipped:number};
+type ReportPage={items:OperationReportRow[];total:number;counts:Counts;groups:{group_id:string;total:number;success:number;failed:number;skipped:number}[];is_demo:true};
+const emptyFilters={start:'',end:'',actor_id:'',operation:'ALL',result:'ALL',execution_type:'ALL',group_id:''};
 const pageSize=25;
 
 export function SubscriberOperationReport(){
  const [draft,setDraft]=useState(emptyFilters),[filters,setFilters]=useState(emptyFilters),[page,setPage]=useState(1);
  const [exporting,setExporting]=useState(false),[exportError,setExportError]=useState('');
  const activeExport=useRef<AbortController|null>(null);
- const path=operationReportPath+'?'+new URLSearchParams({...filters,daily:'true'});
+ const params=new URLSearchParams({...filters,daily:'true'});
+ if(!filters.group_id)params.delete('group_id');
+ const path=operationReportPath+'?'+params;
  const resource=useResource<ReportPage>(path+`&page=${page}&page_size=${pageSize}`);
  const data=resource.data;
  const error=resource.error||(data&&(data.is_demo!==true||!data.counts)?'Toplu işlem raporu kaynağı doğrulanamadı.':undefined);
@@ -69,19 +72,25 @@ export function SubscriberOperationReport(){
    <label className="form-label">İşlem türü<select value={draft.operation} onChange={e=>setDraft({...draft,operation:e.target.value})}><option value="ALL">Tümü</option>{operationReportTypes.map(key=><option key={key} value={key}>{dailyLabels[key]}</option>)}</select></label>
    <label className="form-label">İşlemi yapan kullanıcı kimliği<input maxLength={80} value={draft.actor_id} onChange={e=>setDraft({...draft,actor_id:e.target.value})}/></label>
    <label className="form-label">Sonuç<select value={draft.result} onChange={e=>setDraft({...draft,result:e.target.value})}><option value="ALL">Tümü</option>{Object.entries(operationReportResults).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+   <label className="form-label">İşlem kapsamı<select value={draft.execution_type} onChange={e=>setDraft({...draft,execution_type:e.target.value})}><option value="ALL">Tümü</option>{Object.entries(executionLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+   {filters.group_id&&<button type="button" className="button-secondary" onClick={()=>{const next={...draft,group_id:''};setDraft(next);apply(next);}}>Grup filtresini kaldır</button>}
    <button className="button-primary">Filtrele</button>
    <button type="button" className="button-secondary" onClick={()=>{setDraft(emptyFilters);apply(emptyFilters);}}>Temizle</button>
   </form>
-  <p>Uzatma, paket ve durum audit kayıtları abone bazındadır. Toplu çağrı kimliği ve atlanan satırlar audit’te tutulmaz.</p>
   <button className="button-secondary" disabled={resource.loading||!!error||!data?.total||exporting} onClick={()=>void download()}>{exporting?'CSV hazırlanıyor…':'Filtrelenen kayıtları CSV indir'}</button>
   {exportError&&<p role="alert">{exportError}</p>}
   <ResourceState {...resource} error={error}/>
   {!resource.loading&&!error&&data&&<>
-   <p role="status">Başarılı: {data.counts.success} · Atlandı: Veri yok · Başarısız: {data.counts.failed}</p>
-   <p>Özet, sonuç filtresi dışındaki seçili ölçütlere göre hesaplanır.</p>
-   {filters.result==='SKIPPED'?<p>Atlanan işlemler için geçmiş kaydı bulunmaz.</p>:data.items.length===0?<p>Bu filtrelere uyan kayıt bulunamadı.</p>:<ol className="registry-history">
+   <p role="status">Başarılı: {data.counts.success} · Atlandı: {data.counts.skipped} · Başarısız: {data.counts.failed}</p>
+   <p>Sonuç filtresi özet sayımlarını değiştirmez. Atlandı sayısı yalnızca kalıcı sonuç kayıtlarını içerir.</p>
+   {!!data.groups?.length&&<ul aria-label="Yetkili kayıtların grup toplamları" className="registry-history">{data.groups.map(group=><li key={group.group_id}>
+    <button type="button" className="record-link" onClick={()=>{const next={...emptyFilters,execution_type:'BULK',group_id:group.group_id};setDraft(next);apply(next);}}>{group.group_id}</button>
+    <span>Toplam: {group.total} · Başarılı: {group.success} · Başarısız: {group.failed} · Atlandı: {group.skipped}</span>
+   </li>)}</ul>}
+   {data.items.length===0?<p>Bu filtrelere uyan kayıt bulunamadı.</p>:<ol className="registry-history">
     {data.items.map(row=><li key={row.request_id}>
      <strong>{dailyLabels[row.operation]} · {operationReportResult(row)}</strong>
+     <span>{executionLabels[row.execution_type??'UNKNOWN']}{row.group_id&&` · ${row.group_id}`}</span>
      <span>{dateTime(row.occurred_at)} · <button type="button" className="record-link" onClick={()=>{const next={...filters,actor_id:row.actor_id};setDraft(next);apply(next);}}>{historyActor(row)}</button></span>
      <a className="record-link" href={linkedDetailHash({module:'subscribers',workspace:'PERSISTENT',id:row.item_id},window.location.hash)}>{row.subscriber_name??row.item_id}{row.subscriber_username&&` · ${row.subscriber_username}`}</a>
      <span>Yetkili kaynak <SourceBadge source={row.source??null}/></span>

@@ -189,7 +189,13 @@ class PppoeWorkspace(TestCase):
         execute_path='/subscriber-workspace/management/execute'
         success=self.operation(item,'STATUS','PAUSED')
         self.assertTrue(self.post(execute_path,{'entries':[success]}).json()['results'][0]['success'])
-        self.assertTrue(self.post(execute_path,{'entries':[self.operation(foreign,'STATUS','PAUSED')]}).json()['results'][0]['success'])
+        skip=self.operation(item,'STATUS','PAUSED')
+        foreign_change=self.operation(foreign,'STATUS','PAUSED')
+        batch=self.post(execute_path,{'entries':[skip,foreign_change]}).json()['results']
+        group_id=batch[0]['group_id']
+        self.assertEqual(batch[1]['group_id'],group_id)
+        self.assertTrue(batch[0]['skipped'])
+        self.assertTrue(batch[1]['success'])
         conflict=self.operation(item,'STATUS','ACTIVE')
         self.assertFalse(self.post(execute_path,{'entries':[conflict]}).json()['results'][0]['success'])
         self.assertEqual(report({'daily':'true'}).status_code,403)
@@ -200,10 +206,12 @@ class PppoeWorkspace(TestCase):
         response=report({**filters,'result':'SUCCESS','page_size':1})
         self.assertEqual(response.status_code,200,response.text)
         data=response.json()
-        self.assertEqual(data['counts'],{'success':1,'failed':1,'skipped':None})
+        self.assertEqual(data['counts'],{'success':1,'failed':1,'skipped':1})
         self.assertEqual(data['total'],1)
         row=data['items'][0]
         self.assertEqual(row['item_id'],item['id'])
+        self.assertEqual(row['execution_type'],'SINGLE')
+        self.assertIsNone(row['group_id'])
         self.assertEqual(row['subscriber_username'],item['username'])
         self.assertEqual(row['actor_username'],'operator.fixture')
         self.assertEqual(row['previous'],{'status':'ACTIVE'})
@@ -213,9 +221,27 @@ class PppoeWorkspace(TestCase):
                           {'start':(day-timedelta(days=1)).isoformat(),'end':(day-timedelta(days=1)).isoformat()}):
             self.assertEqual(report({**filters,**overrides}).json()['total'],0)
         skipped=report({**filters,'result':'SKIPPED'}).json()
-        self.assertEqual(skipped['items'],[])
-        self.assertIsNone(skipped['counts']['skipped'])
+        self.assertEqual([row['request_id'] for row in skipped['items']],[skip['request_id']])
+        self.assertEqual(skipped['groups'],[dict(group_id=group_id,total=1,success=0,failed=0,skipped=1)])
+        self.assertEqual(report({**filters,'execution_type':'BULK','group_id':group_id}).json()['total'],1)
+        self.assertEqual(report({**filters,'execution_type':'SINGLE'}).json()['total'],2)
+        recovery='/api/v1'+execute_path.replace('/execute','/requests/')+skip['request_id']
+        self.assertEqual(self.client.get(recovery).json()['status'],'SKIPPED')
+        self.user['permissions'][self.allowed]['can_view']=False
+        self.assertEqual(self.client.get(recovery).status_code,404)
+        self.user['permissions'][self.allowed]['can_view']=True
         self.assertEqual(report({**filters,'end':'invalid'}).status_code,422)
+        with self.sessions.begin() as session:
+            event=session.get(Audit,success['request_id'])
+            changes=event.changes
+            management=changes['_management']
+            legacy={key:value for key,value in management['receipt'].items()
+                    if key not in ('execution_type','group_id')}
+            event.changes={**changes,'_management':{**management,'receipt':legacy}}
+        legacy_report=report({**filters,'execution_type':'UNKNOWN'}).json()
+        self.assertEqual(legacy_report['total'],1)
+        self.assertIsNone(legacy_report['items'][0]['execution_type'])
+        self.assertIsNone(legacy_report['items'][0]['group_id'])
 
     def test_actor_names_enrich_only_authorized_history_and_preserve_raw_audit(self):
         _,item=self.create()

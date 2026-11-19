@@ -193,11 +193,12 @@ test('operation UUID and raw actor remain inside a closed technical disclosure',
 
 test('subscriber operation report shows recorded evidence and exports all filtered pages as Excel CSV',async t=>{
  const row={request_id:'one',item_id:account.id,subscriber_name:'=1+1',subscriber_username:'abone.test',actor_id:'actor',actor_username:'Suat "Test"',
-  occurred_at:'2026-11-18T12:00:00Z',source:'LOCAL',operation:'PLAN',recorded:true,success:true,previous:{plan:'Önceki'},values:{plan:'Yeni'}};
- const cleanup=fixture('#module=subscribers&workspace=HISTORY',{loading:false,data:{is_demo:true,total:2,items:[row],counts:{success:1,failed:1,skipped:null}}});
+  occurred_at:'2026-11-18T12:00:00Z',source:'LOCAL',operation:'PLAN',execution_type:'BULK',group_id:'group-1',recorded:true,success:true,previous:{plan:'Önceki'},values:{plan:'Yeni'}};
+ const cleanup=fixture('#module=subscribers&workspace=HISTORY',{loading:false,data:{is_demo:true,total:2,items:[row],counts:{success:1,failed:1,skipped:1},groups:[{group_id:'group-1',total:3,success:1,failed:1,skipped:1}]}});
  try{
   const html=renderToStaticMarkup(module.exports.SubscriberOperationReport());
-  assert.match(html,/Başarılı: 1 · Atlandı: Veri yok · Başarısız: 1/);
+  assert.match(html,/Başarılı: 1 · Atlandı: 1 · Başarısız: 1/);
+  assert.match(html,/Toplam: 3 · Başarılı: 1 · Başarısız: 1 · Atlandı: 1/);
   assert.match(html,/Suat &quot;Test&quot;/);
   assert.match(html,/Paket\/profil: Önceki/);
   assert.match(html,/Paket\/profil: Yeni/);
@@ -216,5 +217,7 @@ test('subscriber operation report shows recorded evidence and exports all filter
   assert.match(csv,/"'=1\+1"/);
   assert.match(csv,/"Suat ""Test"""/);
   assert.match(csv,/15:00:00/);
+  assert.match(csv,/"İşlem kapsamı","Grup kimliği","Sonuç"/);
+  assert.match(csv,/"Toplu","group-1","Başarılı"/);
  }finally{cleanup();}
 });
