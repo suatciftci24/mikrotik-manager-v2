@@ -47,6 +47,8 @@ class OperationReceipt(BaseModel):
     skipped:bool=False
     execution_type:Literal['SINGLE','BULK']|None=None
     group_id:UUID|None=None
+    source_request_id:UUID|None=None
+    source_group_id:UUID|None=None
     operation:str
     actor_id:str
     router_id:str|None=None
@@ -102,9 +104,48 @@ class UndoPreviewValue(BaseModel):
 class OperationUndoPreview(BaseModel):
     request_id:UUID
     item_id:str
+    subscriber_name:str|None=None
+    source_group_id:UUID|None=None
+    can_execute:bool=False
     audit_revision:int
     current_revision:int
     status:Literal['ELIGIBLE','CONFLICT','INELIGIBLE']
     reason:str
     changes:list[UndoPreviewValue]
     is_demo:Literal[True]=True
+
+class OperationUndoGroupPreview(BaseModel):
+    group_id:UUID
+    items:list[OperationUndoPreview]
+    is_demo:Literal[True]=True
+
+
+class UndoOperation(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    request_id:UUID
+    source_request_id:UUID
+    source_group_id:UUID|None
+    item_id:str=Field(pattern=r'^demo-managed-sub-[0-9a-f-]{36}$')
+    expected_revision:int=Field(ge=1)
+    field:Literal['customer_name','status','expires_on']
+    previous:str|None=Field(max_length=160)
+    applied:str|None=Field(max_length=160)
+
+
+class UndoOperations(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    entries:list[UndoOperation]=Field(min_length=1,max_length=100)
+    confirmed:Literal[True]
+    _confirmed=field_validator('confirmed',mode='before')(SyntheticSubscriberCommand.explicit.__func__)
+
+    @model_validator(mode='after')
+    def unique(self):
+        for key in ('request_id', 'source_request_id', 'item_id'):
+            if len({getattr(entry, key) for entry in self.entries})!=len(self.entries):
+                raise ValueError('Tekrarlanan abone veya istek kimliği.')
+        if set(e.request_id for e in self.entries) & set(e.source_request_id for e in self.entries):
+            raise ValueError('Geri alma için yeni istek kimlikleri gerekli.')
+        if len(self.entries)>1 and (self.entries[0].source_group_id is None
+                                    or len({e.source_group_id for e in self.entries})!=1):
+            raise ValueError('Toplu geri alma tek bir kaynak işlem grubundan yapılabilir.')
+        return self

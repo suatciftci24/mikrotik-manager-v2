@@ -17,6 +17,10 @@ LAYOUT_KEY = "V2_V26_RUNTIME_LAYOUT"
 VDS_ROOT = Path("/srv/mikrotik-v26-next")
 
 
+def local_undo_enabled():
+    return os.environ.get("V2_DEPLOYMENT_PROFILE") == PROFILE and os.environ.get(LAYOUT_KEY, "acceptance") == "acceptance"
+
+
 def expected_code_root(values):
     layout = values.get(LAYOUT_KEY, "acceptance")
     if layout == "acceptance":

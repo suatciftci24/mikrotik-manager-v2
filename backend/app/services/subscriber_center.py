@@ -35,7 +35,9 @@ def request_audit(event,account,router_id,source,success):
 def event_scope(ids, event=Event):
     recorded=func.coalesce(event.changes['_router_id'].as_string(),event.changes['_management']['receipt']['router_id'].as_string())
     previous=event.changes['_management']['receipt']['previous_router_id'].as_string()
-    return [recorded.in_(ids),or_(previous.is_(None),previous.in_(ids))]
+    undo_source=event.changes['_undo']['source_router_id'].as_string()
+    return [recorded.in_(ids),or_(previous.is_(None),previous.in_(ids)),
+            or_(undo_source.is_(None),undo_source.in_(ids))]
 
 class SubscriberWorkspace:
     def __init__(self,sessions=SessionLocal,check=guard):self.sessions=sessions;self.check=check

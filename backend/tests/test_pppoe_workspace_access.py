@@ -1,4 +1,5 @@
 """Scoped synthetic PPPoE lifecycle over ASGI + disposable SQLite, no external IO."""
+from concurrent.futures import ThreadPoolExecutor
 from unittest import TestCase
 from unittest.mock import patch
 from uuid import uuid4
@@ -11,6 +12,7 @@ from app.models.router_workspace import RouterWorkspaceRecord as Router
 from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as Audit
 from app.services.subscriber_center import SubscriberWorkspace
 from app.services.subscriber_operations import SubscriberOperationsService
+from app.schemas.subscriber_management_center import UndoOperations
 from backend.tests.test_workspace_operator_access import OperatorAccess
 
 class PppoeWorkspace(TestCase):
@@ -330,6 +332,102 @@ class PppoeWorkspace(TestCase):
         data = self.client.get(preview).json()
         self.assertEqual(data['status'], 'INELIGIBLE')
         self.assertEqual(data['changes'], [])
+
+    def undo_command(self, receipt):
+        preview = self.ops.undo_preview(receipt['request_id'], self.user)
+        self.assertTrue(preview['can_execute'])
+        change, = preview['changes']
+        return dict(request_id=str(uuid4()), source_request_id=receipt['request_id'], source_group_id=preview['source_group_id'],
+                    item_id=receipt['item_id'], expected_revision=preview['current_revision'],
+                    field=change['field'], previous=change['previous'], applied=change['applied'])
+
+    def test_undo_single_audit_replay_and_isolation(self):
+        _, account = self.create()
+        source = self.post('/subscriber-workspace/management/execute',
+                           {'entries':[self.operation(account, 'STATUS', 'PAUSED')]}).json()['results'][0]
+        entry = self.undo_command(source)
+        path = '/subscriber-workspace/management/undo'
+        body = {'confirmed':True, 'entries':[entry]}
+        with patch.dict('os.environ', {'V2_V26_RUNTIME_LAYOUT':'vds-next'}):
+            self.assertEqual(self.post(path, body).status_code, 403)
+        self.assertEqual(self.post(path, {**body, 'confirmed':1}).status_code, 422)
+        self.user['permissions'][self.allowed]['can_manage_pppoe'] = False
+        self.assertEqual(self.post(path, body).status_code, 403)
+        self.user['permissions'][self.allowed]['can_manage_pppoe'] = True
+        baseline = self.counts()
+        response = self.post(path, body)
+        self.assertEqual(response.status_code, 200, response.text)
+        receipt, = response.json()['results']
+        self.assertEqual(receipt['operation'], 'UNDO')
+        self.assertTrue(receipt['success'])
+        self.assertEqual(receipt['source_request_id'], source['request_id'])
+        self.assertIsNone(receipt['source_group_id'])
+        self.assertEqual(receipt['actor_id'], self.user['id'])
+        self.assertEqual(receipt['previous'], {'status':'PAUSED'})
+        self.assertEqual(receipt['values'], {'status':'ACTIVE'})
+        self.assertEqual(self.post(path, body).json(), response.json())
+        self.assertEqual(self.post(path, {**body, 'entries':[{**entry,'previous':'PAUSED'}]}).status_code, 409)
+        self.assertEqual(self.counts(), (baseline[0],baseline[1]+1))
+        history = '/api/v1/subscriber-workspace/management/history?include_skipped=true&request_id='
+        self.assertEqual(self.client.get(history+receipt['request_id']).json()['total'], 1)
+        recovered = self.client.get('/api/v1/subscriber-workspace/management/requests/'+entry['request_id']).json()
+        self.assertEqual(recovered['status'], 'SUCCESS')
+        self.assertEqual(recovered['response'], receipt)
+        current = self.client.get('/api/v1/subscriber-center/'+account['id']).json()['item']
+        self.assertEqual((current['status'], current['revision']), ('ACTIVE', account['revision']+2))
+
+    def test_group_undo_rejects_stale_member_and_rolls_back_storage_failure(self):
+        _, first = self.create()
+        _, second = self.create()
+        batch = self.post('/subscriber-workspace/management/execute',
+                          {'entries':[self.operation(row,'STATUS','PAUSED') for row in (first,second)]}).json()['results']
+        entries = [self.undo_command(receipt) for receipt in batch]
+        preview = self.client.get('/api/v1/subscriber-workspace/management/history/groups/'+batch[0]['group_id']+'/undo-preview')
+        self.assertEqual({row['request_id'] for row in preview.json()['items']}, {r['request_id'] for r in batch})
+        baseline = self.counts()
+        original = self.ops.audit
+        def storage_failure(session, command, actor, changes, receipt, source):
+            if receipt['item_id'] == second['id']:
+                raise SQLAlchemyError('test storage failure')
+            original(session, command, actor, changes, receipt, source)
+            session.flush()
+
+        path = '/subscriber-workspace/management/undo'
+        body = {'confirmed':True,'entries':entries}
+        with patch.object(self.ops, 'audit', side_effect=storage_failure):
+            self.assertEqual(self.post(path, body).status_code, 503)
+        self.assertEqual(self.counts(), baseline)
+        for row in (first,second):
+            current = self.client.get('/api/v1/subscriber-center/'+row['id']).json()['item']
+            self.assertEqual((current['status'],current['revision']), ('PAUSED',2))
+        current = self.client.get('/api/v1/subscriber-center/'+second['id']).json()['item']
+        self.post('/subscriber-workspace/management/execute', {'entries':[self.operation(current,'EDIT','After preview')]})
+        results = self.post(path,body).json()['results']
+        self.assertEqual([result['success'] for result in results], [False,False])
+        self.assertIn('başka bir kayıt', results[0]['error'])
+        self.assertIn('revizyonu değişti', results[1]['error'])
+        self.assertEqual({r['source_group_id'] for r in results}, {batch[0]['group_id']})
+        self.assertEqual(len({r['group_id'] for r in results}), 1)
+        self.assertEqual(self.post(path,body).json()['results'], results)
+        self.assertEqual(self.client.get('/api/v1/subscriber-center/'+first['id']).json()['item']['status'],'PAUSED')
+
+    def test_concurrent_group_undo_replay_and_competing_request(self):
+        accounts = [self.create()[1] for _ in range(2)]
+        source = self.post('/subscriber-workspace/management/execute',
+                           {'entries':[self.operation(row,'STATUS','PAUSED') for row in accounts]}).json()['results']
+        entries = [self.undo_command(response) for response in source]
+        payload = UndoOperations.model_validate({'confirmed':True,'entries':entries})
+        competing = UndoOperations.model_validate({'confirmed':True,'entries':[{**e,'request_id':str(uuid4())} for e in entries]})
+        baseline = self.counts()
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            first,replay,other = list(pool.map(lambda command:self.ops.execute_undo(command.entries,self.user),
+                                               (payload,payload,competing)))
+        self.assertEqual(first, replay)
+        self.assertEqual({tuple(r['success'] for r in result) for result in (first,other)}, {(True,True),(False,False)})
+        self.assertEqual(self.counts(),(baseline[0],baseline[1]+4))
+        for account in accounts:
+            current = self.client.get('/api/v1/subscriber-center/'+account['id']).json()['item']
+            self.assertEqual((current['status'],current['revision']),('ACTIVE',3))
 
     def test_actor_names_enrich_only_authorized_history_and_preserve_raw_audit(self):
         _,item=self.create()

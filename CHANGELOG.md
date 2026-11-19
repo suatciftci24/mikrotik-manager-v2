@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.8] - 2026-11-19
+
+- İzole sentetik abonelikler için atomik ve denetlenebilir tekli/toplu geri alma.
+
 ## [2.6.7] - 2026-11-19
 
 - Abone geçmişinde grup ayrıntıları, salt okunur geri alma önizlemesi ve üretim sürüm dosyası.
