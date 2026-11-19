@@ -1,5 +1,27 @@
 # MikroTik Manager V2 — İlerleme
 
+## Geri alma yönetimi — V2.6.9
+
+- Ev WSL `DESKTOP-MT2JS7H`, `~/mikrotik-v2-ortak`,
+  `development/v2.6.2-pppoe`, taban `2857be3592b4cb216e7a4527481cdd913012d12c`.
+- Geri alma durumu dört seçenekle sayfalamadan önce filtreleniyor.
+  Önizlemede kaynak işlem, operatör, İstanbul saati, eski/yeni/güncel
+  değerler ve onayın etkisi var. Başarılı audit'e kaynak satırdan gidiliyor.
+  CSV kaynak işlem/grup kimliğini ve sonuç açıklamasını içeriyor.
+- Kaynak audit'e bağlı başarılı UNDO yeni istekle ikinci geri almayı
+  engelliyor. Mevcut UUID ve içerik tekrarında kayıtlı sonuç korunuyor.
+  Toplu geri alma kaynak grubun tam üyeliğini gerektiriyor. Atlanan,
+  çakışmalı, erişilemeyen veya uygunsuz üyede grup uygulanmıyor.
+- PASS: İzole SQLite/ASGI `test_pppoe_workspace_access` ve
+  `test_subscriber_daily_management` 36/36. Frontend
+  `operationsNavigation`, `operationGetRecovery`,
+  `subscriberDailyManagement` 29/29. İzole Chromium'da karma grup reddi,
+  tam grup onayı, aynı UUID tekrarı ve kaynak bağlantısı PASS.
+  Üretim derlemesi, `dist/release.json` 2.6.9 ve diff kontrolleri PASS.
+- Migration gerekmiyor. PostgreSQL ve canlı sistemlere erişilmedi.
+  Push BLOCKED. Aktarım kontrolü kayıtlı Ev WSL checkout'u ve
+  `main-guncel` dalını bekliyor.
+
 ## Güvenli abone geri alma — V2.6.8
 
 - Ev WSL `DESKTOP-MT2JS7H`, `~/mikrotik-v2-ortak`,

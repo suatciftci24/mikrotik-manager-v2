@@ -335,7 +335,7 @@ class PppoeWorkspace(TestCase):
 
     def undo_command(self, receipt):
         preview = self.ops.undo_preview(receipt['request_id'], self.user)
-        self.assertTrue(preview['can_execute'])
+        self.assertEqual(preview['status'], 'ELIGIBLE')
         change, = preview['changes']
         return dict(request_id=str(uuid4()), source_request_id=receipt['request_id'], source_group_id=preview['source_group_id'],
                     item_id=receipt['item_id'], expected_revision=preview['current_revision'],
@@ -373,6 +373,15 @@ class PppoeWorkspace(TestCase):
         recovered = self.client.get('/api/v1/subscriber-workspace/management/requests/'+entry['request_id']).json()
         self.assertEqual(recovered['status'], 'SUCCESS')
         self.assertEqual(recovered['response'], receipt)
+        preview = self.client.get('/api/v1/subscriber-workspace/management/history/'+source['request_id']+'/undo-preview').json()
+        self.assertEqual((preview['status'],preview['undo_request_id']), ('UNDONE',receipt['request_id']))
+        second = self.post(path, {**body, 'entries':[{**entry,'request_id':str(uuid4())}]}).json()['results'][0]
+        self.assertFalse(second['success'])
+        self.assertIn('başarılı geri alma kaydı', second['error'])
+        self.assertEqual(self.post(path, body).json(), response.json())
+        found = self.client.get(history+source['request_id']+'&undo_status=UNDONE&page_size=1').json()
+        self.assertEqual(found['total'],1)
+        self.assertEqual(found['items'][0]['undo_request_id'],receipt['request_id'])
         current = self.client.get('/api/v1/subscriber-center/'+account['id']).json()['item']
         self.assertEqual((current['status'], current['revision']), ('ACTIVE', account['revision']+2))
 
@@ -410,6 +419,50 @@ class PppoeWorkspace(TestCase):
         self.assertEqual(len({r['group_id'] for r in results}), 1)
         self.assertEqual(self.post(path,body).json()['results'], results)
         self.assertEqual(self.client.get('/api/v1/subscriber-center/'+first['id']).json()['item']['status'],'PAUSED')
+
+    def test_group_undo_requires_every_original_member_and_blocks_skips(self):
+        _, first = self.create()
+        _, second = self.create()
+        execute = '/subscriber-workspace/management/execute'
+        self.post(execute, {'entries':[self.operation(second,'STATUS','PAUSED')]})
+        second = self.client.get('/api/v1/subscriber-center/'+second['id']).json()['item']
+        changed, skipped = self.post(execute, {'entries':[self.operation(row,'STATUS','PAUSED')
+                                                         for row in (first,second)]}).json()['results']
+        group = '/api/v1/subscriber-workspace/management/history/groups/'+changed['group_id']+'/undo-preview'
+        preview = self.client.get(group).json()
+        self.assertFalse(preview['can_execute'])
+        self.assertEqual({row['status'] for row in preview['items']},{'ELIGIBLE','INELIGIBLE'})
+        self.assertTrue(all(row['actor_id']==self.user['id'] and row['occurred_at'] for row in preview['items']))
+        first_entry = self.undo_command(changed)
+        second_entry = {**first_entry, 'request_id':str(uuid4()),'source_request_id':skipped['request_id'],
+                        'item_id':skipped['item_id'],'expected_revision':skipped['revision']}
+        undo = '/subscriber-workspace/management/undo'
+        baseline = self.counts()
+        incomplete = self.post(undo, {'confirmed':True,'entries':[first_entry]})
+        self.assertEqual(incomplete.status_code,409)
+        self.assertEqual(self.counts(),baseline)
+        complete = self.post(undo, {'confirmed':True,'entries':[first_entry,second_entry]}).json()['results']
+        self.assertEqual([r['success'] for r in complete],[False,False])
+        self.assertIn('atlandı',complete[1]['error'])
+        current = self.client.get('/api/v1/subscriber-center/'+first['id']).json()['item']
+        self.assertEqual((current['status'],current['revision']),('PAUSED',changed['revision']))
+
+    def test_undo_history_filter_is_applied_before_pagination(self):
+        _, first = self.create()
+        _, second = self.create()
+        execute = '/subscriber-workspace/management/execute'
+        source = [self.post(execute, {'entries':[self.operation(account,'STATUS','PAUSED')]}).json()['results'][0]
+                  for account in (first,second)]
+        # Changing the second account leaves the first eligible, regardless of history order.
+        latest = self.client.get('/api/v1/subscriber-center/'+second['id']).json()['item']
+        self.post(execute, {'entries':[self.operation(latest,'EDIT','Changed after status')]})
+        path = '/api/v1/subscriber-workspace/management/history?include_skipped=true&operation=STATUS&page_size=1'
+        for status, receipt in zip(('ELIGIBLE','CONFLICT'),source,strict=True):
+            data = self.client.get(path+'&undo_status='+status).json()
+            self.assertEqual(data['total'],1)
+            self.assertEqual(data['items'][0]['request_id'],receipt['request_id'])
+            self.assertEqual(data['items'][0]['undo_status'],status)
+            self.assertEqual(self.client.get(path+'&undo_status='+status+'&page=2').json()['items'],[])
 
     def test_concurrent_group_undo_replay_and_competing_request(self):
         accounts = [self.create()[1] for _ in range(2)]

@@ -191,22 +191,23 @@ test('history group drilldown queries the exact group and keeps it on the subscr
  const group='00000000-0000-4000-8000-000000000067';
  const row={request_id:'fixture',item_id:account.id,group_id:group,execution_type:'BULK',operation:'STATUS',
   actor_id:'operator',occurred_at:'2026-11-19T18:00:00Z',previous:{status:'ACTIVE'},values:{},success:false,recorded:true};
- const cleanup=fixture(`#module=subscribers&workspace=HISTORY&history_source=workspace&history_group=${group}`,
+ const cleanup=fixture(`#module=subscribers&workspace=HISTORY&history_source=workspace&history_group=${group}&history_undo_status=INELIGIBLE`,
   {loading:false,data:{is_demo:true,total:1,items:[row]}});
  try{
   const html=renderToStaticMarkup(module.exports.SubscriberOperationHistory());
   assert.match(html,/Grup ayrıntıları/);
+  for(const label of [/Geri alınabilir/,/Geri alınmış/,/Çakışmalı/,/Uygun değil/])assert.match(html,label);
   assert.match(html,/Reddedildi/);
   assert.match(html,/Geri alma önizlemesi/);
   assert.match(html,/return_to=[^"]*history_group%3D00000000/);
-  assert.ok(globalThis.__navigationQueries.some(path=>new URLSearchParams(path.split('?')[1]).get('group_id')===group));
+  assert.ok(globalThis.__navigationQueries.some(path=>new URLSearchParams(path.split('?')[1]).get('group_id')===group&&new URLSearchParams(path.split('?')[1]).get('undo_status')==='INELIGIBLE'));
  }finally{cleanup();}
 });
 
 test('undo preview is fetched only when opened and is tied to the selected audit row',()=>{
  const requestId='00000000-0000-4000-8000-000000000067',itemId=account.id;
  const preview={request_id:requestId,item_id:itemId,is_demo:true,audit_revision:2,current_revision:3,status:'CONFLICT',
-  reason:'İşlemden sonra abonelik revizyonu değişti.',changes:[{field:'status',previous:'ACTIVE',applied:'PAUSED',current:'ACTIVE'}]};
+  reason:'İşlemden sonra abonelik revizyonu değişti.',operation:'STATUS',actor_id:'fixture.operator',occurred_at:'2026-11-11T12:00:00Z',changes:[{field:'status',previous:'ACTIVE',applied:'PAUSED',current:'ACTIVE'}]};
  const cleanup=fixture('#module=subscribers&workspace=HISTORY',{loading:false,data:preview});
  try{
   const render=()=>renderToStaticMarkup(React.createElement(module.exports.SubscriberUndoPreview,{requestId,itemId}));
@@ -215,7 +216,7 @@ test('undo preview is fetched only when opened and is tied to the selected audit
   openUndoPreview=true;
   const html=render();
   assert.match(globalThis.__navigationQueries[0],new RegExp(requestId+'/undo-preview$'));
-  for(const label of [/Salt okunur/,/Çakışmalı/,/İşlemden önce/,/İşlemde kaydedilen/,/Güncel/])assert.match(html,label);
+  for(const label of [/Salt okunur/,/Çakışmalı/,/İşlemden önce/,/İşlemde kaydedilen/,/Güncel/,/fixture.operator/,/15:00/])assert.match(html,label);
   assert.doesNotMatch(html,/Geri al<\/button>/);
   preview.item_id='unrelated';
   assert.match(render(),/işlem kaydıyla eşleşmedi/);
@@ -258,5 +259,8 @@ test('subscriber operation report shows recorded evidence and exports all filter
   assert.match(csv,/15:00:00/);
   assert.match(csv,/"İşlem kapsamı","Grup kimliği","Sonuç"/);
   assert.match(csv,/"Toplu","group-1","Başarılı"/);
+  const undoCsv=module.exports.operationReportCsv([{...row,operation:'UNDO',source_request_id:'source-fixture',source_group_id:'source-group'}]);
+  assert.match(undoCsv,/"Kaynak işlem UUID","Kaynak grup kimliği"/);
+  assert.match(undoCsv,/"source-fixture","source-group"/);
  }finally{cleanup();}
 });

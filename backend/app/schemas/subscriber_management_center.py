@@ -63,7 +63,12 @@ class OperationResults(BaseModel):
     results:list[OperationReceipt]
     is_demo:Literal[True]=True
 
+UndoStatus = Literal['ELIGIBLE','UNDONE','CONFLICT','INELIGIBLE']
+
+
 class OperationHistoryItem(OperationReceipt):
+    undo_status:UndoStatus|None=None
+    undo_request_id:UUID|None=None
     subscriber_name:str|None=None
     subscriber_username:str|None=None
     actor_username:str|None=None
@@ -109,7 +114,12 @@ class OperationUndoPreview(BaseModel):
     can_execute:bool=False
     audit_revision:int
     current_revision:int
-    status:Literal['ELIGIBLE','CONFLICT','INELIGIBLE']
+    status:UndoStatus
+    undo_request_id:UUID|None=None
+    operation:str
+    actor_id:str
+    actor_username:str|None=None
+    occurred_at:str
     reason:str
     changes:list[UndoPreviewValue]
     is_demo:Literal[True]=True
@@ -117,6 +127,8 @@ class OperationUndoPreview(BaseModel):
 class OperationUndoGroupPreview(BaseModel):
     group_id:UUID
     items:list[OperationUndoPreview]
+    can_execute:bool
+    reason:str|None=None
     is_demo:Literal[True]=True
 
 

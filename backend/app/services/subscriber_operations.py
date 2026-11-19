@@ -23,11 +23,15 @@ def fingerprint(command,actor):
         if key not in command.model_fields_set:values.pop(key,None)
     return hashlib.sha256(json.dumps([actor,values],sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
-def bulk_group_id(entries, actor):
-    if len(entries) == 1:
+def group_id_for_requests(request_ids, actor):
+    if len(request_ids) < 2:
         return None
-    members = sorted(str(entry.request_id) for entry in entries)
+    members = sorted(str(id) for id in request_ids)
     return str(uuid5(UUID('663ba438-5a2c-4dd0-abfa-536c619ee187'), json.dumps([actor, members])))
+
+
+def bulk_group_id(entries, actor):
+    return group_id_for_requests([entry.request_id for entry in entries], actor)
 
 
 def lock_operation_request(session, request_id):
@@ -346,6 +350,28 @@ class SubscriberOperationsService:
             raise WorkspaceError(404, 'İşlem kaydı bulunamadı.')
         return entry
 
+    @staticmethod
+    def successful_undos(session, events):
+        if not events:
+            return {}
+        source_id = Event.changes['_undo']['source_request_id'].as_string()
+        success = Event.changes['_management']['receipt']['success'].as_boolean()
+        statement = select(Event).where(Event.operation == 'UNDO', source_id.in_([event.id for event in events]),
+                                        success.is_(True)).order_by(Event.occurred_at, Event.id)
+        sources = {(event.id,event.subscriber_id) for event in events}
+        matched = {}
+        for event in session.scalars(statement):
+            receipt = event_receipt(event)
+            key = (receipt['source_request_id'], event.subscriber_id)
+            if key in sources:
+                matched.setdefault(key, event.id)
+        return matched
+
+    @staticmethod
+    def group_member_ids(session, group_id):
+        return [id for model in (Event, Skip) for id in session.scalars(
+            select(model.id).where(model.changes['_management']['receipt']['group_id'].as_string() == group_id).limit(101))]
+
     @boundary
     def undo_preview(self, request_id, user):
         scope = workspace_scope(user)
@@ -353,7 +379,10 @@ class SubscriberOperationsService:
             self.undo_read_snapshot(session)
             self.check(session)
             event, account = self.undo_entry(session, request_id, scope)
-            return self.evaluate_undo(session, event, account, user)
+            preview = self.evaluate_undo(session, event, account, user, self.successful_undos(session, [event]))
+            if preview['source_group_id']:
+                preview['can_execute'] = False
+            return preview
 
     @boundary
     def undo_group_preview(self, group_id, user):
@@ -370,14 +399,19 @@ class SubscriberOperationsService:
                 raise WorkspaceError(404, 'İşlem grubu bulunamadı.')
             if len(entries) > 100:
                 raise WorkspaceError(409, 'İşlem grubu kayıt sınırını aşıyor.')
-            return dict(group_id=group_id, items=[
-                self.evaluate_undo(session, event, account, user)
-                for event, account in sorted(entries, key=lambda entry: (entry[0].occurred_at, entry[0].id))
-            ])
+            undone = self.successful_undos(session, [event for event, _ in entries])
+            items = [self.evaluate_undo(session, event, account, user, undone)
+                     for event, account in sorted(entries, key=lambda entry: (entry[0].occurred_at, entry[0].id))]
+            members = self.group_member_ids(session, str(group_id))
+            complete = len(entries) == len(members) and group_id_for_requests(members, entries[0][0].actor_id) == str(group_id)
+            can_execute = complete and all(item['can_execute'] for item in items)
+            return dict(group_id=group_id, items=items, can_execute=can_execute,
+                        reason=None if can_execute else 'Grubun tamamı erişilebilir ve geri alınabilir olmalıdır.')
 
     @staticmethod
-    def evaluate_undo(session, event, account, user):
+    def evaluate_undo(session, event, account, user, undone):
         preview = dict(request_id=event.id, item_id=account.id, subscriber_name=account.fields.get('customer_name'),
+                       operation=event.operation, actor_id=event.actor_id, occurred_at=event.occurred_at,
                        audit_revision=event.revision, current_revision=account.revision,
                        changes=[], status='INELIGIBLE', can_execute=False, source_group_id=None)
         skipped = isinstance(event, Skip)
@@ -400,7 +434,10 @@ class SubscriberOperationsService:
                 value = account.fields[field]
                 preview['changes'].append(dict(field=field, previous=previous[field], applied=applied[field],
                                                current=None if value is None else str(value)))
-        if not workspace_can_manage(user, account.router_id, account.access_type):
+        undo_id = undone.get((event.id, account.id))
+        if undo_id:
+            return {**preview, 'status': 'UNDONE', 'undo_request_id': undo_id, 'reason': 'Bu işlemin başarılı geri alma kaydı var.'}
+        if user is not None and not workspace_can_manage(user, account.router_id, account.access_type):
             return {**preview, 'reason': 'Bu aboneliği yönetme yetkiniz bulunmuyor.'}
         field = UNDO_PREVIEW_FIELDS.get(event.operation)
         if field is None:
@@ -460,9 +497,21 @@ class SubscriberOperationsService:
             if any(receipts):
                 raise WorkspaceError(409, 'Geri alma grubunun kayıtlı sonuçları eksik.')
 
+            source_ids = {source.id for source in sources}
+            source_groups = {source.changes.get('_management', {}).get('receipt', {}).get('group_id') for source in sources}
+            if source_groups != {None}:
+                if len(source_groups) != 1 or None in source_groups:
+                    raise WorkspaceError(409, 'Geri alma yalnız tek bir kaynak işlem grubundan yapılabilir.')
+                source_group = next(iter(source_groups))
+                members = self.group_member_ids(session, source_group)
+                if (len(members) != len(source_ids) or set(members) != source_ids
+                        or group_id_for_requests(members, sources[0].actor_id) != source_group):
+                    raise WorkspaceError(409, 'Toplu geri alma için kaynak grubun tamamı gerekli.')
+            undone = self.successful_undos(session, sources)
+
             errors = []
             for entry, source in zip(entries, sources, strict=True):
-                preview = self.evaluate_undo(session, source, accounts[entry.item_id], user)
+                preview = self.evaluate_undo(session, source, accounts[entry.item_id], user, undone)
                 expected = dict(field=entry.field, previous=entry.previous, applied=entry.applied, current=entry.applied)
                 if preview['status'] != 'ELIGIBLE':
                     errors.append(preview['reason'])
@@ -499,7 +548,7 @@ class SubscriberOperationsService:
 
     @boundary
     def history(self,item_id='',operation='ALL',result='ALL',page=1,page_size=25,*,start=None,until=None,
-                router_id='',actor_id='',query='',user=None,daily=False,execution_type='ALL',group_filter=None,include_skipped=False,request_filter=None):
+                router_id='',actor_id='',query='',user=None,daily=False,execution_type='ALL',group_filter=None,include_skipped=False,request_filter=None,undo_status='ALL'):
         with self.sessions() as session:
             if (daily or include_skipped) and session.bind.dialect.name == 'postgresql':
                 session.connection(execution_options={'isolation_level':'REPEATABLE READ','postgresql_readonly':True})
@@ -558,12 +607,32 @@ class SubscriberOperationsService:
             if result != 'ALL':
                 clauses.append(outcome == result)
             filtered = joined.where(*clauses)
-            total = session.scalar(filtered.with_only_columns(func.count(), maintain_column_froms=True))
-            statement = filtered.add_columns(Account.fields['customer_name'].as_string(), Account.fields['username'].as_string(), skipped)
-            rows = session.execute(statement.order_by(event.occurred_at.desc(), event.id).offset((page-1)*page_size).limit(page_size)).all()
-            items = [{**event_receipt(record, skipped=is_skipped), 'source':event_source(record),
-                      **(dict(subscriber_name=name,subscriber_username=username) if daily or include_skipped else {})}
-                     for record,name,username,is_skipped in rows]
+            statement = filtered.add_columns(Account.fields['customer_name'].as_string(), Account.fields['username'].as_string(),
+                                             skipped, Account).order_by(event.occurred_at.desc(), event.id)
+            offset = (page-1)*page_size
+            items = []
+            if undo_status == 'ALL':
+                total = session.scalar(filtered.with_only_columns(func.count(), maintain_column_froms=True))
+                batches = [session.execute(statement.offset(offset).limit(page_size)).all()]
+            else:
+                total = 0
+                batches = session.execute(statement.execution_options(yield_per=100)).partitions()
+            for batch in batches:
+                undone = self.successful_undos(session, [row[0] for row in batch]) if include_skipped else {}
+                for record,name,username,is_skipped,account in batch:
+                    item = {**event_receipt(record, skipped=is_skipped), 'source':event_source(record)}
+                    if daily or include_skipped:
+                        item.update(subscriber_name=name, subscriber_username=username)
+                    if include_skipped:
+                        preview = self.evaluate_undo(session, record, account, user, undone)
+                        item.update(undo_status=preview['status'], undo_request_id=preview.get('undo_request_id'))
+                    if undo_status != 'ALL':
+                        if item.get('undo_status') != undo_status:
+                            continue
+                        total += 1
+                        if not offset < total <= offset+page_size:
+                            continue
+                    items.append(item)
 
             if daily:
                 group_ids = sorted({item['group_id'] for item in items if item.get('group_id')})

@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import UUID
 from datetime import datetime, timezone
 from fastapi import APIRouter,Depends,Query,Header,HTTPException,Request,Response,status
@@ -54,7 +55,7 @@ def update(id:str,payload:SyntheticSubscriberCommand,user:dict=Depends(mutator))
 @router.post('/subscriber-workspace/{id}/renew',response_model=CenterSubscriber)
 def renew(id:str,payload:SubscriberRenewal,user:dict=Depends(mutator)):return execute(workspace.renew,id,payload,user['id'],user=user)
 
-from app.schemas.subscriber_management_center import SubscriberOperations,OperationResults,OperationHistory,OperationUndoPreview,OperationUndoGroupPreview,UndoOperations
+from app.schemas.subscriber_management_center import SubscriberOperations,OperationResults,OperationHistory,OperationUndoPreview,OperationUndoGroupPreview,UndoOperations,UndoStatus
 from app.services.subscriber_operations import DAILY_REPORT_OPERATIONS,operations
 
 @router.post('/subscriber-workspace/management/execute',response_model=OperationResults)
@@ -75,18 +76,18 @@ def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',patter
             result:str=Query('ALL',pattern='^(ALL|SUCCESS|FAILED|SKIPPED)$'),page:int=Query(1,ge=1,le=1000000),
             page_size:int=Query(25,ge=1,le=100),report:bool=False,daily:bool=False,include_skipped:bool=False,
             start:str='',end:str='',actor_id:str=Query('',max_length=80),
-            execution_type:str=Query('ALL',pattern='^(ALL|SINGLE|BULK|UNKNOWN)$'),group_id:UUID|None=None,request_id:UUID|None=None,user:dict=Depends(current_demo_user)):
+            execution_type:str=Query('ALL',pattern='^(ALL|SINGLE|BULK|UNKNOWN)$'),group_id:UUID|None=None,request_id:UUID|None=None,undo_status:UndoStatus|Literal['ALL']='ALL',user:dict=Depends(current_demo_user)):
     scope=workspace_scope(user)
     if (report or daily) and scope is not None:
         ids={id for id in scope if user.get('permissions',{}).get(id,{}).get('can_view_reports') is True}
         if not ids:raise HTTPException(403,'Rapor yetkisi gerekli')
         user={**user,'permissions':{id:user['permissions'][id] for id in ids}}
     if not daily:
-        if start or end or actor_id or (result=='SKIPPED' and not include_skipped) or execution_type!='ALL' or ((group_id or request_id) and not include_skipped):raise HTTPException(422,'Bu filtreler günlük abone işlemi raporuna aittir.')
+        if start or end or actor_id or (result=='SKIPPED' and not include_skipped) or execution_type!='ALL' or ((group_id or request_id or undo_status!='ALL') and not include_skipped):raise HTTPException(422,'Bu filtreler günlük abone işlemi raporuna aittir.')
         data=execute(operations.history,item_id,operation,result,page,page_size,user=user,include_skipped=include_skipped,
-                     group_filter=str(group_id) if group_id else None,request_filter=str(request_id) if request_id else None)
+                     group_filter=str(group_id) if group_id else None,request_filter=str(request_id) if request_id else None,undo_status=undo_status)
         return history_actor_names(data) if include_skipped else data
-    if request_id or (operation!='ALL' and operation not in DAILY_REPORT_OPERATIONS):
+    if request_id or undo_status!='ALL' or (operation!='ALL' and operation not in DAILY_REPORT_OPERATIONS):
         raise HTTPException(422,'Geçerli bir toplu işlem türü seçin.')
     start_utc=until_utc=None
     if start or end:
@@ -103,12 +104,13 @@ def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',patter
 
 @router.get('/subscriber-workspace/management/history/{request_id}/undo-preview',response_model=OperationUndoPreview)
 def undo_preview(request_id:UUID,user:dict=Depends(current_demo_user)):
-    return execute(operations.undo_preview,request_id,user)
+    preview=execute(operations.undo_preview,request_id,user)
+    return history_actor_names({'items':[preview]})['items'][0]
 
 
 @router.get('/subscriber-workspace/management/history/groups/{group_id}/undo-preview',response_model=OperationUndoGroupPreview)
 def undo_group_preview(group_id:UUID,user:dict=Depends(current_demo_user)):
-    return execute(operations.undo_group_preview,group_id,user)
+    return history_actor_names(execute(operations.undo_group_preview,group_id,user))
 
 
 @router.post('/subscriber-workspace/management/undo',response_model=OperationResults)
@@ -127,7 +129,6 @@ def history_actor_names(data):
     return {**data,'items':[{**row,'actor_username':names.get(row['actor_id'])} for row in data['items']]}
 
 
-from typing import Literal
 from app.services.pppoe_readonly import PppoeSnapshot, disabled_binding, snapshot
 
 @router.get('/subscriber-observations/{router_id}/{account_id}', response_model=PppoeSnapshot)

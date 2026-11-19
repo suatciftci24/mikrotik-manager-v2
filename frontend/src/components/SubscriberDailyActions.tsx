@@ -4,7 +4,7 @@ import {SubscriberOperationPreview} from './SubscriberOperationPreview';
 import {SubscriberOperationMetadata} from './SubscriberOperationMetadata';
 import {SubscriberOperationValues} from './SubscriberOperationValues';
 import {SubscriberUndoPreview} from './SubscriberUndoPreview';
-import {operationReportResult,operationReportResults,type OperationReportRow} from '../lib/subscriberOperationReport';
+import {operationReportResult,operationReportResults,operationHistoryLink,undoStatusLabels,type OperationReportRow} from '../lib/subscriberOperationReport';
 import {subscriberOperationConflict} from '../lib/subscriberOperationError';
 import {loadPackageChoices,selectablePackage,packageSpeed,type PackageRecord} from '../lib/packages';
 import {loadWorkspaceRouterChoices} from '../lib/workspaceDashboard';
@@ -134,6 +134,7 @@ export function SubscriberDailyActions({rows,onClose,initialAction='EXTEND',fixe
  {error&&<p role="alert" className="form-error">{error}</p>}<button className="button-secondary" disabled={busy} onClick={onClose}>Kapat</button></dialog>;
 }
 const historySources=['legacy','workspace'] as const;
+const undoStatuses=['ALL',...Object.keys(undoStatusLabels) as (keyof typeof undoStatusLabels)[]] as const;
 const historyResults=['ALL','SUCCESS','FAILED','SKIPPED'] as const;
 const historyOperations=['ALL',...Object.keys(dailyLabels),'PLAN_CHANGE','STATUS_CHANGE','DATE_EDIT'] as const;
 export function SubscriberOperationHistory({workspaceOnly=false}:{workspaceOnly?:boolean}={}){
@@ -149,17 +150,19 @@ function SubscriberAuditHistory({workspaceOnly}:{workspaceOnly:boolean}){
  const setPage=(value:number)=>setPageText(value===1?'':String(value));
  const [result,setResult]=useListFilter('subscribers','history_result',historyResults,'ALL'),[operation,setOperation]=useListFilter('subscribers','history_operation',historyOperations,'ALL'),[selectedSource,setSource]=useListFilter('subscribers','history_source',historySources,'legacy');
  const [group,setGroup]=useSubscriberTextFilter('history_group'),[request,setRequest]=useSubscriberTextFilter('history_request');
+ const [undoStatus,setUndoStatus]=useListFilter('subscribers','history_undo_status',undoStatuses,'ALL');
  const source=workspaceOnly?'workspace':selectedSource;
  const uuid=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
  const activeRequest=source==='workspace'&&uuid.test(request)?request:'';
  const activeGroup=source==='workspace'&&!activeRequest&&uuid.test(group)?group:'';
  function openGroup(id:string){
-  setGroup(id);setRequest('');setPage(1);setOperation('ALL');setResult('ALL');setId('');
+  setGroup(id);setRequest('');setPage(1);setOperation('ALL');setResult('ALL');setUndoStatus('ALL');setId('');
  }
  const filters=new URLSearchParams({page:String(page),page_size:'25',result:source==='legacy'&&result==='SKIPPED'?'ALL':result,operation:source==='legacy'&&operation==='UNDO'?'ALL':operation,item_id:id.slice(0,64)});
  if(source==='workspace')filters.set('include_skipped','true');
  if(activeGroup)filters.set('group_id',activeGroup);
  if(activeRequest)filters.set('request_id',activeRequest);
+ if(source==='workspace'&&undoStatus!=='ALL')filters.set('undo_status',undoStatus);
  const resource=useResource<{items:OperationReportRow[];total:number;is_demo:true}>((source==='legacy'?'/subscribers/demo-history?':'/subscriber-workspace/management/history?')+filters);
  const error=resource.error||(resource.data&&resource.data.is_demo!==true?'Sentetik işlem kaynağı doğrulanamadı; geçmiş gösterilmedi.':undefined);
  const link=(module:'subscribers'|'routers',id:string)=>linkedDetailHash({module,id,...(module==='subscribers'?{workspace:source==='workspace'?'PERSISTENT':'LEGACY'}:{source:source==='workspace'?'MANAGED_DEMO':'DEMO'})},window.location.hash);
@@ -167,13 +170,17 @@ function SubscriberAuditHistory({workspaceOnly}:{workspaceOnly:boolean}){
   <strong className="operation-group-id">Grup ayrıntıları · {activeGroup}</strong>
   <button type="button" className="button-secondary" onClick={()=>{setGroup('');setPage(1);}}>Grup filtresini kaldır</button>
  </div>}{activeGroup&&<SubscriberUndoPreview key={activeGroup} groupId={activeGroup}/>}
- {activeRequest&&<p className="operation-group-id">İşlem ayrıntıları · {activeRequest} <button type="button" className="button-secondary" onClick={()=>{setRequest('');setPage(1);}}>İşlem filtresini kaldır</button></p>}<div className="inventory-toolbar"><label className="form-label">Kayıt kaynağı<select value={source} onChange={e=>{setSource(e.target.value as typeof source);setPage(1);setOperation("ALL");setResult("ALL");setId("");setGroup("");setRequest("");}}>{!workspaceOnly&&<option value="legacy">Mevcut demo aboneleri</option>}<option value="workspace">Kalıcı sentetik PPPoE / Hotspot</option></select></label><label className="form-label">Abone kayıt kimliği<input maxLength={64} value={id} onChange={e=>{setId(e.target.value);setPage(1);}}/></label><label className="form-label">İşlem<select value={filters.get('operation')??'ALL'} onChange={e=>{setOperation(e.target.value);setPage(1);}}><option value="ALL">Tümü</option>{Object.entries(dailyLabels).filter(([key])=>source==='workspace'||['PLAN','STATUS','EXTEND','CREATE','RENEWAL'].includes(key)).map(([key,label])=><option key={key} value={key}>{label}</option>)}{source==='legacy'&&<><option value="PLAN_CHANGE">Paket / profil (detay işlemi)</option><option value="STATUS_CHANGE">Hesap durumu (detay işlemi)</option><option value="DATE_EDIT">Bitiş tarihi (detay işlemi)</option></>}</select></label><label className="form-label">Sonuç<select value={filters.get('result')??'ALL'} onChange={e=>{setResult(e.target.value as typeof result);setPage(1);}}><option value="ALL">Tümü</option>{Object.entries(operationReportResults).filter(([key])=>source==='workspace'||key!=='SKIPPED').map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label><button className="button-secondary" disabled={resource.loading} onClick={resource.retry}>Yenile</button></div><ResourceState {...resource} error={error}/>{!resource.loading&&!error&&resource.data&&<><ol className="registry-history">{resource.data.items.map(r=><li key={r.request_id}>
+ {activeRequest&&<p className="operation-group-id">İşlem ayrıntıları · {activeRequest} <button type="button" className="button-secondary" onClick={()=>{setRequest('');setPage(1);}}>İşlem filtresini kaldır</button></p>}<div className="inventory-toolbar"><label className="form-label">Kayıt kaynağı<select value={source} onChange={e=>{setSource(e.target.value as typeof source);setPage(1);setOperation("ALL");setResult("ALL");setId("");setGroup("");setRequest("");setUndoStatus("ALL");}}>{!workspaceOnly&&<option value="legacy">Mevcut demo aboneleri</option>}<option value="workspace">Kalıcı sentetik PPPoE / Hotspot</option></select></label><label className="form-label">Abone kayıt kimliği<input maxLength={64} value={id} onChange={e=>{setId(e.target.value);setPage(1);}}/></label><label className="form-label">İşlem<select value={filters.get('operation')??'ALL'} onChange={e=>{setOperation(e.target.value);setPage(1);}}><option value="ALL">Tümü</option>{Object.entries(dailyLabels).filter(([key])=>source==='workspace'||['PLAN','STATUS','EXTEND','CREATE','RENEWAL'].includes(key)).map(([key,label])=><option key={key} value={key}>{label}</option>)}{source==='legacy'&&<><option value="PLAN_CHANGE">Paket / profil (detay işlemi)</option><option value="STATUS_CHANGE">Hesap durumu (detay işlemi)</option><option value="DATE_EDIT">Bitiş tarihi (detay işlemi)</option></>}</select></label><label className="form-label">Sonuç<select value={filters.get('result')??'ALL'} onChange={e=>{setResult(e.target.value as typeof result);setPage(1);}}><option value="ALL">Tümü</option>{Object.entries(operationReportResults).filter(([key])=>source==='workspace'||key!=='SKIPPED').map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>{source==='workspace'&&<label className="form-label">Geri alma durumu
+  <select value={undoStatus} onChange={e=>{setUndoStatus(e.target.value as typeof undoStatus);setPage(1);}}>
+   <option value="ALL">Tümü</option>{Object.entries(undoStatusLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}
+  </select></label>}<button className="button-secondary" disabled={resource.loading} onClick={resource.retry}>Yenile</button></div><ResourceState {...resource} error={error}/>{!resource.loading&&!error&&resource.data&&<><ol className="registry-history">{resource.data.items.map(r=><li key={r.request_id}>
   <strong>{dailyLabels[r.operation]??(r.operation==='PLAN_CHANGE'?'Paket / profil':r.operation==='STATUS_CHANGE'?'Hesap durumu':r.operation)} · {operationReportResult(r)}</strong>
   <SubscriberOperationMetadata row={r} onGroup={source==='workspace'?openGroup:undefined}/>
   <a className="record-link" href={link('subscribers',r.item_id)}>{r.subscriber_name? `${r.subscriber_name}${r.subscriber_username?` · ${r.subscriber_username}`:''}`:'Abone detayını aç'}</a>
   {r.skipped&&<span>Hesap zaten hedef durumdaydı.</span>}
   {r.recorded&&!r.success&&r.error&&<span>{subscriberOperationConflict(r.error)??r.error}</span>}
   <SubscriberOperationValues row={r}/>
+  {r.undo_status&&<span>Geri alma durumu: {undoStatusLabels[r.undo_status]}{r.undo_request_id&&<> · <a className="record-link" href={operationHistoryLink(r.undo_request_id)}>Geri alma kaydını aç</a></>}</span>}
   {source==='workspace'&&<SubscriberUndoPreview requestId={r.request_id} itemId={r.item_id}/>}
   <details className="technical-info"><summary>Teknik detaylar</summary>
    <span>Abone: {r.item_id} · Aktör: {r.actor_id}</span>

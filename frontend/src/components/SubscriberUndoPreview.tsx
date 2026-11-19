@@ -1,16 +1,15 @@
 import {useRef,useState} from 'react';
 import {api,ApiError} from '../lib/api';
-import {valuesText} from '../lib/subscriberHistory';
-import {operationReportPath,operationReportResult,operationHistoryLink} from '../lib/subscriberOperationReport';
+import {historyActor,valuesText} from '../lib/subscriberHistory';
+import {operationReportPath,operationReportResult,operationHistoryLink,operationGroupLink,undoStatusLabels,type UndoStatus} from '../lib/subscriberOperationReport';
 import {useResource} from '../lib/useResource';
 import {rememberPending,forgetPending} from '../lib/pendingSubscriberOperations';
 import {invalidateResources} from '../lib/resourceEvents';
 import {subscriberSaveDependencies} from '../lib/subscriberDependencies';
 import {subscriberOperationError} from '../lib/subscriberOperationError';
-import type {OperationReceipt} from '../lib/subscriberManagementCenter';
-import {ResourceState} from './Resource';
+import {dailyLabels,type OperationReceipt} from '../lib/subscriberManagementCenter';
+import {ResourceState,dateTime} from './Resource';
 
-const labels={ELIGIBLE:'Geri alınabilir',CONFLICT:'Çakışmalı',INELIGIBLE:'Uygun değil'} as const;
 type Change={field:string;previous:string|null;applied:string|null;current:string|null};
 type Preview={
  request_id:string;
@@ -20,7 +19,12 @@ type Preview={
  can_execute:boolean;
  audit_revision:number;
  current_revision:number;
- status:keyof typeof labels;
+ status:UndoStatus;
+ operation:string;
+ actor_id:string;
+ actor_username?:string|null;
+ occurred_at:string;
+ undo_request_id?:string|null;
  reason:string;
  changes:Change[];
  is_demo:true;
@@ -32,7 +36,7 @@ type UndoEntry={
 };
 const allowedFields=['customer_name','status','expires_on'];
 
-function UndoConfirmation({items}:{items:Preview[]}){
+function UndoConfirmation({items,canExecute}:{items:Preview[];canExecute:boolean}){
  const [confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false);
  const [results,setResults]=useState<OperationReceipt[]|null>(null),[error,setError]=useState(''),[rejected,setRejected]=useState(false);
  const [attempted,setAttempted]=useState(false);
@@ -40,12 +44,12 @@ function UndoConfirmation({items}:{items:Preview[]}){
  const eligible=items.filter(item=>item.can_execute&&item.status==='ELIGIBLE'&&item.changes.length===1
   &&allowedFields.includes(item.changes[0].field)&&item.changes[0].current===item.changes[0].applied
   &&item.changes[0].previous!==item.changes[0].applied);
- if(!eligible.length)return null;
+ if(!canExecute||eligible.length!==items.length)return null;
 
  async function apply(){
   if(!confirmed||sending.current||finished.current)return;
   const replay=attempt.current!==null;
-  attempt.current??=eligible.map(item=>{
+  attempt.current??=items.map(item=>{
    const {field,previous,applied}=item.changes[0];
    return {request_id:crypto.randomUUID(),source_request_id:item.request_id,source_group_id:item.source_group_id,
     item_id:item.item_id,expected_revision:item.current_revision,field,previous,applied};
@@ -82,7 +86,7 @@ function UndoConfirmation({items}:{items:Preview[]}){
  }
 
  if(results)return <div role="status"><strong>{results[0].success?'Geri alma kaydedildi.':'Geri alma reddedildi.'}</strong>
-  <ul>{results.map((row,i)=><li key={row.request_id}>{eligible[i].subscriber_name??row.item_id} · {operationReportResult(row)}
+  <ul>{results.map((row,i)=><li key={row.request_id}>{items[i].subscriber_name??row.item_id} · {operationReportResult(row)}
    {row.error&&<span> · {row.error}</span>}{' '}
    <a className="record-link" href={operationHistoryLink(row.request_id)}>Audit kaydını aç</a>
   </li>)}</ul>
@@ -113,20 +117,31 @@ function PreviewContent(target:PreviewTarget){
  const path=target.groupId
   ? operationReportPath+'/groups/'+encodeURIComponent(target.groupId)+'/undo-preview'
   : operationReportPath+'/'+encodeURIComponent(target.requestId??'')+'/undo-preview';
- const resource=useResource<Preview|{is_demo:true;group_id:string;items:Preview[]}>(path);
+ const resource=useResource<Preview|{is_demo:true;group_id:string;items:Preview[];can_execute:boolean;reason?:string|null}>(path);
  const data=resource.data;
  const items=data&&'items' in data
   ? (target.groupId===data.group_id&&Array.isArray(data.items)?data.items:null)
   : (data&&data.request_id===target.requestId&&data.item_id===target.itemId?[data]:null);
- const verified=data?.is_demo===true&&items?.length&&items.every(item=>Object.hasOwn(labels,item.status)&&Array.isArray(item.changes));
+ const verified=data?.is_demo===true&&items?.length&&items.every(item=>Object.hasOwn(undoStatusLabels,item.status)&&Array.isArray(item.changes));
+ const canExecute=data?.can_execute===true;
+ const reason=data&&'items' in data?data.reason:null;
  const error=resource.error||(data&&!verified?'Geri alma önizlemesi işlem kaydıyla eşleşmedi.':undefined);
  return <>
   <ResourceState {...resource} error={error}/>
   {items&&verified&&!resource.loading&&!error&&<>
-   <p>{items.some(item=>item.can_execute)?'Yalnız uygun satırlar geri alma isteğine eklenir. Bir satır reddedilirse istek bütünüyle uygulanmaz.':'Salt okunur değerlendirme'}</p>
+   <p>{canExecute?'Onay, gösterilen önceki değerleri sentetik aboneliklere geri yükler. Her değişiklik yeni bir revizyon ve audit kaydı oluşturur.':'Salt okunur değerlendirme'}</p>
+   {reason&&<p role="status">{reason}</p>}
    {items.map(preview=><section key={preview.request_id}>
     {target.groupId&&<strong>{preview.subscriber_name??preview.item_id}</strong>}
-    <p role="status"><strong>{labels[preview.status]}.</strong> {preview.reason}</p>
+    <dl className="subscriber-operation-metadata">
+     <div><dt>Kaynak işlem</dt><dd><a className="record-link" href={operationHistoryLink(preview.request_id)}>{dailyLabels[preview.operation]??preview.operation??'İşlem kaydı'}</a></dd></div>
+     <div><dt>Operatör</dt><dd>{historyActor(preview)}</dd></div>
+     <div><dt>İşlem zamanı</dt><dd>{dateTime(preview.occurred_at)}</dd></div>
+    </dl>
+    <p role="status"><strong>{undoStatusLabels[preview.status]}.</strong> {preview.reason}</p>
+    {preview.undo_request_id&&<a className="record-link" href={operationHistoryLink(preview.undo_request_id)}>Geri alma kaydını aç</a>}
+    {!target.groupId&&preview.source_group_id&&preview.status==='ELIGIBLE'&&
+     <a className="record-link" href={operationGroupLink(preview.source_group_id)}>Kaynak grubun tamamını incele</a>}
     <p>İşlem revizyonu {preview.audit_revision} · Güncel revizyon {preview.current_revision}</p>
     {preview.changes.map(change=><dl key={change.field} className="subscriber-operation-metadata">
      <div><dt>İşlemden önce</dt><dd>{valuesText({[change.field]:change.previous})}</dd></div>
@@ -134,7 +149,7 @@ function PreviewContent(target:PreviewTarget){
      <div><dt>Güncel</dt><dd>{valuesText({[change.field]:change.current})}</dd></div>
     </dl>)}
    </section>)}
-   <UndoConfirmation items={items}/>
+   <UndoConfirmation items={items} canExecute={canExecute}/>
   </>}
  </>;
 }

@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.9] - 2026-11-19
+
+- Geri alma durum filtreleri, kaynak audit takibi ve eksiksiz grup doğrulaması.
+
 ## [2.6.8] - 2026-11-19
 
 - İzole sentetik abonelikler için atomik ve denetlenebilir tekli/toplu geri alma.

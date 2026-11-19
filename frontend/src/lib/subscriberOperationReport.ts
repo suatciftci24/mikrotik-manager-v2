@@ -6,7 +6,18 @@ export type OperationReportRow=OperationReceipt & {
  subscriber_name?:string|null;
  subscriber_username?:string|null;
  actor_username?:string|null;
+ undo_status?:UndoStatus|null;
+ undo_request_id?:string|null;
 };
+
+export const undoStatusLabels={ELIGIBLE:'Geri alınabilir',UNDONE:'Geri alınmış',CONFLICT:'Çakışmalı',INELIGIBLE:'Uygun değil'} as const;
+export type UndoStatus=keyof typeof undoStatusLabels;
+
+export function operationGroupLink(groupId:string){
+ return '#'+new URLSearchParams({
+  module:'subscribers',workspace:'HISTORY',history_source:'workspace',history_group:groupId,
+ });
+}
 
 export const operationReportResults={SUCCESS:'Başarılı',SKIPPED:'Atlandı',FAILED:'Reddedildi'} as const;
 export const executionLabels={SINGLE:'Tekil',BULK:'Toplu',UNKNOWN:'Veri yok'} as const;
@@ -25,10 +36,10 @@ export function operationReportResult(row:OperationReportRow){
 
 export function operationReportCsv(rows:OperationReportRow[]){
  return excelCsv(
-  ['İşlem zamanı (Türkiye saati)','İşlemi yapan','Aktör kimliği','Abone','Abone kullanıcı adı','Abone kimliği','Yetkili kaynak','İşlem','İşlem kapsamı','Grup kimliği','Sonuç','Önceki değerler','Yeni değerler','İstek UUID'],
+  ['İşlem zamanı (Türkiye saati)','İşlemi yapan','Aktör kimliği','Abone','Abone kullanıcı adı','Abone kimliği','Yetkili kaynak','İşlem','İşlem kapsamı','Grup kimliği','Sonuç','Önceki değerler','Yeni değerler','İstek UUID','Kaynak işlem UUID','Kaynak grup kimliği','Açıklama'],
   rows.map(row=>[
    auditLocalTime(row.occurred_at),historyActor(row),row.actor_id,row.subscriber_name,row.subscriber_username,row.item_id,
-   row.source,dailyLabels[row.operation]??row.operation,row.execution_type?executionLabels[row.execution_type]:null,row.group_id,operationReportResult(row),valuesText(row.previous),valuesText(row.values),row.request_id,
+   row.source,dailyLabels[row.operation]??row.operation,row.execution_type?executionLabels[row.execution_type]:null,row.group_id,operationReportResult(row),valuesText(row.previous),valuesText(row.values),row.request_id,row.source_request_id,row.source_group_id,row.error,
   ]),
  );
 }
