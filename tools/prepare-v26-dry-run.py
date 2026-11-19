@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -20,7 +21,7 @@ def prepare():
     commit = git('rev-parse', 'HEAD')
     baseline = git('rev-parse', 'b4e78a4^{commit}')
     subprocess.run(['git', 'merge-base', '--is-ancestor', baseline, commit], cwd=ROOT, check=True)
-    paths = ['backend/app', 'migrations', 'frontend']
+    paths = ['release.json', 'backend/app', 'migrations', 'frontend']
     names = git('ls-tree', '-r', '--name-only', commit, '--', *paths).splitlines()
     for name in names:
         if re.search(r'(^|/)(\.env($|\.)|\.local/|node_modules/)|\.(dump|key|p12|pfx)$', name):
@@ -57,6 +58,7 @@ def prepare():
     (build_root/'frontend/node_modules').symlink_to(dependencies, target_is_directory=True)
     with (destination/'frontend-build.log').open('x') as log:
         subprocess.run(['npm', 'run', 'build'], cwd=build_root/'frontend',
+                       env={**os.environ, 'V2_BUILD_COMMIT': commit},
                        stdout=log, stderr=subprocess.STDOUT, check=True)
     built = destination/'frontend-dist.tar'
     with tarfile.open(built, 'x') as package:

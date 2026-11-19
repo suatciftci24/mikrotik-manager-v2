@@ -1,5 +1,22 @@
 # MikroTik Manager V2 — İlerleme
 
+## Alt bilgi ve derleme kimliği — V2.6.5
+
+- Ev WSL `DESKTOP-MT2JS7H`, `~/mikrotik-v2-ortak`,
+  `development/v2.6.2-pppoe`, taban `e2266e983dc5c96651080648200f258e44d34b3a`.
+  Tabanın yerel bundle'ı alt bilgiye 2.6.5 veriyordu. Canlıdaki eski
+  etiketin kaynağı doğrulanmadı.
+- Alt bilgi ve HTML meta sürümü kökteki `release.json` değerini kullanıyor.
+  Üretim HTML'sinde tam kaynak SHA, alt bilgi açıklamasında kısa SHA yer alıyor.
+  Yerel kuru çalışma kaynak arşivine eksik sürüm kaydı eklendi ve arşiv SHA'sı
+  frontend derlemesine aktarılıyor. Ürün sürümü ve mevcut etiket aynı kaldı.
+- PASS: TypeScript/Vite üretim derlemesi, `python3 tools/release.py check`,
+  diff kontrolü ve izole Chromium. Sentetik API 2.6.4 bildirirken alt bilgi
+  2.6.5 gösterdi. HTML SHA ve alt bilgi açıklaması eşleşti. Router ve Abone
+  Merkezi arasında geçişte alt bilgi korundu.
+- Push BLOCKED. `bash tools/check-git-transfer.sh` kayıtlı Ev WSL checkout'u
+  ve `main-guncel` dalını bekliyor. Canlı servis, PostgreSQL ve cihaz işlemi yok.
+
 ## Abone işlem güvenliği — V2.6.5
 
 - Ev WSL `suat@DESKTOP-MT2JS7H`, `~/mikrotik-v2-ortak`,

@@ -15,6 +15,13 @@ sürümünü doğruladığını iddia etmez. Dağıtım paketi `release.json` do
 korumalı; frontend yeni sürüm için yeniden derlenmelidir. Eksik/geçersiz backend
 kaydı başlangıcı durdurur, tahmini sürüme düşülmez.
 
+Üretim frontend çıktısının `dist/index.html` dosyasında
+`mikrotik-app-version` ve kaynak SHA mevcutsa `mikrotik-build-commit`
+meta alanlarını kontrol et. Alt bilgi kaynak commit'in ilk 12 karakterini
+sürümün açıklamasında gösterir. Git checkout'u dışındaki bir kaynak
+arşivinden derlerken `V2_BUILD_COMMIT` ile arşivin 40 karakterlik commit SHA
+değerini aktar. Yerel kuru çalışma aracı bu değeri arşivlenen commit'ten alır.
+
 Ürün sürümü güncellemelerinde, yerel proje kökünde aşağıdaki adımları uygula.
 Yalnız belge, test veya yerel geliştirme aracı değiştiğinde mevcut ürün sürümü
 ve etiketi korunur. Geliştirme sürümü ile canlı panelin sürüm kanıtı ayrı
