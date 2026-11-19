@@ -258,6 +258,79 @@ class PppoeWorkspace(TestCase):
         self.assertIsNone(legacy_report['items'][0]['execution_type'])
         self.assertIsNone(legacy_report['items'][0]['group_id'])
 
+    def test_group_and_undo_preview_are_readonly_and_scoped(self):
+        created, item = self.create()
+        _, skipped_item = self.create()
+        _, rejected_item = self.create()
+        self.user['permissions'][self.hidden]['can_view'] = True
+        _, hidden_item = self.create(self.command(router=self.hidden))
+        execute_path = '/subscriber-workspace/management/execute'
+        self.assertTrue(self.post(execute_path, {'entries':[self.operation(skipped_item,'STATUS','PAUSED')]}).json()['results'][0]['success'])
+        skipped_item = self.client.get('/api/v1/subscriber-center/'+skipped_item['id']).json()['item']
+        rejected = {**self.operation(rejected_item, 'STATUS', 'PAUSED'), 'expected_revision':99}
+        commands = [self.operation(row,'STATUS','PAUSED') for row in (item,skipped_item,hidden_item)]
+        response = self.post(execute_path, {'entries':[*commands,rejected]})
+        self.assertEqual(response.status_code, 200, response.text)
+        applied, skipped, hidden, failed = response.json()['results']
+        self.user['permissions'][self.hidden]['can_view'] = False
+        history = '/api/v1/subscriber-workspace/management/history'
+        def preview(receipt):
+            return self.client.get(f"{history}/{receipt['request_id']}/undo-preview")
+
+        engine = self.sessions.kw['bind']
+        statements = []
+        def capture(_conn, _cursor, statement, _parameters, _context, _many):
+            statements.append(statement.split()[0].upper())
+
+        event.listen(engine, 'before_cursor_execute', capture)
+        try:
+            group = self.client.get(f"{history}?include_skipped=true&group_id={applied['group_id']}").json()
+            self.assertEqual(group['total'], 3)
+            self.assertEqual({row['request_id'] for row in group['items']}, {r['request_id'] for r in (applied, skipped, failed)})
+            self.assertTrue(all(row['subscriber_name']=='Synthetic Subscriber' for row in group['items']))
+            result = preview(applied).json()
+            self.assertEqual(result['status'], 'ELIGIBLE')
+            self.assertEqual(result['changes'], [dict(field='status', previous='ACTIVE', applied='PAUSED', current='PAUSED')])
+            for receipt, reason in ((skipped, 'atlandı'), (failed, 'reddedildi'), (created, 'kanıtı')):
+                data = preview(receipt).json()
+                self.assertEqual(data['status'], 'INELIGIBLE')
+                self.assertIn(reason, data['reason'])
+            self.assertEqual(preview(hidden).status_code, 404)
+            self.user['permissions'][self.allowed]['can_manage_pppoe'] = False
+            self.assertIn('yetkiniz', preview(applied).json()['reason'])
+            self.user['permissions'][self.allowed]['can_manage_pppoe'] = True
+        finally:
+            event.remove(engine, 'before_cursor_execute', capture)
+        self.assertEqual(set(statements), {'SELECT'})
+
+        current = self.client.get('/api/v1/subscriber-center/'+item['id']).json()['item']
+        edit = self.post(execute_path, {'entries':[self.operation(current,'EDIT','New synthetic name')]})
+        self.assertTrue(edit.json()['results'][0]['success'])
+        data = preview(applied).json()
+        self.assertEqual(data['status'], 'CONFLICT')
+        self.assertGreater(data['current_revision'], data['audit_revision'])
+        self.assertEqual(data['changes'][0]['current'], 'PAUSED')
+        self.assertEqual(self.client.post(f"{history}/{applied['request_id']}/undo-preview",json={}).status_code,405)
+
+    def test_undo_preview_distinguishes_saved_null_expiry_from_missing_audit_value(self):
+        _, item = self.create()
+        path = '/subscriber-workspace/management/execute'
+        cleared = self.post(path, {'entries':[self.operation(item,'EXPIRE',None)]}).json()['results'][0]
+        self.assertTrue(cleared['success'])
+        current = self.client.get('/api/v1/subscriber-center/'+item['id']).json()['item']
+        applied = self.post(path, {'entries':[self.operation(current,'EXPIRE','2030-02-01')]}).json()['results'][0]
+        self.assertTrue(applied['success'])
+        preview = f"/api/v1/subscriber-workspace/management/history/{applied['request_id']}/undo-preview"
+        data = self.client.get(preview).json()
+        self.assertEqual(data['status'], 'ELIGIBLE')
+        self.assertEqual(data['changes'], [dict(field='expires_on',previous=None,applied='2030-02-01',current='2030-02-01')])
+        with self.sessions.begin() as session:
+            stored = session.get(Audit, applied['request_id'])
+            stored.changes = {**stored.changes, 'expires_on':{'new':'2030-02-01'}}
+        data = self.client.get(preview).json()
+        self.assertEqual(data['status'], 'INELIGIBLE')
+        self.assertEqual(data['changes'], [])
+
     def test_actor_names_enrich_only_authorized_history_and_preserve_raw_audit(self):
         _,item=self.create()
         self.names.return_value={self.user['id']:'existing.operator'}

@@ -1,5 +1,27 @@
 # MikroTik Manager V2 — İlerleme
 
+## İşlem geçmişi ve geri alma önizlemesi — V2.6.7
+
+- Ev WSL `DESKTOP-MT2JS7H`, `~/mikrotik-v2-ortak`,
+  `development/v2.6.2-pppoe`, taban `5c1851bfcd5592d529a134d2e695b84ce229c488`.
+- Merkezi geçmiş ve rapor kapsam, operatör, İstanbul saati, grup kimliği,
+  önceki/yeni değerler ve sonucu gösteriyor. Grup kimliği yetkili alt
+  kayıtları açıyor. Abone detayından dönüş grup filtresini koruyor.
+- Salt okunur GET önizleme, kalıcı sentetik abone adı, hesap durumu ve bitiş
+  tarihi için geçmiş/güncel değeri ve revizyonları karşılaştırıyor. Atlanan,
+  reddedilen, eski kanıtı eksik ve kapsam dışı işlemler gerekçeli olarak
+  uygun değil. Router yetkileri, audit biçimi ve idempotency korunuyor.
+- PASS: İzole SQLite/ASGI `test_subscriber_daily_management` ve
+  `test_pppoe_workspace_access` 31/31 (önizleme hedefli tekrar dahil).
+  Frontend `operationsNavigation`, `subscriberDailyManagement` ve
+  `operationGetRecovery` 29/29 (etkilenen senaryolar hedefli tekrar).
+  `npm --prefix frontend run build`, merkezi sürüm ve diff kontrolleri PASS.
+- Vite `dist/release.json` üretiyor. Kuru çalışma aracı dağıtım çıktısındaki
+  kayıt ile kaynak arşivindeki kaydın eşleşmesini kontrol ediyor.
+- Migration gerekmiyor. Geri alma yazımı eklenmedi. PostgreSQL çalışma
+  zamanı ve canlı panel doğrulanmadı. Push BLOCKED, aktarım kontrolü kayıtlı
+  Ev WSL checkout'u ve `main-guncel` dalını bekliyor.
+
 ## Abone Merkezi kullanılabilirliği ve işlem güvenliği — V2.6.6
 
 - Ev WSL `DESKTOP-MT2JS7H`, `~/mikrotik-v2-ortak`,

@@ -8,13 +8,13 @@ export type OperationReportRow=OperationReceipt & {
  actor_username?:string|null;
 };
 
-export const operationReportResults={SUCCESS:'Başarılı',SKIPPED:'Atlandı',FAILED:'Başarısız'} as const;
+export const operationReportResults={SUCCESS:'Başarılı',SKIPPED:'Atlandı',FAILED:'Reddedildi'} as const;
 export const executionLabels={SINGLE:'Tekil',BULK:'Toplu',UNKNOWN:'Veri yok'} as const;
 export const operationReportTypes=['EXTEND','PLAN','STATUS'] as const;
 export const operationReportPath='/subscriber-workspace/management/history';
 
 export function operationReportResult(row:OperationReportRow){
- return row.skipped?'Atlandı':row.recorded?(row.success?'Başarılı':'Başarısız'):'Belirsiz';
+ return row.skipped?'Atlandı':row.recorded?(row.success?'Başarılı':'Reddedildi'):'Belirsiz';
 }
 
 export function operationReportCsv(rows:OperationReportRow[]){

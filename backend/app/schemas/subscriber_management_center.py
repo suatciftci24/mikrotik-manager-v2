@@ -90,3 +90,21 @@ class OperationRequestResult(BaseModel):
     status:Literal['SUCCESS','FAILED','SKIPPED','UNKNOWN']
     response:OperationReceipt|None=None
     audit:SubscriberRequestAudit|None=None
+
+
+class UndoPreviewValue(BaseModel):
+    field:str
+    previous:str|None
+    applied:str|None
+    current:str|None
+
+
+class OperationUndoPreview(BaseModel):
+    request_id:UUID
+    item_id:str
+    audit_revision:int
+    current_revision:int
+    status:Literal['ELIGIBLE','CONFLICT','INELIGIBLE']
+    reason:str
+    changes:list[UndoPreviewValue]
+    is_demo:Literal[True]=True

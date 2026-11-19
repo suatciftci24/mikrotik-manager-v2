@@ -48,6 +48,9 @@ export default defineConfig(({command, mode}) => {
       {
         name: 'mikrotik-build-identity',
         apply: 'build',
+        generateBundle() {
+          this.emitFile({type: 'asset', fileName: 'release.json', source: JSON.stringify(release, null, 2) + '\n'});
+        },
         transformIndexHtml() {
           return [
             {tag: 'meta', attrs: {name: 'mikrotik-app-version', content: release.version}},

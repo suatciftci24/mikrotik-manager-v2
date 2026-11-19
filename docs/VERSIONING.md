@@ -15,7 +15,9 @@ sürümünü doğruladığını iddia etmez. Dağıtım paketi `release.json` do
 korumalı; frontend yeni sürüm için yeniden derlenmelidir. Eksik/geçersiz backend
 kaydı başlangıcı durdurur, tahmini sürüme düşülmez.
 
-Üretim frontend çıktısının `dist/index.html` dosyasında
+Vite kökteki sürüm kaydını üretim çıktısına otomatik olarak
+`dist/release.json` adıyla ekler. Yerel yayın hazırlığı bu dosyayı
+kaynak arşivindeki sürüm kaydıyla karşılaştırır. `dist/index.html` dosyasında
 `mikrotik-app-version` ve kaynak SHA mevcutsa `mikrotik-build-commit`
 meta alanlarını kontrol et. Alt bilgi kaynak commit'in ilk 12 karakterini
 sürümün açıklamasında gösterir. Git checkout'u dışındaki bir kaynak

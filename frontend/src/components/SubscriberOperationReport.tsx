@@ -1,12 +1,13 @@
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {ResourceState} from './Resource';
 import {SubscriberOperationMetadata} from './SubscriberOperationMetadata';
+import {SubscriberOperationValues} from './SubscriberOperationValues';
+import {SubscriberUndoPreview} from './SubscriberUndoPreview';
 import {subscriberOperationConflict} from '../lib/subscriberOperationError';
 import {SourceBadge} from './Status';
 import {linkedDetailHash} from '../lib/detailLinks';
 import {reportPages} from '../lib/managementReport';
 import {dailyLabels} from '../lib/subscriberManagementCenter';
-import {valuesText} from '../lib/subscriberHistory';
 import {executionLabels,operationReportCsv,operationReportPath,operationReportResult,operationReportResults,operationReportTypes,type OperationReportRow} from '../lib/subscriberOperationReport';
 import {useResource} from '../lib/useResource';
 
@@ -34,6 +35,12 @@ export function SubscriberOperationReport(){
   setExportError('');
   setPage(1);
   setFilters({...next,actor_id:next.actor_id.trim()});
+ }
+
+ function openGroup(groupId:string){
+  const next={...emptyFilters,execution_type:'BULK',group_id:groupId};
+  setDraft(next);
+  apply(next);
  }
 
  async function download(){
@@ -68,6 +75,7 @@ export function SubscriberOperationReport(){
 
  return <section className="panel registry-detail">
   <h2>Toplu İşlem Raporu</h2>
+  {filters.group_id&&<p className="operation-group-id">Grup ayrıntıları · {filters.group_id}</p>}
   <form className="router-report-controls" onSubmit={submit}>
    <label className="form-label">Başlangıç<input type="date" required={!!draft.end} value={draft.start} onChange={e=>setDraft({...draft,start:e.target.value})}/></label>
    <label className="form-label">Bitiş<input type="date" required={!!draft.start} min={draft.start||undefined} value={draft.end} onChange={e=>setDraft({...draft,end:e.target.value})}/></label>
@@ -83,21 +91,22 @@ export function SubscriberOperationReport(){
   {exportError&&<p role="alert">{exportError}</p>}
   <ResourceState {...resource} error={error}/>
   {!resource.loading&&!error&&data&&<>
-   <p role="status">Başarılı: {data.counts.success} · Atlandı: {data.counts.skipped} · Başarısız: {data.counts.failed}</p>
+   <p role="status">Başarılı: {data.counts.success} · Atlandı: {data.counts.skipped} · Reddedildi: {data.counts.failed}</p>
    <p>Sonuç filtresi özet sayımlarını değiştirmez. Atlandı sayısı yalnızca kalıcı sonuç kayıtlarını içerir.</p>
    {!!data.groups?.length&&<ul aria-label="Yetkili kayıtların grup toplamları" className="registry-history">{data.groups.map(group=><li key={group.group_id}>
-    <button type="button" className="record-link" onClick={()=>{const next={...emptyFilters,execution_type:'BULK',group_id:group.group_id};setDraft(next);apply(next);}}>{group.group_id}</button>
-    <span>Toplam: {group.total} · Başarılı: {group.success} · Başarısız: {group.failed} · Atlandı: {group.skipped}</span>
+    <button type="button" className="record-link" onClick={()=>openGroup(group.group_id)}>{group.group_id}</button>
+    <span>Toplam: {group.total} · Başarılı: {group.success} · Reddedildi: {group.failed} · Atlandı: {group.skipped}</span>
    </li>)}</ul>}
    {data.items.length===0?<p>Bu filtrelere uyan kayıt bulunamadı.</p>:<ol className="registry-history">
     {data.items.map(row=><li key={row.request_id}>
      <strong>{dailyLabels[row.operation]} · {operationReportResult(row)}</strong>
-     <SubscriberOperationMetadata row={row} onActor={()=>{const next={...filters,actor_id:row.actor_id};setDraft(next);apply(next);}}/>
+     <SubscriberOperationMetadata row={row} onGroup={openGroup} onActor={()=>{const next={...filters,actor_id:row.actor_id};setDraft(next);apply(next);}}/>
      {row.skipped&&<span>Hesap zaten hedef durumdaydı.</span>}
      {row.recorded&&!row.success&&row.error&&<span>{subscriberOperationConflict(row.error)??row.error}</span>}
      <a className="record-link" href={linkedDetailHash({module:'subscribers',workspace:'PERSISTENT',id:row.item_id},window.location.hash)}>{row.subscriber_name??row.item_id}{row.subscriber_username&&` · ${row.subscriber_username}`}</a>
      <span>Yetkili kaynak <SourceBadge source={row.source??null}/></span>
-     <dl className="detail-facts"><div><dt>Önceki</dt><dd>{valuesText(row.previous)}</dd></div><div><dt>Yeni</dt><dd>{row.skipped?'Değişiklik yok':row.success?valuesText(row.values):'Uygulanmadı'}</dd></div></dl>
+     <SubscriberOperationValues row={row}/>
+     <SubscriberUndoPreview requestId={row.request_id} itemId={row.item_id}/>
     </li>)}
    </ol>}
    <div className="table-footer"><span>{data.total} kayıt</span><button disabled={page===1} onClick={()=>setPage(page-1)}>Önceki</button><span>{page}</span><button disabled={page*pageSize>=data.total} onClick={()=>setPage(page+1)}>Sonraki</button></div>

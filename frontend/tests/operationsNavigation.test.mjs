@@ -5,9 +5,9 @@ import {build} from 'esbuild';
 import * as React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 const require=createRequire(import.meta.url);
-let effects=[],calls=[],states=[],initialStates=[],selectedEvent=null,identity=null,selectedNullAt=0,nullCursor=0;
-const hooks={...React,useCallback:fn=>fn,useContext:()=>identity,useEffect:fn=>effects.push(fn),useRef:()=>({current:{scrollIntoView:()=>calls.push('scroll'),focus:()=>calls.push('focus')}}),useState:value=>{const initial=value===null&&selectedEvent&&nullCursor++===selectedNullAt?selectedEvent:typeof value==='function'?value():value;initialStates.push(initial);return [initial,next=>states.push(next)];}};
-const result=await build({stdin:{contents:"export {ResourceState} from './src/components/Resource';export {SyntheticSubscriberList} from './src/components/SyntheticSubscribers';export {SubscriberOperationHistory} from './src/components/SubscriberDailyActions';export {SubscriberOperationReport} from './src/components/SubscriberOperationReport';export {operationReportCsv} from './src/lib/subscriberOperationReport';export {reportPages} from './src/lib/managementReport';export {OperationReport} from './src/screens/OperationReport';export {ManagementReport} from './src/screens/ManagementReport';export {OperationDetails} from './src/components/OperationDetails';export {SubscriberDeviceCenter} from './src/components/SubscriberDeviceCenter';",resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,loader:{'.css':'empty'},platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'resource',setup(b){b.onResolve({filter:/lib\/useResource$/},()=>({path:'resource',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function useResource(path){globalThis.__navigationQueries?.push(path);return globalThis.__navigationResources?.[path.split("?")[0]]??globalThis.__navigationResource}',loader:'js'}));}}]});
+let effects=[],calls=[],states=[],initialStates=[],selectedEvent=null,identity=null,selectedNullAt=0,nullCursor=0,openUndoPreview=false;
+const hooks={...React,useCallback:fn=>fn,useContext:()=>identity,useEffect:fn=>effects.push(fn),useRef:()=>({current:{scrollIntoView:()=>calls.push('scroll'),focus:()=>calls.push('focus')}}),useState:value=>{const initial=value===null&&selectedEvent&&nullCursor++===selectedNullAt?selectedEvent:typeof value==='function'?value():value;initialStates.push(initial);return [openUndoPreview&&value===false?true:initial,next=>states.push(next)];}};
+const result=await build({stdin:{contents:"export {ResourceState} from './src/components/Resource';export {SyntheticSubscriberList} from './src/components/SyntheticSubscribers';export {SubscriberOperationHistory} from './src/components/SubscriberDailyActions';export {SubscriberOperationReport} from './src/components/SubscriberOperationReport';export {SubscriberUndoPreview} from './src/components/SubscriberUndoPreview';export {operationReportCsv} from './src/lib/subscriberOperationReport';export {reportPages} from './src/lib/managementReport';export {OperationReport} from './src/screens/OperationReport';export {ManagementReport} from './src/screens/ManagementReport';export {OperationDetails} from './src/components/OperationDetails';export {SubscriberDeviceCenter} from './src/components/SubscriberDeviceCenter';",resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,loader:{'.css':'empty'},platform:'node',format:'cjs',jsx:'automatic',external:['react','react/jsx-runtime'],plugins:[{name:'resource',setup(b){b.onResolve({filter:/lib\/useResource$/},()=>({path:'resource',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function useResource(path){globalThis.__navigationQueries?.push(path);return globalThis.__navigationResources?.[path.split("?")[0]]??globalThis.__navigationResource}',loader:'js'}));}}]});
 const module={exports:{}};new Function('require','module','exports',result.outputFiles[0].text)(name=>name==='react'?hooks:require(name),module,module.exports);
 function draw(hash,state){
  globalThis.window={location:{hash}};globalThis.__navigationResource=state;effects=[];calls=[];
@@ -132,7 +132,7 @@ test('workspace history keeps source and filters and links exact subscriber/rout
  try{const html=renderToStaticMarkup(module.exports.SubscriberOperationHistory());const query=new URLSearchParams(__navigationQueries[0].split('?')[1]);assert.match(__navigationQueries[0],/^\/subscriber-workspace\/management\/history/);assert.equal(query.get('page'),'2');assert.equal(query.get('result'),'FAILED');assert.equal(query.get('operation'),'PLAN');assert.equal(query.get('item_id'),account.id);
   const links=[...html.matchAll(/<a [^>]*href="([^"]+)"/g)];assert.equal(links.length,2);
   const target=new URLSearchParams(links[0][1].slice(1).replaceAll('&amp;','&'));assert.equal(target.get('id'),account.id);assert.equal(target.get('workspace'),'PERSISTENT');assert.equal(target.get('return_to'),hash);
-  assert.match(html,/Başarısız/);
+  assert.match(html,/Paket \/ profil · Reddedildi/);
  }finally{cleanup();}
 });
 
@@ -187,6 +187,42 @@ test('central history renders authority, UUID, revision, localized status and re
  }finally{globalThis.window=before;globalThis.__navigationResource=previous;}
 });
 
+test('history group drilldown queries the exact group and keeps it on the subscriber return link',()=>{
+ const group='00000000-0000-4000-8000-000000000067';
+ const row={request_id:'fixture',item_id:account.id,group_id:group,execution_type:'BULK',operation:'STATUS',
+  actor_id:'operator',occurred_at:'2026-11-19T18:00:00Z',previous:{status:'ACTIVE'},values:{},success:false,recorded:true};
+ const cleanup=fixture(`#module=subscribers&workspace=HISTORY&history_source=workspace&history_group=${group}`,
+  {loading:false,data:{is_demo:true,total:1,items:[row]}});
+ try{
+  const html=renderToStaticMarkup(module.exports.SubscriberOperationHistory());
+  assert.match(html,/Grup ayrıntıları/);
+  assert.match(html,/Reddedildi/);
+  assert.match(html,/Geri alma önizlemesi/);
+  assert.match(html,/return_to=[^"]*history_group%3D00000000/);
+  assert.ok(globalThis.__navigationQueries.some(path=>new URLSearchParams(path.split('?')[1]).get('group_id')===group));
+ }finally{cleanup();}
+});
+
+test('undo preview is fetched only when opened and is tied to the selected audit row',()=>{
+ const requestId='00000000-0000-4000-8000-000000000067',itemId=account.id;
+ const preview={request_id:requestId,item_id:itemId,is_demo:true,audit_revision:2,current_revision:3,status:'CONFLICT',
+  reason:'İşlemden sonra abonelik revizyonu değişti.',changes:[{field:'status',previous:'ACTIVE',applied:'PAUSED',current:'ACTIVE'}]};
+ const cleanup=fixture('#module=subscribers&workspace=HISTORY',{loading:false,data:preview});
+ try{
+  const render=()=>renderToStaticMarkup(React.createElement(module.exports.SubscriberUndoPreview,{requestId,itemId}));
+  assert.match(render(),/Geri alma önizlemesi/);
+  assert.equal(globalThis.__navigationQueries.length,0);
+  openUndoPreview=true;
+  const html=render();
+  assert.match(globalThis.__navigationQueries[0],new RegExp(requestId+'/undo-preview$'));
+  for(const label of [/Salt okunur/,/Çakışmalı/,/İşlemden önce/,/İşlemde kaydedilen/,/Güncel/])assert.match(html,label);
+  assert.doesNotMatch(html,/Geri al<\/button>/);
+  preview.item_id='unrelated';
+  assert.match(render(),/işlem kaydıyla eşleşmedi/);
+  assert.doesNotMatch(render(),/Çakışmalı/);
+ }finally{openUndoPreview=false;cleanup();}
+});
+
 test('operation UUID and raw actor remain inside a closed technical disclosure',()=>{
  const actor='v2-user-12345678-1234-4234-8234-123456789abc';
  const html=renderToStaticMarkup(module.exports.OperationDetails({event:{id:'audit',request_id:'audit-uuid',subscriber_id:'demo-managed-sub-test',operation:'STATUS_CHANGE',access_type:'PPPOE',source:'LOCAL',actor_id:actor,occurred_at:'2026-11-11T12:00:00Z',is_demo:true,audit_result:'APPLIED'},onClose(){},onSubscriber(){}}));
@@ -200,8 +236,8 @@ test('subscriber operation report shows recorded evidence and exports all filter
  const cleanup=fixture('#module=subscribers&workspace=HISTORY',{loading:false,data:{is_demo:true,total:2,items:[row],counts:{success:1,failed:1,skipped:1},groups:[{group_id:'group-1',total:3,success:1,failed:1,skipped:1}]}});
  try{
   const html=renderToStaticMarkup(module.exports.SubscriberOperationReport());
-  assert.match(html,/Başarılı: 1 · Atlandı: 1 · Başarısız: 1/);
-  assert.match(html,/Toplam: 3 · Başarılı: 1 · Başarısız: 1 · Atlandı: 1/);
+  assert.match(html,/Başarılı: 1 · Atlandı: 1 · Reddedildi: 1/);
+  assert.match(html,/Toplam: 3 · Başarılı: 1 · Reddedildi: 1 · Atlandı: 1/);
   assert.match(html,/Suat &quot;Test&quot;/);
   assert.match(html,/Paket\/profil: Önceki/);
   assert.match(html,/Paket\/profil: Yeni/);

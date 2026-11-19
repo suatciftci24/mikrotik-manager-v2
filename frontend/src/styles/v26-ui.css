@@ -258,3 +258,6 @@
  .subscriber-daily-dialog .daily-review:has(> :nth-child(2)){grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 .subscriber-operation-preview .subscriber-preview-direction{margin:4px 0;color:var(--text-secondary);font-size:.8rem}
+.operation-group-id,.subscriber-operation-metadata .record-link{overflow-wrap:anywhere}
+.subscriber-undo-preview{border-top:1px solid var(--line);padding:4px 0;min-width:0}
+.subscriber-undo-preview summary{cursor:pointer;padding:8px 0}

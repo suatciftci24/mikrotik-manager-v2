@@ -5,14 +5,16 @@ import hashlib,json,re
 from uuid import UUID, uuid5
 from sqlalchemy import select,func,case,literal,union_all
 from sqlalchemy.orm import aliased
-from app.core.authorization import require_workspace_account
+from app.core.authorization import require_workspace_account,workspace_can_manage,workspace_scope
 from app.core.database import SessionLocal
 from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as Event, SyntheticSubscriberSkip as Skip
-from app.services.subscriber_center import SubscriberWorkspace,request_audit,event_scope
+from app.services.subscriber_center import SubscriberWorkspace,request_audit,event_scope,event_source
 from app.services.router_workspace import guard,boundary,WorkspaceError
+from app.models.router_workspace import RouterWorkspaceRecord
 
 PUBLIC_FIELDS={'customer_name','plan','status','expires_on','started_on','router_id','username','access_type','source','package_id','package_revision'}
 DAILY_REPORT_OPERATIONS=('EXTEND','PLAN','STATUS')
+UNDO_PREVIEW_FIELDS={'EDIT':'customer_name','STATUS':'status','EXTEND':'expires_on','EXPIRE':'expires_on'}
 
 def fingerprint(command,actor):
     values=command.model_dump(mode='json')
@@ -62,6 +64,21 @@ def event_receipt(event, *, skipped=False):
     previous=public_changes(event.changes,'previous');values=public_changes(event.changes,'new')
     return dict(item_id=event.subscriber_id,request_id=event.id,success=True,recorded=True,operation=event.operation,actor_id=event.actor_id,
                 router_id=event.changes.get('_router_id',values.get('router_id')),previous_router_id=previous.get('router_id'),previous=previous,values=values,occurred_at=event.occurred_at,revision=event.revision,error=None)
+
+def valid_previous_value(field, value, account):
+    if field == 'status':
+        return value in ('ACTIVE', 'PAUSED')
+    if field == 'customer_name':
+        return value is not None and 2 <= len(value) <= 160 and value.isprintable() and value.strip() == value
+    if value is None:
+        return True
+    try:
+        previous = date.fromisoformat(value)
+        started = account.fields.get('started_on')
+        return previous.isoformat() == value and (not started or previous >= date.fromisoformat(started))
+    except (TypeError, ValueError):
+        return False
+
 
 class SubscriberOperationsService:
     def __init__(self,sessions=SessionLocal,check=guard):self.sessions=sessions;self.check=check
@@ -300,6 +317,74 @@ class SubscriberOperationsService:
             return {**result,'status':'SUCCESS' if receipt['success'] else 'FAILED','response':receipt,'audit':evidence}
 
     @boundary
+    def undo_preview(self, request_id, user):
+        scope = workspace_scope(user)
+        with self.sessions() as session:
+            if session.get_bind().dialect.name == 'postgresql':
+                session.connection(execution_options={'isolation_level':'REPEATABLE READ','postgresql_readonly':True})
+            self.check(session)
+
+            def visible_entry(model):
+                query = select(model, Account).join(Account, Account.id == model.subscriber_id).where(model.id == str(request_id))
+                if scope is not None:
+                    query = query.where(Account.router_id.in_(scope), *event_scope(scope, model))
+                return session.execute(query).one_or_none()
+
+            entry = visible_entry(Event)
+            if entry is None or '_management' not in entry[0].changes:
+                entry = visible_entry(Skip) or entry
+            if entry is None:
+                raise WorkspaceError(404, 'İşlem kaydı bulunamadı.')
+            event, account = entry
+            preview = dict(request_id=event.id, item_id=account.id, audit_revision=event.revision,
+                           current_revision=account.revision, changes=[], status='INELIGIBLE')
+            skipped = isinstance(event, Skip)
+            if not event.changes.get('_management', {}).get('receipt'):
+                return {**preview, 'reason': 'Bu geçmiş kaydı geri alma için yeterli işlem kanıtı içermiyor.'}
+            try:
+                receipt = event_receipt(event, skipped=skipped)
+            except WorkspaceError:
+                return {**preview, 'reason': 'Geçmiş işlem kanıtı doğrulanamadı.'}
+            if skipped:
+                return {**preview, 'reason': 'İşlem atlandı. Abonelik değerleri değişmedi.'}
+            if not receipt['success']:
+                return {**preview, 'reason': 'İşlem reddedildi. Geri alınacak bir değişiklik yok.'}
+
+            previous, applied = receipt['previous'], receipt['values']
+            for field in sorted(previous.keys() & applied.keys()):
+                if (field in account.fields and {'previous', 'new'} <= event.changes[field].keys()
+                        and previous[field] != applied[field]):
+                    value = account.fields[field]
+                    preview['changes'].append(dict(field=field, previous=previous[field], applied=applied[field],
+                                                   current=None if value is None else str(value)))
+            if not workspace_can_manage(user, account.router_id, account.access_type):
+                return {**preview, 'reason': 'Bu aboneliği yönetme yetkiniz bulunmuyor.'}
+            field = UNDO_PREVIEW_FIELDS.get(event.operation)
+            if field is None:
+                return {**preview, 'reason': 'Bu işlem türü için güvenli geri alma uygunluğu değerlendirilmiyor.'}
+            audit_change = event.changes.get(field)
+            if (not isinstance(audit_change, dict) or not {'previous', 'new'} <= audit_change.keys()
+                    or field not in account.fields or previous[field] == applied[field] or event.revision < 1):
+                return {**preview, 'reason': 'Değişen alanın önceki, işlenen veya güncel değeri doğrulanamadı.'}
+
+            router = session.get(RouterWorkspaceRecord, account.router_id)
+            source = event_source(event)
+            if not router or router.kind != 'DEMO_ROUTER' or source is None:
+                return {**preview, 'reason': 'Sentetik router veya kayıtlı yetkili kaynak doğrulanamadı.'}
+            if (account.router_id != receipt['router_id'] or account.fields.get('router_id') != account.router_id
+                    or source != account.source or account.fields.get('source') != account.source
+                    or account.fields.get('access_type') != account.access_type):
+                return {**preview, 'status': 'CONFLICT', 'reason': 'Aboneliğin routerı, erişim türü veya yetkili kaynağı değişti.'}
+            if account.revision != event.revision:
+                return {**preview, 'status': 'CONFLICT', 'reason': 'İşlemden sonra abonelik revizyonu değişti.'}
+            current = account.fields[field]
+            if (None if current is None else str(current)) != applied[field]:
+                return {**preview, 'status': 'CONFLICT', 'reason': 'Güncel değer, işlemde kaydedilen değerle eşleşmiyor.'}
+            if not valid_previous_value(field, previous[field], account):
+                return {**preview, 'reason': 'Önceki değer güncel abonelik kurallarına uymuyor.'}
+            return {**preview, 'status': 'ELIGIBLE', 'reason': 'Güncel revizyon ve değer geçmiş kayıtla eşleşiyor. Önceki değer önizlenebilir.'}
+
+    @boundary
     def history(self,item_id='',operation='ALL',result='ALL',page=1,page_size=25,*,start=None,until=None,
                 router_id='',actor_id='',query='',user=None,daily=False,execution_type='ALL',group_filter=None,include_skipped=False):
         with self.sessions() as session:
@@ -321,7 +406,6 @@ class SubscriberOperationsService:
 
             scoped = []
             if user is not None:
-                from app.core.authorization import workspace_scope
                 ids = workspace_scope(user)
                 if ids is not None:
                     scoped.extend([Account.router_id.in_(ids), *event_scope(ids, event)])
@@ -363,9 +447,8 @@ class SubscriberOperationsService:
             total = session.scalar(filtered.with_only_columns(func.count(), maintain_column_froms=True))
             statement = filtered.add_columns(Account.fields['customer_name'].as_string(), Account.fields['username'].as_string(), skipped)
             rows = session.execute(statement.order_by(event.occurred_at.desc(), event.id).offset((page-1)*page_size).limit(page_size)).all()
-            from app.services.subscriber_center import event_source
             items = [{**event_receipt(record, skipped=is_skipped), 'source':event_source(record),
-                      **(dict(subscriber_name=name,subscriber_username=username) if daily else {})}
+                      **(dict(subscriber_name=name,subscriber_username=username) if daily or include_skipped else {})}
                      for record,name,username,is_skipped in rows]
 
             if daily:

@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.7] - 2026-11-19
+
+- Abone geçmişinde grup ayrıntıları, salt okunur geri alma önizlemesi ve üretim sürüm dosyası.
+
 ## [2.6.6] - 2026-11-19
 
 - Abone işlemlerinde sabit önizleme, atlama açıklamaları ve tutarlı işlem geçmişi.

@@ -60,6 +60,11 @@ def prepare():
         subprocess.run(['npm', 'run', 'build'], cwd=build_root/'frontend',
                        env={**os.environ, 'V2_BUILD_COMMIT': commit},
                        stdout=log, stderr=subprocess.STDOUT, check=True)
+    build_release = build_root/'frontend/dist/release.json'
+    release = json.loads((build_root/'release.json').read_text())
+    if not build_release.is_file() or json.loads(build_release.read_text()) != release:
+        raise RuntimeError('Built frontend release.json must match the archived source release.json')
+    manifest['app_version'] = release['version']
     built = destination/'frontend-dist.tar'
     with tarfile.open(built, 'x') as package:
         package.add(build_root/'frontend/dist', arcname='dist')
