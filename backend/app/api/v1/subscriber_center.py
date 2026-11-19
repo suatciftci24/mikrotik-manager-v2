@@ -73,7 +73,7 @@ def manage(payload:SubscriberOperations,user:dict=Depends(mutator)):
 @router.get('/subscriber-workspace/management/history',response_model=OperationHistory)
 def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',pattern='^(ALL|EDIT|PLAN|STATUS|EXPIRE|EXTEND|ROUTER|CREATE|UPDATE|RENEWAL)$'),
             result:str=Query('ALL',pattern='^(ALL|SUCCESS|FAILED|SKIPPED)$'),page:int=Query(1,ge=1,le=1000000),
-            page_size:int=Query(25,ge=1,le=100),report:bool=False,daily:bool=False,
+            page_size:int=Query(25,ge=1,le=100),report:bool=False,daily:bool=False,include_skipped:bool=False,
             start:str='',end:str='',actor_id:str=Query('',max_length=80),
             execution_type:str=Query('ALL',pattern='^(ALL|SINGLE|BULK|UNKNOWN)$'),group_id:UUID|None=None,user:dict=Depends(current_demo_user)):
     scope=workspace_scope(user)
@@ -82,8 +82,9 @@ def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',patter
         if not ids:raise HTTPException(403,'Rapor yetkisi gerekli')
         user={**user,'permissions':{id:user['permissions'][id] for id in ids}}
     if not daily:
-        if start or end or actor_id or result=='SKIPPED' or execution_type!='ALL' or group_id:raise HTTPException(422,'Bu filtreler günlük abone işlemi raporuna aittir.')
-        return execute(operations.history,item_id,operation,result,page,page_size,user=user)
+        if start or end or actor_id or (result=='SKIPPED' and not include_skipped) or execution_type!='ALL' or group_id:raise HTTPException(422,'Bu filtreler günlük abone işlemi raporuna aittir.')
+        data=execute(operations.history,item_id,operation,result,page,page_size,user=user,include_skipped=include_skipped)
+        return history_actor_names(data) if include_skipped else data
     if operation!='ALL' and operation not in DAILY_REPORT_OPERATIONS:
         raise HTTPException(422,'Geçerli bir toplu işlem türü seçin.')
     start_utc=until_utc=None
@@ -96,6 +97,10 @@ def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',patter
     data=execute(operations.history,item_id,operation,result,page,page_size,user=user,daily=True,
                  start=start_utc,until=until_utc,actor_id=actor_id.strip(),execution_type=execution_type,
                  group_filter=str(group_id) if group_id else None)
+    return history_actor_names(data)
+
+
+def history_actor_names(data):
     from app.services import identity
     from app.services.demo_subscriptions import DemoStorageUnavailable
     ids=sorted({row['actor_id'] for row in data['items'] if row['actor_id']})

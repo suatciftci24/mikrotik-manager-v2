@@ -200,8 +200,22 @@ class PppoeWorkspace(TestCase):
         conflict=self.operation(item,'STATUS','ACTIVE')
         self.assertFalse(self.post(execute_path,{'entries':[conflict]}).json()['results'][0]['success'])
         self.assertEqual(report({'daily':'true'}).status_code,403)
-        self.user['permissions'][self.allowed]['can_view_reports']=True
         self.names.return_value={self.user['id']:'operator.fixture'}
+        central=report({'include_skipped':'true','result':'SKIPPED'}).json()
+        self.assertEqual(central['total'],1)
+        self.assertEqual(central['items'][0]['group_id'],group_id)
+        self.assertEqual(central['items'][0]['request_id'],skip['request_id'])
+        self.assertEqual(central['items'][0]['actor_username'],'operator.fixture')
+        self.assertEqual(central['items'][0]['occurred_at'],batch[0]['occurred_at'])
+        self.user['permissions'][self.allowed]['can_view']=False
+        self.assertEqual(report({'include_skipped':'true','result':'SKIPPED'}).json()['total'],0)
+        self.user['permissions'][self.allowed]['can_view']=True
+        self.assertEqual(report({'include_skipped':'true','operation':'CREATE'}).json()['total'],2)
+        self.user['permissions'][self.hidden]['can_view']=False
+        self.assertEqual(report({'include_skipped':'true','operation':'CREATE'}).json()['total'],1)
+        self.user['permissions'][self.hidden]['can_view']=True
+        self.assertEqual(report({'operation':'STATUS'}).json()['total'],3)
+        self.user['permissions'][self.allowed]['can_view_reports']=True
         day=datetime.now(ZoneInfo('Europe/Istanbul')).date()
         filters={'daily':'true','start':day.isoformat(),'end':day.isoformat(),'actor_id':self.user['id'],'operation':'STATUS'}
         response=report({**filters,'result':'SUCCESS','page_size':1})

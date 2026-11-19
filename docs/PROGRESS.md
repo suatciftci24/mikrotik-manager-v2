@@ -1,5 +1,27 @@
 # MikroTik Manager V2 — İlerleme
 
+## Abone Merkezi kullanılabilirliği ve işlem güvenliği — V2.6.6
+
+- Ev WSL `DESKTOP-MT2JS7H`, `~/mikrotik-v2-ortak`,
+  `development/v2.6.2-pppoe`, taban `e18697f6cc7ffd5d6345382d4c443db6a29a5e0d`.
+  Komut sabitlenirken kartlar yenilenen props üzerinden okunuyordu. Günlük ve
+  legacy önizleme kartları onaylanan değerlerle birlikte sabitlendi.
+- Değişiklik, beklenen atlama ve bilinen aynı değer reddi ayrı gösteriliyor.
+  Revizyon çakışması ve UUID çakışması için ilgili sonraki adım gösteriliyor.
+  Onay, tekrar koruması, audit ve salt okunur UUID kurtarma akışı korunuyor.
+- Kalıcı Abone Merkezi geçmişinde atlamalar mevcut sonuç tablosundan ve
+  router yetki kapsamında okunuyor. Operatör, İstanbul zamanı, kapsam, grup
+  kimliği ve sonuç raporla ortak gösteriliyor. Eski kayıt ve API varsayılanı
+  korunuyor. Yeni migration gerekmiyor.
+- PASS: İzole SQLite/ASGI `test_subscriber_daily_management`,
+  `test_pppoe_workspace_access`, `test_package_subscription_flow` 35/35.
+  Frontend hedefli paket 89/89 (etkilenen senaryolar hedefli tekrar).
+  TypeScript/Vite üretim derlemesi, sürüm ve diff kontrolleri PASS.
+  İzole Chromium'da 1440 ve 360 px önizleme, atlama nedeni ve onay öncesi
+  yazma yapılmaması PASS. PostgreSQL çalışma zamanı doğrulanmadı.
+- Push BLOCKED. `bash tools/check-git-transfer.sh` kayıtlı Ev WSL checkout'u
+  ve `main-guncel` dalını bekliyor. Canlı servis, PostgreSQL ve cihaz işlemi yok.
+
 ## Alt bilgi ve derleme kimliği — V2.6.5
 
 - Ev WSL `DESKTOP-MT2JS7H`, `~/mikrotik-v2-ortak`,

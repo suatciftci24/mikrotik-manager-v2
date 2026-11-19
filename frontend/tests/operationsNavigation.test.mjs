@@ -181,6 +181,9 @@ test('central history renders authority, UUID, revision, localized status and re
    if(success)assert.match(html,/Durum: Etkin/);
    else{assert.match(html,/Uygulanmadı/);assert.match(html,/Revizyon çakışması/);assert.doesNotMatch(html,/Durum: Etkin/);}
   }
+  globalThis.__navigationResource={loading:false,data:{items:[{...receipt,success:false,recorded:false,skipped:true,execution_type:'BULK',group_id:'fixture-group',actor_username:'operator.fixture'}],total:1,is_demo:true}};
+  const skipped=renderToStaticMarkup(module.exports.SubscriberOperationHistory());
+  for(const expected of [/Atlandı/,/Grup kimliği/,/fixture-group/,/operator.fixture/,/15:00/,/Değişiklik yok/])assert.match(skipped,expected);
  }finally{globalThis.window=before;globalThis.__navigationResource=previous;}
 });
 

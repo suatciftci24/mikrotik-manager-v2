@@ -33,7 +33,7 @@ test('preview rejects unsupported authority, router, revision, dates and unchang
   assert.equal(command.expected_source,authority);assert.equal(command.expected_revision,item.revision);
   assert.equal(command.expected_router_id,item.router_id);assert.equal(command.value,'Demo 800');
  }
- // Mixed bulk status remains per-account: unchanged accounts may be recorded failures.
+ // The server still receives every account, including expected skips.
  assert.equal(dailyEntries(rows,'STATUS','PAUSED',30,'2026-10-29',id).length,2);
 });
 function dailyDialog(props){
@@ -90,7 +90,10 @@ for(const target of ['ACTIVE','PAUSED']){
   nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
   const preview=renderToStaticMarkup(render());
   assert.match(preview,target==='ACTIVE'?/Pasif hesap → Aktif hesap/:/Aktif hesap → Pasif hesap/);
-  assert.match(preview,/Skipped User[\s\S]*Önizlemede zaten hedef durumda/);
+  assert.match(preview,/Değişiklik beklenen: <strong>2<\/strong> · Atlanması beklenen: <strong>1/);
+  assert.match(preview,/Skipped User[\s\S]*Atlanması bekleniyor[\s\S]*Önizlemede zaten hedef durumda/);
+  selected[0]={...selected[0],customer_name:'Refreshed name',status:target,revision:99};
+  assert.doesNotMatch(renderToStaticMarkup(render()),/Refreshed name/);
   const apply=()=>nodes(render()).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula');
   assert.equal(apply().props.disabled,true);
   apply().props.onClick();
@@ -100,7 +103,7 @@ for(const target of ['ACTIVE','PAUSED']){
   await new Promise(setImmediate);
   assert.equal(fetch.mock.callCount(),1);
   const {entries}=JSON.parse(fetch.mock.calls[0].arguments[1].body);
-  assert.deepEqual(entries.map(e=>[e.item_id,e.expected_source,e.value,e.expected_expires_on,e.expected_status]),selected.map(row=>[row.id,row.source,target,row.expires_on,row.status]));
+  assert.deepEqual(entries.map(e=>[e.item_id,e.expected_source,e.value,e.expected_expires_on,e.expected_status]),selected.map((row,index)=>[row.id,row.source,target,row.expires_on,index===0?opposite:row.status]));
   const result=renderToStaticMarkup(render());
   assert.match(result,/Başarılı: 1/);
   assert.match(result,/Başarısız: 1/);
@@ -124,12 +127,30 @@ test('an all-unchanged status batch settles without a recovery query',async t=>{
  const render=dailyDialog({rows:[item,{...item,id:'demo-managed-sub-same'}],initialAction:'STATUS',onClose(){}});
  nodes(render()).find(n=>n.type==='select'&&n.props.value==='').props.onChange({target:{value:'PAUSED'}});
  nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
- assert.match(renderToStaticMarkup(render()),/0 abone etkilenecek/);
+ assert.match(renderToStaticMarkup(render()),/Değişiklik beklenen: <strong>0<\/strong> · Atlanması beklenen: <strong>2/);
  assert.equal(fetch.mock.callCount(),0);
  nodes(render()).find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});
  nodes(render()).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();
  await new Promise(setImmediate);
  assert.match(renderToStaticMarkup(render()),/Başarılı: 0.*Atlandı: 2.*Başarısız: 0/s);
  assert.doesNotMatch(renderToStaticMarkup(render()),/Aynı UUID ile sonuçları sorgula/);
+ assert.equal(fetch.mock.callCount(),1);
+});
+
+test('a duplicate UUID conflict directs the operator to history and leaves the approval closed',async t=>{
+ const originalWindow=globalThis.window;
+ globalThis.window={dispatchEvent(){}};
+ t.after(()=>{globalThis.window=originalWindow;});
+ const fetch=t.mock.method(globalThis,'fetch',async ()=>({
+  ok:false,status:409,json:async()=>({detail:'İstek kimliği başka bir işlem grubuna ait.'}),
+ }));
+ const render=dailyDialog({rows:[item],fixedAction:'STATUS',onClose(){}});
+ nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
+ nodes(render()).find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});
+ nodes(render()).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();
+ await new Promise(setImmediate);
+ const html=renderToStaticMarkup(render());
+ assert.match(html,/İşlem geçmişini kontrol edin/);
+ assert.doesNotMatch(html,/Onayla ve uygula|Aynı UUID ile sonuçları sorgula/);
  assert.equal(fetch.mock.callCount(),1);
 });

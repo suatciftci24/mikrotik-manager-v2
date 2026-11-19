@@ -1,6 +1,8 @@
 import {nextAccountStatus} from '../lib/subscriberActions';
 import {legacySavedReceipt} from '../lib/legacySubscriberReceipt';
-import {subscriberOperationError} from '../lib/subscriberOperationError';
+import {SubscriberOperationPreview,type SubscriberPreviewChange} from './SubscriberOperationPreview';
+import {statusText} from '../lib/subscriberHistory';
+import {subscriberOperationConflict,subscriberOperationError} from '../lib/subscriberOperationError';
 import {rememberQuickActionRequest,forgetQuickActionRequest} from '../lib/quickActionRequests';
 import {subscriberSaveDependencies} from '../lib/subscriberDependencies';
 import '../styles/subscriber-edit-highlight.css';
@@ -16,6 +18,7 @@ type Entry = {item_id:string; change:Record<string,unknown>};
 type Result = {item_id:string; success:boolean; error?:string; status?:number; uncertain?:boolean; result?:SubscriberDetailData};
 export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:Subscriber[];today:string;onClose:()=>void;initialAction?:QuickAction;onSaved?:()=>void}) {
   const dialog=useRef<HTMLDialogElement>(null),expected=useRef(new Map<string,Partial<Subscriber>>()),activeRequest=useRef<AbortController|null>(null);
+  const cards=useRef<{id:string;subscriber:string;username:string;router:string;source:string;changes:SubscriberPreviewChange[];unchanged:boolean}[]>([]);
   const sent=useRef(false),resolved=useRef(new Map<string,Result>());
   const fieldId=useId();
   const options=useResource<DemoOptions>('/subscribers/demo-options');
@@ -58,6 +61,17 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
       if(action==='STATUS'||action==='CREATE')values.status=status as Subscriber['status'];
       return [entry.item_id,values];
     }));
+    cards.current=entries.map((entry,index)=>{
+      const row=targets[index],next=expected.current.get(entry.item_id)!;
+      const changes:SubscriberPreviewChange[]=[];
+      if(action==='CREATE'||action==='EXTEND')changes.push({label:'Bitiş tarihi',previous:expiryDate(row?.expires_on??null),next:expiryDate(next.expires_on??null)});
+      if(action==='CREATE'||action==='PLAN'){
+        changes.push({label:'Paket',previous:row?.plan??'Veri yok',next:next.plan??'Veri yok'});
+        changes.push({label:'Aylık ücret',previous:row?row.monthly_price.toLocaleString('tr-TR')+' TL':'Veri yok',next:next.monthly_price==null?'Veri yok':next.monthly_price.toLocaleString('tr-TR')+' TL'});
+      }
+      if(action==='CREATE'||action==='STATUS')changes.push({label:'Hesap durumu',previous:statusText(row?.status),next:statusText(next.status)});
+      return {id:entry.item_id,subscriber:next.customer_name??'',username:next.username??'',router:String(entry.change.router_name),source:String(entry.change.expected_source),changes,unchanged:action!=='CREATE'&&changes.every(change=>change.previous===change.next)};
+    });
     setReview(entries);setResults(null);
   }
   async function save() {
@@ -138,8 +152,12 @@ export function QuickActions({rows,today,onClose,initialAction,onSaved}: {rows:S
       <button className="button-primary" disabled={routers.loading||!!routers.error||((action==='PLAN'||action==='CREATE')&&(options.loading||!!options.error))}>Önizle ve gözden geçir</button>
     </form>:<>
       <h3>Eski → Yeni · {({EXTEND:'Abonelik uzatma',PLAN:'Paket değiştirme',STATUS:'Durum değiştirme',CREATE:'Abone oluşturma'} as Record<string,string>)[action]}</h3>
-      {review.map((entry,i)=><section key={entry.item_id} className="quick-preview"><strong>{rows[i]?.customer_name??name} · {rows[i]?.username??username}</strong><p>{String(entry.change.router_name)} ({String(entry.change.router_id)}) · {String(entry.change.expected_source)}</p><p>Abone kimliği: {entry.item_id}</p><p>Bitiş: {expiryDate(rows[i]?.expires_on??null)} → {expiryDate(entry.change.expires_on as string|null)}</p>{(action==='PLAN'||action==='CREATE')&&<p>Paket: {rows[i]?.plan??'Yok'} → {plan} · Aylık tutar: {rows[i]?.monthly_price??0} → {options.data?.plans.find(p=>p.name===plan)?.monthly_price??'Bilinmiyor'} TL</p>}{(action==='STATUS'||action==='CREATE')&&<p>Durum: {rows[i]?.status??'Yok'} → {status}</p>}</section>)}
-      {results&&<div role="status">{results.filter(r=>r.success).length} başarılı / {results.filter(r=>!r.success&&!r.uncertain).length} başarısız / {results.filter(r=>r.uncertain).length} belirsiz{results.map(r=><p key={r.item_id}>{rows.find(row=>row.id===r.item_id)?.customer_name??name}: {r.success?(action==='PLAN'?`Kaydedildi · İşlemde kaydedilen paket: ${r.result?.item.plan} · Aylık tutar: ${r.result?.item.monthly_price} TL`:action==='STATUS'?`Kaydedildi · İşlemde kaydedilen durum: ${r.result?.item.status==='ACTIVE'?'Aktif':'Pasif'}`:`Kaydedildi · İşlemde kaydedilen bitiş: ${expiryDate(r.result?.item.expires_on??null)}`):r.error??'İşlem uygulanmadı.'}</p>)}</div>}
+      <p className="subscriber-preview-counts">Değişiklik beklenen: <strong>{cards.current.filter(card=>!card.unchanged).length}</strong>{cards.current.some(card=>card.unchanged)&&<> · Uygulanması beklenmeyen: <strong>{cards.current.filter(card=>card.unchanged).length}</strong></>}</p>
+      <div className="daily-review">{cards.current.map(card=><SubscriberOperationPreview key={card.id} {...card}
+       disposition={card.unchanged?'reject':'change'} outcome={card.unchanged?'Seçilen değer zaten kayıtlı. Sunucu aynı değeri reddeder.':action==='CREATE'?'Abone oluşturulur.':'Gösterilen değerler kaydedilir.'}>
+       <details className="technical-info"><summary>Kayıt bilgisi</summary><p>{card.id} · {card.source}</p></details>
+      </SubscriberOperationPreview>)}</div>
+      {results&&<div role="status">{results.filter(r=>r.success).length} başarılı / {results.filter(r=>!r.success&&!r.uncertain).length} başarısız / {results.filter(r=>r.uncertain).length} belirsiz{results.map(r=><p key={r.item_id}>{cards.current.find(card=>card.id===r.item_id)?.subscriber??name}: {r.success?(action==='PLAN'?`Kaydedildi · İşlemde kaydedilen paket: ${r.result?.item.plan} · Aylık tutar: ${r.result?.item.monthly_price} TL`:action==='STATUS'?`Kaydedildi · İşlemde kaydedilen durum: ${r.result?.item.status==='ACTIVE'?'Aktif':'Pasif'}`:`Kaydedildi · İşlemde kaydedilen bitiş: ${expiryDate(r.result?.item.expires_on??null)}`):subscriberOperationConflict(r.error??'')??r.error??'İşlem uygulanmadı.'}</p>)}</div>}
       <p>Yanıt kaybolursa aynı UUID ile yalnız kayıtlı sonuç okunur; işlem yeniden gönderilmez. Sonuç geçmiş işlemi doğrular; liste, detay ve raporlar güncel kayıtları yeniden okur.</p>
       <div className="expiry-editor-actions"><button className="button-primary" disabled={pending||!!results?.every(r=>!r.uncertain)} onClick={save}>{pending?'Kaydediliyor…':results?.every(r=>!r.uncertain)?'Sonuçlar doğrulandı':results?'Kayıtlı eksik sonuçları sorgula':attempted?'Kayıtlı sonucu sorgula':'Onayla ve uygula'}</button></div>
     </>}

@@ -3,7 +3,7 @@
 ## Current development status
 
 The Office WSL checkout is `~/v26-transfer/mikrotik-v26-next` on
-`development/v2.6.2-pppoe`. The current development version is **V2.6.5**.
+`development/v2.6.2-pppoe`. The current development version is **V2.6.6**.
 The local `v2.6.5` tag points to product commit `e2266e98`. The central
 panel uses [the existing HTTPS address](https://v26.mikmanager.com.tr/).
 The user reported a V2.6.5 deployment with a footer showing v2.6.4.

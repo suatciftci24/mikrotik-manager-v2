@@ -242,7 +242,7 @@ test('selection-based bulk flow keeps its operation selector for one or multiple
 test('bulk PPPoE package change previews each speed and preserves confirmed partial results',async t=>{
  stubGlobals(t);
  const pkg={id:'demo-package-bulk',revision:4,is_demo:true,fields:{name:'Paket 500',download_mbps:500,upload_mbps:50,duration_days:30,router_profile:null,active:true}};
- const rows=[{...workspace,package_snapshot:{download_mbps:100,upload_mbps:10}},{...workspace,id:'demo-managed-sub-second',source:'RADIUS',plan:'Paket 200',package_snapshot:{download_mbps:200,upload_mbps:20}},{...workspace,id:'demo-managed-sub-third'}];
+ const rows=[{...workspace,package_snapshot:{download_mbps:100,upload_mbps:10}},{...workspace,id:'demo-managed-sub-second',source:'RADIUS',plan:'Paket 200',package_snapshot:{download_mbps:200,upload_mbps:20}},{...workspace,id:'demo-managed-sub-third',plan:pkg.fields.name,package_id:pkg.id,package_revision:pkg.revision,package_snapshot:pkg.fields}];
  const h=harness('src/components/SubscriberDailyActions.tsx',path=>({data:{items:path==='/packages'?[pkg]:[]}}));
  const draw=()=>h.render('SubscriberDailyActions',{rows,onClose:quiet});
  const select=(tree,value)=>nodes(tree).find(n=>n.type==='select'&&nodes(n).some(o=>o.type==='option'&&o.props.value===value));
@@ -251,6 +251,8 @@ test('bulk PPPoE package change previews each speed and preserves confirmed part
  nodes(draw()).find(n=>n.type==='form').props.onSubmit({preventDefault:quiet});
  const tree=draw(),previews=nodes(tree).filter(n=>n.type?.name==='SubscriberOperationPreview');
  assert.equal(previews.length,3);
+ assert.equal(previews[2].props.disposition,'reject');
+ assert.match(previews[2].props.outcome,/zaten kayıtlı/);
  for(const [index,oldSpeed] of [[0,/100.*10/],[1,/200.*20/]]){
   const [plan,speed]=previews[index].props.changes;
   assert.equal(plan.previous,rows[index].plan);assert.equal(plan.next,pkg.fields.name);

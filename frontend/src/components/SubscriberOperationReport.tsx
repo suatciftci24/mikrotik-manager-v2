@@ -1,10 +1,12 @@
 import {useEffect,useRef,useState,type FormEvent} from 'react';
-import {ResourceState,dateTime} from './Resource';
+import {ResourceState} from './Resource';
+import {SubscriberOperationMetadata} from './SubscriberOperationMetadata';
+import {subscriberOperationConflict} from '../lib/subscriberOperationError';
 import {SourceBadge} from './Status';
 import {linkedDetailHash} from '../lib/detailLinks';
 import {reportPages} from '../lib/managementReport';
 import {dailyLabels} from '../lib/subscriberManagementCenter';
-import {historyActor,valuesText} from '../lib/subscriberHistory';
+import {valuesText} from '../lib/subscriberHistory';
 import {executionLabels,operationReportCsv,operationReportPath,operationReportResult,operationReportResults,operationReportTypes,type OperationReportRow} from '../lib/subscriberOperationReport';
 import {useResource} from '../lib/useResource';
 
@@ -90,11 +92,12 @@ export function SubscriberOperationReport(){
    {data.items.length===0?<p>Bu filtrelere uyan kayıt bulunamadı.</p>:<ol className="registry-history">
     {data.items.map(row=><li key={row.request_id}>
      <strong>{dailyLabels[row.operation]} · {operationReportResult(row)}</strong>
-     <span>{executionLabels[row.execution_type??'UNKNOWN']}{row.group_id&&` · ${row.group_id}`}</span>
-     <span>{dateTime(row.occurred_at)} · <button type="button" className="record-link" onClick={()=>{const next={...filters,actor_id:row.actor_id};setDraft(next);apply(next);}}>{historyActor(row)}</button></span>
+     <SubscriberOperationMetadata row={row} onActor={()=>{const next={...filters,actor_id:row.actor_id};setDraft(next);apply(next);}}/>
+     {row.skipped&&<span>Hesap zaten hedef durumdaydı.</span>}
+     {row.recorded&&!row.success&&row.error&&<span>{subscriberOperationConflict(row.error)??row.error}</span>}
      <a className="record-link" href={linkedDetailHash({module:'subscribers',workspace:'PERSISTENT',id:row.item_id},window.location.hash)}>{row.subscriber_name??row.item_id}{row.subscriber_username&&` · ${row.subscriber_username}`}</a>
      <span>Yetkili kaynak <SourceBadge source={row.source??null}/></span>
-     <dl className="detail-facts"><div><dt>Önceki</dt><dd>{valuesText(row.previous)}</dd></div><div><dt>Yeni</dt><dd>{valuesText(row.values)}</dd></div></dl>
+     <dl className="detail-facts"><div><dt>Önceki</dt><dd>{valuesText(row.previous)}</dd></div><div><dt>Yeni</dt><dd>{row.skipped?'Değişiklik yok':row.success?valuesText(row.values):'Uygulanmadı'}</dd></div></dl>
     </li>)}
    </ol>}
    <div className="table-footer"><span>{data.total} kayıt</span><button disabled={page===1} onClick={()=>setPage(page-1)}>Önceki</button><span>{page}</span><button disabled={page*pageSize>=data.total} onClick={()=>setPage(page+1)}>Sonraki</button></div>

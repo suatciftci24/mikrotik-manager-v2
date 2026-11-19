@@ -189,7 +189,7 @@ test('rejected requests and per-record revision errors keep preview and never re
   try{
    nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
    await nodes(render()).find(n=>n.type==='button'&&n.props.children==='Onayla ve uygula').props.onClick();
-   const text=html(render());assert.match(text,failure==='permission'?/Bu işlem veya sonuç kaydı için yetkiniz yok/:/Synthetic stale revision/);
+   const text=html(render());assert.match(text,failure==='permission'?/Bu işlem veya sonuç kaydı için yetkiniz yok/:/Kayıt değişmiş.*yeni önizleme/);
    assert.match(text,/Eski → Yeni/);assert.doesNotMatch(text,/Kaydedildi|İşlem tamamlandı/);
   }finally{globalThis.fetch=oldFetch;globalThis.window=oldWindow;}
  }

@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.6] - 2026-11-19
+
+- Abone işlemlerinde sabit önizleme, atlama açıklamaları ve tutarlı işlem geçmişi.
+
 ## [2.6.5] - 2026-11-19
 
 - Toplu abone işlemlerinde aynı UUID'lerle güvenli tekrar ve grup sonuçlarının

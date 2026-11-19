@@ -301,16 +301,19 @@ class SubscriberOperationsService:
 
     @boundary
     def history(self,item_id='',operation='ALL',result='ALL',page=1,page_size=25,*,start=None,until=None,
-                router_id='',actor_id='',query='',user=None,daily=False,execution_type='ALL',group_filter=None):
+                router_id='',actor_id='',query='',user=None,daily=False,execution_type='ALL',group_filter=None,include_skipped=False):
         with self.sessions() as session:
-            if daily and session.bind.dialect.name == 'postgresql':
+            if (daily or include_skipped) and session.bind.dialect.name == 'postgresql':
                 session.connection(execution_options={'isolation_level':'REPEATABLE READ','postgresql_readonly':True})
             self.check(session)
             event = Event
             skipped = literal(False)
-            if daily:
+            if daily or include_skipped:
+                events = select(Event, literal(False).label('skipped'))
+                if daily:
+                    events = events.where(Event.operation.in_(DAILY_REPORT_OPERATIONS))
                 ledger = union_all(
-                    select(Event, literal(False).label('skipped')).where(Event.operation.in_(DAILY_REPORT_OPERATIONS)),
+                    events,
                     select(Skip, literal(True).label('skipped')),
                 ).subquery()
                 event = aliased(Event, ledger)
