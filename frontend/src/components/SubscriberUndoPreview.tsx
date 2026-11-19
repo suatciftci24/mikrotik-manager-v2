@@ -40,6 +40,8 @@ function UndoConfirmation({items,canExecute}:{items:Preview[];canExecute:boolean
  const [confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false);
  const [results,setResults]=useState<OperationReceipt[]|null>(null),[error,setError]=useState(''),[rejected,setRejected]=useState(false);
  const [attempted,setAttempted]=useState(false);
+ const sourceGroup=items[0]?.source_group_id;
+ const sourceLink=sourceGroup?operationGroupLink(sourceGroup):operationHistoryLink(items[0].request_id);
  const sending=useRef(false),finished=useRef(false),attempt=useRef<UndoEntry[]|null>(null);
  const eligible=items.filter(item=>item.can_execute&&item.status==='ELIGIBLE'&&item.changes.length===1
   &&allowedFields.includes(item.changes[0].field)&&item.changes[0].current===item.changes[0].applied
@@ -79,28 +81,38 @@ function UndoConfirmation({items,canExecute}:{items:Preview[];canExecute:boolean
     if(!replay)for(const entry of entries)forgetPending(entry.request_id);
     finished.current=true;setRejected(true);
    }
-   setError(subscriberOperationError(failure)+(definitive&&replay?' Önceki gönderimin sonucunu işlem geçmişinden kontrol edin.':''));
+   setError(subscriberOperationError(failure)+(definitive&&replay?' Önceki gönderimin sonucu hâlâ belirsiz.':''));
   }finally{
    sending.current=false;setBusy(false);
   }
  }
 
- if(results)return <div role="status"><strong>{results[0].success?'Geri alma kaydedildi.':'Geri alma reddedildi.'}</strong>
+ if(results)return <div role="status">
+  <strong>{results[0].success?'Geri alma kaydedildi.':'Geri alma reddedildi. Hiçbir abonelik değişmedi.'}</strong>
   <ul>{results.map((row,i)=><li key={row.request_id}>{items[i].subscriber_name??row.item_id} · {operationReportResult(row)}
-   {row.error&&<span> · {row.error}</span>}{' '}
-   <a className="record-link" href={operationHistoryLink(row.request_id)}>Audit kaydını aç</a>
+   {row.error&&<p>{row.error}</p>}
+   <a className="record-link" href={operationHistoryLink(row.request_id)}>Geri alma audit kaydını aç</a>
   </li>)}</ul>
+  <a className="record-link" href={sourceLink}>{sourceGroup?'Kaynak işlem grubunu aç':'Kaynak işlem kaydını aç'}</a>
  </div>;
  return <>
   {!rejected&&<fieldset disabled={busy}>
-   <legend>{eligible.length} uygun abone</legend>
+   <legend>{items.length>1?`${items.length} abonelik için toplu geri alma`:'Tek abonelik için geri alma'}</legend>
    <label className="registry-consent"><input type="checkbox" checked={confirmed} disabled={attempted}
-    onChange={event=>setConfirmed(event.target.checked)}/>Gösterilen önceki değerlerin geri yüklenmesini onaylıyorum.</label>
+    onChange={event=>setConfirmed(event.target.checked)}/>Gösterilen önceki değerleri ve abonelikleri kontrol ettim. Geri yüklemeyi onaylıyorum.</label>
    <button type="button" className="button-primary" disabled={!confirmed} onClick={()=>void apply()}>
-    {busy?'Geri alma bekleniyor…':attempted?'Aynı istekle tekrar dene':'Geri al'}
+    {busy?'Geri alma bekleniyor…':attempted?'Aynı istekle tekrar dene':items.length>1?'Onayla ve grubu geri al':'Onayla ve geri al'}
    </button>
   </fieldset>}
-  {error&&<p role="alert">{error}{!rejected&&' Sonuç belirsiz. Aynı istek kimlikleri ile tekrar deneyebilirsiniz.'}</p>}
+  {error&&<div role="alert">
+   <p>{error}{!rejected&&' Sonuç belirsiz. Doğrulama için aynı istekle tekrar deneyin.'}</p>
+   <a className="record-link" href={sourceLink}>Kaynak işlem geçmişini aç</a>
+   {attempt.current?.map((entry,index)=><p key={entry.request_id}>
+    <a className="record-link" href={operationHistoryLink(entry.request_id)}>
+     {items[index]?.subscriber_name??entry.item_id} · Geri alma kaydını sorgula
+    </a>
+   </p>)}
+  </div>}
  </>;
 }
 
@@ -122,14 +134,14 @@ function PreviewContent(target:PreviewTarget){
  const items=data&&'items' in data
   ? (target.groupId===data.group_id&&Array.isArray(data.items)?data.items:null)
   : (data&&data.request_id===target.requestId&&data.item_id===target.itemId?[data]:null);
- const verified=data?.is_demo===true&&items?.length&&items.every(item=>Object.hasOwn(undoStatusLabels,item.status)&&Array.isArray(item.changes));
+ const verified=data?.is_demo===true&&!!items?.length&&items.every(item=>Object.hasOwn(undoStatusLabels,item.status)&&Array.isArray(item.changes));
  const canExecute=data?.can_execute===true;
  const reason=data&&'items' in data?data.reason:null;
  const error=resource.error||(data&&!verified?'Geri alma önizlemesi işlem kaydıyla eşleşmedi.':undefined);
  return <>
   <ResourceState {...resource} error={error}/>
   {items&&verified&&!resource.loading&&!error&&<>
-   <p>{canExecute?'Onay, gösterilen önceki değerleri sentetik aboneliklere geri yükler. Her değişiklik yeni bir revizyon ve audit kaydı oluşturur.':'Salt okunur değerlendirme'}</p>
+   <p>{canExecute?'Onay, gösterilen önceki değerleri sentetik aboneliklere geri yükler. Sunucu güncel değerleri ve revizyonları yeniden doğrular. Bir kayıt çakışırsa hiçbir abonelik değişmez.':'Salt okunur değerlendirme'}</p>
    {reason&&<p role="status">{reason}</p>}
    {items.map(preview=><section key={preview.request_id}>
     {target.groupId&&<strong>{preview.subscriber_name??preview.item_id}</strong>}

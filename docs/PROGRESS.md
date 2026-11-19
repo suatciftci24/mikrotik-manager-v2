@@ -1,5 +1,26 @@
 # MikroTik Manager V2 — İlerleme
 
+## Geri alma güvenliği ve kabul — V2.6.10
+
+- Ev WSL `DESKTOP-MT2JS7H`, `~/mikrotik-v2-ortak`,
+  `development/v2.6.2-pppoe`, taban `1bbb8ca13f9e265dbf04eead1a5ef2e5e38ef873`.
+- Kök neden: Grup kimliği eksik bir `BULK` audit kaydı tekli işlem yoluna
+  düşebiliyordu. Önizleme ve yazım grup kapsamı ile kimliği birlikte
+  doğruluyor. İki alanı da taşımayan eski tekli kayıt ve mevcut UUID
+  tekrar davranışı korunuyor. Yetki, kilit ve transaction sınırı aynı.
+- Tekli/toplu onay metni ve ret gerekçesi netleştirildi. Sonuç ve belirsiz
+  istek için audit bağlantıları, kaynak işlem ve kaynak grup bağlantıları
+  eklendi.
+- PASS: İzole SQLite/ASGI `test_pppoe_workspace_access -k undo` 9/9.
+  Başarı, ikinci geri alma, yetkisiz kullanıcı, eksik grup, değiştirilmiş
+  revizyon/değer, farklı abone, eşzamanlı tekrar ve audit hatasında
+  transaction geri alması kapsandı. Hedefli `operationsNavigation` 8/8.
+  İzole Chromium onay, karma grup reddi, aynı UUID tekrarı ve audit
+  bağlantıları PASS. Üretim derlemesi ve `dist/release.json` 2.6.10 PASS.
+- Migration gerekmiyor. PostgreSQL ve canlı sistemlere erişilmedi.
+  Push BLOCKED. Aktarım kontrolü kayıtlı Ev WSL checkout'u ve
+  `main-guncel` dalını bekliyor.
+
 ## Geri alma yönetimi — V2.6.9
 
 - Ev WSL `DESKTOP-MT2JS7H`, `~/mikrotik-v2-ortak`,

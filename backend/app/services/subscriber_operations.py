@@ -75,6 +75,21 @@ def event_receipt(event, *, skipped=False):
     return dict(item_id=event.subscriber_id,request_id=event.id,success=True,recorded=True,operation=event.operation,actor_id=event.actor_id,
                 router_id=event.changes.get('_router_id',values.get('router_id')),previous_router_id=previous.get('router_id'),previous=previous,values=values,occurred_at=event.occurred_at,revision=event.revision,error=None)
 
+def undo_source_group(receipt):
+    group = receipt.get('group_id')
+    mode = receipt.get('execution_type')
+    if group is None and mode in (None, 'SINGLE'):
+        return None
+    # Older single receipts may omit both fields. Declared bulk receipts must carry a group.
+    if mode == 'BULK' and isinstance(group, str):
+        try:
+            if str(UUID(group)) == group:
+                return group
+        except ValueError:
+            pass
+    raise WorkspaceError(409, 'Kaynak işlemin grup bilgisi doğrulanamadı. Geri alma uygulanmadı.')
+
+
 def valid_previous_value(field, value, account):
     if field == 'status':
         return value in ('ACTIVE', 'PAUSED')
@@ -421,7 +436,10 @@ class SubscriberOperationsService:
             receipt = event_receipt(event, skipped=skipped)
         except WorkspaceError:
             return {**preview, 'reason': 'Geçmiş işlem kanıtı doğrulanamadı.'}
-        preview['source_group_id'] = receipt.get('group_id')
+        try:
+            preview['source_group_id'] = undo_source_group(receipt)
+        except WorkspaceError as error:
+            return {**preview, 'reason': error.detail}
         if skipped:
             return {**preview, 'reason': 'İşlem atlandı. Abonelik değerleri değişmedi.'}
         if not receipt['success']:
@@ -498,15 +516,15 @@ class SubscriberOperationsService:
                 raise WorkspaceError(409, 'Geri alma grubunun kayıtlı sonuçları eksik.')
 
             source_ids = {source.id for source in sources}
-            source_groups = {source.changes.get('_management', {}).get('receipt', {}).get('group_id') for source in sources}
-            if source_groups != {None}:
-                if len(source_groups) != 1 or None in source_groups:
-                    raise WorkspaceError(409, 'Geri alma yalnız tek bir kaynak işlem grubundan yapılabilir.')
-                source_group = next(iter(source_groups))
+            source_groups = {undo_source_group(source.changes.get('_management', {}).get('receipt', {})) for source in sources}
+            if len(source_groups) != 1 or (len(entries) > 1 and None in source_groups):
+                raise WorkspaceError(409, 'Toplu geri alma tek bir kaynak işlem grubu gerektirir.')
+            source_group = next(iter(source_groups))
+            if source_group is not None:
                 members = self.group_member_ids(session, source_group)
                 if (len(members) != len(source_ids) or set(members) != source_ids
                         or group_id_for_requests(members, sources[0].actor_id) != source_group):
-                    raise WorkspaceError(409, 'Toplu geri alma için kaynak grubun tamamı gerekli.')
+                    raise WorkspaceError(409, 'Kaynak grubun tamamı doğrulanamadı. Geri alma uygulanmadı.')
             undone = self.successful_undos(session, sources)
 
             errors = []
@@ -526,7 +544,7 @@ class SubscriberOperationsService:
             for entry, source, error in zip(entries, sources, errors, strict=True):
                 account = accounts[entry.item_id]
                 source_receipt = source.changes.get('_management', {}).get('receipt', {})
-                origin = dict(source_request_id=source.id, source_group_id=source_receipt.get('group_id'))
+                origin = dict(source_request_id=source.id, source_group_id=source_group)
                 origin_router = source.changes.get('_router_id') or source_receipt.get('router_id')
                 before, after = {}, {}
                 if not rejected:

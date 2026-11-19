@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.10] - 2026-11-19
+
+- Geri alma kaynak grubu doğrulaması ve güvenlik kabulü.
+
 ## [2.6.9] - 2026-11-19
 
 - Geri alma durum filtreleri, kaynak audit takibi ve eksiksiz grup doğrulaması.

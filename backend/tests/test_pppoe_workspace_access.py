@@ -447,6 +447,61 @@ class PppoeWorkspace(TestCase):
         current = self.client.get('/api/v1/subscriber-center/'+first['id']).json()['item']
         self.assertEqual((current['status'],current['revision']),('PAUSED',changed['revision']))
 
+    def test_undo_rejects_inconsistent_source_group_audit_and_preserves_legacy_single(self):
+        _, first = self.create()
+        _, second = self.create()
+        execute = '/subscriber-workspace/management/execute'
+        source = self.post(execute, {'entries':[self.operation(account,'STATUS','PAUSED')
+                                                for account in (first,second)]}).json()['results'][0]
+        entry = self.undo_command(source)
+        with self.sessions.begin() as session:
+            audit = session.get(Audit, source['request_id'])
+            management = audit.changes['_management']
+            receipt = {key:value for key,value in management['receipt'].items() if key != 'group_id'}
+            audit.changes = {**audit.changes,'_management':{**management,'receipt':receipt}}
+
+        history = '/api/v1/subscriber-workspace/management/history/'
+        preview = self.client.get(history+source['request_id']+'/undo-preview').json()
+        self.assertEqual(preview['status'],'INELIGIBLE')
+        self.assertIn('grup bilgisi',preview['reason'])
+        path = '/subscriber-workspace/management/undo'
+        baseline = self.counts()
+        denied = self.post(path, {'confirmed':True,'entries':[{**entry,'source_group_id':None}]})
+        self.assertEqual(denied.status_code,409)
+        self.assertEqual(self.counts(),baseline)
+        current = self.client.get('/api/v1/subscriber-center/'+first['id']).json()['item']
+        self.assertEqual((current['status'],current['revision']),('PAUSED',2))
+
+        single = self.post(execute, {'entries':[self.operation(current,'STATUS','ACTIVE')]}).json()['results'][0]
+        with self.sessions.begin() as session:
+            audit = session.get(Audit, single['request_id'])
+            management = audit.changes['_management']
+            receipt = {key:value for key,value in management['receipt'].items() if key not in ('group_id','execution_type')}
+            audit.changes = {**audit.changes,'_management':{**management,'receipt':receipt}}
+        legacy_command = self.undo_command(single)
+        self.assertTrue(self.post(path, {'confirmed':True,'entries':[legacy_command]}).json()['results'][0]['success'])
+
+    def test_undo_rechecks_current_value_and_source_account(self):
+        _, first = self.create()
+        _, other = self.create()
+        source = self.post('/subscriber-workspace/management/execute',
+                           {'entries':[self.operation(first,'STATUS','PAUSED')]}).json()['results'][0]
+        entry = self.undo_command(source)
+        path = '/subscriber-workspace/management/undo'
+        baseline = self.counts()
+        wrong_account = self.post(path, {'confirmed':True,'entries':[{**entry,'item_id':other['id']}]})
+        self.assertEqual(wrong_account.status_code,409)
+        self.assertEqual(self.counts(),baseline)
+        # Simulate a changed value without an accompanying revision in the disposable store.
+        with self.sessions.begin() as session:
+            account = session.get(Account,first['id'])
+            account.fields = {**account.fields,'status':'ACTIVE'}
+        result = self.post(path, {'confirmed':True,'entries':[entry]}).json()['results'][0]
+        self.assertFalse(result['success'])
+        self.assertIn('Güncel değer',result['error'])
+        self.assertEqual(result['revision'],source['revision'])
+        self.assertEqual(result['values'],{})
+
     def test_undo_history_filter_is_applied_before_pagination(self):
         _, first = self.create()
         _, second = self.create()

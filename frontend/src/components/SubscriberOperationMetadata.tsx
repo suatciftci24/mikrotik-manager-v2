@@ -1,6 +1,6 @@
 import {dateTime} from './Resource';
 import {historyActor} from '../lib/subscriberHistory';
-import {executionLabels,operationHistoryLink,type OperationReportRow} from '../lib/subscriberOperationReport';
+import {executionLabels,operationGroupLink,operationHistoryLink,type OperationReportRow} from '../lib/subscriberOperationReport';
 
 export function SubscriberOperationMetadata({row,onActor,onGroup}:{row:OperationReportRow;onActor?:()=>void;onGroup?:(id:string)=>void}){
  const actor=historyActor(row),group=row.group_id;
@@ -11,6 +11,6 @@ export function SubscriberOperationMetadata({row,onActor,onGroup}:{row:Operation
   <div><dt>İşlem kapsamı</dt><dd>{executionLabels[row.execution_type??'UNKNOWN']}</dd></div>
   {group&&<div><dt>Grup kimliği</dt><dd>{onGroup?<button type="button" className="record-link" onClick={()=>onGroup(group)}>{group}</button>:group}</dd></div>}
   {row.source_request_id&&<div><dt>Kaynak işlem</dt><dd><a className="record-link" href={operationHistoryLink(row.source_request_id)}>{row.source_request_id}</a></dd></div>}
-  {row.source_group_id&&<div><dt>Kaynak grup</dt><dd>{row.source_group_id}</dd></div>}
+  {row.source_group_id&&<div><dt>Kaynak grup</dt><dd><a className="record-link" href={operationGroupLink(row.source_group_id)}>{row.source_group_id}</a></dd></div>}
  </dl>;
 }

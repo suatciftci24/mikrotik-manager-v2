@@ -190,7 +190,7 @@ test('central history renders authority, UUID, revision, localized status and re
 test('history group drilldown queries the exact group and keeps it on the subscriber return link',()=>{
  const group='00000000-0000-4000-8000-000000000067';
  const row={request_id:'fixture',item_id:account.id,group_id:group,execution_type:'BULK',operation:'STATUS',
-  actor_id:'operator',occurred_at:'2026-11-19T18:00:00Z',previous:{status:'ACTIVE'},values:{},success:false,recorded:true};
+  actor_id:'operator',source_request_id:'source-fixture',source_group_id:group,occurred_at:'2026-11-19T18:00:00Z',previous:{status:'ACTIVE'},values:{},success:false,recorded:true};
  const cleanup=fixture(`#module=subscribers&workspace=HISTORY&history_source=workspace&history_group=${group}&history_undo_status=INELIGIBLE`,
   {loading:false,data:{is_demo:true,total:1,items:[row]}});
  try{
@@ -198,6 +198,8 @@ test('history group drilldown queries the exact group and keeps it on the subscr
   assert.match(html,/Grup ayrıntıları/);
   for(const label of [/Geri alınabilir/,/Geri alınmış/,/Çakışmalı/,/Uygun değil/])assert.match(html,label);
   assert.match(html,/Reddedildi/);
+  assert.match(html,/href="[^"]*history_request=source-fixture"/);
+  assert.match(html,/Kaynak grup<\/dt><dd><a[^>]*history_group=/);
   assert.match(html,/Geri alma önizlemesi/);
   assert.match(html,/return_to=[^"]*history_group%3D00000000/);
   assert.ok(globalThis.__navigationQueries.some(path=>new URLSearchParams(path.split('?')[1]).get('group_id')===group&&new URLSearchParams(path.split('?')[1]).get('undo_status')==='INELIGIBLE'));
