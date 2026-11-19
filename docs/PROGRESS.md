@@ -1,5 +1,29 @@
 # MikroTik Manager V2 — İlerleme
 
+## Abone işlem güvenliği — V2.6.5
+
+- Ev WSL `suat@DESKTOP-MT2JS7H`, `~/mikrotik-v2-ortak`,
+  `development/v2.6.2-pppoe`, taban `ea0caef29f6e2492cfd9a67d57c3241b60cd1f9d`.
+- Önceki akışta toplu istek UUID'leri satır işlenirken kontrol ediliyordu.
+  Üyeler önceden kilitlenip mevcut içerik ve grup kimliği doğrulanıyor.
+  Eşleşen tekrar kayıtlı sonuçları döndürüyor. Çakışan UUID veya eksik
+  eski grup işlemi durduruyor. Yeni grubun abone değişiklikleri, audit
+  ve atlama sonuçları tek transaction’da tamamlanıyor.
+- Kilitli abone revizyonu atlama kararından önce doğrulanıyor. Önizleme
+  sonrası değişen kayıt başarısız sayılıyor ve güncel önizleme isteniyor.
+  Grup kimliği, geçmiş kayıt biçimi ve UUID ile salt okunur sonuç sorgusu korunuyor.
+- PASS: İzole SQLite/ASGI `test_subscriber_daily_management`,
+  `test_pppoe_workspace_access`, `test_package_subscription_flow` ve
+  `test_v26_test001_acceptance` 38/38 (güncellenen rapor senaryosu hedefli tekrar).
+  Frontend `subscriberDailyManagement`, `operationGetRecovery`,
+  `subscriberOperationResults`, `operationsNavigation` 27/27.
+  `npm run build --prefix frontend`, sürüm ve diff kontrolleri PASS.
+- Yeni migration gerekmiyor. Mevcut 012 şema bağımlılığı geçerli.
+  PostgreSQL çalışma zamanı doğrulanmadı. Yerel/VDS PostgreSQL ve canlı
+  sistemlerde işlem yapılmadı.
+- Push BLOCKED. `bash tools/check-git-transfer.sh` Ev WSL için kayıtlı
+  checkout ve `main-guncel` dalını bekliyor. Uzak aktarım başlatılmadı.
+
 ## Toplu işlem takibi V2 — V2.6.4
 
 - Ofis WSL, `~/mikrotik-v2-ortak`, `development/v2.6.2-pppoe`, taban

@@ -45,6 +45,11 @@ test('malformed/mismatched GET receipts never become saved successes',async()=>{
   }
  }finally{globalThis.fetch=oldFetch;}
 });
+test('a recorded revision conflict resolves even when the stored revision is lower than the preview',()=>{
+ const e={...entry(1),expected_revision:99};
+ assert.equal(operationReceiptMatches(e,receipt(e,false)),true);
+ assert.equal(operationReceiptMatches(e,{...receipt(e,false),error:null}),false);
+});
 test('verified skips survive recovery without a lookup and reject inconsistent evidence',async t=>{
  const skippedEntry={...entry(1),expected_source:'RADIUS'},pending=entry(2);
  const skip={...receipt(skippedEntry),recorded:false,success:false,skipped:true,source:'RADIUS',previous:{status:'ACTIVE'}};

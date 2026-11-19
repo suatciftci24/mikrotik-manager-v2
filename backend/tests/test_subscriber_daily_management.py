@@ -1,4 +1,5 @@
 """Daily operations on isolated synthetic transactions. No device/radius IO."""
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date,datetime,timedelta
 from zoneinfo import ZoneInfo
 from unittest import TestCase
@@ -115,13 +116,13 @@ class DailyManagement(cases.SubscriberTransactions):
                 with patch.object(routes,'operations',self.ops),patch.object(routes,'workspace',self.workspace):
                     receipts=OperationResults.model_validate(routes.manage(SubscriberOperations(entries=entries),user)).results
                 self.assertEqual([(r.success,r.skipped,r.recorded) for r in receipts],
-                                 [(False,True,False),(False,True,False),(False,False,True),(True,False,True)])
+                                 [(False,True,False),(False,False,True),(False,False,True),(True,False,True)])
                 self.assertEqual({r.execution_type for r in receipts},{'BULK'})
                 self.assertEqual(len({r.group_id for r in receipts}),1)
                 group_id=str(receipts[0].group_id)
                 report=self.ops.history(daily=True,result='SKIPPED',group_filter=group_id,page_size=1)
-                self.assertEqual(report['total'],2)
-                self.assertEqual(report['groups'],[dict(group_id=group_id,total=4,success=1,failed=1,skipped=2)])
+                self.assertEqual(report['total'],1)
+                self.assertEqual(report['groups'],[dict(group_id=group_id,total=4,success=1,failed=2,skipped=1)])
                 with patch.object(routes,'operations',self.ops),patch.object(routes,'workspace',self.workspace):
                     replay=routes.manage(SubscriberOperations(entries=list(reversed(entries))),user)
                 self.assertEqual(OperationResults.model_validate(replay).results,list(reversed(receipts)))
@@ -130,19 +131,54 @@ class DailyManagement(cases.SubscriberTransactions):
                     self.assertEqual(detail.item.source,row.source)
                     self.assertEqual(detail.item.expires_on,row.expires_on)
                     self.assertEqual(detail.item.status,other if index==2 else target)
-                    if index<2:
+                    if index==0:
                         self.assertEqual(detail,baseline[index])
                         recovered=self.ops.request_result(entries[index].request_id,'actor')
                         self.assertEqual(recovered['status'],'SKIPPED')
                         self.assertEqual(recovered['response']['group_id'],str(receipts[index].group_id))
                         self.assertNotIn('audit',recovered)
                         self.assertEqual(self.ops.request_result(entries[index].request_id,'other')['status'],'UNKNOWN')
-                    elif index==2:
+                    elif index in (1,2):
                         self.assertEqual(detail.item,baseline[index].item)
                         self.assertIn('önizlemeden sonra',receipts[index].error)
                     else:
                         self.assertEqual(detail.history[0].previous_values,{'status':other})
                         self.assertEqual(detail.history[0].new_values,{'status':target})
+
+    def test_bulk_retry_conflicts_are_rejected_before_any_new_member_is_applied(self):
+        user = {'id':'actor','is_demo':True,'role_code':'ADMIN','can_manage_users':True}
+        rows = [self.workspace.save(self.command(username=f'retry.{i}'), 'actor') for i in range(3)]
+        entries = [self.operation(row, 'STATUS', 'ACTIVE') for row in rows]
+        with patch.object(routes,'operations',self.ops),patch.object(routes,'workspace',self.workspace):
+            payload = SubscriberOperations(entries=entries[:2])
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                first, replay = list(pool.map(lambda _: routes.manage(payload, user), range(2)))
+            self.assertEqual(first, replay)
+            for retry in ([entries[2], entries[0]], [entries[0], entries[1].model_copy(update={'expected_revision': 2})]):
+                with self.assertRaises(HTTPException) as error:
+                    routes.manage(SubscriberOperations(entries=retry), user)
+                self.assertEqual(error.exception.status_code, 409)
+        self.assertEqual(self.workspace.detail(rows[2].id).item, rows[2])
+        self.assertEqual(self.ops.history(daily=True)['total'], 2)
+
+    def test_bulk_storage_failure_rolls_back_an_earlier_skip(self):
+        user = {'id':'actor','is_demo':True,'role_code':'ADMIN','can_manage_users':True}
+        rows = sorted([self.workspace.save(self.command(username=f'rollback.{i}'), 'actor')
+                       for i in range(2)], key=lambda row: row.id)
+        entries = [self.operation(row, 'STATUS', 'PAUSED') for row in rows]
+        self.assertTrue(self.ops.execute(self.operation(rows[1], 'STATUS', 'ACTIVE'), 'actor')['success'])
+        entries[1] = self.operation(self.workspace.detail(rows[1].id).item, 'STATUS', 'PAUSED')
+        with patch.object(routes,'operations',self.ops),patch.object(routes,'workspace',self.workspace):
+            payload = SubscriberOperations(entries=entries)
+            with patch.object(self.ops, 'audit', side_effect=SQLAlchemyError('CANARY')):
+                with self.assertRaises(HTTPException) as error:
+                    routes.manage(payload, user)
+                self.assertEqual(error.exception.status_code, 503)
+            self.assertEqual(self.ops.request_result(entries[0].request_id, 'actor')['status'], 'UNKNOWN')
+            self.assertEqual(self.workspace.detail(rows[1].id).item.status, 'ACTIVE')
+            results = routes.manage(payload, user)['results']
+            self.assertTrue(results[0]['skipped'])
+            self.assertTrue(results[1]['success'])
 
     def test_custom_pppoe_bulk_extension_audit_and_stale_row(self):
         today=datetime.now(ZoneInfo('Europe/Istanbul')).date()

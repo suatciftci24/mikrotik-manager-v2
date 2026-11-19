@@ -5,6 +5,7 @@ import hashlib,json,re
 from uuid import UUID, uuid5
 from sqlalchemy import select,func,case,literal,union_all
 from sqlalchemy.orm import aliased
+from app.core.authorization import require_workspace_account
 from app.core.database import SessionLocal
 from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as Event, SyntheticSubscriberSkip as Skip
 from app.services.subscriber_center import SubscriberWorkspace,request_audit,event_scope
@@ -81,15 +82,49 @@ class SubscriberOperationsService:
                     if receipt.get(key):require_workspace_router(user,receipt[key])
             return receipt
     @boundary
-    def change(self,command,actor,user=None,group_id=None):
+    def execute_bulk(self, entries, actor, user):
+        group_id = bulk_group_id(entries, actor)
         with self.sessions.begin() as session:
             self.check(session)
-            lock_operation_request(session, command.request_id)
+            if session.get_bind().dialect.name == 'sqlite':
+                # Start the outer transaction before any savepoint in the synthetic store.
+                session.connection().exec_driver_sql('BEGIN IMMEDIATE')
+            for entry in sorted(entries, key=lambda entry: entry.request_id):
+                lock_operation_request(session, entry.request_id)
+            for entry in entries:
+                row = session.get(Account, entry.item_id)
+                if row is None:
+                    raise WorkspaceError(404, 'Sentetik abone bulunamadı.')
+                SubscriberWorkspace.authorize(row, user, True)
+                require_workspace_account(user, entry.expected_router_id, row.access_type, True)
+            receipts = [self.prior(session, entry, actor, user, group_id) for entry in entries]
+            if all(receipts):
+                return receipts
+            if any(receipts):
+                raise WorkspaceError(409, 'Bu işlem grubunun eski sonuçları eksik. İşlem geçmişini ve güncel aboneleri kontrol edin.')
+
+            results = {}
+            for entry in sorted(entries, key=lambda entry: (entry.expected_router_id, entry.item_id)):
+                try:
+                    results[entry.request_id] = self.change(entry, actor, user, group_id, transaction=session)
+                except WorkspaceError as failure:
+                    if failure.status == 503:
+                        raise
+                    results[entry.request_id] = self.failed(entry, actor, failure, user, group_id, transaction=session)
+            return [results[entry.request_id] for entry in entries]
+
+    @boundary
+    def change(self,command,actor,user=None,group_id=None,*,transaction=None):
+        context = self.sessions.begin() if transaction is None else transaction.begin_nested()
+        with context as session_or_savepoint:
+            session = session_or_savepoint if transaction is None else transaction
+            if transaction is None:
+                self.check(session)
+                lock_operation_request(session, command.request_id)
             if user is not None:
                 row=session.get(Account,command.item_id)
                 if not row:raise WorkspaceError(404,'Sentetik abone bulunamadı.')
                 SubscriberWorkspace.authorize(row,user,True)
-                from app.core.authorization import require_workspace_account
                 require_workspace_account(user,command.expected_router_id,row.access_type,True)
                 if command.operation=='ROUTER':
                     from app.core.security import current_admin
@@ -112,18 +147,19 @@ class SubscriberOperationsService:
             prior=self.prior(session,command,actor,user=user,group_id=group_id)
             if prior:return prior
             if row.router_id!=command.expected_router_id or row.source!=command.expected_source or row.fields.get('source')!=row.source or row.fields.get('router_id')!=row.router_id:raise WorkspaceError(409,'Abone, router veya kaynak değişti. Güncel kaydı yeniden seçin.')
+            if row.revision != command.expected_revision:
+                raise WorkspaceError(409, 'Abone revizyonu önizlemeden sonra değişti. Güncel kaydı açıp yeni önizleme oluşturun.')
             if command.operation=='STATUS' and command.value in ('ACTIVE','PAUSED'):
                 current=row.fields.get('status')
-                if current==command.value and row.revision>=command.expected_revision:
+                if command.expected_status is not None and current!=command.expected_status:
+                    raise WorkspaceError(409,'Hesap durumu önizlemeden sonra değişti. Güncel kaydı yeniden seçin.')
+                if current == command.value:
                     receipt = dict(item_id=row.id,request_id=str(command.request_id),success=False,recorded=False,skipped=True,
                                 operation='STATUS',actor_id=actor,source=row.source,router_id=row.router_id,previous_router_id=row.router_id,
                                 previous={'status':current},values={'status':current},occurred_at=datetime.now(timezone.utc).isoformat(),
                                 revision=row.revision,error=None,**execution_metadata(group_id))
                     self.store_receipt(session, Skip, command, actor, {'status': {'previous': current, 'new': current}}, receipt, row.source)
                     return receipt
-                if command.expected_status is not None and current!=command.expected_status:
-                    raise WorkspaceError(409,'Hesap durumu önizlemeden sonra değişti. Güncel kaydı yeniden seçin.')
-            if row.revision!=command.expected_revision:raise WorkspaceError(409,'Abone revizyonu değişti. Güncel kaydı yeniden seçin.')
             field={'EDIT':'customer_name','PLAN':'plan','STATUS':'status','EXPIRE':'expires_on','EXTEND':'expires_on','ROUTER':'router_id'}[command.operation]
             value=command.value
             if command.operation in ('EDIT','PLAN'):
@@ -180,10 +216,13 @@ class SubscriberOperationsService:
         receipt.setdefault('skipped', False)
         session.add(model(id=str(command.request_id),subscriber_id=command.item_id,actor_id=actor,revision=receipt['revision'],operation=command.operation,occurred_at=receipt['occurred_at'],changes={**changes,'_source':source,'_management':{'fingerprint':fingerprint(command,actor),'receipt':receipt}}))
     @boundary
-    def failed(self,command,actor,error,user=None,group_id=None):
-        with self.sessions.begin() as session:
-            self.check(session)
-            lock_operation_request(session, command.request_id)
+    def failed(self,command,actor,error,user=None,group_id=None,*,transaction=None):
+        context = self.sessions.begin() if transaction is None else transaction.begin_nested()
+        with context as session_or_savepoint:
+            session = session_or_savepoint if transaction is None else transaction
+            if transaction is None:
+                self.check(session)
+                lock_operation_request(session, command.request_id)
             if user is None:
                 prior=self.prior(session,command,actor,user=user,group_id=group_id)
                 if prior:return prior

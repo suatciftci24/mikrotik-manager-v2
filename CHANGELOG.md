@@ -1,5 +1,12 @@
 # Değişiklik geçmişi
 
+## [2.6.5] - 2026-11-19
+
+- Toplu abone işlemlerinde aynı UUID'lerle güvenli tekrar ve grup sonuçlarının
+  tek transaction’da kaydı. Önceki grup kimlikleri ve audit kayıtları okunabilir.
+- Önizlemeden sonra revizyonu değişen aboneler için çakışma sonucu gösterilir.
+  Hesabı hedef durumda ve revizyonu güncel olan aboneler atlanır.
+
 ## [2.6.4] - 2026-11-18
 
 - PPPoE Abone Merkezi'nde bilgi düzenleme ile hesap, paket ve yenileme işlemlerini ayır.

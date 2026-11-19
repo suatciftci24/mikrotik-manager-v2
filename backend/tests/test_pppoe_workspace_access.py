@@ -188,8 +188,9 @@ class PppoeWorkspace(TestCase):
             return self.client.get(path+'?'+urlencode(params))
         execute_path='/subscriber-workspace/management/execute'
         success=self.operation(item,'STATUS','PAUSED')
-        self.assertTrue(self.post(execute_path,{'entries':[success]}).json()['results'][0]['success'])
-        skip=self.operation(item,'STATUS','PAUSED')
+        applied=self.post(execute_path,{'entries':[success]}).json()['results'][0]
+        self.assertTrue(applied['success'])
+        skip=self.operation({**item,'revision':applied['revision'],'status':'PAUSED'},'STATUS','PAUSED')
         foreign_change=self.operation(foreign,'STATUS','PAUSED')
         batch=self.post(execute_path,{'entries':[skip,foreign_change]}).json()['results']
         group_id=batch[0]['group_id']

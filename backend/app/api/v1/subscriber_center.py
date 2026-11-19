@@ -55,18 +55,20 @@ def update(id:str,payload:SyntheticSubscriberCommand,user:dict=Depends(mutator))
 def renew(id:str,payload:SubscriberRenewal,user:dict=Depends(mutator)):return execute(workspace.renew,id,payload,user['id'],user=user)
 
 from app.schemas.subscriber_management_center import SubscriberOperations,OperationResults,OperationHistory
-from app.services.subscriber_operations import DAILY_REPORT_OPERATIONS,bulk_group_id,operations
+from app.services.subscriber_operations import DAILY_REPORT_OPERATIONS,operations
 
 @router.post('/subscriber-workspace/management/execute',response_model=OperationResults)
 def manage(payload:SubscriberOperations,user:dict=Depends(mutator)):
-    group_id = bulk_group_id(payload.entries, user['id'])
-    bulk_plan=group_id is not None and payload.entries[0].operation=='PLAN'
+    bulk = len(payload.entries) > 1
+    bulk_plan = bulk and payload.entries[0].operation == 'PLAN'
     for entry in payload.entries:
         detail=execute(workspace.detail,entry.item_id,user=user,write=True)
         if bulk_plan and detail.item.access_type!='PPPOE':
             raise HTTPException(422,'Toplu paket değişikliği yalnız sentetik PPPoE aboneleri içindir.')
         if entry.operation=='ROUTER':current_admin(user)
-    return {'results':[execute(operations.execute,entry,user['id'],user=user,group_id=group_id) for entry in payload.entries],'is_demo':True}
+    results = (execute(operations.execute_bulk, payload.entries, user['id'], user) if bulk else
+               [execute(operations.execute, payload.entries[0], user['id'], user=user)])
+    return {'results': results, 'is_demo': True}
 
 @router.get('/subscriber-workspace/management/history',response_model=OperationHistory)
 def history(item_id:str=Query('',max_length=64),operation:str=Query('ALL',pattern='^(ALL|EDIT|PLAN|STATUS|EXPIRE|EXTEND|ROUTER|CREATE|UPDATE|RENEWAL)$'),

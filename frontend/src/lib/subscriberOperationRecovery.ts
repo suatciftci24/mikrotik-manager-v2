@@ -14,7 +14,7 @@ export function operationReceiptMatches(entry:DailyEntry,receipt:OperationReceip
   &&receipt.previous.status===entry.value&&receipt.values.status===entry.value;
  if(!receipt.success){
   return receipt.recorded
-    ? receipt.revision>=entry.expected_revision
+    ? receipt.revision>0 && typeof receipt.error==='string' && !!receipt.error.trim()
     : false;
  }
  if(receipt.revision!==entry.expected_revision+1||receipt.previous_router_id!==entry.expected_router_id||receipt.router_id!==(entry.operation==='ROUTER'?entry.value:entry.expected_router_id)||receipt.error!==null)return false;
