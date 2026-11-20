@@ -1,5 +1,30 @@
 # MikroTik Manager V2 — İlerleme
 
+## Abone Merkezi performans ve kullanılabilirlik — V2.6.11
+
+- Ofis WSL `suatpc@DESKTOP-VD5T7VG`, `~/mikrotik-v2-ortak`,
+  `development/v2.6.2-pppoe`, taban `4a77831fdf7c856655485f1d9ef3f2065274c5de`.
+  Grup görünümü tüm eşleşmeleri Python'a taşıyordu. Arama, bitiş grupları,
+  sıralama ve sayfalama SQL'de uygulanıyor. Liste sadece sayfa satırlarını
+  yüklüyor ve bitiş tarihi, abone adı veya kullanıcı adına göre sıralanabiliyor.
+- Yazım sırasında liste ve geçmiş sorguları bekletiliyor. Mobil ilk açılış
+  kendi sayfa boyutunu kullanıyor. Toplu seçim son yüklenen sayfaya bağlı.
+  Sayfa, filtre veya yanıt değiştiğinde önceki seçim kullanılamıyor.
+- Geçmiş, günlük özet sayımlarını yeniden kullanıyor ve sayfa satırları için
+  router türünü aynı sorgudan alıyor. Geri alma filtresindeki doğrulama
+  korunuyor. Yükleme, boş sayfadan dönüş ve mobil kontroller güncellendi.
+- PASS: İzole SQLite/ASGI `test_subscriber_center`,
+  `test_pppoe_workspace_access`, `test_workspace_operator_access` 47/47.
+  6.000 abone ve 6.000 olay senaryosu, yalnız 25 abone nesnesinin yüklenmesi ve
+  geçmiş sayfalarının kesişmemesi dahil PASS. PostgreSQL 16 tarih ve arama
+  ifadeleri ağ bağlantısız geçici sentetik tek kullanıcı modunda PASS.
+- PASS: Hedefli frontend 31/31. Chromium sentetik kabulü 320–1280 px,
+  ilk istek sayısı, sayfa seçimi, arama, boş ve hata durumları PASS.
+  Üretim derlemesi ve `frontend/dist/release.json` 2.6.11 PASS.
+- Migration gerekmiyor. Ofis veritabanına ve canlı sistemlere erişilmedi.
+  Push BLOCKED. `tools/check-git-transfer.sh` kayıtlı Ofis checkout'u
+  `~/v26-transfer/mikrotik-v26-next` yolunu bekliyor.
+
 ## Geri alma güvenliği ve kabul — V2.6.10
 
 - Ev WSL `DESKTOP-MT2JS7H`, `~/mikrotik-v2-ortak`,

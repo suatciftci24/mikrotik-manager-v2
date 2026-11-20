@@ -33,6 +33,45 @@ class SubscriberTransactions(TestCase):
     def command(self,access='PPPOE',revision=0,**changes):
         fields={'customer_name':'Sentetik Abone','username':'test.ev','router_id':self.router_id,'access_type':access,'source':'LOCAL','plan':'Demo 100','status':'PAUSED','expires_on':'2027-02-01'};fields.update(changes)
         return SyntheticSubscriberCommand(request_id=uuid4(),fields=fields,expected_revision=revision,confirmed=True)
+    def test_large_workspace_projects_only_requested_page_and_bounds_history(self):
+        from app.services.subscriber_operations import SubscriberOperationsService
+
+        size = 6000
+        items = []
+        events = []
+        for index in range(size):
+            id = f'demo-managed-sub-{index:036d}'
+            username = f'fixture.{index:05d}'
+            fields = self.command(username=username, customer_name=f'Çağrı Işık {index:05d}').fields.model_dump(mode='json')
+            items.append(dict(id=id, username_key=username, router_id=self.router_id,
+                              access_type='PPPOE', source='LOCAL', revision=1, fields=fields))
+            events.append(dict(id=f'{index:036d}', subscriber_id=id, revision=1, actor_id='fixture',
+                               occurred_at='2026-11-20T12:00:00+00:00', operation='CREATE', changes={}))
+        with self.sessions.begin() as session:
+            session.execute(Account.__table__.insert(), items)
+            session.execute(Event.__table__.insert(), events)
+        hydrated = []
+        def record_load(account, _):
+            hydrated.append(account.id)
+        event.listen(Account, 'load', record_load)
+        try:
+            data = self.workspace.list(query='cagri isik', grouped=True, page=121, page_size=25, sort='NAME')
+        finally:
+            event.remove(Account, 'load', record_load)
+        self.assertEqual(hydrated, [row.id for row in data['items']])
+        self.assertEqual(len(hydrated), 25)
+        self.assertEqual(data['total'], size)
+        self.assertEqual(data['items'][0].username, 'fixture.03000')
+        self.assertEqual(data['items'][-1].username, 'fixture.03024')
+        self.assertEqual(self.workspace.list(query='fixture.%', grouped=True)['total'], 0)
+        self.assertEqual(self.workspace.list(grouped=True, page=241)['items'], [])
+        operations = SubscriberOperationsService(self.sessions, lambda _: None)
+        first = operations.history(page=120, include_skipped=True)
+        second = operations.history(page=121, include_skipped=True)
+        self.assertEqual((first['total'],second['total']), (size,size))
+        self.assertEqual([row['request_id'] for row in second['items']], [f'{i:036d}' for i in range(3000,3025)])
+        self.assertTrue({row['request_id'] for row in first['items']}.isdisjoint(row['request_id'] for row in second['items']))
+
     def test_pppoe_create_reopen_edit_expire_audit_and_no_session_claim(self):
         command=self.command();item=self.workspace.save(command,'actor')
         self.assertEqual(self.workspace.save(command,'actor'),item)

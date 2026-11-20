@@ -5,8 +5,8 @@ import {expiryDate,expiryInfo,remainingDays,turkeyToday} from '../lib/expiry';
 import '../styles/compact-subscribers.css';
 
 export function useCompactSubscribers(){
- const [compact,setCompact]=useState(false);
- useEffect(()=>{const media=window.matchMedia('(max-width: 600px)');const change=()=>setCompact(media.matches);change();media.addEventListener('change',change);return()=>media.removeEventListener('change',change);},[]);
+ const [compact,setCompact]=useState(()=>typeof window!=='undefined'&&window.matchMedia?.('(max-width: 600px)')?.matches===true);
+ useEffect(()=>{const media=window.matchMedia?.('(max-width: 600px)');if(!media)return;const change=()=>setCompact(media.matches);change();media.addEventListener('change',change);return()=>media.removeEventListener('change',change);},[]);
  return compact;
 }
 /** One set of controls and IDs; desktop stays expanded, mobile opens on demand. */

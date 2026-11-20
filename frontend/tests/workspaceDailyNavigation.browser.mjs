@@ -8,17 +8,35 @@ const result=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:
 import React from 'react';import {createRoot} from 'react-dom/client';
 import {SyntheticSubscriberList} from './src/components/SyntheticSubscribers';import {SourcePicker} from './src/components/SourcePicker';
 import {Header,DemoBanner} from './src/components/Header';import {MobileHeader} from './src/components/Sidebar';
+const fixture={id:'demo-managed-sub-test',customer_name:'Sentetik Abone',username:'test.user',router_id:'demo-managed-router-test',router_name:'V26 Test Router',router_source:'PERSISTENT_DEMO',source:'LOCAL',access_type:'PPPOE',plan:'Paket 100',status:'ACTIVE',expires_on:'2099-01-01',revision:1,can_manage:true};
+window.sourceCalls=[];
+window.fetch=async(path,init)=>{
+ const url=new URL(path,'https://fixture.invalid');window.sourceCalls.push(url.pathname+url.search);
+ const params=url.searchParams;
+ const send=(data,status=200)=>new Response(JSON.stringify(data),{status});
+ if(url.pathname.endsWith('/router-workspace/routers'))return send({is_demo:true,total:1,items:[{id:fixture.router_id,fields:{name:fixture.router_name}}]});
+ if(!url.pathname.endsWith('/subscriber-workspace'))throw Error('Unexpected request '+path);
+ if(params.get('query')==='hata')return send({detail:'Sentetik bağlantı hatası'},503);
+ if(params.get('query')==='boş')return send({is_demo:true,total:0,items:[]});
+ const row=params.get('page')==='2'?{...fixture,id:'demo-managed-sub-page-2',username:'page.two',customer_name:'İkinci Abone'}:fixture;
+ return send({is_demo:true,total:26,items:[row]});
+};
 window.v2Theme={getPreference:()=>"system",setPreference:value=>window.themeChoice=value};
 const root=createRoot(document.getElementById('root'));
-root.render(<div className="app-shell v26-ui"><main className="main-area"><MobileHeader runtimeProfile="v26-isolated-acceptance" onMenu={()=>window.chosen=['menu']}/><Header active="subscribers" runtimeProfile="v26-isolated-acceptance" user={{name:'Test User'}} onOpenSearch={()=>window.chosen=['search']} onOpenNotifications={()=>window.chosen=['notice']}/><div className="content-area"><DemoBanner runtimeProfile="v26-isolated-acceptance"/><div className="subscriber-center-list"><SourcePicker label="Abone görünümü" value="PERSISTENT" options={[{value:'PERSISTENT',label:'Aboneler',access:'Yetkili V2.6',description:'Kalıcı sentetik kayıtlar'},{value:'HISTORY',label:'İşlem geçmişi',access:'Yetkili V2.6',description:'Kalıcı audit'}]} onChange={value=>window.chosen=['source',value]}/><SyntheticSubscriberList onOpen={id=>window.chosen=['detail',id]} onCreate={()=>window.chosen=['create']} onQuick={(item,action)=>window.chosen=[item.id,action]} onHistory={id=>window.chosen=['history',id]}/></div></div></main></div>);`},bundle:true,write:false,format:'iife',platform:'browser',jsx:'automatic',loader:{'.css':'empty'},plugins:[{name:'synthetic-source',setup(b){b.onResolve({filter:/lib\/useResource$/},()=>({path:'fixture',namespace:'fixture'}));b.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:`export function useResource(path){window.sourceCalls??=[];window.sourceCalls.push(path);return {loading:false,retry(){},data:path.startsWith('/subscriber-workspace?')?{is_demo:true,total:1,items:[{id:'demo-managed-sub-test',customer_name:'Sentetik Abone',username:'test.user',router_id:'demo-managed-router-test',router_name:'V26 Test Router',router_source:'PERSISTENT_DEMO',source:'LOCAL',access_type:'PPPOE',plan:'Paket 100',status:'ACTIVE',expires_on:'2099-01-01',revision:1,can_manage:true}]}:{items:[{id:'demo-managed-router-test',fields:{name:'V26 Test Router'}}]}}}`,loader:'js'}));}}]});
+root.render(<div className="app-shell v26-ui"><main className="main-area"><MobileHeader runtimeProfile="v26-isolated-acceptance" onMenu={()=>window.chosen=['menu']}/><Header active="subscribers" runtimeProfile="v26-isolated-acceptance" user={{name:'Test User'}} onOpenSearch={()=>window.chosen=['search']} onOpenNotifications={()=>window.chosen=['notice']}/><div className="content-area"><DemoBanner runtimeProfile="v26-isolated-acceptance"/><div className="subscriber-center-list"><SourcePicker label="Abone görünümü" value="PERSISTENT" options={[{value:'PERSISTENT',label:'Aboneler',access:'Yetkili V2.6',description:'Kalıcı sentetik kayıtlar'},{value:'HISTORY',label:'İşlem geçmişi',access:'Yetkili V2.6',description:'Kalıcı audit'}]} onChange={value=>window.chosen=['source',value]}/><SyntheticSubscriberList onOpen={id=>window.chosen=['detail',id]} onCreate={()=>window.chosen=['create']} onQuick={(item,action)=>window.chosen=[item.id,action]} onHistory={id=>window.chosen=['history',id]} onDaily={rows=>window.chosen=rows.map(row=>row.id)}/></div></div></main></div>);`},bundle:true,write:false,format:'iife',platform:'browser',jsx:'automatic',loader:{'.css':'empty'}});
 const browser=await chromium.launch({...selectBrowser(chromium),chromiumSandbox:true});
 try{
  const styles=readFileSync('src/styles.css','utf8')+readFileSync('src/styles/compact-subscribers.css','utf8')+readFileSync('src/styles/v26-ui.css','utf8');
  for(const width of [320,360,390,430,1280]){
-  const page=await browser.newPage({viewport:{width,height:900}});await page.route('**/*',route=>route.abort());
-  await page.setContent('<style>'+styles+'</style><div class="v26-ui"><div id="root"></div></div>');
-  await page.evaluate(()=>{location.hash='module=subscribers&workspace=PERSISTENT&workspace_router=demo-managed-router-test';});
+  const page=await browser.newPage({viewport:{width,height:900}});
+  await page.route('**/*',route=>route.request().url()==='https://fixture.invalid/'
+   ?route.fulfill({contentType:'text/html',body:'<style>'+styles+'</style><div class="v26-ui"><div id="root"></div></div>'})
+   :route.abort());
+  await page.goto('https://fixture.invalid/#module=subscribers&workspace=PERSISTENT&workspace_router=demo-managed-router-test');
   await page.addScriptTag({content:result.outputFiles[0].text});
+  await page.getByRole('link',{name:'V26 Test Router',exact:true}).waitFor();
+  const calls=()=>page.evaluate(()=>window.sourceCalls.filter(path=>path.startsWith('/api/v1/subscriber-workspace?')));
+  assert.equal((await calls()).length,1,'initial layout loads exactly one subscriber page');
   const create=page.getByRole('button',{name:'Abone ekle',exact:true});await create.waitFor();await create.click();assert.deepEqual(await page.evaluate(()=>window.chosen),['create']);
   if(width<=650){
    assert.equal(await page.getByRole('status').count(),1,'one visible pagination status');
@@ -29,7 +47,7 @@ try{
    await source.locator('summary').click();assert.equal(await source.locator('p').isVisible(),true);await source.locator('summary').click();
    await source.locator('select').selectOption('HISTORY');assert.deepEqual(await page.evaluate(()=>window.chosen),['source','HISTORY']);
    const filters=page.locator('.workspace-filters'),filterBody=filters.locator('.inventory-toolbar'),summary=filters.locator('summary');
-   assert.equal(await filterBody.isVisible(),false);await summary.click();await filterBody.waitFor({state:'visible'});assert.equal(await filterBody.locator('select').count(),3);
+   assert.equal(await filterBody.isVisible(),false);await summary.click();await filterBody.waitFor({state:'visible'});assert.equal(await filterBody.locator('select').count(),5);
    await filterBody.getByRole('button',{name:'Filtreleri temizle',exact:true}).click();assert.equal(await page.getByRole('button',{name:'Abone ekle',exact:true}).isVisible(),true);
    await summary.click();await filterBody.waitFor({state:'hidden'});await summary.focus();await page.keyboard.press('Enter');await filterBody.waitFor({state:'visible'});await page.keyboard.press('Space');await filterBody.waitFor({state:'hidden'});
 
@@ -47,8 +65,28 @@ try{
   await menu.getByRole('menuitem',{name:'Paket Değiştir',exact:true}).click();assert.deepEqual(await page.evaluate(()=>window.chosen),['demo-managed-sub-test','PLAN']);
   const router=page.getByRole('link',{name:'V26 Test Router',exact:true});assert.equal(await router.count(),1);assert.match(await router.getAttribute('href'),/source=MANAGED_DEMO/);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'page overflow at '+width);
-  assert.ok((await page.evaluate(()=>window.sourceCalls)).every(path=>path.startsWith('/subscriber-workspace?')||path.startsWith('/router-workspace/')));
+  await page.getByRole('checkbox',{name:/seç$/}).check();
+  await page.getByRole('button',{name:'Seçilenlere toplu işlem'}).waitFor();
+  await page.getByRole('button',{name:width<=600?'Sonraki abone sayfası':'Sonraki',exact:true}).click();
+  const second=page.getByRole('checkbox',{name:width<=600?'İkinci Abone seç':'page.two seç',exact:true});
+  await second.waitFor({timeout:5000});
+  assert.equal(await page.getByRole('button',{name:'Seçilenlere toplu işlem'}).count(),0);
+  await second.check();
+  await page.getByRole('button',{name:'Seçilenlere toplu işlem'}).click();
+  assert.deepEqual(await page.evaluate(()=>window.chosen),['demo-managed-sub-page-2']);
+  await second.check();
+  const search=page.getByRole('textbox',{name:'Kullanıcı, abone, router veya paket ara'});
+  const before=(await calls()).length;
+  await search.fill('b');await search.fill('bo');await search.fill('boş');
+  await page.getByText('Filtrelerle eşleşen sentetik abone yok.',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Seçilenlere toplu işlem'}).count(),0);
+  const requests=(await calls()).slice(before);
+  assert.equal(requests.length,1);assert.match(requests[0],/query=bo%C5%9F/);assert.match(requests[0],/page=1/);
+  await search.fill('hata');
+  await page.getByRole('alert').getByText('Sentetik bağlantı hatası').waitFor();
+  await page.getByRole('button',{name:'Tekrar dene'}).waitFor();
+  assert.ok((await page.evaluate(()=>window.sourceCalls)).every(path=>path.startsWith('/api/v1/subscriber-workspace?')||path.startsWith('/api/v1/router-workspace/')));
   await page.close();
  }
- console.log('PASS: 320/360/390/430/1280px workspace list, one visible menu, create, package callback, scoped router link, no page overflow');
+ console.log('PASS: 320/360/390/430/1280px workspace list, one visible menu, create, package callback, scoped router link, no overflow, debounced search, page selection reset, empty/error states');
 }finally{await browser.close();}

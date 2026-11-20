@@ -19,6 +19,7 @@ import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {api,ApiError} from '../lib/api';
 import {subscriberOperationError,operationReceiptMatches,readOperationResults,unknownOperation} from '../lib/subscriberOperationRecovery';
 import {subscriberSaveDependencies} from '../lib/useSubscriberSave';
+import {useSettledSearch} from '../lib/useSettledSearch';
 import {useResource} from '../lib/useResource';
 import {invalidateResources} from '../lib/resourceEvents';
 import {useTurkeyToday} from '../lib/useTurkeyToday';
@@ -158,15 +159,16 @@ function SubscriberAuditHistory({workspaceOnly}:{workspaceOnly:boolean}){
  function openGroup(id:string){
   setGroup(id);setRequest('');setPage(1);setOperation('ALL');setResult('ALL');setUndoStatus('ALL');setId('');
  }
- const filters=new URLSearchParams({page:String(page),page_size:'25',result:source==='legacy'&&result==='SKIPPED'?'ALL':result,operation:source==='legacy'&&operation==='UNDO'?'ALL':operation,item_id:id.slice(0,64)});
+ const [searchId,searching]=useSettledSearch(id.trim().slice(0,64));
+ const filters=new URLSearchParams({page:String(page),page_size:'25',result:source==='legacy'&&result==='SKIPPED'?'ALL':result,operation:source==='legacy'&&operation==='UNDO'?'ALL':operation,item_id:searchId});
  if(source==='workspace')filters.set('include_skipped','true');
  if(activeGroup)filters.set('group_id',activeGroup);
  if(activeRequest)filters.set('request_id',activeRequest);
  if(source==='workspace'&&undoStatus!=='ALL')filters.set('undo_status',undoStatus);
- const resource=useResource<{items:OperationReportRow[];total:number;is_demo:true}>((source==='legacy'?'/subscribers/demo-history?':'/subscriber-workspace/management/history?')+filters);
+ const resource=useResource<{items:OperationReportRow[];total:number;is_demo:true}>((source==='legacy'?'/subscribers/demo-history?':'/subscriber-workspace/management/history?')+filters,undefined,subscriberSaveDependencies,!searching);
  const error=resource.error||(resource.data&&resource.data.is_demo!==true?'Sentetik işlem kaynağı doğrulanamadı; geçmiş gösterilmedi.':undefined);
  const link=(module:'subscribers'|'routers',id:string)=>linkedDetailHash({module,id,...(module==='subscribers'?{workspace:source==='workspace'?'PERSISTENT':'LEGACY'}:{source:source==='workspace'?'MANAGED_DEMO':'DEMO'})},window.location.hash);
- return <section className="panel registry-detail"><h2>Merkezi İşlem Geçmişi · Sentetik</h2>{activeGroup&&<div className="subscriber-preview-actions">
+ return <section className="panel registry-detail subscriber-audit-history"><h2>Merkezi İşlem Geçmişi · Sentetik</h2>{activeGroup&&<div className="subscriber-preview-actions">
   <strong className="operation-group-id">Grup ayrıntıları · {activeGroup}</strong>
   <button type="button" className="button-secondary" onClick={()=>{setGroup('');setPage(1);}}>Grup filtresini kaldır</button>
  </div>}{activeGroup&&<SubscriberUndoPreview key={activeGroup} groupId={activeGroup}/>}
@@ -188,5 +190,5 @@ function SubscriberAuditHistory({workspaceOnly}:{workspaceOnly:boolean}){
    <span>Kaynak: <SourceBadge source={r.source??null}/> · UUID: {r.request_id} · Revizyon: {r.revision}</span>
    {r.error&&<span>{r.error}</span>}
   </details>
- </li>)}</ol>{!resource.data.items.length&&<p>{resource.data.total?'Bu sayfada işlem yok. Önceki sayfaya dönün.':'Bu filtrede kayıtlı işlem yok.'}</p>}<div className="table-footer"><span>{resource.data.total} işlem</span><button disabled={page===1} onClick={()=>setPage(page-1)}>Önceki</button><span>{page}</span><button disabled={page*25>=resource.data.total} onClick={()=>setPage(page+1)}>Sonraki</button></div></>}</section>;
+ </li>)}</ol>{!resource.data.items.length&&<p>{resource.data.total?'Bu sayfada işlem yok.':'Bu filtrede kayıtlı işlem yok.'}</p>}{!resource.data.items.length&&page>1&&<button type="button" className="button-secondary" onClick={()=>setPage(1)}>İlk sayfaya dön</button>}<div className="table-footer"><span>{resource.data.total} işlem</span><button disabled={page===1} onClick={()=>setPage(page-1)}>Önceki</button><span>Sayfa {page} / {Math.max(1,Math.ceil(resource.data.total/25))}</span><button disabled={page*25>=resource.data.total} onClick={()=>setPage(page+1)}>Sonraki</button></div></>}</section>;
 }

@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.11] - 2026-11-20
+
+- Abone listesi ve işlem geçmişinde sunucu tarafı sayfalama, sıralama ve güvenli sayfa seçimi.
+
 ## [2.6.10] - 2026-11-19
 
 - Geri alma kaynak grubu doğrulaması ve güvenlik kabulü.

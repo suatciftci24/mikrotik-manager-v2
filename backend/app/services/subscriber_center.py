@@ -10,7 +10,7 @@ from app.services.router_workspace import guard,boundary,WorkspaceError
 from app.models.router_workspace import RouterWorkspaceRecord as Router
 from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as Event
 from app.schemas.subscriber_center import CenterSubscriber,SubscriberCenterData
-from app.services.subscriber_listing import calendar_date,grouped_listing,GROUPS
+from app.services.subscriber_listing import calendar_date,listing_expressions,search_key,GROUPS
 
 
 def account_view(account,router,user=None):
@@ -53,8 +53,10 @@ class SubscriberWorkspace:
             if row.fields.get('router_id')!=row.router_id or row.fields.get('source')!=row.source or row.fields.get('access_type')!=row.access_type:raise WorkspaceError(409,'Abone kaynak/router bağı uyuşmuyor.')
 
     @boundary
-    def list(self,query='',access_type='ALL',status='ALL',router_id='',page=1,page_size=25,require_parent=False,user=None,grouped=False,source='ALL',expiry_group='ALL'):
+    def list(self,query='',access_type='ALL',status='ALL',router_id='',page=1,page_size=25,require_parent=False,user=None,grouped=False,source='ALL',expiry_group='ALL',sort='EXPIRY'):
         with self.sessions() as session:
+            if session.get_bind().dialect.name == 'postgresql':
+                session.connection(execution_options={'isolation_level':'REPEATABLE READ','postgresql_readonly':True})
             self.check(session)
             if require_parent:
                 parent=session.get(Router,router_id)
@@ -73,11 +75,33 @@ class SubscriberWorkspace:
             if status!='ALL':clauses.append(Account.fields['status'].as_string()==status)
             if router_id:clauses.append(Account.router_id==router_id)
             base=select(Account,Router).outerjoin(Router,Account.router_id==Router.id).where(*clauses)
-            if grouped or expiry_group!='ALL':
-                today=datetime.now(ZoneInfo('Europe/Istanbul')).date()
-                matches,counts=grouped_listing(session.execute(base).all(),query if grouped else '',expiry_group,today)
-                total=len(matches);matches=matches[(page-1)*page_size:page*page_size]
-                return dict(items=[account_view(a,r,user) for a,r in matches],total=total,page=page,page_size=page_size,is_demo=True,expiry_groups=counts,as_of_date=today.isoformat())
+            if grouped or expiry_group != 'ALL':
+                today = datetime.now(ZoneInfo('Europe/Istanbul')).date()
+                normalize, valid_date, bucket = listing_expressions(session, Account.fields['expires_on'].as_string(), today)
+                terms = set(search_key(query).split()) if grouped else ()
+                if terms:
+                    searchable = normalize(func.coalesce(Account.fields['username'].as_string(), '') + ' ' +
+                                           func.coalesce(Account.fields['customer_name'].as_string(), '') + ' ' +
+                                           func.coalesce(Account.fields['plan'].as_string(), '') + ' ' +
+                                           func.coalesce(Account.fields['ip_address'].as_string(), '') + ' ' +
+                                           Account.id + ' ' + func.coalesce(Router.fields['name'].as_string(), ''))
+                    for term in sorted(terms):
+                        base = base.where(searchable.contains(term, autoescape=True))
+                summary = base.with_only_columns(bucket, func.count(), maintain_column_froms=True)
+                totals = dict(session.execute(summary.group_by(bucket)).all())
+                counts = {group: totals.get(index, 0) for index, group in enumerate(GROUPS)}
+                total = sum(counts.values()) if expiry_group == 'ALL' else counts[expiry_group]
+                if expiry_group != 'ALL':
+                    base = base.where(bucket == GROUPS.index(expiry_group))
+                username = normalize(Account.fields['username'].as_string())
+                ordering = {
+                    'EXPIRY': (bucket, valid_date, username),
+                    'USERNAME': (username,),
+                    'NAME': (normalize(Account.fields['customer_name'].as_string()), username),
+                }[sort]
+                rows = session.execute(base.order_by(*ordering, Account.id).offset((page-1)*page_size).limit(page_size)).all() if (page-1)*page_size < total else []
+                return dict(items=[account_view(a,r,user) for a,r in rows],total=total,page=page,page_size=page_size,
+                            is_demo=True,expiry_groups=counts,as_of_date=today.isoformat())
             total=session.scalar(select(func.count()).select_from(base.subquery()))
             rows=session.execute(base.order_by(Account.username_key,Account.id).offset((page-1)*page_size).limit(page_size)).all()
             return dict(items=[account_view(a,r,user) for a,r in rows],total=total,page=page,page_size=page_size,is_demo=True)

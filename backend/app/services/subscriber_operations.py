@@ -424,12 +424,12 @@ class SubscriberOperationsService:
                         reason=None if can_execute else 'Grubun tamamı erişilebilir ve geri alınabilir olmalıdır.')
 
     @staticmethod
-    def evaluate_undo(session, event, account, user, undone):
+    def evaluate_undo(session, event, account, user, undone, *, router_kind=None, skipped=False):
         preview = dict(request_id=event.id, item_id=account.id, subscriber_name=account.fields.get('customer_name'),
                        operation=event.operation, actor_id=event.actor_id, occurred_at=event.occurred_at,
                        audit_revision=event.revision, current_revision=account.revision,
                        changes=[], status='INELIGIBLE', can_execute=False, source_group_id=None)
-        skipped = isinstance(event, Skip)
+        skipped = skipped or isinstance(event, Skip)
         if not event.changes.get('_management', {}).get('receipt'):
             return {**preview, 'reason': 'Bu geçmiş kaydı geri alma için yeterli işlem kanıtı içermiyor.'}
         try:
@@ -465,9 +465,11 @@ class SubscriberOperationsService:
                 or field not in account.fields or previous[field] == applied[field] or event.revision < 1):
             return {**preview, 'reason': 'Değişen alanın önceki, işlenen veya güncel değeri doğrulanamadı.'}
 
-        router = session.get(RouterWorkspaceRecord, account.router_id)
+        if router_kind is None:
+            router = session.get(RouterWorkspaceRecord, account.router_id)
+            router_kind = router.kind if router else None
         source = event_source(event)
-        if not router or router.kind != 'DEMO_ROUTER' or source is None:
+        if router_kind != 'DEMO_ROUTER' or source is None:
             return {**preview, 'reason': 'Sentetik router veya kayıtlı yetkili kaynak doğrulanamadı.'}
         if (account.router_id != receipt['router_id'] or account.fields.get('router_id') != account.router_id
                 or source != account.source or account.fields.get('source') != account.source
@@ -568,8 +570,7 @@ class SubscriberOperationsService:
     def history(self,item_id='',operation='ALL',result='ALL',page=1,page_size=25,*,start=None,until=None,
                 router_id='',actor_id='',query='',user=None,daily=False,execution_type='ALL',group_filter=None,include_skipped=False,request_filter=None,undo_status='ALL'):
         with self.sessions() as session:
-            if (daily or include_skipped) and session.bind.dialect.name == 'postgresql':
-                session.connection(execution_options={'isolation_level':'REPEATABLE READ','postgresql_readonly':True})
+            self.undo_read_snapshot(session)
             self.check(session)
             event = Event
             skipped = literal(False)
@@ -618,31 +619,42 @@ class SubscriberOperationsService:
 
             joined = select(event).join(Account, Account.id == event.subscriber_id)
             counts, groups = None, []
+            tallies = None
             if daily:
                 summary = joined.with_only_columns(outcome, func.count(), maintain_column_froms=True)
-                counts = self.outcome_counts(dict(session.execute(summary.where(*clauses).group_by(outcome)).all()))
+                tallies = dict(session.execute(summary.where(*clauses).group_by(outcome)).all())
+                counts = self.outcome_counts(tallies)
 
             if result != 'ALL':
                 clauses.append(outcome == result)
             filtered = joined.where(*clauses)
-            statement = filtered.add_columns(Account.fields['customer_name'].as_string(), Account.fields['username'].as_string(),
-                                             skipped, Account).order_by(event.occurred_at.desc(), event.id)
+            statement = filtered.add_columns(Account.fields['customer_name'].as_string(),
+                                             Account.fields['username'].as_string(), skipped)
+            if include_skipped:
+                statement = statement.outerjoin(RouterWorkspaceRecord, Account.router_id == RouterWorkspaceRecord.id)
+                statement = statement.add_columns(Account, func.coalesce(RouterWorkspaceRecord.kind, ''))
+            statement = statement.order_by(event.occurred_at.desc(), event.id)
             offset = (page-1)*page_size
             items = []
             if undo_status == 'ALL':
-                total = session.scalar(filtered.with_only_columns(func.count(), maintain_column_froms=True))
-                batches = [session.execute(statement.offset(offset).limit(page_size)).all()]
+                if tallies is not None:
+                    total = sum(tallies.values()) if result == 'ALL' else tallies.get(result, 0)
+                else:
+                    total = session.scalar(filtered.with_only_columns(func.count(), maintain_column_froms=True))
+                batches = [session.execute(statement.offset(offset).limit(page_size)).all()] if offset < total else []
             else:
                 total = 0
                 batches = session.execute(statement.execution_options(yield_per=100)).partitions()
             for batch in batches:
                 undone = self.successful_undos(session, [row[0] for row in batch]) if include_skipped else {}
-                for record,name,username,is_skipped,account in batch:
+                for record,name,username,is_skipped,*context in batch:
                     item = {**event_receipt(record, skipped=is_skipped), 'source':event_source(record)}
                     if daily or include_skipped:
                         item.update(subscriber_name=name, subscriber_username=username)
                     if include_skipped:
-                        preview = self.evaluate_undo(session, record, account, user, undone)
+                        account, router_kind = context
+                        preview = self.evaluate_undo(session, record, account, user, undone,
+                                                     router_kind=router_kind, skipped=is_skipped)
                         item.update(undo_status=preview['status'], undo_request_id=preview.get('undo_request_id'))
                     if undo_status != 'ALL':
                         if item.get('undo_status') != undo_status:
