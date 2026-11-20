@@ -1,5 +1,16 @@
 # MikroTik Manager V2 — İlerleme
 
+## CEBECI_TOWERS V2.6.14 işletim hazırlığı
+
+- Taban `b9fded7402b5d96cf9576ea6d944b5f003b06f6a`. V1 sağlık
+  aktarımı, mevcut TLS ve profil kapıları incelendi.
+- PASS: Yeni 60 saniyelik poller, tek üretici kilidi, 0600 atomik
+  dosya, hata halinde önceki dosya ve kapalı profil için dört hedefli test.
+- BLOCKED: V2.6 CEBECI capability emekliye ayrılmış. Salt okunur
+  ön kontrol `V26_CEBECI_ACCESS_DISABLED` döndürdü. VDS/IPsec,
+  parola depoları veya gerçek cihaz kullanılmadı. Push ve yayın yok.
+  Koşullar [işletim belgesinde](DEVICE_INVENTORY_READ_ONLY.md).
+
 ## RouterOS salt okunur gözlemler — V2.6.14
 
 - Taban `eb43fe3bae60716b5811c260904ed2ed3a7154ee`. Mevcut V1 dosya

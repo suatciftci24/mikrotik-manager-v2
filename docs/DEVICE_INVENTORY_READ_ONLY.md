@@ -48,3 +48,34 @@ ve özellik listeleri dışındaki komutlar backend'de reddedilir. [RouterOS API
 
 RouterOS 6.49.x ve 7.x protokol yanıtları yerel sahte TLS akışında denendi.
 Gerçek donanım kabulü ayrı açık cihaz bağlantısı onayı gerektirir.
+
+## CEBECI_TOWERS işletim hazırlığı
+
+Depodaki onaylı tarihsel hedef `10.250.0.19:8729`, kaynak
+`10.250.0.1`, kimlik `CEBECI_TOWERS`, model `RB3011UiAS`, sürüm
+`6.49.19` ve V2'ye özel `v2-cebeci-ro` hesabıdır. Mevcut VDS/IPsec
+yolunda kaynak/hedef politikasının bu ikiliyi taşıdığı, API-SSL dinleyicisi,
+yetki, CA zinciri, IP SAN ve incelenmiş leaf SHA-256 pini ayrıca
+doğrulanmalıdır. WAN arayüzü, güncel IPsec erişilebilirliği ve sunumda
+kullanılan sertifika bu görevde ölçülmedi. V1 sağlık aktarımı salt okunur
+dosya handoff olarak incelendi. Çalışan V1 poller ve kimlik bilgileri
+yeniden kullanılmaz.
+
+V2.6 profilindeki CEBECI yetkisi emekliye ayrıldı.
+`v26_cebeci.validate` eski etkinleştirme ve operatör değerlerini reddeder.
+Normal profil kapalıdır. Kullanıcı onayı bu kod kapısını değiştirmez.
+Başka profil ile çalıştırma yetkili bir alternatif oluşturmaz.
+
+`app.services.device_poller.poll` ayrı yetkilendirilmiş örnekleyici için
+60 saniyelik seri döngü sağlar. Tek üretici kilidi vardır. Çıktı
+`0700` özel dizinin içinde `0600` geçici dosyadan fsync ve atomik
+yeniden adlandırma ile `device-inventory.json` olarak üretilir. Çıktıya
+yalnız DTO yazılır. Ayrı çalıştırıcı bu modüle yetkili `sample_device`
+çağrısını vermelidir. Profil kapalıyken bu bağlantı kurulmaz. VDS'de
+servis/timer, ortam ayarı veya dosya kurulmadı. API'ye dosya tanıtmak
+ayrıca V2.6.14 dağıtımı ve yetkili çalışma ortamı değişikliği gerektirir.
+
+V2.6.14 işletim modülü olan ayrı, yetkili VDS checkout'unda
+`PYTHONPATH=backend V2_DEPLOYMENT_PROFILE=v26-isolated-acceptance python3 -B -m app.services.device_poller --preflight`
+mevcut kapıyı salt okunur kontrol eder. Bağlantı komutu mevcut profilde
+kullanılamaz. Bu komut parola okumaz ve soket açmaz.
