@@ -162,3 +162,43 @@ tek başına sağlamaz. Ürün ve birim değişikliği beklemede.
 - [systemd cgroup kaynak ve adres filtresi](https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html)
 - [Linux IPv4 egress kancası](https://github.com/torvalds/linux/blob/master/net/ipv4/ip_output.c)
 - [Linux XFRM çıkış yolu](https://github.com/torvalds/linux/blob/master/net/xfrm/xfrm_output.c)
+
+### Yalnız yönetilen TCP denemesi
+
+Kullanıcının VDS ölçümünde kök ve `system.slice` adres/filtre alanları
+boştu. Kaynakla yapılan rota sorgusu hedef için `ens34` gösterdi.
+Bu iki bulgu etkin cgroup programlarını, XFRM dönüşümünü veya paketin
+düştüğü noktayı tek başına belirlemez.
+
+Güncel teşhis betiğini root'a ait aynı yola aktarıp **VDS terminalinde**
+bir kez çalıştırın. Malzeme yolunu önceki başarılı denemeden alın.
+
+```bash
+sudo /usr/bin/python3 -I -B /root/diagnose-observer.py --managed-network \
+  --repo /home/mikadmin/v2616-diagnostic-source.git \
+  --venv /srv/mikrotik-v26-next/.venv \
+  --material /MUTLAK/V2615/CHECKOUT/.local/cebeci-pilot/v2614-observer
+```
+
+Bu mod bağımsız denemeyi ve TCP sonrasındaki TLS/login adımlarını
+çalıştırmaz. Worker kaynak IP'ye bind ettikten sonra bekler. Yerel ve
+etkin BPF kancaları okunur. TCP izi yalnız o denemenin kaynak portu ile
+sabit uçların SYN ve SYN-ACK paketlerini kapsar. BPF izlemesi geçici
+worker soketini izler ve XFRM girişine ulaşan paketleri işaretler.
+Çıktı özet sayaç, kanca program kimliği ve çekirdeğin düşüş nedenini içerir.
+Ham paket, abone bilgisi ve IPsec anahtarı çıktı olarak kullanılmaz.
+
+- `BPF_OUTER_IPV4_DROP` aynı izlenen pakette XFRM girişi, dış ESP veya
+  UDP IPv4 başlığı ve cgroup BPF düşüş nedeni gözlendiğini gösterir.
+- `BPF_AFTER_XFRM_ENTRY` dönüşüm yoluna giriş ve BPF düşüşü görüldüğünü
+  gösterir. Dış başlığın görüldüğü sonucu ayrıca gereklidir.
+- `XFRM_DROP` pakete ilişkilendirilmiş çekirdek XFRM/IPsec düşüş nedenidir.
+  Yalnız `XFRM_RETURN` değeri bu kanıtı vermez.
+- `INCONCLUSIVE` pakete ilişkilendirilmiş tanınan düşüş nedeni
+  bulunmadığını gösterir. Arayüz yakalamasında iç SYN görülmemesi, dış
+  IPsec paketinin gönderilip gönderilmediğini tek başına göstermez.
+
+Sistemde `tcpdump`, `bpftool`, `bpftrace`, kernel BTF ve düşüş nedeni
+sunan tracepoint mevcut olmalıdır. Eksikse betik bağımlılık kurmadan ve
+bağlantıyı başlatmadan durur. Geçici izler ve birim kapatılır. Kalıcı
+güvenlik, servis ve IPsec ayarlarına değişiklik yapılmaz.

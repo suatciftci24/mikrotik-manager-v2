@@ -1,5 +1,17 @@
 # MikroTik Manager V2 — İlerleme
 
+## CEBECI yönetilen ağ paket kanıtı hazırlığı
+
+- Taban `d99648a`. VDS kullanıcı kanıtında kök/system.slice adres
+  filtreleri boş, kaynakla hedef rota `ens34`. Yönetilen TCP düşüşü
+  hâlâ paket düzeyinde ölçülmedi.
+- `--managed-network` tek yönetilen TCP bağlantısı, yerel/etkin cgroup
+  kancaları, uç dörtlüsüne göre SYN/SYN-ACK ve sokete bağlı XFRM/düşüş
+  tanısı toplar. Bağımsız akış ve TCP sonrasındaki aşamalar çalışmaz.
+- PASS: Python sözdizimi, filtre üretimi ve sentetik paket/düşüş
+  sınıflandırması. Yerelde tracer araçları bulunmadığı için kernel
+  attach doğrulanmadı. VDS komutu çalıştırılmadı ve yayın yok.
+
 ## CEBECI yönetilen TCP zaman aşımı
 
 - VDS kullanıcı kanıtı: bağımsız 123/123, yönetilen runtime/onay/bind

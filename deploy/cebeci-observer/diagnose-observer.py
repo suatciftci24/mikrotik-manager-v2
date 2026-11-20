@@ -2,6 +2,7 @@
 """Compare the pinned standalone and systemd observer paths without deploying."""
 import argparse
 import configparser
+from contextlib import ExitStack, contextmanager
 from datetime import datetime, timedelta, timezone
 import errno
 import importlib
@@ -20,6 +21,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 from types import SimpleNamespace
 
 PINS = {'standalone':'da7ef62b6e29703772bb0276f7b8b6cb11a894ac',
@@ -61,6 +63,10 @@ IMPORT_FAILURES = {'MODULE_MISSING', 'NATIVE_MAP_DENIED', 'NATIVE_ABI_MISMATCH',
 
 
 class Stop(RuntimeError):
+    pass
+
+
+class TCPMeasured(BaseException):
     pass
 
 
@@ -151,7 +157,7 @@ def load_runtime(root, packages):
     return loaded
 
 
-def worker(root, packages, mode, runtime):
+def worker(root, packages, mode, runtime, network_trace=False):
     logging.disable(logging.CRITICAL)
     try:
         loaded = load_runtime(root, packages)
@@ -187,6 +193,10 @@ def worker(root, packages, mode, runtime):
 
         def connect(self, address):
             advance('TCP')
+            if network_trace:
+                with (runtime/'probe-port').open('x') as marker:
+                    marker.write(str(self.getsockname()[1]))
+                until(lambda: (root/'network-go').is_file(), 18, 'TRACE_GATE_TIMEOUT')
             try:
                 super().connect(address)
             except OSError as error:
@@ -194,6 +204,8 @@ def worker(root, packages, mode, runtime):
                     emit('TCP', 'PERMISSION')
                 raise
             emit('TCP', 'PASS')
+            if network_trace:
+                raise TCPMeasured
 
     class ProbeTLS:
         def __init__(self, context):
@@ -267,6 +279,8 @@ def worker(root, packages, mode, runtime):
         emit('AUTHORIZATION', 'PASS')
         advance('TLS')
         result = sample(previous=None)
+        if network_trace:
+            return 1
         advance('SNAPSHOT')
         output = runtime if mode == 'managed' else root/MATERIAL_PATH
         fd = os.open(output, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -293,6 +307,8 @@ def worker(root, packages, mode, runtime):
         if result.connection == 'ONLINE' and result.error is None:
             emit('ACCOUNTS', f'{len(result.accounts or [])},COMPLETE={str(result.accounts_complete).upper()}')
             return 0
+    except TCPMeasured:
+        return 0
     except Stop as error:
         emit(current, str(error))
     except (OSError, ValueError, ApiSslStop):
@@ -300,9 +316,10 @@ def worker(root, packages, mode, runtime):
     return 1
 
 
-def pinned_sources(repo, workspace):
+def pinned_sources(repo, workspace, modes=PINS):
     unit = None
-    for mode, pin in PINS.items():
+    for mode in modes:
+        pin = PINS[mode]
         args = ('backend/app', UNIT_FILE) if mode == 'managed' else ('backend/app',)
         archive = command('git', '-c', 'safe.directory='+str(repo), '-C', str(repo), 'archive', pin,
                           '--', *args)
@@ -354,7 +371,7 @@ def report(mode, result):
     safe = CAUSES | {'PASS', 'ADDRESS_NOT_AVAILABLE', 'PERMISSION', 'AUTHENTICATION_REJECTED', 'REJECTED',
                      'ROW_COUNT_MISMATCH', 'NAME_MISMATCH', 'MODEL_MISMATCH', 'VERSION_MISMATCH',
                      'DIRECTORY_METADATA', 'FILE_METADATA', 'PAYLOAD_MISMATCH', 'LOCAL_OR_VALIDATION_FAILURE',
-                     'IMPORT_FAILED', 'RUNTIME_IO_FAILURE', 'PYTHON_ISOLATION_REQUIRED', 'WORKING_DIRECTORY_MISMATCH',
+                     'TRACE_GATE_TIMEOUT', 'IMPORT_FAILED', 'RUNTIME_IO_FAILURE', 'PYTHON_ISOLATION_REQUIRED', 'WORKING_DIRECTORY_MISMATCH',
                      'SOURCE_DIRECTORY_ACCESS', 'PACKAGE_DIRECTORY_ACCESS', 'SOURCE_MODULE_ACCESS',
                      'PACKAGE_FILESYSTEM_NOEXEC',
                      'UNREACHABLE', 'TIMEOUT', 'TLS', 'AUTHORIZATION', 'INVALID_DATA'}
@@ -374,6 +391,207 @@ def report(mode, result):
             print(f'{mode.upper()} {stage}=NOT_REACHED')
     if result.returncode:
         print(f'{mode.upper()} EXIT={result.returncode}')
+
+
+def until(check, seconds, failure):
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        value = check()
+        if value:
+            return value
+        time.sleep(.05)
+    raise Stop(failure)
+
+
+@contextmanager
+def capture_process(args, stdout, stderr):
+    with stdout.open('wb') as output, stderr.open('wb') as errors:
+        process = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=output, stderr=errors,
+                                   start_new_session=True, env={**os.environ, 'LC_ALL':'C'})
+        try:
+            yield process
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGINT)
+                try:
+                    process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait(timeout=3)
+
+
+def trace_mount():
+    for path in (Path('/sys/kernel/tracing'), Path('/sys/kernel/debug/tracing')):
+        event = path/'events/skb/kfree_skb/format'
+        if event.is_file():
+            data = event.read_text()
+            need(re.search(r'field:[^;]*\breason;', data), 'DROP_REASON_UNAVAILABLE')
+            names = {int(number):name for number, name in re.findall(r'\{\s*(\d+)\s*,\s*"([A-Z0-9_]+)"\s*\}', data)}
+            need(any('BPF_CGROUP' in name for name in names.values()), 'BPF_DROP_REASON_NAMES_UNAVAILABLE')
+            need((path/'events/skb/consume_skb/format').is_file(), 'CONSUME_TRACEPOINT_UNAVAILABLE')
+            return names
+    raise Stop('TRACEFS_UNAVAILABLE')
+
+
+def bpf_program(pid, port):
+    # Filter on the worker socket and on the exact reverse tuple for skb events
+    # before TCP associates an incoming packet with its socket.
+    source = int.from_bytes(socket.inet_aton('10.250.0.1'), sys.byteorder)
+    target = int.from_bytes(socket.inet_aton('10.250.0.19'), sys.byteorder)
+    service = socket.htons(8729)
+    local = socket.htons(port)
+    return fr"""
+BEGIN {{ printf("READY\n"); }}
+kprobe:tcp_v4_connect /pid == {pid}/ {{ @sock[(uint64)arg0] = 1; printf("SOCKET\n"); }}
+kprobe:xfrm_output /@sock[(uint64)arg0]/ {{
+    @transform[(uint64)arg1] = 1; @xfrm_thread[tid] = 1; printf("XFRM_ENTER\n");
+}}
+kretprobe:xfrm_output /@xfrm_thread[tid]/ {{
+    printf("XFRM_RETURN %lld\n", (int64)(int32)retval); delete(@xfrm_thread[tid]);
+}}
+tracepoint:skb:kfree_skb {{
+    $address = (uint64)args->skbaddr;
+    $skb = (struct sk_buff *)args->skbaddr;
+    $transformed = @transform[$address];
+    $related = @sock[(uint64)$skb->sk] || $transformed;
+    $reverse = 0;
+    $outer_ipv4 = 0;
+    if ($skb->network_header != 65535) {{
+        $ip = (struct iphdr *)($skb->head + $skb->network_header);
+        if ($transformed && $ip->version == 4 && ($ip->protocol == 50 || $ip->protocol == 17) &&
+            $ip->daddr != {target}) {{ $outer_ipv4 = 1; }}
+        if (!$related && $ip->version == 4 && $ip->ihl >= 5 && $ip->protocol == 6 &&
+            $ip->saddr == {target} && $ip->daddr == {source}) {{
+            $tcp = (struct tcphdr *)((uint64)$ip + 4 * $ip->ihl);
+            $reverse = $tcp->source == {service} && $tcp->dest == {local};
+        }}
+    }}
+    if ($related || $reverse) {{
+        printf("DROP %u %u %u %u\n", args->reason, $transformed, $reverse, $outer_ipv4);
+    }}
+    if ($transformed) {{ delete(@transform[$address]); }}
+}}
+tracepoint:skb:consume_skb /@transform[(uint64)args->skbaddr]/ {{ delete(@transform[(uint64)args->skbaddr]); }}
+END {{ clear(@sock); clear(@transform); clear(@xfrm_thread); }}
+"""
+
+
+def hook_types(cgroup):
+    require_path = Path('/sys/fs/cgroup') / cgroup.removeprefix('/')
+    allowed = {'cgroup_inet_ingress', 'cgroup_inet_egress', 'cgroup_inet4_connect', 'cgroup_inet4_bind',
+               'ingress', 'egress', 'connect4', 'bind4'}
+    for label, options in (('LOCAL', ()), ('EFFECTIVE', ('effective',))):
+        result = command('bpftool', '-j', 'cgroup', 'show', str(require_path), *options)
+        try:
+            hooks = json.loads(result.stdout) if not result.returncode else None
+        except ValueError:
+            hooks = None
+        if not isinstance(hooks, list):
+            print(f'CGROUP_HOOKS_{label}=UNAVAILABLE')
+            continue
+        safe = []
+        for item in hooks:
+            if isinstance(item, dict):
+                kind = item.get('attach_type', item.get('attach_type_name', ''))
+                program = item.get('id')
+                name = kind if isinstance(kind, str) and kind in allowed else 'OTHER'
+                safe.append(f'{name}:{program}' if type(program) is int and program > 0 else name)
+        print(f'CGROUP_HOOKS_{label}=' + (','.join(sorted(safe)) or 'NONE'))
+
+
+def summarize_network(events, packets, names, port):
+    counts = {}
+    source = f'10.250.0.1.{port}'
+    target = '10.250.0.19.8729'
+    for line in packets.splitlines():
+        if f'{source} > {target}: Flags [S]' in line:
+            counts['INNER_SYN'] = counts.get('INNER_SYN', 0) + 1
+        elif f'{target} > {source}: Flags [S.]' in line:
+            counts['INNER_SYN_ACK'] = counts.get('INNER_SYN_ACK', 0) + 1
+    for key in ('INNER_SYN', 'INNER_SYN_ACK'):
+        print(f'{key}={counts.get(key, 0)}')
+    confirmed = set()
+    saw_socket = False
+    for line in events.splitlines():
+        if line == 'SOCKET':
+            saw_socket = True
+        elif line == 'XFRM_ENTER' or re.fullmatch(r'XFRM_RETURN -?[0-9]{1,19}', line):
+            print(line.replace(' ', '=', 1))
+        elif match := re.fullmatch(r'DROP ([0-9]{1,10}) ([01]) ([01]) ([01])', line):
+            number, after_xfrm_enter, reverse, outer = map(int, match.groups())
+            reason = names.get(number, f'REASON_{number}')
+            print(f'PACKET_DROP={reason},XFRM_ENTERED={after_xfrm_enter},REVERSE_TUPLE={reverse},OUTER_IPV4={outer}')
+            if 'BPF_CGROUP' in reason:
+                confirmed.add('BPF_OUTER_IPV4_DROP' if outer else ('BPF_AFTER_XFRM_ENTRY' if after_xfrm_enter else 'BPF_DROP'))
+            elif 'XFRM' in reason or 'IPSEC' in reason:
+                confirmed.add('XFRM_DROP')
+    print('KERNEL_FLOW_TRACKING=' + ('SEEN' if saw_socket else 'NOT_SEEN'))
+    print('ATTRIBUTION=' + (','.join(sorted(confirmed)) or 'INCONCLUSIVE'))
+
+
+def network_probe(unit, runtime, root, workspace, unit_args):
+    names = trace_mount()
+    need(Path('/sys/kernel/btf/vmlinux').is_file(), 'KERNEL_BTF_UNAVAILABLE')
+    for tool in ('tcpdump', 'bpftrace', 'bpftool'):
+        need(shutil.which(tool), 'TRACE_TOOL_MISSING_' + tool.upper())
+    port = None
+    pstdout, pstderr = workspace/'managed.out', workspace/'managed.err'
+    bout, berr = workspace/'bpf.out', workspace/'bpf.err'
+    tout, terr = workspace/'tcp.out', workspace/'tcp.err'
+    try:
+        with capture_process(unit_args, pstdout, pstderr) as managed:
+            def port_ready():
+                if managed.poll() is not None:
+                    raise Stop('MANAGED_EXIT_BEFORE_TCP')
+                try:
+                    with os.fdopen(os.open(runtime/'probe-port', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as marker:
+                        data = marker.read(8).strip()
+                    return int(data) if re.fullmatch(r'[0-9]{1,5}', data) and 0 < int(data) <= 65535 else None
+                except FileNotFoundError:
+                    return None
+
+            port = until(port_ready, 10, 'MANAGED_TCP_GATE_NOT_REACHED')
+            details = command('systemctl', 'show', '-p', 'MainPID', '-p', 'ControlGroup', '--', unit)
+            props = dict(line.split('=', 1) for line in details.stdout.decode().splitlines() if '=' in line)
+            pid, cgroup = props.get('MainPID', ''), props.get('ControlGroup', '')
+            need(details.returncode == 0 and pid.isdigit() and int(pid) > 0 and cgroup.startswith('/')
+                 and '..' not in Path(cgroup).parts and Path(cgroup).name == unit, 'MANAGED_CGROUP_UNVERIFIED')
+            hook_types(cgroup)
+            script = workspace/'trace.bt'
+            script.write_text(bpf_program(int(pid), port))
+            tuple_filter = (f'(src host 10.250.0.1 and src port {port} and dst host 10.250.0.19 and dst port 8729)'
+                            f' or (src host 10.250.0.19 and src port 8729 and dst host 10.250.0.1 and dst port {port})')
+            with ExitStack() as stack:
+                capture = stack.enter_context(capture_process(
+                    ('tcpdump', '-l', '-nn', '-i', 'any', '-p', '-s', '64', '-c', '32',
+                     f'ip and tcp and (tcp[13] & 2 != 0) and ({tuple_filter})'), tout, terr))
+                tracing = stack.enter_context(capture_process(('bpftrace', '-q', '-B', 'line', str(script)), bout, berr))
+
+                def ready():
+                    need(capture.poll() is None, 'TCP_CAPTURE_START_FAILED')
+                    if tracing.poll() is not None:
+                        errors = berr.read_bytes().lower()
+                        for fragment, code in ((b'permission denied', 'TRACE_PERMISSION'),
+                                               (b'operation not permitted', 'TRACE_PERMISSION'),
+                                               (b'verifier', 'TRACE_VERIFIER_REJECTED'),
+                                               (b'not traceable', 'TRACE_SYMBOL_UNAVAILABLE'),
+                                               (b'unknown struct', 'TRACE_KERNEL_TYPES_UNAVAILABLE')):
+                            if fragment in errors:
+                                raise Stop(code)
+                        raise Stop('KERNEL_TRACE_START_FAILED')
+                    return b'listening on' in terr.read_bytes() and b'READY\n' in bout.read_bytes()
+
+                until(ready, 8, 'TRACE_NOT_READY')
+                (root/'network-go').touch()
+                managed.wait(timeout=14)
+    finally:
+        command('systemctl', 'stop', unit)
+        need(not os.path.lexists(runtime), 'DIAGNOSTIC_RUNTIME_CLEANUP_UNVERIFIED')
+        if pstdout.exists():
+            report('managed', subprocess.CompletedProcess([], managed.poll() or 0, pstdout.read_bytes(), b''))
+        if port is not None and bout.exists() and tout.exists():
+            summarize_network(bout.read_text(errors='replace'), tout.read_text(errors='replace'), names, port)
+    return int(managed.returncode != 0)
 
 
 def launch(args):
@@ -403,7 +621,8 @@ def launch(args):
     with tempfile.TemporaryDirectory(prefix='mtv2-cebeci-diag-', dir='/opt') as directory:
         workspace = Path(directory)
         workspace.chmod(0o755)
-        props = pinned_sources(repo, workspace)
+        modes = ('managed',) if args.managed_network else tuple(PINS)
+        props = pinned_sources(repo, workspace, modes)
         # Copy dependencies only. Keep paths outside ProtectHome and avoid running pip.
         target = workspace/'packages'
         need(not any(path.is_symlink() for path in packages.rglob('*')), 'VENV_PACKAGE_LINK_REJECTED')
@@ -416,14 +635,21 @@ def launch(args):
         launcher.chmod(0o644)
         unit = workspace.name + '.service'
         runtime = Path('/run')/(workspace.name+'-snapshot')
-        for mode in PINS:
+        for mode in modes:
             stage_material(workspace/mode, account, material)
         del material
         need(not os.path.lexists(runtime), 'DIAGNOSTIC_RUNTIME_EXISTS')
-        for mode in PINS:
+        for mode in modes:
             root = workspace/mode
             worker_args = ('/usr/bin/python3', '-I', '-S', '-B', str(launcher), '--worker', str(root),
                            str(target), mode, str(runtime))
+            if args.managed_network:
+                options = [f'--property={key}={props[key]}' for key in SECURITY]
+                return network_probe(unit, runtime, root, workspace,
+                    ('systemd-run', '--quiet', '--wait', '--pipe', '--collect', f'--unit={unit}',
+                     f'--uid={account.pw_uid}', f'--gid={account.pw_gid}', f'--working-directory={root}',
+                     f'--property=RuntimeDirectory={runtime.name}', '--property=RuntimeMaxSec=40s',
+                     *options, *worker_args, '--managed-network'))
             if mode == 'standalone':
                 try:
                     result = command('runuser', '-u', account.pw_name, '--', 'env', '-i',
@@ -452,12 +678,15 @@ def main():
     parser.add_argument('--repo', default='/srv/mikrotik-v26-next')
     parser.add_argument('--material')
     parser.add_argument('--venv')
+    parser.add_argument('--managed-network', action='store_true', help='trace only the managed TCP connection')
     parser.add_argument('--worker', nargs=4, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.worker:
         root, packages, mode, runtime = args.worker
+        if args.managed_network and mode != 'managed':
+            return 1
         try:
-            return worker(Path(root), Path(packages), mode, Path(runtime))
+            return worker(Path(root), Path(packages), mode, Path(runtime), args.managed_network)
         except OSError:
             emit('RUNTIME', 'RUNTIME_IO_FAILURE')
             return 1
