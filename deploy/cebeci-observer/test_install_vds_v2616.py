@@ -2,6 +2,9 @@
 from contextlib import redirect_stderr, redirect_stdout
 from importlib.util import module_from_spec, spec_from_file_location
 import io
+import os
+import stat
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -81,7 +84,7 @@ class InstallerTests(TestCase):
             ('system', ('daemon-reload',), {}),
             ('compare', (backup,), {}),
             ('verify_web', (), {'running':False}),
-            ('system', ('start', installer.API, installer.WEB), {}),
+            ('system', ('start', installer.API, installer.WEB), {'code':'PANEL_START'}),
             ('health', ('2.6.13',), {'expected_build':'build', 'npm_preview':True}),
         ])
 
@@ -124,7 +127,7 @@ class InstallerTests(TestCase):
                         with self.assertRaisesRegex(installer.CheckRejected, f'^{code}$'):
                             installer.verify_npm_web_unit(running=False)
                 shim.unlink()
-                with self.assertRaisesRegex(installer.CheckRejected, '^WEB_NPM_LOCAL_VITE_UNREADABLE$'):
+                with self.assertRaisesRegex(installer.CheckRejected, '^WEB_NPM_LOCAL_VITE_UNREADABLE_NOT_FOUND$'):
                     installer.verify_npm_web_unit(running=False)
 
     def test_loopback_preview_checks_served_bytes_and_refuses_credentials(self):
@@ -135,3 +138,43 @@ class InstallerTests(TestCase):
         with patch.object(installer.http.client, 'HTTPConnection', side_effect=AssertionError):
             with self.assertRaisesRegex(installer.CheckRejected, '^WEB_LOOPBACK_PUBLIC_GET_ONLY$'):
                 installer.request('/', credentials=('user', 'fixture'), loopback=True)
+
+
+    def test_subprocess_diagnostics_are_categorized_without_raw_output(self):
+        for stage, error, expected in (
+            ('OBSERVER_PIP_INSTALL', 'Permission denied: PRIVATE_CANARY', 'OBSERVER_PIP_INSTALL_PERMISSION'),
+            ('FRONTEND_BUILD', 'error TS2307: PRIVATE_CANARY', 'FRONTEND_BUILD_TYPESCRIPT'),
+            ('OBSERVER_SYSTEMD_VERIFY', 'PRIVATE_CANARY', 'OBSERVER_SYSTEMD_VERIFY_EXIT_3'),
+        ):
+            with self.subTest(stage=stage):
+                program = f'import sys; print({error!r}); sys.exit(3)'
+                with self.assertRaisesRegex(installer.CheckRejected, f'^{expected}$'):
+                    installer.command(sys.executable, '-I', '-c', program, code=stage)
+
+    def test_observer_requirements_are_accessible_before_unprivileged_pip(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root/'source'
+            backend = source/'backend'
+            backend.mkdir(parents=True, mode=0o700)
+            requirements = backend/'requirements.txt'
+            requirements.touch(mode=0o644)
+            target = root/'observer'
+            target.mkdir(mode=0o700)
+            account = SimpleNamespace(pw_uid=os.getuid(), pw_gid=os.getgid())
+            calls = []
+
+            def spawn(home, *args, cwd, code, **kwargs):
+                live = target/'backend'
+                self.assertEqual(stat.S_IMODE(live.stat().st_mode), 0o755)
+                self.assertEqual(stat.S_IMODE((live/'requirements.txt').stat().st_mode), 0o644)
+                self.assertEqual(cwd, target)
+                calls.append(code)
+
+            with patch.object(installer, 'OBSERVER_ROOT', target), \
+                 patch.object(installer, 'as_observer', side_effect=spawn), \
+                 patch.object(installer, 'owned_tree') as owned:
+                installer.observer_setup(source, account)
+            owned.assert_called_once_with(target/'venv', 0, 0)
+            self.assertEqual(calls, ['OBSERVER_VENV_CREATE', 'OBSERVER_REQUIREMENTS_ACCESS',
+                                     'OBSERVER_PIP_INSTALL', 'OBSERVER_PIP_CHECK', 'OBSERVER_RUNTIME_IMPORT'])

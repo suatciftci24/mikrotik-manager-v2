@@ -1,5 +1,23 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.16 gözlemci hazırlık izinleri ve kurulum tanısı
+
+- Taban `67e0ae48e93c5d2b9b8d10cc9263c491b7a44ca6`. Kullanıcının
+  VDS denemesinde kaynak/ön onay/yedek geçti, hazırlık genel hata verdi.
+  Sabit Git arşivi Python ile `umask 077` altında açıldığında backend
+  dizini 0700 ve requirements 0644. Önceki root kopyası 0700 dizini
+  koruyup ayrı UID ile pip'i çalıştırıyordu. İlk canlı hata eski
+  çıktıda ayrıştırılamıyor.
+- Root kodu okunabilir ve geçilebilir, yazma root ile sınırlı.
+  Venv/pip/npm ayrı kullanıcıda özel HOME/TMP ile çalışıyor. Venv
+  root'a devredilmeden önce pip check, sonrasında import doğrulanıyor.
+  Systemd birimleri ve özel malzeme yayın geçişinden önce kontrol
+  ediliyor. Çalışan API'nin okuyucu grubu cihaz bağlantısından önce
+  doğrulanıyor. İşlem bazlı hata kodları hassas alt süreç çıktısını gizli tutuyor.
+- PASS: 10 hedefli yerel test, Python sözdizimi, Git diff. Gerçek
+  Git arşiviyle 0700 durumu yerelde doğrulandı. VDS bağlantısı,
+  kurulum ve push yok. [Kurulum adımları](../deploy/cebeci-observer/VDS-V2616.md).
+
 ## V2.6.16 VDS npm/Vite ön kontrol ve yayın uyumluluğu
 
 - Taban `664d306e6fa13c5b79712d58c5825122ab8b0ba9`. Kullanıcının

@@ -3,13 +3,14 @@
 import argparse
 from contextlib import contextmanager
 import ctypes
+import errno
 from datetime import datetime, timedelta, timezone
 import fcntl
 import getpass
 import grp
 import hashlib
 import http.client
-from http.cookies import CookieError, SimpleCookie
+from http.cookies import SimpleCookie
 import io
 import json
 import os
@@ -56,9 +57,21 @@ class CheckRejected(RuntimeError):
     """Contains only a fixed operator-facing code."""
 
 
-def require(condition, code='CHECK_REJECTED'):
+def require(condition, code):
     if not condition:
         raise CheckRejected(code)
+
+
+def error_suffix(error):
+    if isinstance(error, ssl.SSLError):
+        return '_TLS'
+    if isinstance(error, subprocess.TimeoutExpired):
+        return '_TIMEOUT'
+    if isinstance(error, OSError):
+        return {errno.EACCES:'_PERMISSION', errno.EPERM:'_PERMISSION', errno.ENOENT:'_NOT_FOUND',
+                errno.ENOSPC:'_NO_SPACE', errno.EROFS:'_READ_ONLY', errno.EXDEV:'_CROSS_DEVICE',
+                errno.EEXIST:'_ALREADY_EXISTS'}.get(error.errno, '_IO')
+    return ''
 
 
 @contextmanager
@@ -67,21 +80,72 @@ def gate(code):
         yield
     except CheckRejected:
         raise
-    except (OSError, RuntimeError, ValueError, TypeError, KeyError, EOFError, CookieError,
-            AttributeError,
-            http.client.HTTPException, subprocess.SubprocessError) as error:
-        suffix = '_TLS' if isinstance(error, ssl.SSLError) else ''
-        raise CheckRejected(code + suffix) from None
+    except Exception as error:
+        raise CheckRejected(code + error_suffix(error)) from None
 
 
-def command(*args, cwd=None, env=None, capture=False, timeout=60):
-    return subprocess.run(args, cwd=cwd, env=env, stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
-                          stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, timeout=timeout,
-                          check=True).stdout
+def step(code, action, *args, **kwargs):
+    with gate(code):
+        return action(*args, **kwargs)
 
 
-def system(*args, capture=False):
-    return command('systemctl', *args, capture=capture, timeout=120)
+def tool_failure(code, returncode, output):
+    output = output.lower()
+    known = (
+        (b'no space left', 'NO_SPACE'),
+        (b'permission denied', 'PERMISSION'),
+        (b'eacces', 'PERMISSION'),
+        (b'read-only file system', 'READ_ONLY'),
+        (b'ensurepip is not available', 'ENSUREPIP_UNAVAILABLE'),
+        (b'no module named ensurepip', 'ENSUREPIP_UNAVAILABLE'),
+        (b'no matching distribution found', 'NO_COMPATIBLE_DISTRIBUTION'),
+        (b'resolutionimpossible', 'DEPENDENCY_CONFLICT'),
+        (b'has requirement', 'DEPENDENCY_CONFLICT'),
+        (b'which is not installed', 'DEPENDENCY_MISSING'),
+        (b'command not found', 'COMMAND_MISSING'),
+        (b'not executable', 'NOT_EXECUTABLE'),
+        (b'failed to load', 'LOAD_FAILED'),
+        (b'unknown key', 'UNIT_KEY_UNKNOWN'),
+        (b'certificate_verify_failed', 'TLS'),
+        (b'certificate verify failed', 'TLS'),
+        (b'unable_to_verify_leaf_signature', 'TLS'),
+        (b'eai_again', 'DNS'),
+        (b'temporary failure in name resolution', 'DNS'),
+        (b'enetunreach', 'NETWORK'),
+        (b'econnrefused', 'NETWORK'),
+        (b'could not resolve host', 'DNS'),
+        (b'only install packages when your package.json', 'LOCKFILE_MISMATCH'),
+        (b'ebadengine', 'NODE_ENGINE'),
+        (b'cannot find module', 'MODULE_MISSING'),
+        (b'modulenotfounderror', 'MODULE_MISSING'),
+        (b'v2614_cebeci_observer_not_authorized', 'APPROVAL'),
+        (b'v2614_cebeci_observer_scope_rejected', 'SCOPE'),
+    )
+    for pattern, label in known:
+        if pattern in output:
+            return code + '_' + label
+    if code == 'FRONTEND_BUILD' and re.search(rb'error ts[0-9]+:', output):
+        return code + '_TYPESCRIPT'
+    return code + (f'_SIGNAL_{-returncode}' if returncode < 0 else f'_EXIT_{returncode}')
+
+
+def command(*args, cwd=None, env=None, capture=False, timeout=60, code=None):
+    if code is None:
+        return subprocess.run(args, cwd=cwd, env=env, stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, timeout=timeout,
+                              check=True).stdout
+    with gate(code + '_EXEC'), tempfile.TemporaryFile() as diagnostics:
+        result = subprocess.run(args, cwd=cwd, env=env, stdout=subprocess.PIPE if capture else diagnostics,
+                                stderr=diagnostics, stdin=subprocess.DEVNULL, timeout=timeout)
+        if result.returncode:
+            length = diagnostics.seek(0, os.SEEK_END)
+            diagnostics.seek(max(0, length - 65536))
+            raise CheckRejected(tool_failure(code, result.returncode, diagnostics.read(65536)))
+        return result.stdout
+
+
+def system(*args, capture=False, code=None):
+    return command('systemctl', *args, capture=capture, timeout=120, code=code)
 
 
 def prop(unit, name):
@@ -243,10 +307,6 @@ def wait_for(check, seconds):
             time.sleep(2)
 
 
-def new_path(path):
-    require(not os.path.lexists(path))
-
-
 def plain(path, directory=False, code='PATH_UNSAFE'):
     mode = path.lstat().st_mode
     require(path.resolve() == path and (stat.S_ISDIR(mode) if directory else stat.S_ISREG(mode)), code)
@@ -333,7 +393,7 @@ def verify_npm_web_unit(*, running=True):
 def start_panel(npm_preview):
     if npm_preview:
         verify_npm_web_unit(running=False)
-    system('start', API, WEB)
+    system('start', API, WEB, code='PANEL_START')
 
 
 def verify_baseline():
@@ -382,54 +442,65 @@ def verify_baseline():
 def archive_source(work):
     repo = work/'source.git'
     env = {'PATH': os.environ['PATH'], 'HOME': str(work), 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_TERMINAL_PROMPT': '0'}
-    command('git', 'init', '--bare', str(repo), env=env)
-    command('git', '--git-dir', str(repo), 'fetch', '--depth=1', '--no-tags', REPO, NEW, OLD, env=env, timeout=180)
-    require(command('git', '--git-dir', str(repo), 'rev-parse', NEW+'^{commit}', env=env, capture=True).decode().strip() == NEW)
+    command('git', 'init', '--bare', str(repo), env=env, code='SOURCE_GIT_INIT')
+    command('git', '--git-dir', str(repo), 'fetch', '--depth=1', '--no-tags', REPO, NEW, OLD,
+            env=env, timeout=180, code='SOURCE_GIT_FETCH')
+    pinned = command('git', '--git-dir', str(repo), 'rev-parse', NEW+'^{commit}',
+                     env=env, capture=True, code='SOURCE_GIT_PIN')
+    require(pinned.strip() == NEW.encode(), 'SOURCE_COMMIT_MISMATCH')
     changed = command('git', '--git-dir', str(repo), 'diff', '--name-only', OLD, NEW, '--',
-                      'migrations', 'backend/requirements.txt', env=env, capture=True)
-    require(not changed and (ROOT/'backend/requirements.txt').read_bytes() == command(
-        'git', '--git-dir', str(repo), 'show', NEW+':backend/requirements.txt', env=env, capture=True))
+                      'migrations', 'backend/requirements.txt', env=env, capture=True, code='SOURCE_CONTRACT_DIFF')
+    require(not changed, 'SOURCE_SCHEMA_OR_DEPENDENCIES_CHANGED')
+    pinned_requirements = command('git', '--git-dir', str(repo), 'show', NEW+':backend/requirements.txt',
+                                  env=env, capture=True, code='SOURCE_REQUIREMENTS')
+    live_requirements = step('LIVE_REQUIREMENTS_READ', (ROOT/'backend/requirements.txt').read_bytes)
+    require(live_requirements == pinned_requirements, 'LIVE_REQUIREMENTS_MISMATCH')
     selected = ('release.json', 'backend/app', 'backend/requirements.txt', 'frontend',
                 'deploy/cebeci-observer/api-snapshot.conf', 'deploy/cebeci-observer/'+OBSERVER)
     packed = work/'source.tar'
-    command('git', '--git-dir', str(repo), 'archive', '--output', str(packed), NEW, '--', *selected, env=env)
+    command('git', '--git-dir', str(repo), 'archive', '--output', str(packed), NEW, '--', *selected,
+            env=env, code='SOURCE_ARCHIVE')
     source = work/'source'
-    source.mkdir()
-    with tarfile.open(packed) as archive:
-        require(all(member.isfile() or member.isdir() for member in archive.getmembers()))
-        archive.extractall(source, filter='data')
-    require(json.loads((source/'release.json').read_bytes())['version'] == '2.6.16')
+    with gate('SOURCE_EXTRACT'):
+        source.mkdir()
+        with tarfile.open(packed) as archive:
+            require(all(member.isfile() or member.isdir() for member in archive.getmembers()), 'SOURCE_ARCHIVE_MEMBER')
+            archive.extractall(source, filter='data')
+    with gate('SOURCE_RELEASE_READ'):
+        require(json.loads((source/'release.json').read_bytes())['version'] == '2.6.16', 'SOURCE_VERSION_MISMATCH')
     return source
 
 
 def backup_live():
-    backup = Path(tempfile.mkdtemp(prefix='mikrotik-v2613-before-v2616-', dir='/srv'))
+    backup = Path(step('BACKUP_DIRECTORY', tempfile.mkdtemp, prefix='mikrotik-v2613-before-v2616-', dir='/srv'))
     path = backup/'code-and-dist.tar'
-    command('tar', '-cpf', str(path), '-C', str(ROOT), *PATHS, timeout=180)
-    command('tar', '-df', str(path), '-C', str(ROOT), timeout=180)
-    digest = file_digest(path)
-    put(backup/'sha256', (digest+'  code-and-dist.tar\n').encode(), 0o600)
+    command('tar', '-cpf', str(path), '-C', str(ROOT), *PATHS, timeout=180, code='BACKUP_TAR_CREATE')
+    with gate('BACKUP_DIGEST_WRITE'):
+        digest = file_digest(path)
+        put(backup/'sha256', (digest+'  code-and-dist.tar\n').encode(), 0o600)
     verify_backup(backup)
-    with path.open('rb') as stream:
-        os.fsync(stream.fileno())
-    parent = os.open(backup, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        os.fsync(parent)
-    finally:
-        os.close(parent)
+    with gate('BACKUP_SYNC'):
+        with path.open('rb') as stream:
+            os.fsync(stream.fileno())
+        parent = os.open(backup, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(parent)
+        finally:
+            os.close(parent)
     print('Yedek doğrulandı:', backup, flush=True)
     return backup
 
 
 def verify_backup_digest(backup):
     path = backup/'code-and-dist.tar'
-    require(file_digest(path) == (backup/'sha256').read_text().split()[0], 'BACKUP_DIGEST_MISMATCH')
+    with gate('BACKUP_DIGEST_READ'):
+        require(file_digest(path) == (backup/'sha256').read_text().split()[0], 'BACKUP_DIGEST_MISMATCH')
     return path
 
 
 def verify_backup(backup):
     path = verify_backup_digest(backup)
-    command('tar', '-df', str(path), '-C', str(ROOT), timeout=180)
+    command('tar', '-df', str(path), '-C', str(ROOT), timeout=180, code='BACKUP_TAR_COMPARE')
 
 
 def file_digest(path):
@@ -444,60 +515,119 @@ def owned_tree(path, uid, gid):
     os.chown(path, uid, gid)
 
 
-def build_frontend(source, stage):
-    with tempfile.TemporaryDirectory(prefix='mtv26-build-') as name:
-        build = Path(name)
-        shutil.copytree(source/'frontend', build/'frontend')
-        shutil.copy2(source/'release.json', build/'release.json')
-        account = pwd.getpwnam(USER)
-        owned_tree(build, account.pw_uid, account.pw_gid)
-        prefix = ('runuser', '-u', USER, '--', 'env', '-i', 'PATH=/usr/local/bin:/usr/bin:/bin',
-                  f'HOME={build}', 'V2_BUILD_COMMIT='+NEW)
-        command(*prefix, 'npm', 'ci', '--ignore-scripts', '--no-audit', '--no-fund', cwd=build/'frontend', timeout=600)
-        command(*prefix, 'npm', 'run', 'build', cwd=build/'frontend', timeout=600)
-        dist = build/'frontend/dist'
-        require((dist/'release.json').read_bytes() == (source/'release.json').read_bytes()
-                and NEW.encode() in (dist/'index.html').read_bytes())
-        require(all(not item.is_symlink() for item in dist.rglob('*')))
-        shutil.copytree(dist, stage/'frontend/dist')
-    assets = stage/'frontend/dist/assets'
-    for old in (ROOT/'frontend/dist/assets').iterdir():
-        require(old.is_file() and not old.is_symlink())
-        target = assets/old.name
-        if target.exists():
-            require(file_digest(old) == file_digest(target))
-        else:
-            shutil.copy2(old, target)
-    for item in (stage/'frontend/dist').rglob('*'):
-        item.chmod(0o755 if item.is_dir() else 0o644)
-    (stage/'frontend/dist').chmod(0o755)
+@contextmanager
+def worker_home(prefix, account):
+    with tempfile.TemporaryDirectory(prefix=prefix, dir='/tmp') as temporary:
+        home = Path(temporary)
+        os.chown(home, account.pw_uid, account.pw_gid)
+        yield home
 
 
-def observer_setup(source):
-    OBSERVER_ROOT.chmod(0o755)
-    shutil.copytree(source/'backend', OBSERVER_ROOT/'backend')
-    python = OBSERVER_ROOT/'venv/bin/python'
-    command('python3', '-m', 'venv', str(OBSERVER_ROOT/'venv'), timeout=180)
-    account = pwd.getpwnam(USER)
-    owned_tree(OBSERVER_ROOT/'venv', account.pw_uid, account.pw_gid)
-    command('runuser', '-u', USER, '--', str(python), '-m', 'pip', '--isolated', 'install',
-            '--disable-pip-version-check', '--no-cache-dir', '--only-binary=:all:', '-r', str(OBSERVER_ROOT/'backend/requirements.txt'),
-            timeout=600)
-    owned_tree(OBSERVER_ROOT/'venv', 0, 0)
-    for item in OBSERVER_ROOT.rglob('*'):
+def as_observer(home, *args, cwd, code, timeout=60, **variables):
+    settings = {'PATH':'/usr/local/bin:/usr/bin:/bin', 'HOME':str(home), 'TMPDIR':str(home), **variables}
+    prefix = ('runuser', '-u', USER, '--', 'env', '-i', *(f'{key}={value}' for key, value in settings.items()))
+    command(*prefix, *args, cwd=cwd, code=code, timeout=timeout)
+
+
+def public_code_modes(root):
+    """Make installed code traversable without granting write access."""
+    root.chmod(0o755)
+    for item in root.rglob('*'):
         if not item.is_symlink():
             mode = item.stat().st_mode
             item.chmod(0o755 if item.is_dir() or mode & 0o100 else 0o644)
-    return account
+
+
+def build_frontend(source, stage, account):
+    with gate('FRONTEND_WORKSPACE'), worker_home('mtv26-build-', account) as build:
+        with gate('FRONTEND_SOURCE_COPY'):
+            shutil.copytree(source/'frontend', build/'frontend')
+            shutil.copy2(source/'release.json', build/'release.json')
+        step('FRONTEND_SOURCE_OWNER', owned_tree, build, account.pw_uid, account.pw_gid)
+        frontend = build/'frontend'
+        as_observer(build, WEB_NPM_ARGV[0], 'ci', '--ignore-scripts', '--no-audit', '--no-fund',
+                    cwd=frontend, code='FRONTEND_NPM_CI', timeout=600, V2_BUILD_COMMIT=NEW)
+        as_observer(build, WEB_NPM_ARGV[0], 'run', 'build', cwd=frontend, code='FRONTEND_BUILD',
+                    timeout=600, V2_BUILD_COMMIT=NEW)
+        dist = frontend/'dist'
+        with gate('FRONTEND_DIST_VERIFY'):
+            require((dist/'release.json').read_bytes() == (source/'release.json').read_bytes(),
+                    'FRONTEND_DIST_VERSION_MISMATCH')
+            require(NEW.encode() in (dist/'index.html').read_bytes(), 'FRONTEND_DIST_COMMIT_MISMATCH')
+            require(dist.resolve() == dist and all(not item.is_symlink() for item in dist.rglob('*')),
+                    'FRONTEND_DIST_LINK_REJECTED')
+        step('FRONTEND_DIST_STAGE', shutil.copytree, dist, stage/'frontend/dist')
+    with gate('FRONTEND_OLD_ASSETS'):
+        assets = stage/'frontend/dist/assets'
+        for old in (ROOT/'frontend/dist/assets').iterdir():
+            require(old.is_file() and not old.is_symlink(), 'FRONTEND_OLD_ASSET_UNSAFE')
+            target = assets/old.name
+            if target.exists():
+                require(file_digest(old) == file_digest(target), 'FRONTEND_ASSET_COLLISION')
+            else:
+                shutil.copy2(old, target)
+    step('FRONTEND_DIST_MODE', public_code_modes, stage/'frontend/dist')
+
+
+def observer_setup(source, account):
+    with gate('OBSERVER_CODE_STAGE'):
+        OBSERVER_ROOT.chmod(0o755)
+        backend = OBSERVER_ROOT/'backend'
+        shutil.copytree(source/'backend', backend)
+        # tarfile creates archived directories with the installer's private umask.
+        # Normalize this root-owned code tree before the observer opens requirements.
+        public_code_modes(backend)
+    venv = OBSERVER_ROOT/'venv'
+    with gate('OBSERVER_VENV_DIRECTORY'):
+        venv.mkdir(mode=0o700)
+        os.chown(venv, account.pw_uid, account.pw_gid)
+    with gate('OBSERVER_BUILD_WORKSPACE'), worker_home('mtv26-python-', account) as home:
+        as_observer(home, '/usr/bin/python3', '-m', 'venv', str(venv),
+                    cwd=OBSERVER_ROOT, code='OBSERVER_VENV_CREATE', timeout=180)
+        python = str(venv/'bin/python')
+        requirements = backend/'requirements.txt'
+        as_observer(home, '/usr/bin/test', '-r', str(requirements),
+                    cwd=OBSERVER_ROOT, code='OBSERVER_REQUIREMENTS_ACCESS')
+        as_observer(home, python, '-m', 'pip', '--isolated', 'install', '--disable-pip-version-check',
+                    '--no-cache-dir', '--only-binary=:all:', '-r', str(requirements),
+                    cwd=OBSERVER_ROOT, code='OBSERVER_PIP_INSTALL', timeout=600)
+        as_observer(home, python, '-m', 'pip', '--isolated', 'check',
+                    cwd=OBSERVER_ROOT, code='OBSERVER_PIP_CHECK')
+        with gate('OBSERVER_VENV_FREEZE'):
+            owned_tree(venv, 0, 0)
+            public_code_modes(venv)
+        as_observer(home, python, '-B', '-m', 'app.cebeci_observer', '--help',
+                    cwd=OBSERVER_ROOT, code='OBSERVER_RUNTIME_IMPORT', PYTHONPATH=str(backend))
+
+
+def verify_api_reader_group(group):
+    with gate('API_READER_GROUP_PROBE'):
+        pid = int(prop(API, 'MainPID'))
+        require(pid > 0, 'API_READER_PROCESS_MISSING')
+        lines = Path(f'/proc/{pid}/status').read_text().splitlines()
+        groups = next((line.split()[1:] for line in lines if line.startswith('Groups:')), [])
+        require(str(group) in groups, 'API_READER_GROUP_MISSING')
+
+
+def verify_observer_material():
+    as_observer('/nonexistent', str(OBSERVER_ROOT/'venv/bin/python'), '-B', '-c',
+                'from app.adapters.cebeci_observer import make_sampler; make_sampler(managed=True)',
+                cwd=OBSERVER_ROOT, code='OBSERVER_MATERIAL_PREFLIGHT',
+                PYTHONPATH=str(OBSERVER_ROOT/'backend'))
 
 
 def put(path, data, mode, owner=0, group=0):
-    with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode), 'wb') as stream:
-        stream.write(data)
-        os.fchown(stream.fileno(), owner, group)
-        os.fchmod(stream.fileno(), mode)
-        stream.flush()
-        os.fsync(stream.fileno())
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(data)
+            os.fchown(stream.fileno(), owner, group)
+            os.fchmod(stream.fileno(), mode)
+            stream.flush()
+            os.fsync(stream.fileno())
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
 
 
 def approval(account, material):
@@ -521,21 +651,28 @@ def exchange(left, right):
 
 
 def accept(cookie):
-    system('is-active', '--quiet', OBSERVER)
-    data, headers = request('/api/v1/device-inventory', cookie=cookie)
-    require(next((value for key, value in headers.items() if key.lower() == 'cache-control'), '') == 'no-store')
-    payload = json.loads(data)
-    require(payload['source'] == 'ROUTEROS_READ_ONLY' and payload['is_demo'] is False
-            and payload['read_only'] is True)
-    row, = payload['routers']
-    require(row['id'] == 'device-cebeci-towers' and row['identity'] == 'CEBECI_TOWERS'
-            and row['model'] == 'RB3011UiAS' and (row['routeros_version'] or '').removesuffix(' (stable)') == '6.49.19'
-            and row['connection'] == 'ONLINE' and row['freshness'] == 'RECENT' and row['error'] is None
-            and row['accounts_complete'] is True and len(row['accounts']) > 0
-            and row['wan_status'] == 'UNKNOWN' and all(row[field] is None for field in ('wan_interface','rx_bytes','tx_bytes')))
-    seconds = (datetime.fromisoformat(payload['authorization_expires_at']) - datetime.now(timezone.utc)).total_seconds()
-    require(0 < seconds <= 86400)
-    return len(row['accounts'])
+    system('is-active', '--quiet', OBSERVER, code='OBSERVER_NOT_ACTIVE')
+    with gate('OBSERVATION_API_REQUEST'):
+        data, headers = request('/api/v1/device-inventory', cookie=cookie, code='OBSERVATION_API')
+    require(next((value for key, value in headers.items() if key.lower() == 'cache-control'), '') == 'no-store',
+            'OBSERVATION_CACHE_POLICY')
+    with gate('OBSERVATION_PAYLOAD_INVALID'):
+        payload = json.loads(data)
+        require(payload['source'] == 'ROUTEROS_READ_ONLY' and payload['is_demo'] is False
+                and payload['read_only'] is True, 'OBSERVATION_SOURCE_MISMATCH')
+        require(len(payload['routers']) == 1, 'OBSERVATION_ROUTER_COUNT')
+        row, = payload['routers']
+        require(row['id'] == 'device-cebeci-towers' and row['identity'] == 'CEBECI_TOWERS'
+                and row['model'] == 'RB3011UiAS' and (row['routeros_version'] or '').removesuffix(' (stable)') == '6.49.19',
+                'OBSERVATION_DEVICE_IDENTITY')
+        require(row['connection'] == 'ONLINE' and row['freshness'] == 'RECENT' and row['error'] is None,
+                'OBSERVATION_HEALTH')
+        require(row['accounts_complete'] is True and len(row['accounts']) > 0, 'OBSERVATION_ACCOUNT_COVERAGE')
+        require(row['wan_status'] == 'UNKNOWN'
+                and all(row[field] is None for field in ('wan_interface','rx_bytes','tx_bytes')), 'OBSERVATION_WAN_SCOPE')
+        expiry = datetime.fromisoformat(payload['authorization_expires_at'])
+        require(0 < (expiry - datetime.now(timezone.utc)).total_seconds() <= 86400, 'OBSERVATION_APPROVAL_EXPIRY')
+        return len(row['accounts'])
 
 
 def installation_credentials():
@@ -597,8 +734,8 @@ def restore_swaps(staged, switched):
 
 
 def stop_observer():
-    system('stop', OBSERVER)
-    system('disable', OBSERVER)
+    system('stop', OBSERVER, code='ROLLBACK_OBSERVER_STOP_UNIT')
+    system('disable', OBSERVER, code='ROLLBACK_OBSERVER_DISABLE_UNIT')
 
 
 def rollback(backup, staged, switched, undo, stopped, observer_attempted, baseline_build, initial_head,
@@ -618,8 +755,8 @@ def rollback(backup, staged, switched, undo, stopped, observer_attempted, baseli
         ready = (recover('ROLLBACK_BACKUP_DIGEST', lambda: verify_backup_digest(backup))
                  and recover('ROLLBACK_FILE_EXCHANGE', lambda: restore_swaps(staged, switched)))
     if observer_stopped:
-        for action in reversed(undo):
-            if not recover('ROLLBACK_OBSERVER_RESOURCE', action):
+        for code, action in reversed(undo):
+            if not recover(code, action):
                 ready = False
     if undo or stopped:
         if not recover('ROLLBACK_DAEMON_RELOAD', lambda: system('daemon-reload')):
@@ -668,84 +805,104 @@ def run():
                 material, credentials = installation_credentials()
 
                 stage_name = 'kaynak ve doğrulanmış yedek'
-                stage_dir = Path(tempfile.mkdtemp(prefix='.v2616-stage-', dir=ROOT))
-                staged = stage_dir/'publish'
-                (staged/'backend').mkdir(parents=True)
-                (staged/'frontend').mkdir()
+                with gate('PUBLISH_STAGE_DIRECTORY'):
+                    stage_dir = Path(tempfile.mkdtemp(prefix='.v2616-stage-', dir=ROOT))
+                    staged = stage_dir/'publish'
+                    (staged/'backend').mkdir(parents=True)
+                    (staged/'frontend').mkdir()
                 source = archive_source(stage_dir)
                 backup = backup_live()
                 rollback_record = dict(baseline_version='2.6.13', baseline_api_build_id=baseline_build,
                                        checkout_head=initial_head, stage_directory=str(stage_dir), paths=PATHS)
-                put(backup/'rollback-proof.json', json.dumps(rollback_record).encode(), 0o600)
+                step('BACKUP_ROLLBACK_RECEIPT', put, backup/'rollback-proof.json',
+                     json.dumps(rollback_record).encode(), 0o600)
 
                 stage_name = 'izole gözlemci ve frontend hazırlığı'
-                command('groupadd', '--system', GROUP)
-                undo.append(lambda: command('groupdel', GROUP))
+                command('groupadd', '--system', GROUP, code='OBSERVER_GROUP_CREATE')
+                undo.append(('ROLLBACK_GROUP_REMOVE', lambda: command('groupdel', GROUP, code='ROLLBACK_GROUP_REMOVE')))
                 command('useradd', '--system', '--gid', GROUP, '--no-create-home', '--home-dir',
-                        '/nonexistent', '--shell', '/usr/sbin/nologin', USER)
-                undo.append(lambda: command('userdel', USER))
-                OBSERVER_ROOT.mkdir(mode=0o755)
-                undo.append(lambda: shutil.rmtree(OBSERVER_ROOT))
-                account = observer_setup(source)
-                target_build = build_id(source)
-                build_frontend(source, staged)
-                shutil.copytree(source/'backend/app', staged/'backend/app')
-                for item in (staged/'backend/app').rglob('*'):
-                    item.chmod(0o755 if item.is_dir() else 0o644)
-                (staged/'backend/app').chmod(0o755)
-                shutil.copy2(source/'release.json', staged/'release.json')
-                (staged/'release.json').chmod(0o644)
-                put(UNIT, (source/'deploy/cebeci-observer'/OBSERVER).read_bytes(), 0o644)
-                undo.append(UNIT.unlink)
-                command('systemd-analyze', 'verify', str(UNIT))
-                require(DROP.parent.resolve() == DROP.parent)
-                if not DROP.parent.exists():
-                    DROP.parent.mkdir(mode=0o755)
-                    DROP.parent.chmod(0o755)
-                    undo.append(DROP.parent.rmdir)
-                put(DROP, (source/'deploy/cebeci-observer/api-snapshot.conf').read_bytes(), 0o644)
-                undo.append(DROP.unlink)
-                system('daemon-reload')
+                        '/nonexistent', '--shell', '/usr/sbin/nologin', USER, code='OBSERVER_USER_CREATE')
+                undo.append(('ROLLBACK_USER_REMOVE', lambda: command('userdel', USER, code='ROLLBACK_USER_REMOVE')))
+                step('OBSERVER_ROOT_CREATE', OBSERVER_ROOT.mkdir, mode=0o755)
+                undo.append(('ROLLBACK_OBSERVER_ROOT_REMOVE', lambda: shutil.rmtree(OBSERVER_ROOT)))
+                account = step('OBSERVER_USER_LOOKUP', pwd.getpwnam, USER)
+                require(account.pw_uid != 0 and account.pw_gid != 0, 'OBSERVER_ACCOUNT_PRIVILEGED')
+                group = step('OBSERVER_GROUP_LOOKUP', grp.getgrnam, GROUP)
+                require(account.pw_gid == group.gr_gid, 'OBSERVER_ACCOUNT_GROUP_MISMATCH')
+                observer_setup(source, account)
+                print('OK — OBSERVER_RUNTIME_READY', flush=True)
+                target_build = step('SOURCE_API_BUILD_HASH', build_id, source)
+                build_frontend(source, staged, account)
+                print('OK — FRONTEND_DIST_READY', flush=True)
+                with gate('API_CODE_STAGE'):
+                    shutil.copytree(source/'backend/app', staged/'backend/app')
+                    public_code_modes(staged/'backend/app')
+                with gate('RELEASE_FILE_STAGE'):
+                    shutil.copy2(source/'release.json', staged/'release.json')
+                    (staged/'release.json').chmod(0o644)
+                with gate('OBSERVER_UNIT_INSTALL'):
+                    put(UNIT, (source/'deploy/cebeci-observer'/OBSERVER).read_bytes(), 0o644)
+                undo.append(('ROLLBACK_OBSERVER_UNIT_REMOVE', UNIT.unlink))
+                command('systemd-analyze', 'verify', str(UNIT), code='OBSERVER_SYSTEMD_VERIFY')
+                with gate('API_DROPIN_DIRECTORY'):
+                    require(DROP.parent.resolve() == DROP.parent, 'API_DROPIN_PARENT_UNSAFE')
+                    if not DROP.parent.exists():
+                        DROP.parent.mkdir(mode=0o700)
+                        undo.append(('ROLLBACK_API_DROPIN_DIRECTORY_REMOVE', DROP.parent.rmdir))
+                        DROP.parent.chmod(0o755)
+                with gate('API_DROPIN_INSTALL'):
+                    put(DROP, (source/'deploy/cebeci-observer/api-snapshot.conf').read_bytes(), 0o644)
+                undo.append(('ROLLBACK_API_DROPIN_REMOVE', DROP.unlink))
+                api_fragment = preflight_prop(API, 'FragmentPath', 'API_UNIT_FRAGMENT_QUERY')
+                require(api_fragment.startswith('/') and api_fragment.endswith('/' + API), 'API_UNIT_FRAGMENT_UNSAFE')
+                command('systemd-analyze', 'verify', api_fragment, code='API_SYSTEMD_VERIFY')
+                system('daemon-reload', code='PUBLISH_DAEMON_RELOAD')
+                step('OBSERVER_APPROVAL_INSTALL', approval, account, material)
+                verify_observer_material()
+                print('OK — UNIT_AND_MATERIAL_READY', flush=True)
 
                 stage_name = 'V2.6.16 yayın geçişi'
                 verify_backup(backup)
                 require(checkout_head() == initial_head, 'GIT_HEAD_CHANGED_BEFORE_SWITCH')
-                require(build_id(staged) == target_build, 'STAGED_PINNED_BUILD_MISMATCH')
+                require(step('STAGED_API_BUILD_HASH', build_id, staged) == target_build, 'STAGED_PINNED_BUILD_MISMATCH')
                 if npm_preview:
                     verify_npm_web_unit()
                 stopped = True
-                system('stop', WEB, API)
-                for name in PATHS:
-                    mask = signal.pthread_sigmask(signal.SIG_BLOCK, (signal.SIGINT, signal.SIGTERM, signal.SIGHUP))
-                    try:
-                        before, after = identity(ROOT/name), identity(staged/name)
-                        exchange(ROOT/name, staged/name)
-                        switched.append((name, before, after))
-                    finally:
-                        signal.pthread_sigmask(signal.SIG_SETMASK, mask)
+                system('stop', WEB, API, code='PANEL_STOP')
+                for name, code in zip(PATHS, ('PUBLISH_API_EXCHANGE', 'PUBLISH_FRONTEND_EXCHANGE', 'PUBLISH_RELEASE_EXCHANGE')):
+                    with gate(code):
+                        mask = signal.pthread_sigmask(signal.SIG_BLOCK, (signal.SIGINT, signal.SIGTERM, signal.SIGHUP))
+                        try:
+                            before, after = identity(ROOT/name), identity(staged/name)
+                            exchange(ROOT/name, staged/name)
+                            switched.append((name, before, after))
+                        finally:
+                            signal.pthread_sigmask(signal.SIG_SETMASK, mask)
                 start_panel(npm_preview)
                 wait_for(lambda: health('2.6.16', NEW, target_build, npm_preview=npm_preview), 60)
                 stage_name = '24 saatlik pilot ve gerçek cihaz kabulü'
-                approval(account, material)
+                verify_api_reader_group(group.gr_gid)
                 observer_attempted = True
-                system('enable', '--now', OBSERVER)
-                request('/api/v1/device-inventory', status=401)
+                system('enable', '--now', OBSERVER, code='OBSERVER_ENABLE_START')
+                with gate('OBSERVATION_ANONYMOUS_REQUEST'):
+                    request('/api/v1/device-inventory', status=401, code='OBSERVATION_ANONYMOUS')
                 cookie = login(credentials)
                 count = wait_for(lambda: accept(cookie), 95)
                 final_head = checkout_head()
                 require(final_head == initial_head, 'GIT_HEAD_CHANGED_DURING_SWITCH')
                 receipt = dict(source_commit=NEW, app_version='2.6.16', api_build_id=target_build,
-                               frontend_index_sha256=file_digest(ROOT/'frontend/dist/index.html'),
+                               frontend_index_sha256=step('RELEASE_FRONTEND_INDEX_HASH', file_digest,
+                                                          ROOT/'frontend/dist/index.html'),
                                checkout_head_before=initial_head, checkout_head_after=final_head,
                                rollback_app_version='2.6.13', rollback_api_build_id=baseline_build)
-                put(backup/'release-proof.json', json.dumps(receipt).encode(), 0o600)
+                step('RELEASE_RECEIPT_WRITE', put, backup/'release-proof.json', json.dumps(receipt).encode(), 0o600)
                 print(f'PASS — V2.6.16 {NEW} · CEBECI_TOWERS ONLINE · {count} hesap · WAN bilinmiyor')
                 return 0
 
             except Exception as error:
                 for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
                     signal.signal(sig, signal.SIG_IGN)
-                code = str(error) if isinstance(error, CheckRejected) else 'STAGE_FAILED'
+                code = str(error) if isinstance(error, CheckRejected) else 'UNEXPECTED_INSTALLER_ERROR'
                 print('FAIL —', stage_name, '·', code, file=sys.stderr)
                 if not rollback(backup, staged, switched, undo, stopped, observer_attempted,
                                 baseline_build, initial_head, npm_preview=npm_preview):
