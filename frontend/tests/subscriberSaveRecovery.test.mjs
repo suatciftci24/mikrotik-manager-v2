@@ -168,7 +168,7 @@ test('workspace info edit preserves assigned package, status and expiry through 
  globalThis.window={dispatchEvent(){}};
 
  const form=nodes(h.render());
- assert.equal(form.some(n=>n.props?.id==='synthetic-package-choice'),false);
+ assert.equal(form.find(n=>n.props?.id==='synthetic-package-choice').props.value,'');
  assert.equal(form.some(n=>n.type==='option'&&n.props.value==='PAUSED'),false);
  const dates=()=>nodes(h.render()).filter(n=>n.type==='input'&&n.props.type==='date');
  dates()[0].props.onChange({target:{value:'2030-01-10'}});

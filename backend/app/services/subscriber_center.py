@@ -164,9 +164,16 @@ class SubscriberWorkspace:
             elif values.get('package_id'):
                 from app.services.packages import binding
                 values.update(binding(session,values['package_id'],values['package_revision']))
-                if not values.get('expires_on') and values.get('started_on'):
+                if row is None and not values.get('expires_on') and values.get('started_on'):
                     try:values['expires_on']=(date.fromisoformat(values['started_on'])+timedelta(days=values['package_snapshot']['duration_days']-1)).isoformat()
                     except (ValueError,OverflowError):raise WorkspaceError(422,'Paket süresi tarih aralığını aşıyor.') from None
+                elif row is not None:
+                    for key in ('started_on','expires_on','status'):
+                        if key not in command.fields.model_fields_set:
+                            values[key]=row.fields.get(key)
+                    start,end = values.get('started_on'),values.get('expires_on')
+                    if start and end and end < start:
+                        raise WorkspaceError(422,'Bitiş tarihi başlangıç tarihinden önce olamaz.')
             else:
                 values.update({key:None for key in package_keys})
             if command.expected_revision!=(row.revision if row else 0):raise WorkspaceError(409,'Abone değişti. Güncel detayı açın.')
@@ -189,10 +196,15 @@ class SubscriberWorkspace:
         except ValidationError:return None
         values=response.model_dump(mode='json');account=session.get(Account,event.subscriber_id)
         if response.id!=event.subscriber_id or response.revision!=event.revision or response.router_source!='PERSISTENT_DEMO' or event.changes.get('_router_id')!=response.router_id:return None
-        if any(values.get(key)!=change['new'] for key,change in event.changes.items() if isinstance(change,dict) and 'new' in change):return None
+        def matches(key, stored):
+            if key == 'package_snapshot' and isinstance(stored,dict):
+                # Pre-currency snapshots recorded TRY as the catalog's only currency.
+                stored = {'currency':'TRY','radius_policy_ref':None,**stored}
+            return values.get(key) == stored
+        if any(not matches(key,change['new']) for key,change in event.changes.items() if isinstance(change,dict) and 'new' in change):return None
         evidence=request_audit(event,account,response.router_id,response.source,True)
         if not evidence:return None
-        if account.revision==event.revision and any(values.get(key)!=value for key,value in account.fields.items()):return None
+        if account.revision==event.revision and any(not matches(key,value) for key,value in account.fields.items()):return None
         return response,evidence
 
     @boundary
@@ -333,4 +345,16 @@ def event_source(event):
 def center_event(event):
     from app.services.subscriber_operations import event_receipt
     receipt=event_receipt(event)
-    return dict(request_id=event.id,source=event_source(event),operation=event.operation,occurred_at=event.occurred_at,actor_id=event.actor_id,revision=event.revision,subscriber_id=event.subscriber_id,router_id=receipt['router_id'],previous_values=receipt['previous'],new_values=receipt['values'],result='APPLIED' if receipt['success'] else 'FAILED',error=receipt['error'],previous_expires_on=event.changes.get('expires_on',{}).get('previous'),expires_on=event.changes.get('expires_on',{}).get('new'),date_changed='expires_on' in event.changes and event.changes['expires_on'].get('previous')!=event.changes['expires_on'].get('new'))
+    snapshot = event.changes.get('_package_snapshot') or event.changes.get('package_snapshot') or {}
+    commercial = ('download_mbps','upload_mbps','duration_days','monthly_price','currency')
+    previous, current = dict(receipt['previous']), dict(receipt['values'])
+    for key, output in (('previous',previous),('new',current)):
+        values = snapshot.get(key)
+        if isinstance(values,dict):
+            for field in commercial:
+                value = values.get(field)
+                if field == 'currency' and value is None and values.get('monthly_price') is not None:
+                    value = 'TRY'
+                if value is not None:
+                    output['package_'+field] = str(value)
+    return dict(request_id=event.id,source=event_source(event),operation=event.operation,occurred_at=event.occurred_at,actor_id=event.actor_id,revision=event.revision,subscriber_id=event.subscriber_id,router_id=receipt['router_id'],previous_values=previous,new_values=current,result='APPLIED' if receipt['success'] else 'FAILED',error=receipt['error'],previous_expires_on=event.changes.get('expires_on',{}).get('previous'),expires_on=event.changes.get('expires_on',{}).get('new'),date_changed='expires_on' in event.changes and event.changes['expires_on'].get('previous')!=event.changes['expires_on'].get('new'))

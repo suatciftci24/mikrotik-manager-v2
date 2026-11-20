@@ -109,3 +109,14 @@
  .subscriber-audit-history .inventory-toolbar select{width:100%;min-height:44px;box-sizing:border-box}
  .subscriber-selection-notice button{min-height:44px;white-space:normal}
 }
+
+.package-results{list-style:none;margin:0;padding:0}
+.package-results li{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(70px,.6fr) auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.package-results li span{display:block;color:var(--text-secondary)}
+.package-actions{display:flex;flex-wrap:wrap;gap:8px;margin-block:6px}
+.package-actions button{min-height:44px;white-space:normal}
+.package-comparison dd{overflow-wrap:anywhere}
+@media(max-width:760px){
+ .package-results li{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .package-results li .package-actions{grid-column:1/-1}
+}

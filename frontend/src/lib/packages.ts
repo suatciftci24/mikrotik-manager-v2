@@ -1,7 +1,9 @@
 import {api} from './api.ts';
 import {allPages} from './workspaceDashboard.ts';
-export type PackageFields={name:string;download_mbps:number;upload_mbps:number;router_profile:string|null;monthly_price:string|null;duration_days:number;active:boolean};
-export type PackageRecord={id:string;revision:number;fields:PackageFields;is_demo:true};
+export const packageCurrencies=['TRY','USD','EUR','GBP'] as const;
+export type PackageCurrency=typeof packageCurrencies[number];
+export type PackageFields={name:string;download_mbps:number;upload_mbps:number;router_profile:string|null;monthly_price:string|null;duration_days:number;active:boolean;currency?:PackageCurrency;radius_policy_ref?:string|null};
+export type PackageRecord={id:string;revision:number;fields:PackageFields;subscriber_count?:number|null;is_demo:true};
 export async function loadPackageChoices(_path:string,init?:RequestInit){return {items:await allPages<PackageRecord>('/packages',init)};}
 export function packageEnd(start:string,days:number){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||!Number.isInteger(days)||days<1||days>3660)return '';
@@ -9,7 +11,12 @@ export function packageEnd(start:string,days:number){
  const end=Number.isFinite(day.getTime())?day.toISOString().slice(0,10):'';
  return /^\d{4}-\d{2}-\d{2}$/.test(end)?end:'';
 }
-export const packagePrice=(value:string|null)=>value===null?'Ücret belirtilmedi':new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY'}).format(Number(value));
+export const packagePrice=(value:string|null|undefined,currency:PackageCurrency='TRY')=>
+ value==null?'Ücret belirtilmedi':new Intl.NumberFormat('tr-TR',{style:'currency',currency}).format(Number(value));
+
+export function packageTerms(fields:PackageFields|null|undefined){
+ return fields?`${packageSpeed(fields)} · ${fields.duration_days} gün · ${packagePrice(fields.monthly_price,fields.currency)}`:'Paket ayrıntıları kayıtlı değil';
+}
 
 export function selectablePackage(record:PackageRecord){
  const f=record?.fields;

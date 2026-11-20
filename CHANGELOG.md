@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.12] - 2026-11-20
+
+- Paket kataloğu araması, durum filtresi, para birimi, bağlı abone sayısı, korumalı silme ve abone düzenleme entegrasyonu.
+
 ## [2.6.11] - 2026-11-20
 
 - Abone listesi ve işlem geçmişinde sunucu tarafı sayfalama, sıralama ve güvenli sayfa seçimi.

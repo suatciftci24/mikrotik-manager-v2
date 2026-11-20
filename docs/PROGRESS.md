@@ -1,5 +1,30 @@
 # MikroTik Manager V2 — İlerleme
 
+## Paket Yönetimi ve abone entegrasyonu — V2.6.12
+
+- Ofis WSL `~/mikrotik-v2-ortak`, `development/v2.6.2-pppoe`, taban
+  `a4b3bda086c29754ed86fccf7b6eb81e5150e6e0`. Mevcut katalogda arama,
+  durum filtresi, bağlı abone sayısı ve silme akışı eksikti. Abone düzenleme
+  formu katalog paketine geçiş sunmuyordu.
+- Türkçe karakter duyarlı ad araması, aktif/pasif filtre, TRY/USD/EUR/GBP
+  ve isteğe bağlı RADIUS politika referansı eklendi. Yetkili katalogda
+  bağlı abone sayısı gösteriliyor. Silme, atamayla aynı paket satırı kilidini
+  kullanıyor. Bağlı paket korunuyor. Kullanılmayan paketin silinmesi ve
+  operatör/tarih/eski değer audit'i aynı transaction'da tamamlanıyor.
+- Abone oluşturma ve düzenleme, kayıtlı aktif paket seçimini destekliyor.
+  Önizleme eski/yeni paket, hız, süre ve fiyatı gösteriyor. Mevcut abonenin
+  bitiş tarihi ve hesap durumu paket değişikliğiyle otomatik değişmiyor.
+  Eski TRY kayıtları, atama snapshot'ları ve UUID sonucu korunuyor.
+- PASS: İzole SQLite/ASGI paket, günlük işlem, kaydetme kurtarma ve
+  yenileme 47/47. Hedefli frontend 91/91 (değişen düzenleme beklentisi
+  hedefli tekrar dahil). Chromium 360/1280 px katalog, filtre, para
+  birimi, bağlı paket koruması, silme audit'i, abone önizleme ve kayıt PASS.
+  Üretim derlemesi ve `frontend/dist/release.json` 2.6.12 PASS.
+- Yeni migration gerekmiyor. Mevcut 011 katalog şeması ve JSON alanları
+  kullanılıyor. Canlı veritabanı veya cihaz erişimi ve yayın yapılmadı.
+  Push BLOCKED. Git aktarım kontrolü kayıtlı Ofis checkout'u
+  `~/v26-transfer/mikrotik-v26-next` yolunu bekliyor.
+
 ## Abone Merkezi performans ve kullanılabilirlik — V2.6.11
 
 - Ofis WSL `suatpc@DESKTOP-VD5T7VG`, `~/mikrotik-v2-ortak`,

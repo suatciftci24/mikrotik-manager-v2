@@ -21,21 +21,28 @@ def search_key(value):
                    if not unicodedata.combining(c)).casefold().replace('ı', 'i')
 
 
-def listing_expressions(session, expires_on, today):
-    """Use database expressions so only the requested account page is hydrated."""
+def search_expression(session):
     if session.get_bind().dialect.name == 'sqlite':
         db = session.connection().connection.driver_connection
         db.create_function('subscriber_search_key', 1, search_key, deterministic=True)
+        return func.subscriber_search_key
+
+    def normalize(value):
+        decomposed = func.normalize(value, literal_column('NFKD'))
+        stripped = func.regexp_replace(decomposed, '[\u0300-\u036f]', '', 'g')
+        folded = func.lower(func.replace(stripped, 'I', 'i'))
+        return func.replace(func.translate(folded, 'ıς', 'iσ'), 'ß', 'ss')
+    return normalize
+
+
+def listing_expressions(session, expires_on, today):
+    """Use database expressions so only the requested account page is hydrated."""
+    normalize = search_expression(session)
+    if session.get_bind().dialect.name == 'sqlite':
+        db = session.connection().connection.driver_connection
         db.create_function('subscriber_calendar_date', 1, calendar_date, deterministic=True)
-        normalize = func.subscriber_search_key
         valid_date = func.subscriber_calendar_date(expires_on)
     else:
-        def normalize(value):
-            decomposed = func.normalize(value, literal_column('NFKD'))
-            stripped = func.regexp_replace(decomposed, '[̀-ͯ]', '', 'g')
-            folded = func.lower(func.replace(stripped, 'I', 'i'))
-            return func.replace(func.translate(folded, 'ıς', 'iσ'), 'ß', 'ss')
-
         date_pattern = r'^[0-9]{4}-((01|03|05|07|08|10|12)-(0[1-9]|[12][0-9]|3[01])|(04|06|09|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))$'
         leap_pattern = r'^([0-9]{2}(0[48]|[2468][048]|[13579][26])|(0[48]|[2468][048]|[13579][26])00)-02-29$'
         valid_date = case(

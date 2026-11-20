@@ -162,3 +162,102 @@ class PackageSubscription(TestCase):
         upgrade={**self.operation(item,'PLAN',package['fields']['name']),'package_id':package['id'],'package_revision':2}
         response=self.post('/subscriber-workspace/management/execute',{'entries':[upgrade]});self.assertTrue(response.json()['results'][0]['success'],response.text)
         detail=self.client.get('/api/v1/subscriber-center/'+item['id']).json()['item'];self.assertEqual(detail['package_revision'],2);self.assertEqual(detail['package_snapshot']['monthly_price'],'599.90');self.assertEqual(detail['expires_on'],item['expires_on'])
+
+    def test_catalog_search_counts_and_confirmed_delete_with_audit(self):
+        _, bound = self.make_package('Satış 100', currency='EUR', radius_policy_ref='policy-business')
+        _, free = self.make_package('Satış 200', active=False, currency='USD')
+        command = self.command()
+        command['fields'].update(package_id=bound['id'], package_revision=bound['revision'])
+        self.create(command)
+        base_path = '/api/v1/packages'
+        listing = self.client.get(base_path+'?include_inactive=true&query=SATI%C5%9E&page_size=1').json()
+        self.assertEqual(listing['total'], 2)
+        self.assertEqual(listing['items'][0]['subscriber_count'], 1)
+        self.assertEqual(listing['items'][0]['fields']['currency'], 'EUR')
+        self.assertEqual(listing['items'][0]['fields']['radius_policy_ref'], 'policy-business')
+        inactive = self.client.get(base_path+'?include_inactive=true&status=INACTIVE').json()['items']
+        self.assertEqual([(r['id'],r['subscriber_count']) for r in inactive],[(free['id'],0)])
+        self.assertEqual(self.client.get(base_path+'?query=%25').json()['total'], 0)
+        payload = dict(request_id=str(uuid4()),expected_revision=1,confirmed=True)
+        def delete(item, body=payload, headers=None):
+            return self.client.request('DELETE',base_path+'/'+item['id'],json=body,
+                                       headers=self.pkg_headers if headers is None else headers)
+        self.assertEqual(delete(bound).status_code, 409)
+        self.assertEqual(delete(free,headers={}).status_code, 403)
+        self.operator()
+        self.assertEqual(delete(free).status_code, 403)
+        self.assertEqual(self.client.get(base_path+'?status=INACTIVE').status_code, 403)
+        public = self.client.get(base_path).json()['items']
+        self.assertEqual(len(public),1)
+        self.assertIsNone(public[0]['subscriber_count'])
+        self.admin()
+        self.assertEqual(delete(free,{**payload,'expected_revision':2}).status_code,409)
+        def fail(*_):
+            raise SQLAlchemyError('synthetic deletion audit error')
+        event.listen(PackageEvent,'before_insert',fail)
+        try:
+            self.assertEqual(delete(free).status_code,503)
+            self.assertEqual(self.package_counts(),(2,2))
+        finally:
+            event.remove(PackageEvent,'before_insert',fail)
+        removed = delete(free)
+        self.assertEqual(removed.status_code,200,removed.text)
+        self.assertEqual(delete(free).json(),removed.json())
+        audit = self.client.get(base_path+'/'+free['id']+'/audit').json()['items'][0]
+        self.assertEqual((audit['action'],audit['actor_id'],audit['request_id']),('DELETE',self.user['id'],payload['request_id']))
+        self.assertEqual(audit['previous']['currency'],'USD')
+        self.assertIsNone(audit['values'])
+        self.assertEqual(self.package_counts(),(1,3))
+
+    def test_package_assignment_by_edit_preserves_status_and_unknown_expiry(self):
+        _, old = self.make_package(currency='EUR')
+        _, new = self.make_package('Business 500', currency='USD', duration_days=60, download_mbps=500)
+        command = self.command()
+        command['fields'].update(package_id=old['id'],package_revision=1,started_on=None,expires_on=None)
+        _, item = self.create(command)
+        self.assertEqual(item['status'],'ACTIVE')
+        self.assertIsNone(item['expires_on'])
+        fields = {key:value for key,value in command['fields'].items() if key not in ('status','expires_on')}
+        fields.update(package_id=new['id'],package_revision=1,plan=new['fields']['name'],started_on='2030-01-01')
+        update = {**command,'request_id':str(uuid4()),'expected_revision':1,'fields':fields}
+        result = self.post('/subscriber-workspace/'+item['id'],update)
+        self.assertEqual(result.status_code,200,result.text)
+        self.assertEqual(result.json()['status'],'ACTIVE')
+        self.assertIsNone(result.json()['expires_on'])
+        self.assertEqual(result.json()['package_snapshot']['currency'],'USD')
+        detail = self.client.get('/api/v1/subscriber-center/'+item['id']).json()
+        audit = detail['history'][0]
+        self.assertEqual(audit['actor_id'],self.user['id'])
+        self.assertEqual(audit['previous_values']['package_currency'],'EUR')
+        self.assertEqual(audit['new_values']['package_currency'],'USD')
+        self.assertEqual(audit['new_values']['package_duration_days'],'60')
+
+
+    def test_legacy_package_and_subscriber_uuid_receipts_remain_valid(self):
+        from app.schemas.package import PackageCommand
+        from app.services.packages import command_fingerprint
+
+        command, package = self.make_package()
+        with self.sessions.begin() as session:
+            row = session.get(Package,package['id'])
+            audit = session.get(PackageEvent,command['request_id'])
+            legacy = {key:value for key,value in row.fields.items() if key not in ('currency','radius_policy_ref')}
+            row.fields = legacy
+            payload = PackageCommand.model_validate(command).model_dump(mode='json')
+            audit.changes = {**audit.changes,'fingerprint':command_fingerprint(
+                self.user['id'],None,{**payload,'fields':legacy}
+            ),'response':{**audit.changes['response'],'fields':legacy}}
+        self.assertEqual(self.package_post(command).json(),package)
+        self.assertEqual(self.package_post({**command,'fields':{**command['fields'],'currency':'EUR'}}).status_code,409)
+        subscriber = self.command()
+        subscriber['fields'].update(package_id=package['id'],package_revision=1)
+        _, item = self.create(subscriber)
+        self.assertEqual(item['package_snapshot']['currency'],'TRY')
+        with self.sessions.begin() as session:
+            audit = session.get(SubscriberAudit,subscriber['request_id'])
+            response = audit.changes['_save']['response']
+            audit.changes = {**audit.changes,'_save':{**audit.changes['_save'],
+                'response':{**response,'package_snapshot':legacy}}}
+        result = self.client.get('/api/v1/subscriber-workspace/requests/'+subscriber['request_id']).json()
+        self.assertEqual(result['status'],'SUCCESS')
+        self.assertEqual(result['response']['package_snapshot']['currency'],'TRY')

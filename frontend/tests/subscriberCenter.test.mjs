@@ -221,7 +221,7 @@ test('operator editor filters writable router choices and exposes scoped profile
  const html=renderToStaticMarkup(tree);assert.match(html,/Başlangıç tarihi/);assert.match(html,/Hesap durumu/);assert.match(html,/Kayıtlı aktif paket/);assert.doesNotMatch(html,/synthetic-plans/);
  const legacy=mod.exports.SyntheticSubscriberEditor({item:{...data.item,package_id:null,router_id:'demo-managed-router-write'},onClose(){},onSaved(){}});const editHtml=renderToStaticMarkup(legacy);
  assert.match(editHtml,/Scoped Profile/);assert.match(editHtml,/Abone adı/);assert.match(editHtml,/Bitiş tarihi/);
- assert.doesNotMatch(editHtml,/Hesap durumu|Kayıtlı aktif paket/);
+ assert.doesNotMatch(editHtml,/Hesap durumu/);assert.match(editHtml,/Kayıtlı aktif paket/);assert.match(editHtml,/Mevcut paketi koru/);
  const routerSelect=nodes(tree).find(n=>n.type==='select'&&n.props.required);
  assert.deepEqual(nodes(routerSelect).filter(n=>n.type==='option').map(n=>n.props.value),['','demo-managed-router-write']);
 });
