@@ -32,6 +32,12 @@ OBSERVER_ROOT = Path('/opt/mikrotik-v2-cebeci-observer')
 RUNTIME = Path('/run/mikrotik-v2-cebeci-observer')
 API = 'mikrotik-v26-api.service'
 WEB = 'mikrotik-v26-web.service'
+WEB_NPM_USER = 'mikadmin'
+WEB_NPM_FRAGMENT = '/etc/systemd/system/' + WEB
+WEB_PREVIEW_HOST = '127.0.0.1'
+WEB_PREVIEW_PORT = 15173
+WEB_NPM_ARGV = ('/usr/bin/npm', 'exec', '--', 'vite', 'preview', '--host', WEB_PREVIEW_HOST,
+                '--port', str(WEB_PREVIEW_PORT), '--strictPort')
 OBSERVER = 'mikrotik-v2-cebeci-observer.service'
 UNIT = Path('/etc/systemd/system') / OBSERVER
 DROP = Path('/etc/systemd/system') / (API + '.d') / '60-cebeci-snapshot.conf'
@@ -88,8 +94,12 @@ class PanelConnection(http.client.HTTPSConnection):
         self._create_connection = lambda _address, *args: socket.create_connection((IP, 443), *args)
 
 
-def request(path, *, cookie=None, credentials=None, status=200, code="HTTP"):
-    conn = PanelConnection()
+def request(path, *, cookie=None, credentials=None, status=200, code="HTTP", loopback=False):
+    if loopback:
+        require(cookie is None and credentials is None, 'WEB_LOOPBACK_PUBLIC_GET_ONLY')
+        conn = http.client.HTTPConnection(WEB_PREVIEW_HOST, WEB_PREVIEW_PORT, timeout=6)
+    else:
+        conn = PanelConnection()
     headers = {'Cache-Control': 'no-cache'}
     if cookie:
         headers['Cookie'] = cookie
@@ -167,7 +177,7 @@ def build_id(root=ROOT):
     return digest.hexdigest()
 
 
-def health(version, commit=None, expected_build=None):
+def health(version, commit=None, expected_build=None, *, npm_preview=False):
     for unit, code in ((API, 'API_NOT_ACTIVE'), (WEB, 'WEB_NOT_ACTIVE')):
         with gate(code):
             system('is-active', '--quiet', unit)
@@ -186,12 +196,16 @@ def health(version, commit=None, expected_build=None):
         require(isinstance(disk_release, dict), 'DISK_RELEASE_INVALID')
     require(disk_release.get('version') == version, 'DISK_RELEASE_VERSION_MISMATCH')
     require(health_json('/api/health', 'API_HEALTH').get('database_connected') is True, 'API_DATABASE_UNHEALTHY')
+    if npm_preview:
+        verify_npm_web_unit()
     dist = ROOT/'frontend/dist'
     with gate('WEB_INDEX_REQUEST'):
         index = request('/', code='WEB_INDEX')[0]
     with gate('WEB_DISK_INDEX_UNREADABLE'):
         disk_index = (dist/'index.html').read_bytes()
     require(index == disk_index, 'WEB_INDEX_DISK_MISMATCH')
+    if npm_preview:
+        verify_preview_response('/', disk_index, 'WEB_LOOPBACK_INDEX')
     if commit:
         require(re.search(rb'<meta[^>]+name="mikrotik-app-version"[^>]+content="2\.6\.16"', index),
                 'WEB_RELEASE_META_MISMATCH')
@@ -206,7 +220,15 @@ def health(version, commit=None, expected_build=None):
         with gate('WEB_DISK_ASSET_UNREADABLE'):
             disk = (dist/path.removeprefix('/')).read_bytes()
         require(served == disk, 'WEB_ASSET_DISK_MISMATCH')
+        if npm_preview:
+            verify_preview_response(path, disk, 'WEB_LOOPBACK_ASSET')
     return disk_build
+
+
+def verify_preview_response(path, expected, code):
+    with gate(code + '_REQUEST'):
+        served, _ = request(path, code=code, loopback=True)
+    require(served == expected, code + '_DISK_MISMATCH')
 
 
 def wait_for(check, seconds):
@@ -251,7 +273,7 @@ def preflight_prop(unit, name, code):
         return prop(unit, name)
 
 
-def verify_unit(unit, kind, subdirectory):
+def verify_unit(unit, kind, subdirectory, *, running=True):
     code = kind + '_UNIT_LOAD'
     require(preflight_prop(unit, 'LoadState', code) == 'loaded', code + '_STATE')
     code = kind + '_UNIT_DAEMON_RELOAD'
@@ -265,20 +287,53 @@ def verify_unit(unit, kind, subdirectory):
     executable = re.fullmatch(r'\{ path=([^ ;]+) ; argv\[\]=([^;]+) ;[^{}]*\}', start)
     require(executable is not None, kind + '_UNIT_EXEC_START_FORMAT')
     program = Path(executable[1]).name
-    argv = executable[2].split()
-    if unit == API:
+    argv = tuple(executable[2].split())
+    npm_preview = unit == WEB and executable[1] == WEB_NPM_ARGV[0] and argv == WEB_NPM_ARGV
+    if npm_preview:
+        verify_preview_settings()
+    elif unit == API:
         require('app.main:app' in argv and (program == 'uvicorn'
-                or program.startswith('python') and argv[1:3] == ['-m', 'uvicorn']), 'API_UNIT_EXEC_START_UNSUPPORTED')
+                or program.startswith('python') and argv[1:3] == ('-m', 'uvicorn')), 'API_UNIT_EXEC_START_UNSUPPORTED')
     else:
-        require(program.startswith('python') and argv[1:3] == ['-m', 'http.server']
+        require(program.startswith('python') and argv[1:3] == ('-m', 'http.server')
                 or program in ('node', 'vite') and 'preview' in argv, 'WEB_UNIT_EXEC_START_UNSUPPORTED')
-    with gate(kind + '_UNIT_MAIN_PID'):
-        pid = int(prop(unit, 'MainPID'))
-        require(pid > 0, kind + '_UNIT_NO_MAIN_PID')
-    with gate(kind + '_UNIT_PROCESS_CWD'):
-        cwd = Path(os.readlink(f'/proc/{pid}/cwd'))
-    require(cwd in (ROOT, ROOT/subdirectory, ROOT/'frontend/dist') and
-            (unit != API or cwd != ROOT/'frontend/dist'), kind + '_UNIT_PROCESS_CWD_MISMATCH')
+    if running:
+        with gate(kind + '_UNIT_MAIN_PID'):
+            pid = int(prop(unit, 'MainPID'))
+            require(pid > 0, kind + '_UNIT_NO_MAIN_PID')
+        with gate(kind + '_UNIT_PROCESS_CWD'):
+            cwd = Path(os.readlink(f'/proc/{pid}/cwd'))
+        allowed = (ROOT/'frontend',) if npm_preview else (ROOT, ROOT/subdirectory, ROOT/'frontend/dist')
+        require(cwd in allowed and (unit != API or cwd != ROOT/'frontend/dist'),
+                kind + '_UNIT_PROCESS_CWD_MISMATCH')
+    return npm_preview
+
+
+def verify_preview_settings():
+    for field, expected, code in (
+        ('WorkingDirectory', str(ROOT/'frontend'), 'WEB_NPM_WORKING_DIRECTORY'),
+        ('User', WEB_NPM_USER, 'WEB_NPM_USER'),
+        ('FragmentPath', WEB_NPM_FRAGMENT, 'WEB_NPM_FRAGMENT'),
+        ('KillMode', 'control-group', 'WEB_NPM_KILL_MODE'),
+    ):
+        require(preflight_prop(WEB, field, code + '_QUERY') == expected, code + '_MISMATCH')
+    with gate('WEB_NPM_USER_LOOKUP'):
+        require(pwd.getpwnam(WEB_NPM_USER).pw_uid != 0, 'WEB_NPM_USER_ROOT')
+    modules = ROOT/'frontend/node_modules'
+    entry = modules/'vite/bin/vite.js'
+    with gate('WEB_NPM_LOCAL_VITE_UNREADABLE'):
+        require((modules/'.bin/vite').resolve(strict=True) == entry and entry.resolve() == entry
+                and entry.is_file() and entry.stat().st_mode & 0o111, 'WEB_NPM_LOCAL_VITE_MISMATCH')
+
+
+def verify_npm_web_unit(*, running=True):
+    require(verify_unit(WEB, 'WEB', 'frontend', running=running), 'WEB_NPM_LAYOUT_CHANGED')
+
+
+def start_panel(npm_preview):
+    if npm_preview:
+        verify_npm_web_unit(running=False)
+    system('start', API, WEB)
 
 
 def verify_baseline():
@@ -301,7 +356,7 @@ def verify_baseline():
     with gate('API_DROPIN_PARENT_QUERY'):
         require(DROP.parent.resolve() == DROP.parent, 'API_DROPIN_PARENT_UNSAFE')
     verify_unit(API, 'API', 'backend')
-    verify_unit(WEB, 'WEB', 'frontend')
+    npm_preview = verify_unit(WEB, 'WEB', 'frontend')
     api_owner = preflight_prop(API, 'User', 'API_UNIT_USER_QUERY')
     require(api_owner and api_owner != USER, 'API_UNIT_USER_REQUIRED')
     with gate('API_UNIT_USER_LOOKUP'):
@@ -321,7 +376,7 @@ def verify_baseline():
                 continue
             raise CheckRejected(code + '_EXISTS')
     head = checkout_head()
-    return head, health('2.6.13')
+    return head, health('2.6.13', npm_preview=npm_preview), npm_preview
 
 
 def archive_source(work):
@@ -514,7 +569,7 @@ def installation_credentials():
 def preflight_only():
     """Report without opening the install lock, prompting, or logging in."""
     try:
-        head, baseline_build = verify_baseline()
+        head, baseline_build, _ = verify_baseline()
         tree_relation = head_matches_api(head, baseline_build)
     except CheckRejected as error:
         print('BLOCKED —', error, file=sys.stderr)
@@ -546,7 +601,8 @@ def stop_observer():
     system('disable', OBSERVER)
 
 
-def rollback(backup, staged, switched, undo, stopped, observer_attempted, baseline_build, initial_head):
+def rollback(backup, staged, switched, undo, stopped, observer_attempted, baseline_build, initial_head,
+             *, npm_preview=False):
     def recover(code, action):
         try:
             action()
@@ -570,9 +626,9 @@ def rollback(backup, staged, switched, undo, stopped, observer_attempted, baseli
             ready = False
     if stopped and ready:
         ready = (recover('ROLLBACK_BACKUP_COMPARE', lambda: verify_backup(backup))
-                 and recover('ROLLBACK_PANEL_START', lambda: system('start', API, WEB))
+                 and recover('ROLLBACK_PANEL_START', lambda: start_panel(npm_preview))
                  and recover('ROLLBACK_BASELINE_HEALTH',
-                             lambda: wait_for(lambda: health('2.6.13', expected_build=baseline_build), 60)))
+                             lambda: wait_for(lambda: health('2.6.13', expected_build=baseline_build, npm_preview=npm_preview), 60)))
     if stopped and ready:
         try:
             require(checkout_head() == initial_head, 'ROLLBACK_GIT_HEAD_CHANGED_EXTERNALLY')
@@ -592,7 +648,7 @@ def run():
     switched = []
     undo = []
     stopped = False
-    observer_attempted = False
+    observer_attempted = npm_preview = False
     initial_head = baseline_build = None
     stage_dir = None
     os.umask(0o077)
@@ -607,7 +663,7 @@ def run():
             with gate('INSTALL_LOCK_BUSY'):
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             try:
-                initial_head, baseline_build = verify_baseline()
+                initial_head, baseline_build, npm_preview = verify_baseline()
                 stage_name = 'özel malzeme ve yönetici ön kontrolü'
                 material, credentials = installation_credentials()
 
@@ -655,6 +711,8 @@ def run():
                 verify_backup(backup)
                 require(checkout_head() == initial_head, 'GIT_HEAD_CHANGED_BEFORE_SWITCH')
                 require(build_id(staged) == target_build, 'STAGED_PINNED_BUILD_MISMATCH')
+                if npm_preview:
+                    verify_npm_web_unit()
                 stopped = True
                 system('stop', WEB, API)
                 for name in PATHS:
@@ -665,8 +723,8 @@ def run():
                         switched.append((name, before, after))
                     finally:
                         signal.pthread_sigmask(signal.SIG_SETMASK, mask)
-                system('start', API, WEB)
-                wait_for(lambda: health('2.6.16', NEW, target_build), 60)
+                start_panel(npm_preview)
+                wait_for(lambda: health('2.6.16', NEW, target_build, npm_preview=npm_preview), 60)
                 stage_name = '24 saatlik pilot ve gerçek cihaz kabulü'
                 approval(account, material)
                 observer_attempted = True
@@ -690,7 +748,7 @@ def run():
                 code = str(error) if isinstance(error, CheckRejected) else 'STAGE_FAILED'
                 print('FAIL —', stage_name, '·', code, file=sys.stderr)
                 if not rollback(backup, staged, switched, undo, stopped, observer_attempted,
-                                baseline_build, initial_head):
+                                baseline_build, initial_head, npm_preview=npm_preview):
                     print('ROLLBACK BLOCKED — yedek ve hazırlık dizini:', backup, stage_dir, file=sys.stderr)
                     stage_dir = None
                 elif stopped:

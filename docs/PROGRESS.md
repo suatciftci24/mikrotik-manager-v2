@@ -1,5 +1,20 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.16 VDS npm/Vite ön kontrol ve yayın uyumluluğu
+
+- Taban `664d306e6fa13c5b79712d58c5825122ab8b0ba9`. Kullanıcının
+  doğruladığı web birimi npm üzerinden Vite preview çalıştırıyor.
+  Önceki doğrudan çalıştırıcı listesi npm sarmalayıcısını reddediyordu.
+- Tam komut, loopback portu, kullanıcı, birim dosyası ve çalışma
+  dizini sabitlendi. Süreç grubu ve yerel Vite çözümlemesi kontrol
+  ediliyor. Yayın ve geri dönüş mevcut birimi kullanıyor. Kabulde
+  disk, loopback Vite ve HTTPS index/varlıkları karşılaştırılıyor.
+- PASS: Sekiz hedefli yerel kurulum testi, Python sözdizimi ve
+  diff kontrolü. İki sürüm arasında Vite yapılandırması ve paket
+  bağımlılıklarının değişmediği yerel Git üzerinden doğrulandı.
+  Canlı işlem yapılmadı. Sonraki adım
+  [salt okunur VDS ön kontrolü](../deploy/cebeci-observer/VDS-V2616.md#salt-okunur-teşhis).
+
 ## V2.6.16 VDS ön kontrol tanısı ve geri dönüş kapıları
 
 - Taban `4f2e6d0c44001093b79289839a301cb5119136f8`. Kullanıcı
