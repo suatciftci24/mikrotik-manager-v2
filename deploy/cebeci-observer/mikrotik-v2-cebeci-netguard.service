@@ -1,0 +1,16 @@
+[Unit]
+Description=MikroTik V2 CEBECI socket policy pins
+Before=mikrotik-v2-cebeci-observer.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 -I -B /opt/mikrotik-v2-cebeci-observer/network-guard.py load
+ExecStop=/usr/bin/python3 -I -B /opt/mikrotik-v2-cebeci-observer/network-guard.py unload
+NoNewPrivileges=yes
+PrivateNetwork=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/sys/fs/bpf
+CapabilityBoundingSet=CAP_BPF CAP_NET_ADMIN
+UMask=0077

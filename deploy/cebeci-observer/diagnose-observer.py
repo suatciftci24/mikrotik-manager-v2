@@ -546,7 +546,7 @@ def network_probe(unit, runtime, root, workspace, unit_args):
                 try:
                     with os.fdopen(os.open(runtime/'probe-port', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as marker:
                         data = marker.read(8).strip()
-                    return int(data) if re.fullmatch(r'[0-9]{1,5}', data) and 0 < int(data) <= 65535 else None
+                    return int(data) if re.fullmatch(rb'[0-9]{1,5}', data) and 0 < int(data) <= 65535 else None
                 except FileNotFoundError:
                     return None
 

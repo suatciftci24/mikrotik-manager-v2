@@ -40,6 +40,10 @@ WEB_PREVIEW_PORT = 15173
 WEB_NPM_ARGV = ('/usr/bin/npm', 'exec', '--', 'vite', 'preview', '--host', WEB_PREVIEW_HOST,
                 '--port', str(WEB_PREVIEW_PORT), '--strictPort')
 OBSERVER = 'mikrotik-v2-cebeci-observer.service'
+NETGUARD = 'mikrotik-v2-cebeci-netguard.service'
+NETGUARD_UNIT = Path('/etc/systemd/system') / NETGUARD
+NETGUARD_PINS = Path('/sys/fs/bpf/mtv2-cebeci-guard')
+TARGET_VERSION = '2.6.16'
 UNIT = Path('/etc/systemd/system') / OBSERVER
 DROP = Path('/etc/systemd/system') / (API + '.d') / '60-cebeci-snapshot.conf'
 USER = 'mtv2-cebeci-observer'
@@ -271,7 +275,7 @@ def health(version, commit=None, expected_build=None, *, npm_preview=False):
     if npm_preview:
         verify_preview_response('/', disk_index, 'WEB_LOOPBACK_INDEX')
     if commit:
-        require(re.search(rb'<meta[^>]+name="mikrotik-app-version"[^>]+content="2\.6\.16"', index),
+        require(re.search(rb'<meta[^>]+name="mikrotik-app-version"[^>]+content="' + re.escape(version.encode()) + rb'"', index),
                 'WEB_RELEASE_META_MISMATCH')
         require(re.search(rb'<meta[^>]+name="mikrotik-build-commit"[^>]+content="' + commit.encode() + rb'"', index),
                 'WEB_COMMIT_META_MISMATCH')
@@ -415,6 +419,11 @@ def verify_baseline():
                 'PUBLISH_FILESYSTEM_MISMATCH')
     with gate('API_DROPIN_PARENT_QUERY'):
         require(DROP.parent.resolve() == DROP.parent, 'API_DROPIN_PARENT_UNSAFE')
+    if TARGET_VERSION == '2.6.17':
+        require(not os.path.lexists(NETGUARD_UNIT), 'NETGUARD_UNIT_EXISTS')
+        require(not os.path.lexists(NETGUARD_PINS), 'NETGUARD_PINS_EXIST')
+        require(preflight_prop(NETGUARD, 'LoadState', 'NETGUARD_LOAD_QUERY') == 'not-found',
+                'NETGUARD_UNIT_ALREADY_DEFINED')
     verify_unit(API, 'API', 'backend')
     npm_preview = verify_unit(WEB, 'WEB', 'frontend')
     api_owner = preflight_prop(API, 'User', 'API_UNIT_USER_QUERY')
@@ -457,6 +466,8 @@ def archive_source(work):
     require(live_requirements == pinned_requirements, 'LIVE_REQUIREMENTS_MISMATCH')
     selected = ('release.json', 'backend/app', 'backend/requirements.txt', 'frontend',
                 'deploy/cebeci-observer/api-snapshot.conf', 'deploy/cebeci-observer/'+OBSERVER)
+    if TARGET_VERSION == '2.6.17':
+        selected += ('deploy/cebeci-observer/'+NETGUARD, 'deploy/cebeci-observer/network-guard.py')
     packed = work/'source.tar'
     command('git', '--git-dir', str(repo), 'archive', '--output', str(packed), NEW, '--', *selected,
             env=env, code='SOURCE_ARCHIVE')
@@ -467,7 +478,7 @@ def archive_source(work):
             require(all(member.isfile() or member.isdir() for member in archive.getmembers()), 'SOURCE_ARCHIVE_MEMBER')
             archive.extractall(source, filter='data')
     with gate('SOURCE_RELEASE_READ'):
-        require(json.loads((source/'release.json').read_bytes())['version'] == '2.6.16', 'SOURCE_VERSION_MISMATCH')
+        require(json.loads((source/'release.json').read_bytes())['version'] == TARGET_VERSION, 'SOURCE_VERSION_MISMATCH')
     return source
 
 
@@ -843,6 +854,12 @@ def run():
                 with gate('OBSERVER_UNIT_INSTALL'):
                     put(UNIT, (source/'deploy/cebeci-observer'/OBSERVER).read_bytes(), 0o644)
                 undo.append(('ROLLBACK_OBSERVER_UNIT_REMOVE', UNIT.unlink))
+                if TARGET_VERSION == '2.6.17':
+                    with gate('NETGUARD_INSTALL'):
+                        guard_source = source/'deploy/cebeci-observer'
+                        put(OBSERVER_ROOT/'network-guard.py', (guard_source/'network-guard.py').read_bytes(), 0o644)
+                        put(NETGUARD_UNIT, (guard_source/NETGUARD).read_bytes(), 0o644)
+                    undo.append(('ROLLBACK_NETGUARD_UNIT_REMOVE', NETGUARD_UNIT.unlink))
                 command('systemd-analyze', 'verify', str(UNIT), code='OBSERVER_SYSTEMD_VERIFY')
                 with gate('API_DROPIN_DIRECTORY'):
                     require(DROP.parent.resolve() == DROP.parent, 'API_DROPIN_PARENT_UNSAFE')
@@ -857,11 +874,14 @@ def run():
                 require(api_fragment.startswith('/') and api_fragment.endswith('/' + API), 'API_UNIT_FRAGMENT_UNSAFE')
                 command('systemd-analyze', 'verify', api_fragment, code='API_SYSTEMD_VERIFY')
                 system('daemon-reload', code='PUBLISH_DAEMON_RELOAD')
+                if TARGET_VERSION == '2.6.17':
+                    undo.append(('ROLLBACK_NETGUARD_STOP', lambda: system('stop', NETGUARD, code='NETGUARD_STOP')))
+                    system('start', NETGUARD, code='NETGUARD_LOAD')
                 step('OBSERVER_APPROVAL_INSTALL', approval, account, material)
                 verify_observer_material()
                 print('OK — UNIT_AND_MATERIAL_READY', flush=True)
 
-                stage_name = 'V2.6.16 yayın geçişi'
+                stage_name = f'V{TARGET_VERSION} yayın geçişi'
                 verify_backup(backup)
                 require(checkout_head() == initial_head, 'GIT_HEAD_CHANGED_BEFORE_SWITCH')
                 require(step('STAGED_API_BUILD_HASH', build_id, staged) == target_build, 'STAGED_PINNED_BUILD_MISMATCH')
@@ -879,7 +899,7 @@ def run():
                         finally:
                             signal.pthread_sigmask(signal.SIG_SETMASK, mask)
                 start_panel(npm_preview)
-                wait_for(lambda: health('2.6.16', NEW, target_build, npm_preview=npm_preview), 60)
+                wait_for(lambda: health(TARGET_VERSION, NEW, target_build, npm_preview=npm_preview), 60)
                 stage_name = '24 saatlik pilot ve gerçek cihaz kabulü'
                 verify_api_reader_group(group.gr_gid)
                 observer_attempted = True
@@ -890,13 +910,13 @@ def run():
                 count = wait_for(lambda: accept(cookie), 95)
                 final_head = checkout_head()
                 require(final_head == initial_head, 'GIT_HEAD_CHANGED_DURING_SWITCH')
-                receipt = dict(source_commit=NEW, app_version='2.6.16', api_build_id=target_build,
+                receipt = dict(source_commit=NEW, app_version=TARGET_VERSION, api_build_id=target_build,
                                frontend_index_sha256=step('RELEASE_FRONTEND_INDEX_HASH', file_digest,
                                                           ROOT/'frontend/dist/index.html'),
                                checkout_head_before=initial_head, checkout_head_after=final_head,
                                rollback_app_version='2.6.13', rollback_api_build_id=baseline_build)
                 step('RELEASE_RECEIPT_WRITE', put, backup/'release-proof.json', json.dumps(receipt).encode(), 0o600)
-                print(f'PASS — V2.6.16 {NEW} · CEBECI_TOWERS ONLINE · {count} hesap · WAN bilinmiyor')
+                print(f'PASS — V{TARGET_VERSION} {NEW} · CEBECI_TOWERS ONLINE · {count} hesap · WAN bilinmiyor')
                 return 0
 
             except Exception as error:
@@ -928,7 +948,13 @@ def run():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--preflight-only', action='store_true', help='run read-only host and HTTPS checks')
+    parser.add_argument('--release-commit', help='full reviewed SHA for the V2.6.17 release')
     args = parser.parse_args()
+    if args.release_commit:
+        if not re.fullmatch(r'[a-f0-9]{40}', args.release_commit):
+            parser.error('release commit must be a full lowercase SHA')
+        TARGET_VERSION = '2.6.17'
+        NEW = args.release_commit
     for caught in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(caught, interrupted)
     raise SystemExit(preflight_only() if args.preflight_only else run())

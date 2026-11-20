@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.17] - 2026-11-21
+
+- IPsec bağlantısı için gözlemciye dönüşüm öncesi TCP soket politikası ve kapalı çalışan systemd doğrulaması.
+
 ## [2.6.16] - 2026-11-20
 
 - CEBECI_TOWERS için izole systemd gözlemcisi ve panelde salt okunur snapshot tüketimi.

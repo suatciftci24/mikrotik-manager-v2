@@ -1,5 +1,20 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.17 CEBECI IPsec uyumlu soket sınırı
+
+- Taban `aa2493b`. Kullanıcının VDS izi aynı paket için XFRM girişi,
+  dış IPv4 ve `BPF_CGROUP_EGRESS` düşüşü gösterdi. Gözlemciye özgü
+  paket filtresi dönüşüm öncesi sabit TCP soket kurallarıyla değişti.
+- IPv4 TCP ve `10.250.0.1 → 10.250.0.19:8729` zorunlu. İki
+  eBPF programı ayrı yerel birimce yüklenir. Eksik attach servis
+  başlangıcını durdurur. Okuyucu ve kullanıcı bytes/regex düzeltmesi
+  korundu. [Kurulum ve geri dönüş](../deploy/cebeci-observer/VDS-V2617.md)
+  hazır.
+- PASS: Dört ağ kuralı/attach testi ve 10 kurulum regresyonu.
+  Linux UAPI ofsetleri yerel başlıkla karşılaştırıldı. Geçici unit
+  doğrulaması, frontend build, sürüm ve diff PASS. VDS çekirdek
+  yüklemesi ve gerçek IPsec cihaz kabulü yapılmadı. Yayın yok.
+
 ## CEBECI yönetilen ağ paket kanıtı hazırlığı
 
 - Taban `d99648a`. VDS kullanıcı kanıtında kök/system.slice adres

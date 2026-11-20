@@ -1,5 +1,7 @@
 # CEBECI_TOWERS V2.6.16 salt okunur gözlemci
 
+Güncel IPsec uyumlu pilot için [V2.6.17 kurulum yolu](VDS-V2617.md) geçerlidir.
+
 Kurulum **yetkili VDS terminalinde**, mevcut V2.6.16 API biriminin adı ve
 ayrı canlı işlem onayı doğrulandıktan sonra uygulanır. Bu hazırlıkta hiçbir
 birim kurulmadı. Gözlemci tek süreçte 60 saniyelik çevrim kullanır.

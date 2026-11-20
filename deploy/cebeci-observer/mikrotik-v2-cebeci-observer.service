@@ -1,7 +1,8 @@
 [Unit]
 Description=MikroTik V2 CEBECI_TOWERS read-only observer
 Wants=network-online.target
-After=network-online.target
+After=network-online.target mikrotik-v2-cebeci-netguard.service
+Requires=mikrotik-v2-cebeci-netguard.service
 
 [Service]
 Type=simple
@@ -9,6 +10,7 @@ User=mtv2-cebeci-observer
 Group=mtv2-cebeci-read
 WorkingDirectory=/opt/mikrotik-v2-cebeci-observer
 Environment=PYTHONPATH=/opt/mikrotik-v2-cebeci-observer/backend
+ExecStartPre=+/usr/bin/python3 -I -B /opt/mikrotik-v2-cebeci-observer/network-guard.py verify
 ExecStartPre=/opt/mikrotik-v2-cebeci-observer/venv/bin/python -B -m app.cebeci_observer preflight-managed
 ExecStart=/opt/mikrotik-v2-cebeci-observer/venv/bin/python -B -m app.cebeci_observer run-managed
 Restart=no
@@ -26,8 +28,10 @@ ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 RestrictAddressFamilies=AF_INET
-IPAddressDeny=any
-IPAddressAllow=10.250.0.19/32
+BPFProgram=sock_create:/sys/fs/bpf/mtv2-cebeci-guard/sock_create
+BPFProgram=connect4:/sys/fs/bpf/mtv2-cebeci-guard/connect4
+SystemCallArchitectures=native
+SystemCallFilter=~listen accept accept4 sendto sendmsg sendmmsg io_uring_setup io_uring_enter io_uring_register pidfd_getfd socketcall
 LimitCORE=0
 TimeoutStopSec=35s
 
