@@ -14,6 +14,9 @@ class RouterCenterSummary(BaseModel):
     site:str|None=None
     inventory_description:str|None=None
     status:str
+    management_status:Literal['ACTIVE','INACTIVE']|None=None
+    simulated_status:Literal['ONLINE','OFFLINE','UNKNOWN']|None=None
+    simulated_last_seen_at:str|None=None
     last_success_at:str|None=None
     last_seen_at:str|None=None
     cpu_percent:float|None=None
@@ -25,6 +28,15 @@ class RouterCenterEvent(BaseModel):
     occurred_at:str
     actor_id:str
     revision:int|None=None
+    record_id:str|None=None
+    changes:dict[str,dict[str,str|None]]|None=None
+
+class RouterSubscriberSummary(BaseModel):
+    active:int
+    paused:int
+    other:int
+    total:int
+    packages:dict[str,int]
 
 class RouterCenterData(BaseModel):
     item:RouterCenterSummary

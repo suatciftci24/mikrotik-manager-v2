@@ -4,9 +4,10 @@ from pydantic import ValidationError
 from datetime import datetime,timezone,date,timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy import select,func,or_
-from app.core.authorization import workspace_scope,require_workspace_account,workspace_can_manage
+from app.core.authorization import workspace_scope,require_workspace_account,workspace_can_manage,require_workspace_router
 from app.core.database import SessionLocal
-from app.services.router_workspace import guard,boundary,WorkspaceError
+from app.core.security import current_admin
+from app.services.router_workspace import guard,boundary,WorkspaceError,require_active_router
 from app.models.router_workspace import RouterWorkspaceRecord as Router
 from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as Event
 from app.schemas.subscriber_center import CenterSubscriber,SubscriberCenterData
@@ -34,7 +35,8 @@ def request_audit(event,account,router_id,source,success):
 
 def event_scope(ids, event=Event):
     recorded=func.coalesce(event.changes['_router_id'].as_string(),event.changes['_management']['receipt']['router_id'].as_string())
-    previous=event.changes['_management']['receipt']['previous_router_id'].as_string()
+    previous=func.coalesce(event.changes['_management']['receipt']['previous_router_id'].as_string(),
+        event.changes['router_id']['previous'].as_string())
     undo_source=event.changes['_undo']['source_router_id'].as_string()
     return [recorded.in_(ids),or_(previous.is_(None),previous.in_(ids)),
             or_(undo_source.is_(None),undo_source.in_(ids))]
@@ -43,7 +45,7 @@ class SubscriberWorkspace:
     def __init__(self,sessions=SessionLocal,check=guard):self.sessions=sessions;self.check=check
     @staticmethod
     def parent(session,id):
-        router=session.get(Router,id,with_for_update=True)
+        router=session.get(Router,id,with_for_update=True,populate_existing=True)
         if not router or router.kind!='DEMO_ROUTER':raise WorkspaceError(409,'Yalnız kalıcı sentetik router ID seçilebilir; gerçek cihaz ve sertifika profili kullanılamaz.')
         return router
     @staticmethod
@@ -137,7 +139,19 @@ class SubscriberWorkspace:
         with self.sessions.begin() as session:
             self.check(session)
             if user is not None:require_workspace_account(user,values['router_id'],values['access_type'],True)
-            router=self.parent(session,values['router_id']);row=session.get(Account,target,with_for_update=True)
+            current=session.get(Account,target) if id else None
+            if current:
+                self.authorize(current,user,True)
+                if current.router_id!=values['router_id'] and user is not None:
+                    current_admin(user)
+            parents={values['router_id']}
+            if current:
+                parents.add(current.router_id)
+            routers={parent:self.parent(session,parent) for parent in sorted(parents)}
+            router=routers[values['router_id']]
+            row=session.get(Account,target,with_for_update=True,populate_existing=True)
+            if row and row.router_id not in parents:
+                raise WorkspaceError(409,'Abonenin routerı değişti. Güncel detayı açın.')
             if row:
                 self.authorize(row,user,True)
                 if 'started_on' not in command.fields.model_fields_set and row.fields.get('started_on'):
@@ -155,6 +169,17 @@ class SubscriberWorkspace:
             if row and not id:
                 if row.fields==values:return account_view(row,router)
                 raise WorkspaceError(409,'İstek kimliği başka kayda ait.')
+            moving=bool(row and row.router_id!=values['router_id'])
+            if moving and user is not None:
+                current_admin(user)
+            if not row or moving:
+                require_active_router(router)
+            if moving:
+                for key in ('expires_on','status'):
+                    if key not in command.fields.model_fields_set:
+                        values[key]=row.fields.get(key)
+                if values.get('started_on') and values.get('expires_on') and values['expires_on']<values['started_on']:
+                    raise WorkspaceError(422,'Bitiş tarihi başlangıçtan önce olamaz.')
             package_keys=('package_id','package_revision','package_snapshot')
             unchanged=row and values['plan']==row.fields['plan'] and (
                 'package_id' not in command.fields.model_fields_set or
@@ -177,11 +202,12 @@ class SubscriberWorkspace:
             else:
                 values.update({key:None for key in package_keys})
             if command.expected_revision!=(row.revision if row else 0):raise WorkspaceError(409,'Abone değişti. Güncel detayı açın.')
-            if row and any(row.fields[key]!=values[key] for key in ('router_id','access_type','source','username')):raise WorkspaceError(409,'Router ID, kullanıcı adı, erişim türü ve yetkili kaynak düzenleme ile değiştirilemez.')
+            if row and any(row.fields[key]!=values[key] for key in ('access_type','source','username')):raise WorkspaceError(409,'Kullanıcı adı, erişim türü ve yetkili kaynak düzenleme ile değiştirilemez.')
             duplicate=session.scalar(select(Account.id).where(Account.username_key==values['username'].casefold(),Account.id!=target))
             if duplicate:raise WorkspaceError(409,'Bu sentetik kullanıcı adı zaten kullanılıyor; kaynak ve tür ayrı bir hesap kopyası oluşturmaz.')
             before=row.fields if row else {}
             if not row:row=Account(id=target,router_id=values['router_id'],username_key=values['username'].casefold(),access_type=values['access_type'],source=values['source'],revision=0);session.add(row)
+            row.router_id=values['router_id']
             row.fields=values;row.revision+=1
             response=account_view(row,router)
             self.audit(session,row,actor,before,str(command.request_id))
@@ -224,6 +250,9 @@ class SubscriberWorkspace:
             if user is not None:
                 self.authorize(session.get(Account,prior.subscriber_id),user)
                 require_workspace_account(user,verified[0].router_id,verified[0].access_type)
+                previous_router=prior.changes.get('router_id',{}).get('previous')
+                if previous_router:
+                    require_workspace_router(user,previous_router)
             return {**result,'status':'SUCCESS','response':verified[0],'audit':verified[1]}
 
     @boundary

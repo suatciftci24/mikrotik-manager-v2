@@ -36,11 +36,17 @@ test('synthetic form saves only workspace fields with explicit CSRF; delete requ
  const nodes=e=>e&&typeof e==='object'?[e,...React.Children.toArray(e.props?.children).flatMap(nodes)]:[];
  const button=(tree,label)=>nodes(tree).find(n=>n.type==='button'&&n.props.children===label);
  try{
-  let tree=render();assert.match(renderToStaticMarkup(tree),/SENTETİK DEMO/);button(tree,'Sentetik router ekle').props.onClick();
+  let tree=render();assert.match(renderToStaticMarkup(tree),/Kalıcı sentetik routerlar/);button(tree,'Router ekle').props.onClick();
   tree=render();const inputs=nodes(nodes(tree).find(n=>n.type==='form')).filter(n=>n.type==='input');inputs.find(n=>n.props.value==='').props.onChange({target:{value:'Sentetik Test'}});
+  tree=render();
+  const form=nodes(tree).find(n=>n.type==='form');
+  nodes(form).find(n=>n.type==='select'&&n.props.value==='UNKNOWN').props.onChange({target:{value:'ONLINE'}});
+  nodes(form).find(n=>n.type==='input'&&n.props.type==='datetime-local').props.onChange({target:{value:'2026-01-01T12:00:00'}});
   tree=render();await nodes(tree).find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});
   assert.equal(calls.length,1);assert.equal(calls[0].url,'/api/v1/router-workspace/routers');
   const payload=JSON.parse(calls[0].init.body);assert.equal(payload.confirmed,true);assert.equal(payload.fields.name,'Sentetik Test');assert.equal(payload.fields.management_address,'192.0.2.10');assert.equal(calls[0].init.headers['X-V2-Demo-Action'],'router-workspace');
+  assert.equal(payload.fields.management_status,'ACTIVE');assert.equal(payload.fields.simulated_status,'ONLINE');
+  assert.equal(payload.fields.simulated_last_seen_at,'2026-01-01T12:00:00Z');
   assert.equal('password' in payload.fields,false);assert.equal('ca_pem' in payload.fields,false);
   tree=render();assert.equal(button(tree,'Sentetik kaydı sil').props.disabled,true);
   assert.match(renderToStaticMarkup(tree),/Cihaz doğrulanmadı/);

@@ -13,13 +13,14 @@ from app.services.router_workspace import RouterWorkspace,WorkspaceError
 from app.schemas.router_workspace import DemoRouterCommand,DeleteWorkspaceRecord,TrustProfileCommand,WorkspaceRecord
 from app.models.router_workspace import RouterWorkspaceRecord as Record,RouterWorkspaceAudit as Audit
 from app.api.v1 import router_workspace as routes
+from app.models.subscriber_workspace import SyntheticSubscriber
 
 class WorkspaceTransactions(TestCase):
     def setUp(self):
         directory=tempfile.TemporaryDirectory();self.addCleanup(directory.cleanup)
-        self.engine=create_engine('sqlite+pysqlite:///'+str(Path(directory.name)/'workspace.db'),execution_options={'schema_translate_map':{'v2_router_workspace':None}})
+        self.engine=create_engine('sqlite+pysqlite:///'+str(Path(directory.name)/'workspace.db'),execution_options={'schema_translate_map':{'v2_router_workspace':None,'v2_subscriber_workspace':None}})
         self.addCleanup(self.engine.dispose)
-        Record.__table__.create(self.engine);Audit.__table__.create(self.engine)
+        Record.__table__.create(self.engine);Audit.__table__.create(self.engine);SyntheticSubscriber.__table__.create(self.engine)
         self.sessions=sessionmaker(bind=self.engine,expire_on_commit=False)
         self.workspace=RouterWorkspace(self.sessions,lambda session:None)
     def command(self,name='Sentetik test',revision=0):
@@ -40,6 +41,9 @@ class WorkspaceTransactions(TestCase):
         reopened.delete(item['id'],'DEMO_ROUTER',DeleteWorkspaceRecord(expected_revision=2,confirmed=True),'actor')
         self.assertEqual(reopened.list('DEMO_ROUTER')['total'],0)
         with self.sessions() as s:self.assertEqual(s.scalar(select(func.count()).select_from(Audit)),3)
+        [deletion]=reopened.deleted_history()
+        self.assertEqual(deletion['changes']['name'],{'previous':'Yeni sentetik','new':None})
+        self.assertEqual(deletion['actor_id'],'actor')
     def test_center_detail_reads_existing_record_without_mutation_or_profile_leak(self):
         item=self.workspace.save('DEMO_ROUTER',self.command('TEST-EV-V2'),'actor')
         before=self.workspace.detail(item['id'],'DEMO_ROUTER')

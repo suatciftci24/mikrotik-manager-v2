@@ -9,7 +9,7 @@ from app.services.router_registry import registry
 from app.services.router_workspace import workspace
 from app.services.demo_data import ROUTERS
 from app.services.router_center import persistent_demo,registered,static_demo
-from app.schemas.router_center import RouterCenterData
+from app.schemas.router_center import RouterCenterData,RouterSubscriberSummary
 from app.schemas.subscriber_center import RouterSubscriberList
 from app.services.pppoe_readonly import PppoeSnapshot, disabled_binding, snapshot
 
@@ -34,6 +34,10 @@ def detail(id:str,user:dict=Depends(current_demo_user)):
     row=next((row for row in ROUTERS if row['id']==id),None)
     if row is None:raise HTTPException(404,'Router bulunamadı.')
     return static_demo(row)
+
+@router.get('/{id}/subscriber-summary',response_model=RouterSubscriberSummary)
+def subscriber_summary(id:str,user:dict=Depends(current_admin)):
+    return workspace_execute(workspace.subscriber_summary,id)
 
 @router.get('/{id}/subscribers',response_model=RouterSubscriberList)
 def subscribers(id:str,access_type:str=Query(...,pattern='^(PPPOE|HOTSPOT)$'),query:str=Query('',max_length=120),status:str=Query('ALL',pattern='^(ALL|ACTIVE|PAUSED|PENDING)$'),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_demo_user)):

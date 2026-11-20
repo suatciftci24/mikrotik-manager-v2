@@ -20,3 +20,4 @@ class RouterWorkspaceAudit(Base):
     action:Mapped[str]=mapped_column(String(20))
     occurred_at:Mapped[str]=mapped_column(String(40))
     revision:Mapped[int]=mapped_column(Integer)
+    changes:Mapped[dict|None]=mapped_column(JSON,nullable=True)

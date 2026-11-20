@@ -1,4 +1,6 @@
 """Scoped synthetic reads; mutations and trust profiles remain central ADMIN only."""
+from typing import Literal
+from app.schemas.router_center import RouterCenterEvent
 from fastapi import APIRouter,Depends,Header,HTTPException,Query
 from app.core.security import current_admin,current_demo_user
 from app.core.authorization import workspace_scope,require_workspace_router
@@ -16,10 +18,16 @@ def execute(call,*args,**kwargs):
     except WorkspaceError as error:raise HTTPException(error.status,error.detail) from None
 
 @router.get('/routers',response_model=WorkspaceList)
-def routers(query:str=Query('',max_length=120),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_demo_user)):
+def routers(query:str=Query('',max_length=120),page:int=Query(1,ge=1,le=1000000),page_size:int=Query(25,ge=1,le=100),user:dict=Depends(current_demo_user),
+            management_status:Literal['ACTIVE','INACTIVE']|None=None,
+            simulated_status:Literal['ONLINE','OFFLINE','UNKNOWN']|None=None):
     scope=workspace_scope(user)
-    if scope is None:return execute(workspace.list,'DEMO_ROUTER',query,page,page_size)
-    return execute(workspace.list,'DEMO_ROUTER',query,page,page_size,scope)
+    return execute(workspace.list,'DEMO_ROUTER',query,page,page_size,scope,
+                   management_status=management_status,simulated_status=simulated_status)
+
+@router.get('/deleted-routers/history',response_model=list[RouterCenterEvent])
+def deleted_history(user:dict=Depends(current_admin)):
+    return execute(workspace.deleted_history)
 @router.get('/routers/{id}',response_model=WorkspaceRecord)
 def detail(id:str,user:dict=Depends(current_demo_user)):
     require_workspace_router(user,id)

@@ -121,3 +121,13 @@
   padding-top: 12px;
   padding-bottom: 12px;
 }
+
+.router-workspace-form textarea {
+  min-height: 72px;
+  font: inherit;
+}
+
+.router-workspace-form p,
+.router-workspace-form small {
+  grid-column: 1 / -1;
+}

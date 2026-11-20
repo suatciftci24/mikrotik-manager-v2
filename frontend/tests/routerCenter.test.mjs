@@ -135,5 +135,11 @@ test('persistent missing CPU RAM and WAN stay missing and router metadata is col
  const html=renderToStaticMarkup(view('overview'));assert.match(html,/<dt>CPU<\/dt><dd>Veri yok<\/dd>/);assert.match(html,/<dt>RAM<\/dt><dd>Veri yok<\/dd>/);
  assert.match(html,/<details class="technical-info"><summary>Teknik bilgiler/);assert.doesNotMatch(html,/<details class="technical-info" open/);
  const wan=renderToStaticMarkup(view('wan'));for(const label of ['WAN IP','İnternet erişimi','Trafik'])assert.ok(wan.includes(label));
- assert.match(wan,/<dt>WAN IP<\/dt><dd>Veri yok<\/dd>/);assert.doesNotMatch(wan,/yönetim IP’si|Bu sentetik kayıt için bu bölümde/);
+ assert.match(wan,/<dt>WAN IP<\/dt><dd>Bilinmiyor<\/dd>/);
+ assert.match(wan,/Sentetik envanter · WAN ve trafik ölçümü yok/);
+ assert.match(wan,/Ölçüm kaydı yok/);
+ const simulated=renderToStaticMarkup(view('overview',{item:{...data.item,management_status:'INACTIVE',simulated_status:'ONLINE'}}));
+ assert.match(simulated,/<dt>Yönetim durumu<\/dt><dd>Pasif<\/dd>/);
+ assert.match(simulated,/<dt>Simüle durum<\/dt><dd>Çevrimiçi<\/dd>/);
+ assert.match(simulated,/<dt>Cihaz bağlantısı<\/dt><dd>Bilinmiyor · ölçülmedi<\/dd>/);assert.doesNotMatch(wan,/yönetim IP’si|Bu sentetik kayıt için bu bölümde/);
 });

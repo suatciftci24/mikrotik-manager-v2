@@ -10,7 +10,11 @@ def center(source,item,events=()):
 def persistent_demo(row,events=()):
     if row['kind']!='DEMO_ROUTER' or row['is_demo'] is not True:raise ValueError('Demo source mismatch')
     fields=row['fields']
-    return center('PERSISTENT_DEMO',dict(id=row['id'],name=fields['name'],model=fields['model'],management_address=fields['management_address'],site=fields.get('site'),status='UNMEASURED'),events)
+    return center('PERSISTENT_DEMO',dict(id=row['id'],name=fields['name'],model=fields['model'],
+        management_address=fields['management_address'],site=fields.get('site'),identity=fields.get('identity'),
+        routeros_version=fields.get('routeros_version'),inventory_description=fields.get('description'),
+        management_status=fields.get('management_status','ACTIVE'),simulated_status=fields.get('simulated_status','UNKNOWN'),
+        simulated_last_seen_at=fields.get('simulated_last_seen_at'),status='UNMEASURED'),events)
 
 def registered(row,events=()):
     if row['is_demo'] is not False:raise ValueError('Registered source mismatch')

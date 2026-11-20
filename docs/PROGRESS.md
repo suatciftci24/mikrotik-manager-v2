@@ -1,5 +1,35 @@
 # MikroTik Manager V2 — İlerleme
 
+## Router Yönetimi ve abone entegrasyonu — V2.6.13
+
+- `~/mikrotik-v2-ortak`, `development/v2.6.2-pppoe`, temiz taban
+  `e671463b103a2d5afe314de29dad2d0f3ad2d065`. Sentetik kayıt alanları,
+  arama ve yönetim/simülasyon filtreleri tamamlandı. Yönetim durumu,
+  simüle bağlantı ve UTC örnek zamanı ayrı tutuluyor. WAN ve trafik
+  görünümü ölçüm kaynağının ve örneğin bulunmadığını gösteriyor.
+  V1 aktarılmış envanter salt okunur kaynak olarak ayrık kalıyor.
+- Router abone sekmesi kayıtlı aktif/pasif/diğer hesap toplamını ve
+  paket dağılımını gösteriyor. Yeni atama etkin sentetik router gerektiriyor.
+  Yönetici, abone düzenleme önizlemesinde eski/yeni router adı ve kimliğini
+  görerek bağı değiştirebiliyor. Router değişikliği kendiliğinden paket,
+  hesap durumu veya bitiş tarihi değişikliği üretmiyor. Sunucu, silme ve
+  atamayı aynı router satırı üzerinden kilitliyor ve bağlı routerı koruyor.
+- Router audit'i aktör, UTC tarih, revizyon ve değişen alanların
+  önceki/yeni değerlerini aynı transaction'da saklıyor. Silme geçmişi
+  yöneticiye listeden açılıyor. 013, audit tablosuna nullable JSON kolonu
+  eklemek için gerekli. İleri/geri SQL hazırlandı. PostgreSQL'e uygulanmadı.
+- PASS: İzole SQLite/ASGI router workspace, router center, operatör
+  yetkisi, abone workspace, PPPoE günlük işlemler ve paket entegrasyonu
+  74/74. Hedefli frontend Node testleri 99/99. TypeScript/Vite üretim
+  derlemesi, `tools/release.py check`, `frontend/dist/release.json` byte
+  karşılaştırması ve `git diff --check` PASS.
+- Chromium BLOCKED. Yerel Chromium süreç başlangıcında
+  `sandbox_host_linux.cc:41 shutdown: Operation not permitted` hatası
+  verdi. 360/1280 px senaryosu tarayıcı başlangıcını geçemedi.
+  Git push BLOCKED. `tools/check-git-transfer.sh` mevcut checkout ve dalı
+  kayıtlı WSL hedefi olarak kabul etmedi. Uzak aktarım veya canlı yayın
+  yapılmadı. Chromium kabulü, süreci çalıştırabilen izole ortamda açık.
+
 ## Paket Yönetimi ve abone entegrasyonu — V2.6.12
 
 - Ofis WSL `~/mikrotik-v2-ortak`, `development/v2.6.2-pppoe`, taban

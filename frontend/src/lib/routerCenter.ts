@@ -18,11 +18,22 @@ export function routerSubscriberListHash(id:string,access:'PPPOE'|'HOTSPOT'|'ALL
  }
  return fromHash?linkedCenterHash('#'+params,fromHash):'#'+params;
 }
+export const managementLabels={ACTIVE:'Etkin',INACTIVE:'Pasif'} as const;
+export const simulationLabels={ONLINE:'Çevrimiçi',OFFLINE:'Çevrimdışı',UNKNOWN:'Bilinmiyor'} as const;
+export type ManagementStatus=keyof typeof managementLabels;
+export type SimulationStatus=keyof typeof simulationLabels;
+export const routerFieldLabels={
+ name:'Router adı',management_address:'Sentetik IPv4 adresi',model:'Model',site:'Konum',
+ identity:'Router kimliği',routeros_version:'RouterOS sürümü',description:'Açıklama',
+ management_status:'Yönetim durumu',simulated_status:'Simüle durum',simulated_last_seen_at:'Sentetik son görülme'
+} as const;
+export type RouterEvent={action:string;occurred_at:string;actor_id:string;revision:number|null;record_id?:string|null;
+ changes?:Record<string,{previous:string|null;new:string|null}>|null};
 export type RouterCenterData={source:'PERSISTENT_DEMO'|'STATIC_DEMO'|'REGISTERED';is_demo:boolean;device_connection_started:false;
- item:{id:string;name:string;identity:string|null;model:string|null;routeros_version:string|null;management_address:string;site:string|null;inventory_description?:string|null;status:string;last_success_at:string|null;last_seen_at:string|null;cpu_percent:number|null;memory_percent:number|null;uptime:string|null};
+ item:{id:string;name:string;identity:string|null;model:string|null;routeros_version:string|null;management_address:string;site:string|null;inventory_description?:string|null;management_status?:ManagementStatus|null;simulated_status?:SimulationStatus|null;simulated_last_seen_at?:string|null;status:string;last_success_at:string|null;last_seen_at:string|null;cpu_percent:number|null;memory_percent:number|null;uptime:string|null};
  read_snapshot?:RouterReadSnapshot|null;
  sections:Record<typeof routerSectionTabs[number][0],'AVAILABLE'|'UNMEASURED'|'PREPARING'>;
- events:{action:string;occurred_at:string;actor_id:string;revision:number|null}[]};
+ events:RouterEvent[]};
 export const routerCenterPath=(id:string)=>'/router-center/'+encodeURIComponent(id);
 export function validRouterCenter(data:RouterCenterData,id:string){return data.item?.id===id&&data.device_connection_started===false&&
  (data.source==='REGISTERED'?id.startsWith('registered-')&&data.is_demo===false:data.is_demo===true&&(data.source==='PERSISTENT_DEMO'?id.startsWith('demo-managed-router-'):data.source==='STATIC_DEMO'&&id.startsWith('demo-router-')));}

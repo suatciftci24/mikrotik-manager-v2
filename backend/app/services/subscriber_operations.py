@@ -10,7 +10,7 @@ from app.core.database import SessionLocal
 from app.core.v26_acceptance import local_undo_enabled
 from app.models.subscriber_workspace import SyntheticSubscriber as Account,SyntheticSubscriberEvent as Event, SyntheticSubscriberSkip as Skip
 from app.services.subscriber_center import SubscriberWorkspace,request_audit,event_scope,event_source
-from app.services.router_workspace import guard,boundary,WorkspaceError
+from app.services.router_workspace import guard,boundary,WorkspaceError,require_active_router
 from app.models.router_workspace import RouterWorkspaceRecord
 
 PUBLIC_FIELDS={'customer_name','plan','status','expires_on','started_on','router_id','username','access_type','source','package_id','package_revision'}
@@ -182,7 +182,7 @@ class SubscriberOperationsService:
                     UUID(value.removeprefix('demo-managed-router-'))
                 except ValueError:raise WorkspaceError(422,'Yalnız kalıcı sentetik router ID seçin.') from None
                 parents.add(value)
-            for id in sorted(parents):SubscriberWorkspace.parent(session,id)
+            locked_routers={id:SubscriberWorkspace.parent(session,id) for id in sorted(parents)}
             row=session.get(Account,command.item_id,with_for_update=True,populate_existing=True)
             if not row:raise WorkspaceError(404,'Sentetik abone bulunamadı.')
             SubscriberWorkspace.authorize(row,user,True)
@@ -191,6 +191,8 @@ class SubscriberOperationsService:
             if row.router_id!=command.expected_router_id or row.source!=command.expected_source or row.fields.get('source')!=row.source or row.fields.get('router_id')!=row.router_id:raise WorkspaceError(409,'Abone, router veya kaynak değişti. Güncel kaydı yeniden seçin.')
             if row.revision != command.expected_revision:
                 raise WorkspaceError(409, 'Abone revizyonu önizlemeden sonra değişti. Güncel kaydı açıp yeni önizleme oluşturun.')
+            if command.operation=='ROUTER' and command.value!=row.router_id:
+                require_active_router(locked_routers[command.value])
             if command.operation=='STATUS' and command.value in ('ACTIVE','PAUSED'):
                 current=row.fields.get('status')
                 if command.expected_status is not None and current!=command.expected_status:

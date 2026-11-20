@@ -1,5 +1,11 @@
 # Değişiklik geçmişi
 
+## [2.6.13] - 2026-11-20
+
+- Sentetik router kaydında envanter bilgileri, arama, yönetim ve simüle bağlantı filtreleri.
+- Router detayında bağlı hesap sayıları ve paket dağılımı. Abone düzenlemede önizlemeli router değişikliği.
+- Bağlı aboneli router için sunucu tarafında silme engeli. Audit önceki/yeni değerleri için 013 şema değişikliği.
+
 ## [2.6.12] - 2026-11-20
 
 - Paket kataloğu araması, durum filtresi, para birimi, bağlı abone sayısı, korumalı silme ve abone düzenleme entegrasyonu.

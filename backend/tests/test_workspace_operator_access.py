@@ -2,6 +2,7 @@
 import os,tempfile
 from pathlib import Path
 from unittest import TestCase
+from uuid import uuid4
 from unittest.mock import patch
 from fastapi import FastAPI
 import asyncio,json
@@ -152,3 +153,69 @@ class OperatorAccess(TestCase):
             self.assertTrue(refreshed['permissions'][self.allowed]['can_view'])
             self.assertEqual(self.client.get('/api/v1/dashboard/summary',headers=headers).json()['summary']['router_count'],1)
             self.assertEqual(self.client.get('/api/v1/router-workspace/profiles',headers=headers).status_code,403)
+
+    def test_router_metadata_filters_assignment_summary_and_delete_audit(self):
+        self.user.update(role_code='ADMIN',can_manage_users=True)
+        routers='/api/v1/router-workspace/routers'
+        accounts='/api/v1/subscriber-workspace'
+        router_headers={'X-V2-Demo-Action':'router-workspace'}
+        account_headers={'X-V2-Demo-Action':'subscriber-workspace'}
+        def save_router(name,status='ACTIVE',simulation='UNKNOWN',previous=None):
+            payload=dict(request_id=str(uuid4()),expected_revision=previous['revision'] if previous else 0,
+                confirmed=True,fields=dict(name=name,management_address='192.0.2.45',identity='lab-edge',
+                model='Lab Model',routeros_version='7.20',site='Lab',description='Fixture',
+                management_status=status,simulated_status=simulation,simulated_last_seen_at='2026-01-01T12:00:00+03:00'))
+            response=self.client.post(routers+('/'+previous['id'] if previous else ''),json=payload,headers=router_headers)
+            self.assertEqual(response.status_code,200,response.text)
+            return response.json()
+
+        origin=save_router('Origin')
+        target=save_router('Target',simulation='ONLINE')
+        inactive=save_router('Inactive','INACTIVE','OFFLINE')
+        queried=self.client.get(routers+'?query=lab-edge&management_status=ACTIVE&simulated_status=ONLINE').json()
+        self.assertEqual([row['id'] for row in queried['items']],[target['id']])
+        self.assertEqual(self.client.get(routers+'?simulated_status=UNKNOWN').json()['total'],3)
+        center='/api/v1/router-center/'+target['id']
+        item=self.client.get(center).json()['item']
+        self.assertEqual((item['status'],item['simulated_status'],item['simulated_last_seen_at'],item['last_seen_at']),
+                         ('UNMEASURED','ONLINE','2026-01-01T09:00:00Z',None))
+        target=save_router('Target edited',simulation='OFFLINE',previous=target)
+        changes=self.client.get(center).json()['events'][0]['changes']
+        self.assertEqual(changes['name'],{'previous':'Target','new':'Target edited'})
+        self.assertEqual(changes['simulated_status'],{'previous':'ONLINE','new':'OFFLINE'})
+
+        fields=dict(customer_name='Synthetic Account',username='synthetic.account',router_id=inactive['id'],
+                    access_type='PPPOE',source='LOCAL',plan='Fixture plan',status='ACTIVE',expires_on='2027-04-01')
+        def command(values,revision=0):
+            return dict(request_id=str(uuid4()),expected_revision=revision,confirmed=True,fields=values)
+        self.assertEqual(self.client.post(accounts,json=command(fields),headers=account_headers).status_code,409)
+        fields['router_id']=origin['id']
+        created=self.client.post(accounts,json=command(fields),headers=account_headers)
+        self.assertEqual(created.status_code,200,created.text)
+        account=accounts+'/'+created.json()['id']
+        del fields['status'],fields['expires_on']
+        self.assertEqual(self.client.post(account,json=command({**fields,'router_id':inactive['id']},1),headers=account_headers).status_code,409)
+        move=command({**fields,'router_id':target['id']},1)
+        self.user.update(role_code='OPERATOR',can_manage_users=False,permissions={
+            row['id']:dict(can_view=True,can_manage_pppoe=True) for row in (origin,target)})
+        self.assertEqual(self.client.post(account,json=move,headers=account_headers).status_code,403)
+        self.assertEqual(self.client.get(center+'/subscriber-summary').status_code,403)
+        self.assertEqual(self.client.get('/api/v1/router-workspace/deleted-routers/history').status_code,403)
+        self.user.update(role_code='ADMIN',can_manage_users=True)
+        moved=self.client.post(account,json=move,headers=account_headers)
+        self.assertEqual(moved.status_code,200,moved.text)
+        self.assertEqual(tuple(moved.json()[key] for key in ('router_id','plan','status','expires_on')),
+                         (target['id'],'Fixture plan','ACTIVE','2027-04-01'))
+        self.assertEqual(self.client.post(account,json=move,headers=account_headers).json(),moved.json())
+        receipt=self.client.get(accounts+'/requests/'+move['request_id']).json()
+        self.assertEqual(receipt['response']['router_id'],target['id'])
+        self.assertEqual(self.client.get(center+'/subscriber-summary').json(),
+                         dict(active=1,paused=0,other=0,total=1,packages={'Fixture plan':1}))
+        self.assertEqual(self.client.get(center+'/subscribers?access_type=PPPOE').json()['total'],1)
+        for row,expected in ((target,409),(origin,200)):
+            result=self.client.post(routers+'/'+row['id']+'/delete',headers=router_headers,
+                                   json=dict(expected_revision=row['revision'],confirmed=True))
+            self.assertEqual(result.status_code,expected,result.text)
+        history=self.client.get('/api/v1/router-workspace/deleted-routers/history').json()
+        self.assertEqual([entry['record_id'] for entry in history],[origin['id']])
+        self.assertEqual(history[0]['changes']['name'],dict(previous='Origin',new=None))
