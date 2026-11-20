@@ -1,5 +1,14 @@
 # MikroTik Manager V2 — İlerleme
 
+## CEBECI yönetilen TCP zaman aşımı
+
+- VDS kullanıcı kanıtı: bağımsız 123/123, yönetilen runtime/onay/bind
+  PASS ve TCP timeout. Önceki /run NOEXEC, yeni ölçümde import geçti.
+- BLOCKED: Etkin cgroup/slice politikası ve SYN düşüş noktası
+  ölçülmedi. Sabit hedefe izin veren kural korunuyor. Yerel
+  [ağ analizi ve gerekli kanıt](../deploy/cebeci-observer/V2616-OBSERVATION-DIAGNOSIS.md#vds-ağ-bulgusu-ve-karar)
+  hazır. Ürün kodu, VDS, router ve yayın değiştirilmedi.
+
 ## CEBECI izole teşhis Python çalışma zamanı
 
 - Taban `efeefa52e474a564a99499d14ea5450bd694d089`. VDS'de iki

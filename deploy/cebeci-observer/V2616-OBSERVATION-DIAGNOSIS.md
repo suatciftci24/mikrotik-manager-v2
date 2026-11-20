@@ -121,3 +121,44 @@ kontrol edilir. `IMPORT=PYDANTIC_CORE:NATIVE_MAP_DENIED`,
 `IMPORT=FASTAPI:MODULE_MISSING:STARLETTE` gibi kodlar import kontrolünü
 ve hata sınıfını ayırır. Ham hata, modül yolu veya kimlik bilgisi
 yazılmaz. Makineye özel izin ve montaj ayarları değiştirilmez.
+
+## VDS ağ bulgusu ve karar
+
+Bağımsız akış 123/123, yönetilen akış kaynak bind PASS ve TCP timeout.
+Önceki `/run` alanı NOEXEC. Bu ikinci olgu önceki import fazına ait.
+Yeni ölçümde her iki runtime geçti ve yönetilen fark TCP aşamasında
+görüldü. TLS, login, snapshot ve API tüketimi bu ölçümde yönetilen
+bağlantı için erişilen aşamalar arasında değildi.
+
+Systemd'nin adres kuralı port seçmez. Giden paketin hedefi ve gelen
+paketin kaynağı eşleşir. Bu nedenle `10.250.0.1` bind adresini
+allowlist'e eklemek bu sonuçtan türetilemez. Linux IPv4 bitiş yolunda
+cgroup BPF egress kontrolü vardır. XFRM çıkışı da son dönüşümden sonra
+bu IPv4 çıkış yoluna dönebilir. Dış IPsec başlığının gözlemciye ait filtre
+tarafından değerlendirildiği, bu VDS'de kullanılmakta olan tünel yolu ve
+paket düşüşü ölçülmeden doğrulanamaz.
+
+Yetkili VDS terminalinde önce salt okunur yol ve devralınan politika
+bilgisi alınabilir:
+
+```bash
+sudo systemctl show -p IPAddressAllow -p IPAddressDeny -p IPIngressFilterPath -p IPEgressFilterPath -p BPFProgram -- -.slice system.slice
+ip -4 route get 10.250.0.19 from 10.250.0.1 ipproto tcp dport 8729
+```
+
+Etkin BPF kancaları için yönetilen geçici birim çalışırken
+`systemctl show -p ControlGroup --value <geçici-birim>` ile gerçek cgroup
+belirlenir ve `bpftool cgroup show /sys/fs/cgroup<ControlGroup> effective`
+okunur. Ata kancalarının listesi, bir paketin düştüğünün kanıtı değildir.
+Sonraki gerekli kanıt yalnız yönetilen bağlantının SYN/SYN-ACK yolu ve
+varsa cgroup BPF veya XFRM düşüş nedeni. IPsec anahtarı içerebilen
+`ip xfrm state` çıktısı paylaşılmaz.
+
+Düzeltme kararı bu kanıta bağlıdır. İç bağlantı sınırı TCP
+`10.250.0.1 → 10.250.0.19:8729` olarak kalmalıdır. Dış tünel uç noktasını
+genel allowlist'e eklemek veya devralınan filtreyi sökmek bu sınırı
+tek başına sağlamaz. Ürün ve birim değişikliği beklemede.
+
+- [systemd cgroup kaynak ve adres filtresi](https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html)
+- [Linux IPv4 egress kancası](https://github.com/torvalds/linux/blob/master/net/ipv4/ip_output.c)
+- [Linux XFRM çıkış yolu](https://github.com/torvalds/linux/blob/master/net/xfrm/xfrm_output.c)
