@@ -4,6 +4,7 @@ import argparse
 import configparser
 from datetime import datetime, timedelta, timezone
 import errno
+import importlib
 import io
 import json
 import logging
@@ -37,6 +38,28 @@ SECURITY = ('NoNewPrivileges', 'CapabilityBoundingSet', 'ProtectSystem', 'Protec
             'RuntimeDirectoryMode', 'RuntimeDirectoryPreserve', 'TimeoutStopSec')
 
 
+IMPORTS = (
+    ('PYDANTIC_CORE', 'pydantic_core._pydantic_core', 'packages'),
+    ('PYDANTIC', 'pydantic', 'packages'),
+    ('FASTAPI', 'fastapi', 'packages'),
+    ('OBSERVER', 'app.adapters.cebeci_observer', 'source'),
+    ('TRANSPORT', 'app.adapters.router_api_ssl', 'source'),
+    ('WIRE', 'app.adapters.cebeci_api_ssl', 'source'),
+    ('COLLECTOR', 'app.adapters.device_inventory', 'source'),
+    ('SNAPSHOT_SCHEMA', 'app.schemas.device_inventory', 'source'),
+    ('SNAPSHOT_WRITER', 'app.services.device_poller', 'source'),
+)
+KNOWN_MODULES = {
+    'app': 'APP', 'pydantic_core': 'PYDANTIC_CORE', 'pydantic': 'PYDANTIC', 'fastapi': 'FASTAPI',
+    'starlette': 'STARLETTE', 'anyio': 'ANYIO', 'typing_extensions': 'TYPING_EXTENSIONS',
+    'typing_inspection': 'TYPING_INSPECTION', 'annotated_types': 'ANNOTATED_TYPES',
+    'annotated_doc': 'ANNOTATED_DOC', 'typing': 'TYPING_STDLIB', '_ssl': 'SSL_STDLIB',
+}
+IMPORT_FAILURES = {'MODULE_MISSING', 'NATIVE_MAP_DENIED', 'NATIVE_ABI_MISMATCH', 'NATIVE_LIBRARY_MISSING',
+                   'NATIVE_INIT_FAILED', 'IMPORT_SYMBOL_MISSING', 'IMPORT_ERROR', 'ACCESS_DENIED', 'PATH_MISSING',
+                   'IO_ERROR', 'MODULE_INIT_FAILED', 'ORIGIN_REJECTED'}
+
+
 class Stop(RuntimeError):
     pass
 
@@ -46,9 +69,9 @@ def need(condition, code):
         raise Stop(code)
 
 
-def command(*args, timeout=20):
+def command(*args, timeout=20, cwd=None):
     with subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                          start_new_session=True) as process:
+                          start_new_session=True, cwd=cwd) as process:
         try:
             stdout, stderr = process.communicate(timeout=timeout)
         except BaseException:
@@ -65,15 +88,81 @@ def emit(step, status):
     print(f'{step}={status}', flush=True)
 
 
+def import_failure(error):
+    if isinstance(error, ModuleNotFoundError):
+        return 'MODULE_MISSING', KNOWN_MODULES.get((error.name or '').partition('.')[0])
+    if isinstance(error, ImportError):
+        # Native loader messages are classified locally and never printed.
+        detail = str(error).lower()
+        if 'failed to map segment' in detail or 'cannot map' in detail:
+            return 'NATIVE_MAP_DENIED', None
+        if any(marker in detail for marker in ('wrong elf class', 'invalid elf', 'undefined symbol', 'glibc_')):
+            return 'NATIVE_ABI_MISMATCH', None
+        if 'cannot open shared object file' in detail:
+            return 'NATIVE_LIBRARY_MISSING', None
+        if 'module export function' in detail:
+            return 'NATIVE_INIT_FAILED', None
+        if 'cannot import name' in detail:
+            return 'IMPORT_SYMBOL_MISSING', None
+        return 'IMPORT_ERROR', None
+    if isinstance(error, PermissionError):
+        return 'ACCESS_DENIED', None
+    if isinstance(error, FileNotFoundError):
+        return 'PATH_MISSING', None
+    if isinstance(error, OSError):
+        return 'IO_ERROR', None
+    return 'MODULE_INIT_FAILED', None
+
+
+def load_runtime(root, packages):
+    source = root/'backend'
+    need(sys.flags.isolated and sys.flags.no_site, 'PYTHON_ISOLATION_REQUIRED')
+    need(Path.cwd() == root, 'WORKING_DIRECTORY_MISMATCH')
+    for directory, code in ((source, 'SOURCE_DIRECTORY_ACCESS'), (packages, 'PACKAGE_DIRECTORY_ACCESS')):
+        try:
+            with os.scandir(directory) as entries:
+                next(entries, None)
+            need(os.access(directory, os.X_OK), code)
+        except OSError:
+            raise Stop(code) from None
+    try:
+        with (source/'app/adapters/cebeci_observer.py').open('rb') as stream:
+            stream.read(1)
+    except OSError:
+        raise Stop('SOURCE_MODULE_ACCESS') from None
+    need(not os.statvfs(packages).f_flag & os.ST_NOEXEC, 'PACKAGE_FILESYSTEM_NOEXEC')
+    sys.path[:0] = [str(source), str(packages)]
+    loaded = {}
+    for label, module_name, location in IMPORTS:
+        try:
+            module = importlib.import_module(module_name)
+            allowed = source if location == 'source' else packages
+            origin = getattr(module, '__file__', None)
+            need(origin and Path(origin).resolve().is_relative_to(allowed), 'ORIGIN_REJECTED')
+            loaded[label] = module
+        except Stop:
+            print(f'IMPORT={label}:ORIGIN_REJECTED', flush=True)
+            raise Stop('IMPORT_FAILED') from None
+        except Exception as error:
+            reason, missing = import_failure(error)
+            suffix = ':' + missing if missing else ''
+            print(f'IMPORT={label}:{reason}{suffix}', flush=True)
+            raise Stop('IMPORT_FAILED') from None
+    return loaded
+
+
 def worker(root, packages, mode, runtime):
-    # All stdout is restricted to codes. The launcher independently filters it.
     logging.disable(logging.CRITICAL)
-    sys.path[:0] = [str(root/'backend'), str(packages)]
-    from app.adapters import cebeci_observer as observer, router_api_ssl as transport
-    from app.adapters.cebeci_api_ssl import ApiSslStop, _Wire
-    from app.adapters.device_inventory import DeviceReadWire
-    from app.schemas.device_inventory import DeviceInventory
-    from app.services.device_poller import _publish
+    try:
+        loaded = load_runtime(root, packages)
+    except Stop as error:
+        emit('RUNTIME', str(error))
+        return 1
+    observer, transport = loaded['OBSERVER'], loaded['TRANSPORT']
+    ApiSslStop, _Wire = loaded['WIRE'].ApiSslStop, loaded['WIRE']._Wire
+    DeviceReadWire = loaded['COLLECTOR'].DeviceReadWire
+    DeviceInventory = loaded['SNAPSHOT_SCHEMA'].DeviceInventory
+    _publish = loaded['SNAPSHOT_WRITER']._publish
 
     emit('RUNTIME', 'PASS')
     current = 'AUTHORIZATION'
@@ -264,10 +353,19 @@ def report(mode, result):
     passed = set()
     safe = CAUSES | {'PASS', 'ADDRESS_NOT_AVAILABLE', 'PERMISSION', 'AUTHENTICATION_REJECTED', 'REJECTED',
                      'ROW_COUNT_MISMATCH', 'NAME_MISMATCH', 'MODEL_MISMATCH', 'VERSION_MISMATCH',
-                     'DIRECTORY_METADATA', 'FILE_METADATA', 'PAYLOAD_MISMATCH', 'LOCAL_OR_VALIDATION_FAILURE', 'IMPORT_OR_EXEC_FAILURE',
+                     'DIRECTORY_METADATA', 'FILE_METADATA', 'PAYLOAD_MISMATCH', 'LOCAL_OR_VALIDATION_FAILURE',
+                     'IMPORT_FAILED', 'RUNTIME_IO_FAILURE', 'PYTHON_ISOLATION_REQUIRED', 'WORKING_DIRECTORY_MISMATCH',
+                     'SOURCE_DIRECTORY_ACCESS', 'PACKAGE_DIRECTORY_ACCESS', 'SOURCE_MODULE_ACCESS',
+                     'PACKAGE_FILESYSTEM_NOEXEC',
                      'UNREACHABLE', 'TIMEOUT', 'TLS', 'AUTHORIZATION', 'INVALID_DATA'}
+    import_labels = {label for label, _, _ in IMPORTS}
     for line in result.stdout.decode(errors='replace').splitlines():
         stage, _, value = line.partition('=')
+        if stage == 'IMPORT':
+            check, _, failure = value.partition(':')
+            reason, _, module = failure.partition(':')
+            if check in import_labels and reason in IMPORT_FAILURES and (not module or module in KNOWN_MODULES.values()):
+                print(f'{mode.upper()} {line}')
         if stage in STEPS and value in safe or re.fullmatch(r'ACCOUNTS=[0-9]{1,3},COMPLETE=(?:TRUE|FALSE)', line):
             print(f'{mode.upper()} {line}')
             passed.add(stage)
@@ -298,9 +396,11 @@ def launch(args):
     version = f'python{sys.version_info.major}.{sys.version_info.minor}'
     packages = Path(args.venv).resolve(strict=True)/'lib'/version/'site-packages'
     need(packages.is_dir(), 'VENV_PYTHON_ABI_OR_PACKAGES_MISSING')
+    original_mount = 'NOEXEC' if os.statvfs('/run').f_flag & os.ST_NOEXEC else 'EXEC_ALLOWED'
+    print(f'ORIGINAL_RUN_MOUNT={original_mount}')
     os.umask(0o077)
     status = []
-    with tempfile.TemporaryDirectory(prefix='mtv2-cebeci-diag-', dir='/run') as directory:
+    with tempfile.TemporaryDirectory(prefix='mtv2-cebeci-diag-', dir='/opt') as directory:
         workspace = Path(directory)
         workspace.chmod(0o755)
         props = pinned_sources(repo, workspace)
@@ -322,12 +422,12 @@ def launch(args):
         need(not os.path.lexists(runtime), 'DIAGNOSTIC_RUNTIME_EXISTS')
         for mode in PINS:
             root = workspace/mode
-            worker_args = ('/usr/bin/python3', '-I', '-B', str(launcher), '--worker', str(root),
+            worker_args = ('/usr/bin/python3', '-I', '-S', '-B', str(launcher), '--worker', str(root),
                            str(target), mode, str(runtime))
             if mode == 'standalone':
                 try:
                     result = command('runuser', '-u', account.pw_name, '--', 'env', '-i',
-                                     'PATH=/usr/bin:/bin', *worker_args, timeout=25)
+                                     'PATH=/usr/bin:/bin', *worker_args, timeout=25, cwd=root)
                 except subprocess.TimeoutExpired:
                     result = subprocess.CompletedProcess(worker_args, 124, b'', b'')
             else:
@@ -358,8 +458,8 @@ def main():
         root, packages, mode, runtime = args.worker
         try:
             return worker(Path(root), Path(packages), mode, Path(runtime))
-        except (ImportError, OSError):
-            emit('RUNTIME', 'IMPORT_OR_EXEC_FAILURE')
+        except OSError:
+            emit('RUNTIME', 'RUNTIME_IO_FAILURE')
             return 1
     try:
         need(args.material and args.venv, 'MATERIAL_AND_VENV_REQUIRED')

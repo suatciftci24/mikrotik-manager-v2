@@ -82,12 +82,12 @@ kimlik bilgileriyle birer yeni salt okunur teşhis örneği alınabilir.
 çalıştırın:
 
 ```bash
-sudo /usr/bin/python3 -I -B /root/diagnose-observer.py --repo /srv/mikrotik-v26-next --material /MUTLAK/V2615/CHECKOUT/.local/cebeci-pilot/v2614-observer --venv /MUTLAK/V2615/VENV
+sudo /usr/bin/python3 -I -B /root/diagnose-observer.py --repo /home/mikadmin/v2616-diagnostic-source.git --material /MUTLAK/V2615/CHECKOUT/.local/cebeci-pilot/v2614-observer --venv /srv/mikrotik-v26-next/.venv
 ```
 
 `--material` başarılı V2.6.15 gözlemcisinin CA/parola dizini,
-`--venv` aynı gözlemcinin mevcut Python ortamıdır. VDS'deki iki mutlak
-yolu değiştirin. `--repo` iki sabit Git nesnesine yerelde erişebilmelidir.
+`--venv` VDS'de doğrulanmış mevcut Python ortamıdır. Yer tutucu
+malzeme yolunu VDS'deki gerçek mutlak yolla değiştirin. `--repo` iki sabit Git nesnesine yerelde erişebilmelidir.
 Betiğin bağımlılık indirme veya Git fetch adımı yoktur.
 
 İlk ölçüm V2.6.15 kaynağını doğrudan, ikincisi V2.6.16 kaynağını
@@ -103,3 +103,21 @@ Sabit çıktılar `SOURCE_BIND`, `TCP`, `SOURCE_PEER`, `TLS`, `LOGIN`,
 sürüm sapması yalnız hata koduyla verilir. Snapshot satırlarının
 içeriği, parola, sertifika ve cihaz yanıtı basılmaz. Kontrol sonrasında
 yalnız geçici birim durdurulur ve geçici dosyalar kaldırılır.
+
+### Python çalışma zamanı tanısı
+
+Eski betik aynı `IMPORT_OR_EXEC_FAILURE` koduyla farklı import ve dosya
+hatalarını birleştiriyordu. Bu çıktı tek başına geçmişteki hatayı belirlemez.
+Güncel betik önceki `/run` alanının güncel `noexec` durumunu bildirir.
+Kod ve kopya paketler geçici `/opt` alanına hazırlanır. Yönetilen snapshot
+geçici `/run` çalışma dizininde kalır. Kaynak depo ve özgün venv yalnız
+hazırlık sırasında okunur. Worker süreçleri `ProtectHome` altında
+`/home` içindeki Git deposuna erişmez.
+
+İki worker aynı biçimde `-I -S -B` ile başlatılır. Python standart
+kütüphanesi, sabit kaynak ve kopyalanan paketler kullanılır. Çalışma
+dizini, kaynak/paket erişimi ve modüllerin beklenen dizinlerden yüklenmesi
+kontrol edilir. `IMPORT=PYDANTIC_CORE:NATIVE_MAP_DENIED`,
+`IMPORT=FASTAPI:MODULE_MISSING:STARLETTE` gibi kodlar import kontrolünü
+ve hata sınıfını ayırır. Ham hata, modül yolu veya kimlik bilgisi
+yazılmaz. Makineye özel izin ve montaj ayarları değiştirilmez.

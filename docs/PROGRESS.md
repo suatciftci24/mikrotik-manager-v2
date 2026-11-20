@@ -1,5 +1,18 @@
 # MikroTik Manager V2 — İlerleme
 
+## CEBECI izole teşhis Python çalışma zamanı
+
+- Taban `efeefa52e474a564a99499d14ea5450bd694d089`. VDS'de iki
+  worker aynı genel import koduyla durdu. Önceki çıktı gerçek exception
+  sınıfı veya modülü taşımadı. Canlı neden belirlenemedi.
+- Geçici kaynak/paket alanı `/opt`, systemd snapshot alanı `/run`.
+  Önceki mount `noexec` bilgisi güvenli olarak gösterilir. Her worker
+  yalnız sabit kaynak ve kopya paketleri yükler. Native yükleme, eksik
+  modül, erişim ve modül kökeni ayrı tanı kodlarına sahiptir.
+- PASS: İki pinin gerçek yerel Python importu, eksik modül senaryosu,
+  sentetik native loader hata sınıfı, güvenli çıktı, sözdizimi ve diff.
+  Ağ adımı çalıştırılmadı. VDS, canlı V2.6.13 ve ürün sürümü değişmedi.
+
 ## V2.6.16 iki ortamlı CEBECI_TOWERS tanısı
 
 - Taban `a756ef2`. Kullanıcının VDS journal'ı yalnız onay, başlangıç ve
