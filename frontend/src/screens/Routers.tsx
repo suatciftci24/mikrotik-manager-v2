@@ -1,3 +1,4 @@
+import {DeviceInventory} from '../components/DeviceInventory';
 import {CompactRouterList} from '../components/CompactRouterList';
 import {SubscriberDisclosure} from '../components/CompactSubscriberList';
 import {useSubscriberTextFilter} from '../lib/useSubscriberTextFilter';
@@ -26,7 +27,7 @@ const RouterOnboarding=lazy(()=>import('../components/RouterOnboarding').then(mo
 
 const RouterRegistryList=lazy(()=>import('../components/RouterRegistryList').then(module=>({default:module.RouterRegistryList})));
 const DemoRouterWorkspace=lazy(()=>import('../components/DemoRouterWorkspace').then(module=>({default:module.DemoRouterWorkspace})));
-const ROUTER_SOURCES=['DEMO','MANAGED_DEMO','REGISTERED','V1_INVENTORY'] as const;
+const ROUTER_SOURCES=['DEMO','MANAGED_DEMO','REGISTERED','V1_INVENTORY','ROUTEROS'] as const;
 const ROUTER_FILTERS = ['ALL','ONLINE','OFFLINE','DEGRADED','UNKNOWN'] as const;
 const ROUTER_VIEWS = ['LIST','REPORT'] as const;
 export function Routers({ onToast }: { onToast: (message: string) => void }) {
@@ -48,10 +49,10 @@ export function Routers({ onToast }: { onToast: (message: string) => void }) {
   const inventorySummary=useMemo(()=>{try{return buildRouterReport(routers);}catch{return null;}},[routers]);
   const online = routers.filter(router => router.status === 'ONLINE').length;
   return <Suspense fallback={<p role="status">Router Merkezi yükleniyor…</p>}><><div className="router-center-list" hidden={!!navigation.selected}><div className="screen-stack"><section className="page-heading-row"><div><div className="eyebrow"><span className="eyebrow-line" />NETWORK INVENTORY</div><h1>Router Merkezi</h1></div><div className="heading-actions"><button className="button-secondary" hidden={source!=='DEMO'} onClick={()=>setView(view==='REPORT'?'LIST':'REPORT')}>{view==='REPORT'?'Router listesine dön':'Kullanım ve bağlantı raporu'}</button><button className="button-secondary" hidden={source!=='DEMO'} onClick={()=>invalidateResources(['/routers','/router-registry','/router-workspace/routers','/v1-inventory'])}><RefreshCw size={15} />Yenile</button>{admin&&source==='REGISTERED'&&<button className="button-primary" onClick={()=>setOnboarding({})}><Plus size={16} />Gerçek router formu</button>}</div></section>
-    <p className="subscriber-mobile-note">{source==='DEMO'||source==='MANAGED_DEMO'?'SENTETİK · Canlı durum ölçülmüyor.':'KAYITLI VERİ · Canlı durum bilinmiyor.'}</p><SourcePicker value={source} options={routerSourceOptions(admin,identity?.router_inventory_source==='PERSISTENT_WORKSPACE')} onChange={value=>setSource(value as typeof source)}>
+    <p className="subscriber-mobile-note">{source==='DEMO'||source==='MANAGED_DEMO'?'SENTETİK · Canlı durum ölçülmüyor.':'KAYITLI VERİ · Canlı durum bilinmiyor.'}</p><SourcePicker value={source} options={routerSourceOptions(admin,identity?.router_inventory_source==='PERSISTENT_WORKSPACE',true)} onChange={value=>setSource(value as typeof source)}>
       {admin&&source==='REGISTERED'&&<details className="source-actions"><summary>Kayıt ve pilot işlemleri</summary><div><button className="button-secondary" onClick={()=>setInventory(true)}>Bağlantısız envanter kaydı</button></div></details>}
     </SourcePicker>
-    {!admin&&source!=='DEMO'&&source!=='MANAGED_DEMO'?<p role="alert">Bu veri kaynağı için merkezi yönetim yetkisi gerekli.</p>:source==='V1_INVENTORY'&&admin?<>{!navigation.selected&&<V1Inventory/>}</>:source==='MANAGED_DEMO'?<DemoRouterWorkspace readOnly={!admin} onOpen={navigation.open}/>:source==='REGISTERED'&&admin?<RouterRegistryList onOpen={navigation.open}/>:view==='REPORT'?<RouterReport items={filtered} total={routers.length} loading={resource.loading} error={resource.error} retry={resource.retry} query={query} onQuery={setQuery} filter={filter} onFilter={value=>setFilter(value as typeof filter)} onOpen={navigation.open}/>:<>
+    {!admin&&source!=='DEMO'&&source!=='MANAGED_DEMO'?<p role="alert">Bu veri kaynağı için merkezi yönetim yetkisi gerekli.</p>:source==='ROUTEROS'&&admin?<DeviceInventory view="routers"/>:source==='V1_INVENTORY'&&admin?<>{!navigation.selected&&<V1Inventory/>}</>:source==='MANAGED_DEMO'?<DemoRouterWorkspace readOnly={!admin} onOpen={navigation.open}/>:source==='REGISTERED'&&admin?<RouterRegistryList onOpen={navigation.open}/>:view==='REPORT'?<RouterReport items={filtered} total={routers.length} loading={resource.loading} error={resource.error} retry={resource.retry} query={query} onQuery={setQuery} filter={filter} onFilter={value=>setFilter(value as typeof filter)} onOpen={navigation.open}/>:<>
     <SubscriberDisclosure label="Özet ve veri kapsamı">    <div className="router-stats" hidden={resource.loading || !!resource.error}><div><span>Toplam router</span><strong>{routers.length}<small> cihaz</small></strong></div><div><span>Örnekte ONLINE</span><strong>{online}<small> / {routers.length}</small></strong></div><div><span>Sentetik abone sayacı</span><strong>{routers.reduce((n,r)=>n+r.subscriber_count,0).toLocaleString('tr-TR')}</strong></div><div><span>Ortalama CPU</span><strong>{percentText(inventorySummary?.cpu.average)}</strong></div></div>
     <p className="expiry-context">Durum, WAN, CPU ve bellek son kaydedilmiş örnektir; canlı ölçüm değildir. Ölçüm zamanı ve son başarılı bağlantı detayda ayrı gösterilir.</p>
 </SubscriberDisclosure>

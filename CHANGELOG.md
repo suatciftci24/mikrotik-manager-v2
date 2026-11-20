@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.14] - 2026-11-20
+
+- RouterOS salt okunur gözlem aktarımı ve ayrı router, PPPoE ve Dashboard görünümleri.
+
 ## [2.6.13] - 2026-11-20
 
 - Sentetik router kaydında envanter bilgileri, arama, yönetim ve simüle bağlantı filtreleri.

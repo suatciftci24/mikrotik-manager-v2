@@ -7,8 +7,9 @@ export const routerSources: readonly SourceOption[] = [
  {value:'REGISTERED',label:'Kayıtlı cihazlar ve pilot',description:'Gerçek cihaz kayıtları ve API-SSL pilot hazırlığı. Bağlantısız kayıt ile onaylı bağlantı farklı işlemlerdir.',access:'Kayıt yönetimi · Bağlantı ayrıca onaylı'},
  {value:'V1_INVENTORY',label:'V1 aktarılmış envanter',description:'V1’den aktarılmış son envanter ve sağlık verileri. Bu ekrandan V1’e yazılmaz.',access:'Salt okunur'},
 ];
-export function routerSourceOptions(admin:boolean,persistent:boolean):readonly SourceOption[]{
- if(admin)return routerSources;
+export const routerOsSource={value:'ROUTEROS',label:'RouterOS · Salt okunur',description:'Ayrı V2 RouterOS gözlem aktarımı.',access:'Salt okunur'};
+export function routerSourceOptions(admin:boolean,persistent:boolean,includeRouterOs=false):readonly SourceOption[]{
+ if(admin)return includeRouterOs?[...routerSources,routerOsSource]:routerSources;
  return routerSources.filter(option=>option.value==='DEMO'||persistent&&option.value==='MANAGED_DEMO').map(option=>option.value==='MANAGED_DEMO'?{...option,label:'Yetkili sentetik routerlar',description:'Yalnız görüntüleme yetkisi verilen kalıcı sentetik kayıtlar.',access:'Salt okunur'}:option);
 }
 export const subscriberSources: readonly SourceOption[] = [
@@ -19,6 +20,8 @@ export const subscriberSources: readonly SourceOption[] = [
 export type WorkspaceContext = {label:string;description:string;access:string};
 export function workspaceContext(screen:ScreenKey,hash:string):WorkspaceContext {
  const p=new URLSearchParams(hash.replace(/^#/,''));
+ if((screen==='routers'&&p.get('source')==='ROUTEROS'||screen==='subscribers'&&p.get('workspace')==='ROUTEROS'||
+     screen==='dashboard'&&p.get('dashboard_source')==='ROUTEROS'&&(!p.get('view')||p.get('view')==='OVERVIEW'))&&!p.get('id'))return routerOsSource;
  const local=(label:string,description:string,access:string):WorkspaceContext=>({label,description,access});
  if(screen==='routers') {
   const id=p.get('id')??'';

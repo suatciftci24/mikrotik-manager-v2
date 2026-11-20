@@ -69,3 +69,32 @@ class RouterTransportTests(TestCase):
         with self.assertRaisesRegex(ApiSslStop,'^ROUTER_MODEL_MISMATCH$'):
             self.client.probe(replace(self.target,expected_model='OTHER-MODEL'),self.credentials,self.policy)
         self.assertTrue(self.tls.closed)
+
+    def test_inventory_649_and_7_keep_accounts_sessions_and_raw_comments_separate(self):
+        from dataclasses import replace
+        def rows(*values):
+            return b''.join(sentence('!re', *('='+key+'='+value for key,value in row.items())) for row in values)+sentence('!done')
+        for version in ('6.49.19', '7.20.1'):
+            self.tls.data=sentence('!done')+b''.join((
+                rows({'name':'LAB'}),
+                rows({'board-name':'LAB-MODEL','version':version,'cpu-load':'15','total-memory':'100','free-memory':'35','uptime':'3d'}),
+                rows({'name':'wan','running':'true','disabled':'false'}),
+                rows({'name':'wan','rx-byte':'42','tx-byte':'43'}),
+                rows({'name':'client-a','profile':'basic','service':'pppoe','disabled':'yes','comment':'EXPIRE=2027-01-04 12:00'},
+                     {'name':'unclassified','service':'any','comment':'PRIVATE_COMMENT'}),
+                rows({'name':'client-a','service':'pppoe','address':'192.0.2.10','uptime':'2h'},
+                     {'name':'remote-account','service':'pppoe','address':'192.0.2.11','uptime':'4m'}),
+            ))
+            self.tls.sent=b''
+            target=replace(self.target,expected_version=version,expected_identity='LAB',expected_model='LAB-MODEL')
+            result=self.client.read_inventory_observation(target,self.credentials,self.policy,router_id='device-lab',wan_interface='wan')
+            self.assertEqual((result.routeros_version,result.memory_percent,result.wan_status,result.rx_bytes),(version,65,'UP',42))
+            account,=result.accounts
+            self.assertEqual((account.username,account.enabled,account.expires_on.isoformat()),('client-a',False,'2027-01-04'))
+            self.assertEqual(str(account.sessions[0].address),'192.0.2.10')
+            self.assertEqual(result.unmatched_sessions[0].username,'remote-account')
+            self.assertFalse(result.accounts_complete)
+            self.assertNotIn('PRIVATE_COMMENT',result.model_dump_json())
+            self.assertIn(sentence('/interface/print','=stats=','=.proplist=name,rx-byte,tx-byte'),self.tls.sent)
+            self.assertNotIn(b'/set',self.tls.sent)
+            self.assertNotIn(b'.proplist=password',self.tls.sent)

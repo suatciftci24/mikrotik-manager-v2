@@ -1,5 +1,21 @@
 # MikroTik Manager V2 — İlerleme
 
+## RouterOS salt okunur gözlemler — V2.6.14
+
+- Taban `eb43fe3bae60716b5811c260904ed2ed3a7154ee`. Mevcut V1 dosya
+  aktarımı ve pilot API-SSL sınırları esas alındı. Ayrı RouterOS gözlem
+  kaynağı Router Merkezi, Abone Merkezi ve Dashboard'a eklendi.
+- Sabit RouterOS okuma komutları, cihaz kimliği ve TLS doğrulaması,
+  zaman aşımı, hesap/oturum ayrımı, EXPIRE ve WAN sayaçları eklendi.
+  Eski ve başarısız ölçümler güncel sayaç, hesap veya oturum olarak sunulmaz.
+- PASS: `test_device_inventory` ve `test_router_api_ssl` 11/11.
+  RouterOS 6.49 ve 7 protokolü sahte TLS akışında, yetki ve kaynak
+  ayrımı yerel ASGI üzerinden doğrulandı. TypeScript/Vite üretim derlemesi
+  ve 2.6.14 sürüm kaydı PASS.
+- Migration gerekmiyor. Gerçek cihaz, canlı veritabanı ve VDS kullanılmadı.
+  Poller zamanlaması ve gerçek cihaz kabulü ayrı bağlantı onayına bağlı.
+  İşletim sınırı [RouterOS gözlem sözleşmesinde](DEVICE_INVENTORY_READ_ONLY.md).
+
 ## Router Yönetimi ve abone entegrasyonu — V2.6.13
 
 - `~/mikrotik-v2-ortak`, `development/v2.6.2-pppoe`, temiz taban

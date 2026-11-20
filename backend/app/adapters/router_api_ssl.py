@@ -1,8 +1,10 @@
 """Reusable, bounded RouterOS 6.49.x / 7.x metadata probe. No writes/retries/polling."""
 from dataclasses import dataclass
 from ipaddress import IPv4Address,IPv4Network
+import errno
 import hashlib
 import hmac
+import json
 import os
 import re
 import socket
@@ -63,7 +65,14 @@ class RouterApiSslClient:
         if (target.address,target.port,target.expected_identity,target.expected_model,target.expected_version,credentials[0],policy.source_ip)!=('10.250.0.19',8729,'CEBECI_TOWERS','RB3011UiAS','6.49.19','v2-cebeci-ro','10.250.0.1'):raise ApiSslStop('PILOT_SCOPE_MISMATCH')
         return self._read(target,credentials,policy,True)
 
-    def _read(self,target,credentials,policy,details):
+    def read_inventory_observation(self, target: Target, credentials: tuple[str, str],
+                                   policy: ConnectionPolicy, *, router_id: str, wan_interface: str | None):
+        """Caller supplies approved target and TLS material. No HTTP or startup caller."""
+        if not all((target.expected_identity, target.expected_model, target.expected_version)):
+            raise ApiSslStop('POLL_TARGET_IDENTITY_REQUIRED')
+        return self._read(target, credentials, policy, False, (router_id, wan_interface))
+
+    def _read(self,target,credentials,policy,details,observation=None):
         policy.validate(target.address,target.port)
         from app.core.pilot_runtime import validate_target
         try:validate_target(target,credentials[0])
@@ -76,7 +85,13 @@ class RouterApiSslClient:
         raw=None;secure=None;deadline=time.monotonic()+10
         try:
             raw=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-            raw.settimeout(2);raw.bind((policy.source_ip,0));raw.connect((target.address,target.port))
+            raw.settimeout(2);raw.bind((policy.source_ip,0))
+            try:
+                raw.connect((target.address,target.port))
+            except OSError as error:
+                if observation is not None and error.errno in (errno.EHOSTUNREACH, errno.ENETUNREACH, errno.ECONNREFUSED):
+                    raise ApiSslStop('CONNECTION_UNREACHABLE') from None
+                raise
             remaining=deadline-time.monotonic()
             if remaining<=0:raise ApiSslStop('DEADLINE_EXCEEDED')
             raw.settimeout(min(2,remaining))
@@ -88,6 +103,13 @@ class RouterApiSslClient:
             if ('IP Address',target.address) not in secure.getpeercert().get('subjectAltName',()):raise ApiSslStop('CERTIFICATE_SAN_MISMATCH')
             from app.adapters.router_readonly import RegistryReadWire
             wire=(RegistryReadWire if details else _Wire)(secure,deadline,2);wire.login(credentials=credentials)
+            if observation is not None:
+                from app.adapters.device_inventory import DeviceReadWire, collect
+                result=collect(DeviceReadWire(secure,deadline,2),observation[0],target.expected_identity,observation[1],
+                               expected_model=target.expected_model,expected_version=target.expected_version)
+                if json.dumps(credentials[1],ensure_ascii=False)[1:-1] in result.model_dump_json():
+                    raise ApiSslStop('SENSITIVE_METADATA_REJECTED')
+                return result
             identity=wire.read(ReadIntent(menu='/system/identity',properties=('name',)))
             if len(identity)!=1 or not identity[0]['name'].strip() or len(identity[0]['name'])>120:raise ApiSslStop('ROUTER_IDENTITY_REJECTED')
             if target.expected_identity and identity[0]['name']!=target.expected_identity:raise ApiSslStop('ROUTER_IDENTITY_MISMATCH')
