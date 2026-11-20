@@ -28,7 +28,36 @@
   verdi. 360/1280 px senaryosu tarayıcı başlangıcını geçemedi.
   Git push BLOCKED. `tools/check-git-transfer.sh` mevcut checkout ve dalı
   kayıtlı WSL hedefi olarak kabul etmedi. Uzak aktarım veya canlı yayın
-  yapılmadı. Chromium kabulü, süreci çalıştırabilen izole ortamda açık.
+  yapılmadı. Chromium kabulü aşağıda kayıtlı normal WSL çalıştırmasında tamamlandı.
+
+### V2.6.13 tamamlayıcı kabul kontrolleri
+
+- Test edilen ürün commit'i `eafa2473b1ab82c99e9f58607be8dacdecad7423`.
+  Önceki 173 hedefli testin sonuçları kullanıldı.
+- **PASS — Migration 013 ileri/geri.** PostgreSQL 16.15, geçici PGDATA,
+  tek kullanıcı modu ve yalnız sentetik kayıtlar. Önceden var olan router,
+  abone, abone olayı ve router audit satırları ileri/geri SQL sonrasında
+  başlangıç snapshot'ıyla eşleşti. Eski audit satırında yeni kolon SQL
+  NULL döndü. Uygulamanın ürettiği oluşturma, düzenleme ve silme audit
+  değerleri PostgreSQL'e yazılıp yeniden okundu. Aktör, UTC tarih,
+  revizyon ve önceki/yeni JSON değerleri eşleşti. Geri alma audit
+  satırlarının kimliğini ve temel alanlarını korudu. JSON değerleri
+  kolon düşürülmeden önce test kümesi içinde arşivlendi. Geçici küme
+  kaldırıldı. Kanıt: `/tmp/v2613-pg013-accept.log`.
+- İlk yönetilen ortam denemesinde Chromium sandbox'ı açıkken süreç
+  `sandbox_host_linux.cc:41` satırında `shutdown` EPERM ile kapandı.
+  Bağımsız yerel `socketpair().shutdown(SHUT_RD)` denemesi aynı EPERM'i
+  üretti ve engelin ürün kodundan önce, çalışma ortamında oluştuğunu
+  doğruladı. Güvenlik ayarları korunarak yerel kabul için Chromium,
+  Unix socket işlemlerine izin veren yetkili ve izole bir çalıştırıcı
+  gerektiriyor. Kanıt: `/tmp/v2613-chromium-sandbox-enabled.log`.
+- **PASS — Chromium masaüstü/mobil.** Kullanıcı normal WSL terminalindeki
+  izole sentetik çalıştırmada Chromium sandbox'ı açıkken 360 ve 1280 px
+  kabulünün geçtiğini bildirdi. Router metadata, filtreler, kaynak ve
+  zaman gösterimi, audit, abone oluşturma ve router değiştirme, bağlı
+  abone özeti, silme engeli ve V1 kaynak ayrımı doğrulandı. Kanıt çıktısı:
+  `Chromium 360/1280 PASS — metadata, filters, source/time, audit, subscriber create/move/summary, delete guard, V1 separation.`
+- Ürün kodu ve sürüm etiketi aynı. Push veya canlı yayın yapılmadı.
 
 ## Paket Yönetimi ve abone entegrasyonu — V2.6.12
 
