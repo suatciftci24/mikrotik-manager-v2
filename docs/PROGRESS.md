@@ -1,5 +1,19 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.16 CEBECI_TOWERS canlı kabul tanısı
+
+- Kullanıcı `TIMEOUT_OBSERVATION_DEVICE_IDENTITY` sonrası otomatik
+  rollback ve V2.6.13 HTTPS/API sağlığını doğruladı. Son kabul
+  iterasyonu HTTP 200 ve tek DTO satırına ulaştı. Boş kimlikli
+  başarısız ölçüm aynı hatayı üretebilir.
+- V2.6.15 ile hedef, bind, TLS ve toplayıcı aynı. Yönetilen birim
+  cgroup adres filtresi, ayrı sahip/grup ile snapshot ve süreli API
+  aktarımı ekliyor. Cihaz ölçümü hataları journal'a aktarılmadığı
+  için kesin canlı neden beklemede.
+- [Güvenli salt okunur journal komutu ve katman analizi](../deploy/cebeci-observer/V2616-OBSERVATION-DIAGNOSIS.md).
+  PASS: Bash sözdizimi ve maskeli sentetik journal çıktısı.
+  Ürün veya sürüm değişikliği, VDS bağlantısı ve yayın yok.
+
 ## V2.6.16 gözlemci hazırlık izinleri ve kurulum tanısı
 
 - Taban `67e0ae48e93c5d2b9b8d10cc9263c491b7a44ca6`. Kullanıcının
