@@ -70,3 +70,36 @@ Başlangıç ve rollback saatine karşılık gelen satırları değerlendirin.
 `APPROVAL_OK` sadece yerel onayı gösterir. `SYSTEMD_IP_FILTER_NOTICE`
 birim filtresiyle ilgili mesaj bulunduğunu gösterir ve trafik reddini
 tek başına kanıtlamaz.
+
+## İki çalışma ortamını karşılaştırma
+
+Kullanıcının journal çıktısında onay, başlama ve kapanma görüldü.
+Ayrıştırılmış taşıyıcı hatası mevcut değildi. Bu durumda aynı VDS'de, aynı
+kimlik bilgileriyle birer yeni salt okunur teşhis örneği alınabilir.
+
+[Teşhis betiğini](diagnose-observer.py) root'a ait
+`/root/diagnose-observer.py` yoluna aktarın. **VDS terminalinde** bir kez
+çalıştırın:
+
+```bash
+sudo /usr/bin/python3 -I -B /root/diagnose-observer.py --repo /srv/mikrotik-v26-next --material /MUTLAK/V2615/CHECKOUT/.local/cebeci-pilot/v2614-observer --venv /MUTLAK/V2615/VENV
+```
+
+`--material` başarılı V2.6.15 gözlemcisinin CA/parola dizini,
+`--venv` aynı gözlemcinin mevcut Python ortamıdır. VDS'deki iki mutlak
+yolu değiştirin. `--repo` iki sabit Git nesnesine yerelde erişebilmelidir.
+Betiğin bağımlılık indirme veya Git fetch adımı yoktur.
+
+İlk ölçüm V2.6.15 kaynağını doğrudan, ikincisi V2.6.16 kaynağını
+geçici systemd biriminde çalıştırır. Karşılaştırma iki tarafta da önceki
+gözlemcinin ayrıcalıksız hesabını ve aynı CA/parolayı kullanır. Böylece
+ağ izolasyonu karşılaştırılır. Önceki yönetilen Linux hesabının UID/GID'si
+ve canlı API okuyucusu bu denemenin kapsamı dışında kalır. Geçici birim
+sürümdeki güvenlik özelliklerini taşır ve kendi runtime dizinini kullanır.
+Eski izin dosyası korunur, deneme 10 dakikalık ayrı izin kopyası kullanır.
+
+Sabit çıktılar `SOURCE_BIND`, `TCP`, `SOURCE_PEER`, `TLS`, `LOGIN`,
+`IDENTITY` ve `SNAPSHOT` adımlarını ayırır. Kimlikte ad, model veya
+sürüm sapması yalnız hata koduyla verilir. Snapshot satırlarının
+içeriği, parola, sertifika ve cihaz yanıtı basılmaz. Kontrol sonrasında
+yalnız geçici birim durdurulur ve geçici dosyalar kaldırılır.

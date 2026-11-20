@@ -1,5 +1,17 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.16 iki ortamlı CEBECI_TOWERS tanısı
+
+- Taban `a756ef2`. Kullanıcının VDS journal'ı yalnız onay, başlangıç ve
+  durma gösterdi. Canlı neden bilinmiyor. İki sabit Git kaynağını aynı
+  ayrıcalıksız kullanıcı, CA ve parola ile birer salt okunur çevrimde
+  karşılaştıran [teşhis betiği](../deploy/cebeci-observer/V2616-OBSERVATION-DIAGNOSIS.md#iki-çalışma-ortamını-karşılaştırma)
+  hazır. Yönetilen örnek, sürümün systemd güvenlik özelliklerini geçici
+  birimde kullanır. Eski yönetilen UID/GID ve API okuyucusu ölçülmez.
+- PASS: Yerel Python sözdizimi, iki Git pini, birim izolasyon özellikleri,
+  özel umask altında geçilebilir kaynak dizinleri ve güvenli çıktı filtresi.
+  Komut VDS'de çalıştırılmadı. Ürün sürümü ve yayın değişikliği yok.
+
 ## V2.6.16 CEBECI_TOWERS canlı kabul tanısı
 
 - Kullanıcı `TIMEOUT_OBSERVATION_DEVICE_IDENTITY` sonrası otomatik
