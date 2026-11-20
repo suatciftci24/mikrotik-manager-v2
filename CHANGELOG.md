@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.15] - 2026-11-20
+
+- RouterOS gözlemlerinde alan bazlı metin işleme, güvenli abone eşleştirme ve tek WAN sorgusu.
+
 ## [2.6.14] - 2026-11-20
 
 - RouterOS salt okunur gözlem aktarımı ve ayrı router, PPPoE ve Dashboard görünümleri.

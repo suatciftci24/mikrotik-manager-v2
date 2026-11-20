@@ -1,5 +1,25 @@
 # MikroTik Manager V2 — İlerleme
 
+## CEBECI_TOWERS INVALID_TEXT — V2.6.15
+
+- Yerel `/home/suat/mikrotik-v2-ortak`, `development/v2.6.2-pppoe`,
+  taban `db0231f`. Önceki çerçeve okuyucusu her sözcüğü alanı tanımadan
+  UTF-8'e çözümlüyordu. Tek uyumsuz değer tüm çevrimi durduruyordu.
+- Çerçeve ve alan çözümlemesi ayrıldı. İsteğe bağlı geçersiz değer
+  bilinmiyor kalıyor. PPP adı veya cihaz kimliği için geçersiz metin
+  çevrimi durduruyor. Tanı yalnız sabit sorgu ve alanı gösteriyor.
+  WAN yapılandırılmamışsa sorgu yok, yapılandırılmışsa tek sorgu var.
+  Kapasite ve metin sınırları işletim belgesinde kayıtlı.
+- PASS: Yerel sentetik TLS/ASGI altında `test_router_api_ssl`,
+  `test_device_inventory`, `test_cebeci_observer_v2614`,
+  `test_registry_pilot` ve `test_pppoe_api_ssl` kapsamındaki
+  35 regresyon. Test hedefi düzeltilen yeni vaka ayrı doğrulandı.
+  Frontend build, sürüm kontrolü ve diff kontrolü PASS.
+- Canlı kabul DOĞRULANMADI. Cihazın kesin kodlaması, hatayı tetikleyen
+  alan ve gerçek envanter boyutu bilinmiyor. Sonraki doğrulama ayrı
+  onaylı salt okunur çevrimde sabit sorgu/alan tanısına bakılmasıdır.
+  Canlı bağlantı, DB, geri dönüş yedeği, push ve yayın işlemi yok.
+
 ## Bağımsız CEBECI_TOWERS V2.6.14 gözlemci yetkisi
 
 - Taban `28204e66f41abe83c7efd3769ff18f6ed3d598b7`. Emekli V2.6

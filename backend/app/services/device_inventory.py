@@ -58,7 +58,7 @@ def sample_device(client, target, credentials, policy, *, router_id, wan_interfa
     except ApiSslStop as failure:
         code = str(failure)
         error = ('UNREACHABLE' if code == 'CONNECTION_UNREACHABLE' else
-                 'TIMEOUT' if code in ('CONNECTION_TIMEOUT', 'DEADLINE_EXCEEDED') else
+                 'TIMEOUT' if code.partition(':')[0] in ('CONNECTION_TIMEOUT', 'DEADLINE_EXCEEDED') else
                  'TLS' if code.startswith(('TLS_', 'CERTIFICATE_', 'CA_CERTIFICATE_')) else
                  'AUTHORIZATION' if code.startswith(('AUTHENTICATION', 'DEDICATED_', 'CREDENTIAL_', 'PILOT_', 'POLL_TARGET_', 'ONBOARDING_', 'TARGET_OR_SOURCE_')) else
                  'INVALID_DATA')

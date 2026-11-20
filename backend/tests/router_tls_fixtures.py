@@ -4,7 +4,7 @@ def sentence(*words):
     # Independent short-word fixtures from the published RouterOS framing format.
     result=b''
     for word in words:
-        data=word.encode();size=len(data)
+        data=word.encode() if isinstance(word,str) else word;size=len(data)
         result+=(bytes([size]) if size<128 else bytes([0x80+(size>>8),size&255]))+data
     return result+b'\0'
 def response(menu='fixture-interface',identity='CEBECI_TOWERS',model='RB3011UiAS',version='6.49.19',last=None):

@@ -31,6 +31,28 @@ Arayüz gözlem dosyasını düzenli olarak yeniden okur.
   Beş dakika ve üzerindeki gözlem eski olarak işaretlenir. Sayaçlar ve
   hesap/oturum satırları güncel görünümden çıkarılır.
 
+## Metin ve kapasite
+
+API çerçevesi bayt olarak okunur. Gözlemci yalnız sabit sorgu ve alan
+adlarını tanır. Geçerli UTF-8 metinler normalizasyon uygulanmadan
+korunur. Çözülemeyen isteğe bağlı alan bilinmiyor kalır. Cihaz kimliği,
+model, sürüm veya PPP hesabı/oturumu adı çözülemezse çevrim reddedilir.
+Böylece farklı bayt dizileri aynı kullanıcı adı altında birleşmez.
+Tanı kaydı yalnız sabit sorgu ve alan adını içerir. RouterOS sürümünden
+karakter kodlaması çıkarılmaz. CEBECI_TOWERS'ın kesin kodlaması ve
+canlı hataya yol açan alan doğrulanmadı.
+
+WAN adı yapılandırılmışsa durum ve sayaçlar tek `/interface/print`
+istatistik sorgusuyla istenir. Yanıtta bulunmayan ölçümler bilinmiyor
+kalır. WAN adı yoksa arayüz sorgusu gönderilmez. Envanter için 256
+yanıt cümlesi ve 256 KiB, sorgu başına 128 satır, cümle başına 32
+sözcük ve sözcük başına 4096 bayt sınırı geçerlidir. Kimlik, kaynak ve
+bitiş cümleleri de bütçeden düşer. WAN kapalıyken iki PPP sorgusunun
+toplam üst sınırı normal yanıt biçiminde 250 satırdır. WAN yanıtı,
+boş yanıt işaretleri ve bayt bütçesi bu kapasiteyi azaltabilir.
+Sınır aşımında kısmi envanter başarı olarak yayımlanmaz. Cihazdaki
+gerçek satır sayısı bu çalışmada ölçülmedi.
+
 ## Gerçek bağlantı ön koşulları
 
 Yetkili tek çevrim girişi `sample_device`, mevcut API-SSL istemcisini kullanır.

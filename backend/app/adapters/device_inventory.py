@@ -1,6 +1,7 @@
 """Read-only collection over an already authorized, authenticated RouterOS wire."""
 from datetime import date, datetime, timezone
 from types import MappingProxyType
+import logging
 import re
 
 from app.adapters.cebeci_api_ssl import ApiSslStop, _Wire
@@ -9,17 +10,24 @@ from app.schemas.device_inventory import Account, RouterObservation, Session, Un
 _FIELDS = MappingProxyType({
     '/system/identity': ('name',),
     '/system/resource': ('board-name', 'version', 'cpu-load', 'total-memory', 'free-memory', 'uptime'),
-    '/interface': ('name', 'running', 'disabled'),
-    'interface-stats': ('name', 'rx-byte', 'tx-byte'),
+    '/interface': ('name', 'running', 'disabled', 'rx-byte', 'tx-byte'),
     '/ppp/secret': ('name', 'profile', 'service', 'disabled', 'comment'),
     '/ppp/active': ('name', 'service', 'address', 'uptime'),
 })
 _COMMANDS = MappingProxyType({
-    menu: (('/interface/print', '=stats=') if menu == 'interface-stats' else (menu+'/print',))
+    menu: (('/interface/print', '=stats=') if menu == '/interface' else (menu+'/print',))
           + ('=.proplist='+','.join(fields),)
     for menu, fields in _FIELDS.items()
 })
 _ALLOWED = frozenset(_COMMANDS.values())
+_REQUIRED = {
+    '/system/identity': ('name',),
+    '/system/resource': ('board-name', 'version'),
+    '/ppp/secret': ('name',),
+    '/ppp/active': ('name',),
+}
+_LOG = logging.getLogger(__name__)
+
 
 class DeviceReadWire(_Wire):
     def send(self, words):
@@ -32,20 +40,49 @@ class DeviceReadWire(_Wire):
         if fields is None:
             raise ApiSslStop('READ_SCOPE_REJECTED')
         self.send(_COMMANDS[menu])
+        command = _COMMANDS[menu][0]
+        keys = {field.encode('ascii'): field for field in fields}
+        required = _REQUIRED.get(menu, ())
         rows = []
+        warned = set()
+        empty_reply = False
         while True:
-            words = self.sentence()
-            if words == ['!done']:
+            try:
+                words = self._sentence_bytes()
+            except ApiSslStop as error:
+                raise ApiSslStop(f'{error}:{command}') from None
+            if words == [b'!done']:
                 return rows
-            if not words or words[0] != '!re' or len(rows) >= 128:
-                raise ApiSslStop('DEVICE_READ_REJECTED')
+            if words == [b'!empty'] and not rows and not empty_reply:
+                empty_reply = True
+                continue
+            if not words or words[0] != b'!re' or empty_reply:
+                raise ApiSslStop(f'DEVICE_READ_REJECTED:{command}')
+            if len(rows) >= 128:
+                raise ApiSslStop(f'ROW_LIMIT:{command}')
             row = {}
             for word in words[1:]:
-                empty, sep, pair = word.partition('=')
-                key, delimiter, value = pair.partition('=')
-                if empty or not sep or not delimiter or key not in fields or key in row or len(value) > 512:
-                    raise ApiSslStop('DEVICE_READ_REJECTED')
-                row[key] = value
+                parts = word.split(b'=', 2)
+                field = keys.get(parts[1]) if len(parts) == 3 and not parts[0] else None
+                if field is None or field in row:
+                    raise ApiSslStop(f'UNEXPECTED_RESPONSE_FIELD:{command}')
+                # Strict UTF-8 keeps matching one-to-one with the wire bytes.
+                # A guessed codec or replacement could give an account a different name.
+                try:
+                    value = parts[2].decode('utf8')
+                except UnicodeDecodeError:
+                    if field not in warned:
+                        _LOG.warning('INVALID_TEXT:%s:%s', command, field)
+                        warned.add(field)
+                    if field in required:
+                        raise ApiSslStop(f'INVALID_TEXT:{command}:{field}') from None
+                    value = None
+                if value is not None and len(value) > 512:
+                    raise ApiSslStop(f'FIELD_VALUE_LIMIT:{command}:{field}')
+                row[field] = value
+            for field in required:
+                if not row.get(field):
+                    raise ApiSslStop(f'MISSING_RESPONSE_FIELD:{command}:{field}')
             rows.append(row)
 
 
@@ -81,12 +118,10 @@ def collect(wire: DeviceReadWire, router_id: str, expected_identity: str, wan_in
             or expected_model and resource['board-name'] != expected_model
             or expected_version and version.removesuffix(' (stable)') != expected_version.removesuffix(' (stable)')):
             raise ValueError()
-        interfaces = [r for r in wire.fixed_read('/interface') if r.get('name') == wan_interface]
+        interfaces = [r for r in wire.fixed_read('/interface') if r.get('name') == wan_interface] if wan_interface else []
         wan = interfaces[0] if wan_interface and len(interfaces) == 1 else {}
         running, disabled = _flag(wan.get('running')), _flag(wan.get('disabled'))
         wan_status = 'DOWN' if disabled is True or running is False else 'UP' if running is True and disabled is False else 'UNKNOWN'
-        counters = [r for r in wire.fixed_read('interface-stats') if r.get('name') == wan_interface] if wan else []
-        traffic = counters[0] if len(counters) == 1 else {}
         secrets = wire.fixed_read('/ppp/secret')
         active = wire.fixed_read('/ppp/active')
         sessions = {}
@@ -116,7 +151,7 @@ def collect(wire: DeviceReadWire, router_id: str, expected_identity: str, wan_in
             routeros_version=resource['version'], observed_at=stamp, last_success_at=stamp, connection='ONLINE',
             cpu_percent=_number(resource.get('cpu-load')), memory_percent=(100*(total-free)/total if total and free is not None and free<=total else None),
             uptime=resource.get('uptime') or None, wan_interface=wan_interface if wan else None, wan_status=wan_status,
-            rx_bytes=_number(traffic.get('rx-byte')), tx_bytes=_number(traffic.get('tx-byte')), accounts=known,
+            rx_bytes=_number(wan.get('rx-byte')), tx_bytes=_number(wan.get('tx-byte')), accounts=known,
             accounts_complete=all(r.get('service') not in (None,'any') for r in secrets),
             unmatched_sessions=unmatched if active_complete or unmatched else None)
     except (KeyError, ValueError, TypeError):

@@ -87,7 +87,7 @@ class ObserverTests(TestCase):
                   + sentence('!re','=name='+observer.IDENTITY) + sentence('!done')
                   + sentence('!re','=board-name='+observer.MODEL,'=version='+observer.VERSION,
                              '=cpu-load=12','=total-memory=100','=free-memory=30','=uptime=1d')
-                  + sentence('!done') * 4)
+                  + sentence('!done') * 3)
         stream = FakeTls(frames)
         stream.peer = (observer.ADDRESS,observer.PORT)
         stream.local = (observer.SOURCE,55555)

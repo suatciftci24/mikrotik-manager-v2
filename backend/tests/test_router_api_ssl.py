@@ -78,11 +78,10 @@ class RouterTransportTests(TestCase):
             self.tls.data=sentence('!done')+b''.join((
                 rows({'name':'LAB'}),
                 rows({'board-name':'LAB-MODEL','version':version,'cpu-load':'15','total-memory':'100','free-memory':'35','uptime':'3d'}),
-                rows({'name':'wan','running':'true','disabled':'false'}),
-                rows({'name':'wan','rx-byte':'42','tx-byte':'43'}),
-                rows({'name':'client-a','profile':'basic','service':'pppoe','disabled':'yes','comment':'EXPIRE=2027-01-04 12:00'},
+                rows({'name':'wan','running':'true','disabled':'false','rx-byte':'42','tx-byte':'43'}),
+                rows({'name':'Çağrı-İşık','profile':'basic','service':'pppoe','disabled':'yes','comment':'EXPIRE=2027-01-04 12:00'},
                      {'name':'unclassified','service':'any','comment':'PRIVATE_COMMENT'}),
-                rows({'name':'client-a','service':'pppoe','address':'192.0.2.10','uptime':'2h'},
+                rows({'name':'Çağrı-İşık','service':'pppoe','address':'192.0.2.10','uptime':'2h'},
                      {'name':'remote-account','service':'pppoe','address':'192.0.2.11','uptime':'4m'}),
             ))
             self.tls.sent=b''
@@ -90,11 +89,41 @@ class RouterTransportTests(TestCase):
             result=self.client.read_inventory_observation(target,self.credentials,self.policy,router_id='device-lab',wan_interface='wan')
             self.assertEqual((result.routeros_version,result.memory_percent,result.wan_status,result.rx_bytes),(version,65,'UP',42))
             account,=result.accounts
-            self.assertEqual((account.username,account.enabled,account.expires_on.isoformat()),('client-a',False,'2027-01-04'))
+            self.assertEqual((account.username,account.enabled,account.expires_on.isoformat()),('Çağrı-İşık',False,'2027-01-04'))
             self.assertEqual(str(account.sessions[0].address),'192.0.2.10')
             self.assertEqual(result.unmatched_sessions[0].username,'remote-account')
             self.assertFalse(result.accounts_complete)
             self.assertNotIn('PRIVATE_COMMENT',result.model_dump_json())
-            self.assertIn(sentence('/interface/print','=stats=','=.proplist=name,rx-byte,tx-byte'),self.tls.sent)
+            self.assertEqual(self.tls.sent.count(b'/interface/print'),1)
+            self.assertIn(sentence('/interface/print','=stats=','=.proplist=name,running,disabled,rx-byte,tx-byte'),self.tls.sent)
             self.assertNotIn(b'/set',self.tls.sent)
             self.assertNotIn(b'.proplist=password',self.tls.sent)
+
+    def test_inventory_unknown_encoding_omits_optional_text_and_rejects_unknown_names(self):
+        from dataclasses import replace
+        target = replace(self.target, expected_identity='CEBECI_TOWERS',
+                         expected_model='RB3011UiAS', expected_version='6.49.19')
+        base = response(last=b'')
+        finished = sentence('!done')
+        secret = sentence('!re', '=name=fixture', '=service=pppoe',
+                          b'=comment=PRIVATE_CANARY\xfe', b'=profile=PRIVATE_CANARY\xfd',
+                          '=disabled=no')
+        self.tls.data = base + secret + finished + sentence('!empty') + finished
+        with self.assertLogs('app.adapters.device_inventory', level='WARNING') as logs:
+            result = self.client.read_inventory_observation(
+                target, self.credentials, self.policy, router_id='device-lab', wan_interface=None)
+        account, = result.accounts
+        self.assertEqual((account.username, account.profile, account.expires_on, account.sessions),
+                         ('fixture', None, None, []))
+        self.assertEqual([record.getMessage() for record in logs.records],
+                         ['INVALID_TEXT:/ppp/secret/print:comment', 'INVALID_TEXT:/ppp/secret/print:profile'])
+        self.assertNotIn(b'/interface/print', self.tls.sent)
+
+        bad_name = sentence('!re', b'=name=fixture\xfe', '=service=pppoe')
+        for menu, replies in (('secret', bad_name), ('active', secret + finished + bad_name)):
+            with self.subTest(menu=menu):
+                self.tls.data = base + replies + finished
+                with self.assertLogs('app.adapters.device_inventory', level='WARNING'):
+                    with self.assertRaisesRegex(ApiSslStop, f'^INVALID_TEXT:/ppp/{menu}/print:name$'):
+                        self.client.read_inventory_observation(
+                            target, self.credentials, self.policy, router_id='device-lab', wan_interface=None)

@@ -205,7 +205,7 @@ class _Wire:
         else:raise ApiSslStop('RESERVED_PROTOCOL_LENGTH')
         if size>4096:raise ApiSslStop('WORD_LIMIT')
         return size
-    def sentence(self):
+    def _sentence_bytes(self):
         self.sentences+=1
         if self.sentences>256:raise ApiSslStop('SENTENCE_LIMIT')
         words=[]
@@ -213,8 +213,10 @@ class _Wire:
             length=self._length()
             if length==0:return words
             if len(words)>=32:raise ApiSslStop('FIELD_LIMIT')
-            try:words.append(self._receive(length).decode('utf8',errors='strict'))
-            except UnicodeError:raise ApiSslStop('INVALID_TEXT') from None
+            words.append(self._receive(length))
+    def sentence(self):
+        try:return [word.decode('utf8') for word in self._sentence_bytes()]
+        except UnicodeError:raise ApiSslStop('INVALID_TEXT') from None
     def send(self,words):
         self.timeout();self.stream.sendall(b''.join(_encoded_word(word) for word in words)+b'\x00')
     def login(self,*,credentials=None):
