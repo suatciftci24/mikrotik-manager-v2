@@ -61,6 +61,81 @@ class DeviceInventoryTests(TestCase):
                 self.assertEqual(invalid.status_code,503)
                 self.assertNotIn('PRIVATE_CANARY',invalid.text)
 
+    def test_managed_poller_handoff_get_only_with_expiry_and_file_permissions(self):
+        import json
+        import os
+        from types import SimpleNamespace
+
+        from app.adapters import cebeci_observer as observer
+        from app.schemas.device_inventory import Account
+        from app.services import device_inventory, device_poller
+
+        stamp = datetime.now(timezone.utc) - timedelta(seconds=1)
+        expiry = stamp + timedelta(minutes=15)
+        sample = RouterObservation(
+            id=observer.ROUTER_ID, identity=observer.IDENTITY, model=observer.MODEL,
+            routeros_version=observer.VERSION, observed_at=stamp, last_success_at=stamp,
+            connection='ONLINE', accounts_complete=True,
+            accounts=[Account(username=f'fixture-{index}') for index in range(123)])
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[current_demo_user] = lambda: {
+            'is_demo': True, 'role_code': 'ADMIN', 'can_manage_users': True}
+        client = TestClient(app)
+        stop = Mock()
+        stop.is_set.return_value = False
+        stop.wait.return_value = True
+
+        with TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            directory.chmod(0o750)
+            snapshot = directory / device_poller.OBSERVATION_NAME
+            device_poller.poll(Mock(return_value=sample), directory, stop,
+                               clock=lambda: 0, authorize_snapshot=lambda: expiry)
+            stop.wait.assert_called_once_with(60)
+            self.assertEqual(snapshot.stat().st_mode & 0o777, 0o640)
+            contents = snapshot.read_bytes()
+            uid, gid = os.geteuid(), os.getegid()
+            owner, group = uid or 1200, gid or 1200
+            fstat = os.fstat
+
+            def snapshot_stat(fd):
+                info = fstat(fd)
+                # Root test runners still model the non-root owner and reader group.
+                return SimpleNamespace(st_mode=info.st_mode, st_size=info.st_size,
+                    st_nlink=info.st_nlink, st_uid=info.st_uid or owner, st_gid=info.st_gid or group)
+
+            with patch.object(device_inventory, 'MANAGED_DIR', directory), \
+                 patch.object(device_inventory.pwd, 'getpwnam', return_value=SimpleNamespace(pw_uid=owner)), \
+                 patch.object(device_inventory.grp, 'getgrnam', return_value=SimpleNamespace(gr_gid=group)), \
+                 patch.object(device_inventory.os, 'geteuid', return_value=owner+1), \
+                 patch.object(device_inventory.os, 'fstat', side_effect=snapshot_stat), \
+                 patch.dict(os.environ, {'V2_DEVICE_INVENTORY_MODE':'cebeci-systemd',
+                                         'V2_DEVICE_INVENTORY_FILE':''}):
+                response = client.get('/device-inventory')
+                self.assertEqual(response.status_code, 200)
+                payload = response.json()
+                self.assertEqual(payload['authorization_expires_at'], expiry.isoformat())
+                row, = payload['routers']
+                self.assertEqual((row['connection'], row['identity'], row['wan_status'],
+                                  len(row['accounts']), row['accounts_complete']),
+                                 ('ONLINE', observer.IDENTITY, 'UNKNOWN', 123, True))
+                self.assertEqual(client.request('PATCH', '/device-inventory', json={'enabled': False}).status_code, 405)
+
+                with patch.dict(os.environ, {'V2_DEVICE_INVENTORY_FILE':str(snapshot)}):
+                    self.assertEqual(client.get('/device-inventory').status_code, 503)
+                snapshot.chmod(0o660)
+                self.assertEqual(client.get('/device-inventory').status_code, 503)
+                snapshot.chmod(0o640)
+                expired = json.loads(contents)
+                expired['authorized_until'] = stamp.isoformat()
+                snapshot.write_text(json.dumps(expired))
+                self.assertEqual(client.get('/device-inventory').json()['routers'], [])
+                snapshot.unlink()
+                self.assertEqual(client.get('/device-inventory').json()['routers'], [])
+                snapshot.symlink_to(directory / device_poller.LOCK_NAME)
+                self.assertEqual(client.get('/device-inventory').status_code, 503)
+
     def test_failed_poll_keeps_last_success_and_never_copies_session_or_error_message(self):
         from app.services.device_inventory import sample_device
         from types import SimpleNamespace

@@ -37,7 +37,7 @@ function DashboardOverview(props:{onNavigate:Navigate;onReport:()=>void;onIntern
   return <div className="dashboard-source-screen"><div className="filter-tabs dashboard-sources" role="group" aria-label="Dashboard veri kaynağı">
     <button aria-pressed={source==='DEMO'} className={source==='DEMO'?'selected':''} onClick={()=>setSource('DEMO')}>V2 Sentetik Demo</button>
     <button aria-pressed={source==='V1_INVENTORY'} className={source==='V1_INVENTORY'?'selected':''} disabled={!admin} onClick={()=>setSource('V1_INVENTORY')}>Gerçek V1 · Salt Okunur</button>
-    {admin&&<button aria-pressed={source==='ROUTEROS'} className={source==='ROUTEROS'?'selected':''} onClick={()=>setSource('ROUTEROS')}>RouterOS · Salt okunur</button>}
+    {admin&&<button aria-pressed={source==='ROUTEROS'} className={source==='ROUTEROS'?'selected':''} onClick={()=>setSource('ROUTEROS')}>Gerçek cihaz · RouterOS</button>}
   </div>{source==='DEMO'?<SyntheticDashboardOverview {...props}/>:admin?source==='ROUTEROS'?<DeviceInventory view="summary"/>:<DashboardV1Health/>:<section className="panel"><h1>Gerçek V1 · Salt Okunur</h1><p role="status">Bu kaynak için merkezi yönetici yetkisi gerekli. Veri gösterilmiyor.</p></section>}</div>;
 }
 function SyntheticDashboardOverview({onNavigate,onReport,onInternet}: {onNavigate:Navigate;onReport:()=>void;onInternet:()=>void}) {

@@ -40,6 +40,13 @@ class ObserverTests(TestCase):
                     observer.authorize(self.now)
                 read.assert_not_called()
 
+    def test_managed_observer_rejects_unreviewed_wan_before_accessing_secrets(self):
+        with patch.object(observer, '_read_pilot_file',
+                          return_value=json.dumps({**self.approval, 'wan_interface':'fixture-wan'})) as read:
+            with self.assertRaisesRegex(ApiSslStop, 'SCOPE_REJECTED'):
+                observer.make_sampler(managed=True)
+            read.assert_called_once_with(str(observer.ROOT/'approval.json'), 4096)
+
     def test_exact_scope_only_and_revocation_before_transport(self):
         client = observer.CebeciObserverClient()
         credentials = (observer.USERNAME,'synthetic-fixture')

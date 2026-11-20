@@ -11,7 +11,7 @@ type Router={
  wan_status:'UP'|'DOWN'|'UNKNOWN';rx_bytes:string|null;tx_bytes:string|null;
  accounts:Account[]|null;accounts_complete:boolean;unmatched_sessions:(Session&{username:string})[]|null;
 };
-type Inventory={source:'ROUTEROS_READ_ONLY';is_demo:false;read_only:true;routers:Router[]};
+type Inventory={source:'ROUTEROS_READ_ONLY';is_demo:false;read_only:true;authorization_expires_at?:string;routers:Router[]};
 const connection={ONLINE:'Çevrimiçi',OFFLINE:'Çevrimdışı',UNKNOWN:'Bilinmiyor'} as const;
 const wan={UP:'Arayüz çalışıyor',DOWN:'Arayüz çalışmıyor',UNKNOWN:'Bilinmiyor'} as const;
 const errors:Record<string,string>={TIMEOUT:'Zaman aşımı',UNREACHABLE:'Hedefe ulaşılamadı',AUTHORIZATION:'Okuma yetkisi reddedildi',TLS:'TLS doğrulaması başarısız',INVALID_DATA:'Gözlem doğrulanamadı'};
@@ -28,8 +28,17 @@ export function DeviceInventory({view}:{view:'routers'|'subscribers'|'summary'})
   return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',resume);};
  },[resource.retry]);
  const payload=resource.data;
+ const expiry=payload?.authorization_expires_at;
+ useEffect(()=>{
+  if(expiry===undefined)return;
+  const remaining=Date.parse(expiry)-Date.now();
+  if(!Number.isFinite(remaining)||remaining<=0)return;
+  const timer=window.setTimeout(()=>setNow(Date.now()),remaining);
+  return()=>window.clearTimeout(timer);
+ },[expiry]);
  const error=resource.error||(payload&&(payload.source!=='ROUTEROS_READ_ONLY'||payload.is_demo!==false||payload.read_only!==true||!Array.isArray(payload.routers))?'RouterOS veri kaynağı doğrulanamadı.':undefined);
- const rows=!error&&!resource.loading?payload?.routers??[]:[];
+ const authorized=expiry===undefined||Date.parse(expiry)>Math.max(now,Date.now());
+ const rows=authorized&&!error&&!resource.loading?payload?.routers??[]:[];
  const recent=(row:Router)=>{
   const stamp=Date.parse(row.observed_at), age=Math.max(now,Date.now())-stamp;
   return row.freshness==='RECENT'&&Number.isFinite(stamp)&&age>=0&&age<300000;
@@ -41,7 +50,7 @@ export function DeviceInventory({view}:{view:'routers'|'subscribers'|'summary'})
  const sessionCoverage=rows.every(row=>current(row)&&row.unmatched_sessions!==null&&row.accounts?.every(account=>account.sessions!==null));
  const complete=rows.every(row=>current(row)&&row.accounts!==null&&row.accounts_complete);
  return <section className="panel registry-detail" aria-label="RouterOS salt okunur gözlemler">
-  <div className="page-heading-row"><h2>RouterOS · Salt okunur</h2><button className="button-secondary" onClick={resource.retry}>Gözlemleri yenile</button></div>
+  <div className="page-heading-row"><h2>Gerçek cihaz · RouterOS · Salt okunur</h2><button className="button-secondary" onClick={resource.retry}>Gözlemleri yenile</button></div>
   <ResourceState {...resource} error={error}/>
   {!error&&!resource.loading&&!rows.length&&<p>RouterOS gözlem kaynağında veri yok.</p>}
   {view==='summary'&&rows.length>0&&<>

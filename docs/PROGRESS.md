@@ -1,5 +1,27 @@
 # MikroTik Manager V2 — İlerleme
 
+## CEBECI_TOWERS panel entegrasyonu — V2.6.16
+
+- Yerel `/home/suat/mikrotik-v2-ortak`, `development/v2.6.2-pppoe`,
+  taban `da7ef62b6e29703772bb0276f7b8b6cb11a894ac`. Kullanıcının
+  cihaz kabulü ONLINE, RB3011UiAS, RouterOS 6.49.19, 123 hesap,
+  kapsam tam ve hata yok olarak kaydedildi.
+- Ayrı yetkisiz Linux hesabı ve 60 saniyelik systemd servisi için
+  kurulum hazırlandı. Gözlemci atomik, süreli snapshot yayımlıyor.
+  API ayrı salt okunur grup üzerinden sabit dosyayı tüketiyor.
+  WAN bilinmiyor. Üç panel görünümü gerçek kaynağı sentetik kayıtlardan
+  ayırıyor ve gerçek PPPoE hesaplarına işlem komutu sunmuyor.
+- PASS: Yerel sentetik TLS/ASGI `test_device_inventory`,
+  `test_device_poller`, `test_cebeci_observer_v2614` ve
+  `test_router_api_ssl` kapsamındaki 22 regresyon. Yeni aktarım
+  testi 123 sentetik hesap, süre, dosya modu, bağlantı ve yazma
+  reddini doğruladı. Dört hedefli Node test dosyası, frontend build,
+  sürüm ve diff kontrolü PASS. Systemd unit doğrulaması yerel Python
+  yolu kullanılan geçici kopyada PASS.
+- Canlı kurulum ve panel kabulü yapılmadı. Sonraki adım ayrı onay
+  ile [kurulum ve geri dönüş akışını](../deploy/cebeci-observer/README.md)
+  doğrulanmış V2.6.16 VDS birimine uygulamak. Push ve yayın yok.
+
 ## CEBECI_TOWERS INVALID_TEXT — V2.6.15
 
 - Yerel `/home/suat/mikrotik-v2-ortak`, `development/v2.6.2-pppoe`,

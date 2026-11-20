@@ -1,30 +1,88 @@
 """Consume a bounded, dedicated V2 poller export without connecting to devices."""
+import grp
 import os
+import pwd
 import stat
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from app.schemas.device_inventory import DeviceInventory, RouterObservation
 from app.adapters.cebeci_api_ssl import ApiSslStop
+from app.services.device_poller import MANAGED_DIR, MANAGED_GROUP, MANAGED_USER, OBSERVATION_NAME
 
 MAX_BYTES = 4 * 1024 * 1024
 FRESH_SECONDS = 300
 
-def read_inventory():
-    path = os.environ.get('V2_DEVICE_INVENTORY_FILE')
-    result = dict(source='ROUTEROS_READ_ONLY', is_demo=False, read_only=True, routers=[])
-    if not path:
-        return result
-    if not os.path.isabs(path):
-        raise ValueError()
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+def _read_snapshot(path, *, directory=None, owner=None, group=None):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
     with os.fdopen(fd, 'rb') as stream:
         info = os.fstat(stream.fileno())
-        if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_BYTES or info.st_nlink != 1 or info.st_uid not in (0, os.geteuid()) or info.st_mode & 0o077:
+        if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_BYTES or info.st_nlink != 1:
+            raise ValueError()
+        mode = stat.S_IMODE(info.st_mode)
+        if directory is None:
+            if info.st_uid not in (0, os.geteuid()) or mode & 0o077:
+                raise ValueError()
+        elif (info.st_uid, info.st_gid, mode) != (owner, group, 0o640):
             raise ValueError()
         raw = stream.read(MAX_BYTES+1)
     if len(raw) > MAX_BYTES:
         raise ValueError()
-    data = DeviceInventory.model_validate_json(raw)
+    return DeviceInventory.model_validate_json(raw)
+
+
+def _managed_snapshot():
+    try:
+        owner = pwd.getpwnam(MANAGED_USER).pw_uid
+        group = grp.getgrnam(MANAGED_GROUP).gr_gid
+    except KeyError:
+        raise ValueError() from None
+    if owner in (0, os.geteuid()) or group == 0:
+        raise ValueError()
+    try:
+        directory = os.open(MANAGED_DIR, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            info = os.fstat(directory)
+            if (info.st_uid, info.st_gid, stat.S_IMODE(info.st_mode)) != (owner, group, 0o750):
+                raise ValueError()
+            return _read_snapshot(OBSERVATION_NAME, directory=directory, owner=owner, group=group)
+        finally:
+            os.close(directory)
+    except FileNotFoundError:
+        return None
+
+
+def read_inventory():
+    path = os.environ.get('V2_DEVICE_INVENTORY_FILE')
+    mode = os.environ.get('V2_DEVICE_INVENTORY_MODE')
+    result = dict(source='ROUTEROS_READ_ONLY', is_demo=False, read_only=True, routers=[])
+    if mode == 'cebeci-systemd' and not path:
+        data = _managed_snapshot()
+    elif not mode and path and os.path.isabs(path):
+        data = _read_snapshot(path)
+    elif not mode and not path:
+        return result
+    else:
+        raise ValueError()
+    if data is None:
+        return result
     now = datetime.now(timezone.utc)
+    if mode:
+        from app.adapters.cebeci_observer import IDENTITY, MODEL, ROUTER_ID, VERSION
+
+        expiry = data.authorized_until
+        if expiry is None or expiry.utcoffset() != timedelta(0) or expiry > now + timedelta(hours=24):
+            raise ValueError()
+        if expiry <= now:
+            return result
+        result['authorization_expires_at'] = expiry.isoformat()
+        if len(data.routers) != 1:
+            raise ValueError()
+        row = data.routers[0]
+        if (row.id != ROUTER_ID or row.observed_at >= expiry
+                or row.connection == 'ONLINE' and (row.identity, row.model, (row.routeros_version or '').removesuffix(' (stable)')) != (IDENTITY, MODEL, VERSION)
+                or row.wan_status != 'UNKNOWN' or any(value is not None for value in (row.wan_interface, row.rx_bytes, row.tx_bytes))):
+            raise ValueError()
+    elif data.authorized_until is not None:
+        raise ValueError()
     if len({row.id for row in data.routers}) != len(data.routers):
         raise ValueError()
     for row in data.routers:

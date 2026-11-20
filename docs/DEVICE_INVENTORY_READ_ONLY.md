@@ -1,9 +1,11 @@
 # V2 RouterOS salt okunur gözlemler
 
-Router Merkezi, Abone Merkezi ve Dashboard içindeki **RouterOS · Salt okunur**
-kaynağı merkezi yönetici içindir. `GET /api/v1/device-inventory` yalnız
+Router Merkezi, Abone Merkezi ve Dashboard içindeki **Gerçek cihaz · RouterOS**
+kaynağı merkezi yönetici içindir. `GET /api/v1/device-inventory` eski dosya modunda yalnız
 `V2_DEVICE_INVENTORY_FILE` ile işaretlenen V2 dosyasını okur. Dosya
-yapılandırılmadığında liste boştur. Hatalı dosyada HTTP 503 döner. Dosya mutlak
+yapılandırılmadığında liste boştur. V2.6.16 için yönetilen tüketim modu ve
+izole kurulum [systemd işletim adımlarında](../deploy/cebeci-observer/README.md)
+yer alır. Hatalı dosyada HTTP 503 döner. Dosya mutlak
 yolda, normal, tek bağlantılı ve yalnız sahibine açık olmalı. API süreci veya
 root dosyanın sahibi olmalı. V1 aktarımı ve sentetik çalışma alanları kendi
 uçlarını kullanır. Bu kaynak veritabanı migration'ı gerektirmez.

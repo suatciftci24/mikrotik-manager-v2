@@ -9,13 +9,18 @@ from uuid import uuid4
 INTERVAL_SECONDS = 60
 OBSERVATION_NAME = 'device-inventory.json'
 LOCK_NAME = '.device-inventory.lock'
+MANAGED_DIR = Path('/run/mikrotik-v2-cebeci-observer')
+MANAGED_USER = 'mtv2-cebeci-observer'
+MANAGED_GROUP = 'mtv2-cebeci-read'
 
 
-def _publish(directory, observation):
+def _publish(directory, observation, authorized_until=None):
     from app.schemas.device_inventory import DeviceInventory
     from app.services.device_inventory import MAX_BYTES
 
-    payload = DeviceInventory(source='ROUTEROS_READ_ONLY', routers=[observation]).model_dump_json().encode()
+    payload = DeviceInventory(source='ROUTEROS_READ_ONLY', routers=[observation],
+                              authorized_until=authorized_until).model_dump_json(
+                                  exclude={'authorized_until'} if authorized_until is None else None).encode()
     if len(payload) > MAX_BYTES:
         raise ValueError('POLL_SNAPSHOT_TOO_LARGE')
     temporary = '.device-inventory-' + uuid4().hex
@@ -24,6 +29,8 @@ def _publish(directory, observation):
         with os.fdopen(fd, 'wb') as stream:
             stream.write(payload)
             stream.flush()
+            if authorized_until is not None:
+                os.fchmod(stream.fileno(), 0o640)
             os.fsync(stream.fileno())
         os.replace(temporary, OBSERVATION_NAME, src_dir_fd=directory, dst_dir_fd=directory)
         os.fsync(directory)
@@ -34,14 +41,16 @@ def _publish(directory, observation):
             pass
 
 
-def poll(sample, output_dir: Path, stop, *, clock=monotonic):
+def poll(sample, output_dir: Path, stop, *, clock=monotonic, authorize_snapshot=None):
     """Schedule a trusted sampler. No transport, environment, or credential resolution."""
     if not output_dir.is_absolute() or output_dir.resolve(strict=True) != output_dir:
         raise ValueError('POLL_OUTPUT_DIRECTORY_REJECTED')
     directory = os.open(output_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         info = os.fstat(directory)
-        if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) != 0o700:
+        expected_mode = 0o750 if authorize_snapshot else 0o700
+        if (info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) != expected_mode
+                or authorize_snapshot and info.st_gid != os.getegid()):
             raise ValueError('POLL_OUTPUT_DIRECTORY_REJECTED')
         lock = os.open(LOCK_NAME, os.O_RDONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK,
                        0o600, dir_fd=directory)
@@ -54,8 +63,11 @@ def poll(sample, output_dir: Path, stop, *, clock=monotonic):
             previous = None
             while not stop.is_set():
                 started = clock()
+                authorized_until = authorize_snapshot() if authorize_snapshot else None
                 observation = sample(previous=previous)
-                _publish(directory, observation)
+                if authorize_snapshot:
+                    authorized_until = min(authorized_until, authorize_snapshot())
+                _publish(directory, observation, authorized_until)
                 previous = observation
                 if stop.wait(max(0, INTERVAL_SECONDS-(clock()-started))):
                     break

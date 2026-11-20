@@ -56,4 +56,5 @@ class RouterObservation(Projection):
 
 class DeviceInventory(Projection):
     source: Literal['ROUTEROS_READ_ONLY']
+    authorized_until: AwareDatetime | None = None
     routers: list[RouterObservation] = Field(max_length=64)

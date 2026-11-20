@@ -18,7 +18,7 @@ USERNAME = 'v2-cebeci-ro'
 SCOPE = 'V2614_CEBECI_TOWERS_READ_ONLY'
 
 
-def authorize(now=None):
+def _approval(now=None):
     """Fail before credential reads or transport. Never use legacy app grants."""
     from app.core import v26_cebeci
 
@@ -39,9 +39,20 @@ def authorize(now=None):
         wan = data.get('wan_interface')
         if wan is not None and (not isinstance(wan, str) or not 1 <= len(wan) <= 120 or not wan.isprintable() or wan != wan.strip()):
             raise ValueError()
-        return wan
+        return wan, expires
     except (ApiSslStop, RuntimeError, ValueError, TypeError, KeyError, OverflowError):
         raise ApiSslStop('V2614_CEBECI_OBSERVER_NOT_AUTHORIZED') from None
+
+
+def authorize(now=None):
+    return _approval(now)[0]
+
+
+def managed_expiry():
+    wan, expires = _approval()
+    if wan is not None:
+        raise ApiSslStop('V2614_CEBECI_OBSERVER_SCOPE_REJECTED')
+    return expires
 
 
 class CebeciObserverClient(RouterApiSslClient):
@@ -56,9 +67,10 @@ class CebeciObserverClient(RouterApiSslClient):
         return self._verified_read(target, credentials, policy, False, (router_id, wan_interface))
 
 
-def make_sampler():
+def make_sampler(*, managed=False):
     """Load dedicated material only after authorization, recheck before every read."""
-    authorize()
+    check = managed_expiry if managed else authorize
+    check()
     ca = _read_pilot_file(str(ROOT / 'ca.pem'), 262144)
     password = _read_pilot_file(str(ROOT / 'password'), 1024)
     if any(char in password for char in '\r\n\x00'):
@@ -72,7 +84,8 @@ def make_sampler():
     client = CebeciObserverClient()
 
     def sample(*, previous):
-        wan = authorize()
+        approval = check()
+        wan = None if managed else approval
         return sample_device(client, target, credentials, policy, router_id=ROUTER_ID,
                              wan_interface=wan, previous=previous)
     return sample

@@ -1,5 +1,9 @@
 # Değişiklik geçmişi
 
+## [2.6.16] - 2026-11-20
+
+- CEBECI_TOWERS için izole systemd gözlemcisi ve panelde salt okunur snapshot tüketimi.
+
 ## [2.6.15] - 2026-11-20
 
 - RouterOS gözlemlerinde alan bazlı metin işleme, güvenli abone eşleştirme ve tek WAN sorgusu.
