@@ -1,5 +1,22 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.16 VDS kurulum betiği — yerel statik kabul
+
+- Taban ve sabit yayın kaynağı `433e2ba99a7f4a24ba904b14db98b57f30709f9e`.
+  Hedef `185.139.5.51`, `/srv/mikrotik-v26-next`, mevcut V2.6 API ve web
+  birimleri. [Kurulum betiği ve VDS komutu](../deploy/cebeci-observer/VDS-V2616.md)
+  hazır. V2.6.13 disk/HTTPS kimliği ve servis düzeni doğrulandıktan sonra
+  yeni özel ve doğrulanmış kod/çıktı yedeği alınacak.
+- Akış sabit kaynaktan API, frontend ve bağımsız 24 saatlik gözlemciyi
+  hazırlar. Başarı kapısı HTTPS, API, gerçek cihaz snapshot'ı ve
+  yönetici erişimidir. Hata halinde geri dönüş ve V2.6.13 sağlık
+  doğrulaması betiktedir. Ön koşullar uyuşmazsa yayın durur.
+- PASS: Python 3.12 sözdizimi/derleme, iki yerel pinli Git nesnesi,
+  Git arşiv içeriği, değişmeyen migration ve API bağımlılığı, systemd
+  kaynak dosyaları ve diff kontrolü. Betik yürütülmedi. VDS, canlı
+  birimler, PostgreSQL, cihaz ve mevcut geri dönüş yedeği kullanılmadı.
+  Gerçek yayın ve pilot kabulü yetkili VDS terminalindeki komuta bağlı.
+
 ## CEBECI_TOWERS panel entegrasyonu — V2.6.16
 
 - Yerel `/home/suat/mikrotik-v2-ortak`, `development/v2.6.2-pppoe`,
