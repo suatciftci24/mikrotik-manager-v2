@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Install the approved CEBECI V2.6.16 pilot on its fixed VDS."""
+import argparse
+from contextlib import contextmanager
 import ctypes
 from datetime import datetime, timedelta, timezone
 import fcntl
@@ -7,7 +9,8 @@ import getpass
 import grp
 import hashlib
 import http.client
-from http.cookies import SimpleCookie
+from http.cookies import CookieError, SimpleCookie
+import io
 import json
 import os
 from pathlib import Path
@@ -43,9 +46,26 @@ PATHS = ('backend/app', 'frontend/dist', 'release.json')
 MATERIAL_SUFFIX = ('.local', 'cebeci-pilot', 'v2614-observer')
 
 
-def require(condition):
+class CheckRejected(RuntimeError):
+    """Contains only a fixed operator-facing code."""
+
+
+def require(condition, code='CHECK_REJECTED'):
     if not condition:
-        raise RuntimeError('CHECK_REJECTED')
+        raise CheckRejected(code)
+
+
+@contextmanager
+def gate(code):
+    try:
+        yield
+    except CheckRejected:
+        raise
+    except (OSError, RuntimeError, ValueError, TypeError, KeyError, EOFError, CookieError,
+            AttributeError,
+            http.client.HTTPException, subprocess.SubprocessError) as error:
+        suffix = '_TLS' if isinstance(error, ssl.SSLError) else ''
+        raise CheckRejected(code + suffix) from None
 
 
 def command(*args, cwd=None, env=None, capture=False, timeout=60):
@@ -68,7 +88,7 @@ class PanelConnection(http.client.HTTPSConnection):
         self._create_connection = lambda _address, *args: socket.create_connection((IP, 443), *args)
 
 
-def request(path, *, cookie=None, credentials=None, status=200):
+def request(path, *, cookie=None, credentials=None, status=200, code="HTTP"):
     conn = PanelConnection()
     headers = {'Cache-Control': 'no-cache'}
     if cookie:
@@ -80,56 +100,113 @@ def request(path, *, cookie=None, credentials=None, status=200):
     try:
         conn.request('POST' if credentials else 'GET', path, body, headers)
         response = conn.getresponse()
-        require(response.status == status)
+        require(response.status == status, code+"_STATUS")
         data = response.read(16 * 1024 * 1024 + 1)
-        require(len(data) <= 16 * 1024 * 1024)
+        require(len(data) <= 16 * 1024 * 1024, code+"_BODY_LIMIT")
         return data, dict(response.getheaders())
     finally:
         conn.close()
 
 
-def api_get(path, *, cookie=None):
-    return json.loads(request(path, cookie=cookie)[0])
+def health_json(path, code):
+    with gate(code + '_REQUEST'):
+        raw, _ = request(path, code=code)
+    with gate(code + '_JSON'):
+        payload = json.loads(raw)
+        require(isinstance(payload, dict), code + '_JSON')
+        return payload
 
 
 def login(credentials):
-    data, headers = request('/api/v1/auth/login', credentials=credentials)
-    user = json.loads(data)
-    require(user['role_code'] == 'ADMIN' and user['can_manage_users'] is True)
-    cookies = SimpleCookie(headers.get('set-cookie') or headers.get('Set-Cookie') or '')
-    token = cookies['v2_session'].value
-    require(re.fullmatch(r'[A-Za-z0-9_-]{32,128}', token))
-    return 'v2_session=' + token
+    with gate('ADMIN_LOGIN_REQUEST'):
+        data, headers = request('/api/v1/auth/login', credentials=credentials, code='ADMIN_LOGIN')
+    with gate('ADMIN_LOGIN_RESPONSE'):
+        user = json.loads(data)
+        require(user.get('role_code') == 'ADMIN' and user.get('can_manage_users') is True, 'ADMIN_ROLE_REQUIRED')
+        cookies = SimpleCookie(headers.get('set-cookie') or headers.get('Set-Cookie') or '')
+        require('v2_session' in cookies, 'ADMIN_SESSION_COOKIE_MISSING')
+        token = cookies['v2_session'].value
+        require(re.fullmatch(r'[A-Za-z0-9_-]{32,128}', token), 'ADMIN_SESSION_COOKIE_INVALID')
+        return 'v2_session=' + token
 
 
-def build_id():
+def checkout_git(*args):
+    env = {'PATH': os.environ['PATH'], 'HOME': '/nonexistent',
+           'GIT_CONFIG_NOSYSTEM': '1', 'GIT_OPTIONAL_LOCKS': '0'}
+    return command('git', '-c', 'safe.directory='+str(ROOT), '-C', str(ROOT), *args, env=env, capture=True)
+
+
+def checkout_head():
+    if not os.path.lexists(ROOT/'.git'):
+        return None
+    with gate('GIT_HEAD_UNREADABLE'):
+        head = checkout_git('rev-parse', '--verify', 'HEAD^{commit}').decode().strip()
+        require(re.fullmatch(r'[a-f0-9]{40}', head), 'GIT_HEAD_INVALID')
+        return head
+
+
+def head_matches_api(head, running_build):
+    if head is None:
+        return 'GIT_HEAD_TREE_ABSENT'
+    with gate('GIT_HEAD_TREE_UNREADABLE'):
+        archive = checkout_git('archive', head, '--', 'backend/app', 'release.json')
+        digest = hashlib.sha256()
+        with tarfile.open(fileobj=io.BytesIO(archive)) as tracked:
+            for member in sorted(tracked.getmembers(), key=lambda item: item.name):
+                if member.name.startswith('backend/app/') and member.name.endswith('.py') and member.isfile():
+                    digest.update(member.name.encode() + b'\0' + tracked.extractfile(member).read() + b'\0')
+            release = tracked.extractfile('release.json').read()
+        matches = (digest.hexdigest() == running_build and release == (ROOT/'release.json').read_bytes())
+    return 'GIT_HEAD_TREE_MATCHES_API' if matches else 'GIT_HEAD_TREE_DIFFERS_FROM_API'
+
+
+def build_id(root=ROOT):
     digest = hashlib.sha256()
-    for path in sorted((ROOT/'backend/app').rglob('*.py')):
-        digest.update(str(path.relative_to(ROOT)).encode() + b'\0' + path.read_bytes() + b'\0')
+    for path in sorted((root/'backend/app').rglob('*.py')):
+        digest.update(str(path.relative_to(root)).encode() + b'\0' + path.read_bytes() + b'\0')
     return digest.hexdigest()
 
 
-def health(version, commit=None):
-    for unit in (API, WEB):
-        system('is-active', '--quiet', unit)
-    ready = api_get('/api/ready')
-    require(ready['service'] == 'mikrotik-manager-v2' and ready['api_version'] == 'v1'
-            and ready['runtime_profile'] == 'v26-isolated-acceptance'
-            and ready['app_version'] == version and ready['build_id'] == build_id()
-            and ready['repo_id'] == hashlib.sha256(str(ROOT).encode()).hexdigest())
-    require(json.loads((ROOT/'release.json').read_bytes())['version'] == version)
-    require(api_get('/api/health')['database_connected'] is True)
+def health(version, commit=None, expected_build=None):
+    for unit, code in ((API, 'API_NOT_ACTIVE'), (WEB, 'WEB_NOT_ACTIVE')):
+        with gate(code):
+            system('is-active', '--quiet', unit)
+    ready = health_json('/api/ready', 'API_READY')
+    require(ready.get('service') == 'mikrotik-manager-v2', 'API_SERVICE_MISMATCH')
+    require(ready.get('api_version') == 'v1', 'API_CONTRACT_MISMATCH')
+    require(ready.get('runtime_profile') == 'v26-isolated-acceptance', 'API_PROFILE_MISMATCH')
+    require(ready.get('app_version') == version, 'API_VERSION_MISMATCH')
+    with gate('API_DISK_BUILD_UNREADABLE'):
+        disk_build = build_id()
+    require(ready.get('build_id') == disk_build, 'API_RUNNING_DISK_BUILD_MISMATCH')
+    require(expected_build is None or disk_build == expected_build, 'API_PINNED_BUILD_MISMATCH')
+    require(ready.get('repo_id') == hashlib.sha256(str(ROOT).encode()).hexdigest(), 'API_REPOSITORY_MISMATCH')
+    with gate('DISK_RELEASE_UNREADABLE'):
+        disk_release = json.loads((ROOT/'release.json').read_bytes())
+        require(isinstance(disk_release, dict), 'DISK_RELEASE_INVALID')
+    require(disk_release.get('version') == version, 'DISK_RELEASE_VERSION_MISMATCH')
+    require(health_json('/api/health', 'API_HEALTH').get('database_connected') is True, 'API_DATABASE_UNHEALTHY')
     dist = ROOT/'frontend/dist'
-    index = request('/')[0]
-    require(index == (dist/'index.html').read_bytes())
+    with gate('WEB_INDEX_REQUEST'):
+        index = request('/', code='WEB_INDEX')[0]
+    with gate('WEB_DISK_INDEX_UNREADABLE'):
+        disk_index = (dist/'index.html').read_bytes()
+    require(index == disk_index, 'WEB_INDEX_DISK_MISMATCH')
     if commit:
-        require(re.search(rb'<meta[^>]+name="mikrotik-app-version"[^>]+content="2\.6\.16"', index)
-                and commit.encode() in index)
+        require(re.search(rb'<meta[^>]+name="mikrotik-app-version"[^>]+content="2\.6\.16"', index),
+                'WEB_RELEASE_META_MISMATCH')
+        require(re.search(rb'<meta[^>]+name="mikrotik-build-commit"[^>]+content="' + commit.encode() + rb'"', index),
+                'WEB_COMMIT_META_MISMATCH')
     assets = set(re.findall(rb'["\'](/assets/[A-Za-z0-9_.-]+\.(?:js|css))["\']', index))
-    require(assets and any(asset.endswith(b'.js') for asset in assets))
-    for asset in assets:
+    require(assets and any(asset.endswith(b'.js') for asset in assets), 'WEB_INDEX_ASSETS_MISSING')
+    for asset in sorted(assets):
         path = asset.decode()
-        require(request(path)[0] == (dist/path.removeprefix('/')).read_bytes())
+        with gate('WEB_ASSET_REQUEST'):
+            served = request(path, code='WEB_ASSET')[0]
+        with gate('WEB_DISK_ASSET_UNREADABLE'):
+            disk = (dist/path.removeprefix('/')).read_bytes()
+        require(served == disk, 'WEB_ASSET_DISK_MISMATCH')
+    return disk_build
 
 
 def wait_for(check, seconds):
@@ -137,9 +214,10 @@ def wait_for(check, seconds):
     while True:
         try:
             return check()
-        except (RuntimeError, OSError, KeyError, ValueError, http.client.HTTPException, subprocess.SubprocessError):
+        except (RuntimeError, OSError, KeyError, ValueError, http.client.HTTPException, subprocess.SubprocessError) as error:
             if time.monotonic() >= deadline:
-                raise RuntimeError('ACCEPTANCE_TIMEOUT') from None
+                code = str(error) if isinstance(error, CheckRejected) else 'ACCEPTANCE_CHECK_FAILED'
+                raise CheckRejected('TIMEOUT_' + code) from None
             time.sleep(2)
 
 
@@ -147,63 +225,103 @@ def new_path(path):
     require(not os.path.lexists(path))
 
 
-def plain(path, directory=False):
+def plain(path, directory=False, code='PATH_UNSAFE'):
     mode = path.lstat().st_mode
-    require(path.resolve() == path and (stat.S_ISDIR(mode) if directory else stat.S_ISREG(mode)))
+    require(path.resolve() == path and (stat.S_ISDIR(mode) if directory else stat.S_ISREG(mode)), code)
     return path
 
 
-def read_material(directory, name, limit):
-    path = plain(directory/name)
+def read_material(directory, name, limit, code):
+    path = plain(directory/name, code=code + '_PATH_UNSAFE')
     parent = directory.stat()
     with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as stream:
         info = os.fstat(stream.fileno())
-        require(stat.S_ISREG(info.st_mode) and info.st_uid == parent.st_uid and info.st_nlink == 1
-                and stat.S_IMODE(info.st_mode) in (0o400, 0o600) and 0 < info.st_size <= limit)
+        require(stat.S_ISREG(info.st_mode), code + '_TYPE')
+        require(info.st_uid == parent.st_uid, code + '_OWNER')
+        require(info.st_nlink == 1, code + '_LINK_COUNT')
+        require(stat.S_IMODE(info.st_mode) in (0o400, 0o600), code + '_PERMISSIONS')
+        require(0 < info.st_size <= limit, code + '_SIZE')
         data = stream.read(limit+1)
-    require(0 < len(data) <= limit)
+    require(0 < len(data) <= limit, code + '_READ_SIZE')
     return data
 
 
+def preflight_prop(unit, name, code):
+    with gate(code):
+        return prop(unit, name)
+
+
+def verify_unit(unit, kind, subdirectory):
+    code = kind + '_UNIT_LOAD'
+    require(preflight_prop(unit, 'LoadState', code) == 'loaded', code + '_STATE')
+    code = kind + '_UNIT_DAEMON_RELOAD'
+    require(preflight_prop(unit, 'NeedDaemonReload', code) == 'no', code + '_PENDING')
+    for hook, label in (('ExecCondition', 'EXEC_CONDITION'), ('ExecStartPre', 'EXEC_START_PRE'),
+                        ('ExecStartPost', 'EXEC_START_POST'), ('ExecStop', 'EXEC_STOP'),
+                        ('ExecStopPost', 'EXEC_STOP_POST')):
+        code = kind + '_UNIT_' + label
+        require(not preflight_prop(unit, hook, code), code + '_PRESENT')
+    start = preflight_prop(unit, 'ExecStart', kind + '_UNIT_EXEC_START')
+    executable = re.fullmatch(r'\{ path=([^ ;]+) ; argv\[\]=([^;]+) ;[^{}]*\}', start)
+    require(executable is not None, kind + '_UNIT_EXEC_START_FORMAT')
+    program = Path(executable[1]).name
+    argv = executable[2].split()
+    if unit == API:
+        require('app.main:app' in argv and (program == 'uvicorn'
+                or program.startswith('python') and argv[1:3] == ['-m', 'uvicorn']), 'API_UNIT_EXEC_START_UNSUPPORTED')
+    else:
+        require(program.startswith('python') and argv[1:3] == ['-m', 'http.server']
+                or program in ('node', 'vite') and 'preview' in argv, 'WEB_UNIT_EXEC_START_UNSUPPORTED')
+    with gate(kind + '_UNIT_MAIN_PID'):
+        pid = int(prop(unit, 'MainPID'))
+        require(pid > 0, kind + '_UNIT_NO_MAIN_PID')
+    with gate(kind + '_UNIT_PROCESS_CWD'):
+        cwd = Path(os.readlink(f'/proc/{pid}/cwd'))
+    require(cwd in (ROOT, ROOT/subdirectory, ROOT/'frontend/dist') and
+            (unit != API or cwd != ROOT/'frontend/dist'), kind + '_UNIT_PROCESS_CWD_MISMATCH')
+
+
 def verify_baseline():
-    require(os.geteuid() == 0 and sys.stdin.isatty() and sys.stderr.isatty())
-    require(any(a.get('local') == IP for link in json.loads(command('ip', '-j', 'address', capture=True))
-                for a in link.get('addr_info', [])))
-    plain(ROOT, directory=True)
-    for path in (ROOT/'backend', ROOT/'frontend'):
-        plain(path, directory=True)
-    for name in PATHS:
-        plain(ROOT/name, directory=name != 'release.json')
-    for unit, subdirectory in ((API, 'backend'), (WEB, 'frontend')):
-        require(prop(unit, 'LoadState') == 'loaded' and prop(unit, 'NeedDaemonReload') == 'no')
-        for hook in ('ExecCondition', 'ExecStartPre', 'ExecStartPost', 'ExecStop', 'ExecStopPost'):
-            require(not prop(unit, hook))
-        start = prop(unit, 'ExecStart')
-        executable = re.match(r'^\{ path=([^ ;]+) ; argv\[\]=([^;]+) ;', start)
-        require(executable is not None)
-        program = Path(executable[1]).name
-        argv = executable[2].split()
-        if unit == API:
-            require('app.main:app' in argv and (program == 'uvicorn'
-                    or program.startswith('python') and argv[1:3] == ['-m', 'uvicorn']))
-        else:
-            require(program.startswith('python') and argv[1:3] == ['-m', 'http.server']
-                    or program in ('node', 'vite') and 'preview' in argv)
-        cwd = Path(os.readlink('/proc/' + str(int(prop(unit, 'MainPID'))) + '/cwd'))
-        require(cwd in (ROOT, ROOT/subdirectory, ROOT/'frontend/dist') and
-                (unit != API or cwd != ROOT/'frontend/dist'))
-    api_owner = prop(API, 'User')
-    require(api_owner and pwd.getpwnam(api_owner).pw_uid != 0 and api_owner != USER)
-    for path in (OBSERVER_ROOT, UNIT, DROP, RUNTIME, Path('/etc/systemd/system/multi-user.target.wants')/OBSERVER):
-        new_path(path)
-    require(prop(OBSERVER, 'LoadState') == 'not-found')
-    for lookup, name in ((pwd.getpwnam, USER), (grp.getgrnam, GROUP)):
-        try:
-            lookup(name)
-        except KeyError:
-            continue
-        raise RuntimeError('ACCOUNT_ALREADY_EXISTS')
-    health('2.6.13')
+    require(os.geteuid() == 0, 'ROOT_REQUIRED')
+    with gate('VDS_ADDRESS_QUERY'):
+        addresses = json.loads(command('ip', '-j', 'address', capture=True))
+        require(isinstance(addresses, list), 'VDS_ADDRESS_RESPONSE')
+        address_present = any(a.get('local') == IP for link in addresses for a in link.get('addr_info', []))
+    require(address_present, 'VDS_IPV4_NOT_ASSIGNED')
+    for path, directory, code in (
+        (ROOT, True, 'VDS_ROOT_PATH'), (ROOT/'backend', True, 'BACKEND_PATH'),
+        (ROOT/'frontend', True, 'FRONTEND_PATH'), (ROOT/'backend/app', True, 'BACKEND_APP_PATH'),
+        (ROOT/'frontend/dist', True, 'FRONTEND_DIST_PATH'), (ROOT/'release.json', False, 'RELEASE_FILE_PATH'),
+    ):
+        with gate(code + '_UNREADABLE'):
+            plain(path, directory=directory, code=code + '_UNSAFE')
+    with gate('PUBLISH_FILESYSTEM_QUERY'):
+        require(all((ROOT/name).stat().st_dev == ROOT.stat().st_dev for name in PATHS),
+                'PUBLISH_FILESYSTEM_MISMATCH')
+    with gate('API_DROPIN_PARENT_QUERY'):
+        require(DROP.parent.resolve() == DROP.parent, 'API_DROPIN_PARENT_UNSAFE')
+    verify_unit(API, 'API', 'backend')
+    verify_unit(WEB, 'WEB', 'frontend')
+    api_owner = preflight_prop(API, 'User', 'API_UNIT_USER_QUERY')
+    require(api_owner and api_owner != USER, 'API_UNIT_USER_REQUIRED')
+    with gate('API_UNIT_USER_LOOKUP'):
+        require(pwd.getpwnam(api_owner).pw_uid != 0, 'API_UNIT_USER_ROOT')
+    for path, code in (
+        (OBSERVER_ROOT, 'OBSERVER_ROOT_EXISTS'), (UNIT, 'OBSERVER_UNIT_FILE_EXISTS'),
+        (DROP, 'API_SNAPSHOT_DROPIN_EXISTS'), (RUNTIME, 'OBSERVER_RUNTIME_EXISTS'),
+        (Path('/etc/systemd/system/multi-user.target.wants')/OBSERVER, 'OBSERVER_ENABLE_LINK_EXISTS'),
+    ):
+        require(not os.path.lexists(path), code)
+    require(preflight_prop(OBSERVER, 'LoadState', 'OBSERVER_UNIT_LOAD_QUERY') == 'not-found', 'OBSERVER_UNIT_ALREADY_DEFINED')
+    for lookup, name, code in ((pwd.getpwnam, USER, 'OBSERVER_USER'), (grp.getgrnam, GROUP, 'OBSERVER_GROUP')):
+        with gate(code + '_LOOKUP'):
+            try:
+                lookup(name)
+            except KeyError:
+                continue
+            raise CheckRejected(code + '_EXISTS')
+    head = checkout_head()
+    return head, health('2.6.13')
 
 
 def archive_source(work):
@@ -248,9 +366,14 @@ def backup_live():
     return backup
 
 
-def verify_backup(backup):
+def verify_backup_digest(backup):
     path = backup/'code-and-dist.tar'
-    require(file_digest(path) == (backup/'sha256').read_text().split()[0])
+    require(file_digest(path) == (backup/'sha256').read_text().split()[0], 'BACKUP_DIGEST_MISMATCH')
+    return path
+
+
+def verify_backup(backup):
+    path = verify_backup_digest(backup)
     command('tar', '-df', str(path), '-C', str(ROOT), timeout=180)
 
 
@@ -360,8 +483,106 @@ def accept(cookie):
     return len(row['accounts'])
 
 
+def installation_credentials():
+    require(sys.stdin.isatty(), 'INSTALL_STDIN_TTY_REQUIRED')
+    require(sys.stderr.isatty(), 'INSTALL_STDERR_TTY_REQUIRED')
+    with gate('MATERIAL_PATH_INPUT'):
+        directory = Path(input('Mevcut V2 gözlemci özel malzeme dizini (mutlak yol): ').strip())
+    require(directory.is_absolute(), 'MATERIAL_PATH_NOT_ABSOLUTE')
+    require(directory.parts[-3:] == MATERIAL_SUFFIX, 'MATERIAL_PATH_SCOPE')
+    with gate('MATERIAL_DIRECTORY_UNREADABLE'):
+        plain(directory, directory=True, code='MATERIAL_DIRECTORY_UNSAFE')
+        require(stat.S_IMODE(directory.stat().st_mode) == 0o700, 'MATERIAL_DIRECTORY_PERMISSIONS')
+    with gate('MATERIAL_CA_READ'):
+        ca = read_material(directory, 'ca.pem', 262144, 'MATERIAL_CA')
+    with gate('MATERIAL_PASSWORD_READ'):
+        password = read_material(directory, 'password', 1024, 'MATERIAL_PASSWORD')
+    require(all(char not in password for char in (b'\r', b'\n', b'\0')), 'MATERIAL_PASSWORD_FORMAT')
+    with gate('MATERIAL_PASSWORD_ENCODING'):
+        password.decode('utf-8')
+    with gate('MATERIAL_CA_INVALID'):
+        ssl.create_default_context(cadata=ca.decode())
+    with gate('ADMIN_CREDENTIAL_INPUT'):
+        username = input('Mevcut V2 merkezi yönetici adı: ').strip()
+        admin_password = getpass.getpass('V2 yönetici parolası: ')
+    require(username and admin_password, 'ADMIN_CREDENTIALS_MISSING')
+    credentials = (username, admin_password)
+    login(credentials)
+    return {'ca.pem':ca, 'password':password}, credentials
+
+
+def preflight_only():
+    """Report without opening the install lock, prompting, or logging in."""
+    try:
+        head, baseline_build = verify_baseline()
+        tree_relation = head_matches_api(head, baseline_build)
+    except CheckRejected as error:
+        print('BLOCKED —', error, file=sys.stderr)
+        return 1
+    except Exception:
+        print('BLOCKED — PREFLIGHT_UNEXPECTED', file=sys.stderr)
+        return 1
+    relation = ('GIT_HEAD_ABSENT' if head is None else 'GIT_HEAD_BASELINE' if head == OLD else
+                'GIT_HEAD_TARGET' if head == NEW else 'GIT_HEAD_OTHER')
+    print('PASS — PREFLIGHT_READ_ONLY ·', relation, '·', tree_relation)
+    print('DEFERRED — PRIVATE_MATERIAL, ADMIN_LOGIN, SOURCE_FETCH, DEVICE_ACCEPTANCE')
+    return 0
+
+
+def identity(path):
+    info = path.lstat()
+    return info.st_dev, info.st_ino
+
+
+def restore_swaps(staged, switched):
+    for name, before, after in switched:
+        require(identity(ROOT/name) == after and identity(staged/name) == before, 'ROLLBACK_TARGET_DRIFT')
+    for name, _, _ in reversed(switched):
+        exchange(ROOT/name, staged/name)
+
+
+def stop_observer():
+    system('stop', OBSERVER)
+    system('disable', OBSERVER)
+
+
+def rollback(backup, staged, switched, undo, stopped, observer_attempted, baseline_build, initial_head):
+    def recover(code, action):
+        try:
+            action()
+            return True
+        except Exception as error:
+            print('FAIL —', error if isinstance(error, CheckRejected) else code, file=sys.stderr)
+            return False
+
+    observer_stopped = not observer_attempted or recover('ROLLBACK_OBSERVER_STOP', stop_observer)
+    app_stopped = not stopped or recover('ROLLBACK_PANEL_STOP', lambda: system('stop', WEB, API))
+    ready = observer_stopped and app_stopped
+    if stopped and ready:
+        ready = (recover('ROLLBACK_BACKUP_DIGEST', lambda: verify_backup_digest(backup))
+                 and recover('ROLLBACK_FILE_EXCHANGE', lambda: restore_swaps(staged, switched)))
+    if observer_stopped:
+        for action in reversed(undo):
+            if not recover('ROLLBACK_OBSERVER_RESOURCE', action):
+                ready = False
+    if undo or stopped:
+        if not recover('ROLLBACK_DAEMON_RELOAD', lambda: system('daemon-reload')):
+            ready = False
+    if stopped and ready:
+        ready = (recover('ROLLBACK_BACKUP_COMPARE', lambda: verify_backup(backup))
+                 and recover('ROLLBACK_PANEL_START', lambda: system('start', API, WEB))
+                 and recover('ROLLBACK_BASELINE_HEALTH',
+                             lambda: wait_for(lambda: health('2.6.13', expected_build=baseline_build), 60)))
+    if stopped and ready:
+        try:
+            require(checkout_head() == initial_head, 'ROLLBACK_GIT_HEAD_CHANGED_EXTERNALLY')
+        except CheckRejected as error:
+            print('NOTICE —', error, file=sys.stderr)
+    return ready
+
+
 def interrupted(_sig, _frame):
-    raise RuntimeError('INTERRUPTED')
+    raise CheckRejected('INTERRUPTED')
 
 
 def run():
@@ -371,29 +592,24 @@ def run():
     switched = []
     undo = []
     stopped = False
+    observer_attempted = False
+    initial_head = baseline_build = None
     stage_dir = None
     os.umask(0o077)
     try:
-        require(os.geteuid() == 0)
-        fd = os.open('/run/mikrotik-v2616-cebeci-deploy.lock',
-                     os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+        require(os.geteuid() == 0, 'ROOT_REQUIRED')
+        with gate('INSTALL_LOCK_OPEN'):
+            fd = os.open('/run/mikrotik-v2616-cebeci-deploy.lock',
+                         os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
         with os.fdopen(fd, 'wb') as lock:
             info = os.fstat(lock.fileno())
-            require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and info.st_nlink == 1)
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and info.st_nlink == 1, 'INSTALL_LOCK_UNSAFE')
+            with gate('INSTALL_LOCK_BUSY'):
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             try:
-                verify_baseline()
-                directory = Path(input('Mevcut V2 gözlemci özel malzeme dizini (mutlak yol): ').strip())
-                require(directory.is_absolute() and directory.parts[-3:] == MATERIAL_SUFFIX)
-                plain(directory, directory=True)
-                require(stat.S_IMODE(directory.stat().st_mode) == 0o700)
-                material = {'ca.pem':read_material(directory,'ca.pem',262144),
-                            'password':read_material(directory,'password',1024)}
-                require(all(char not in material['password'] for char in (b'\r', b'\n', b'\0')))
-                material['password'].decode('utf-8')
-                ssl.create_default_context(cadata=material['ca.pem'].decode())
-                credentials = (input('Mevcut V2 merkezi yönetici adı: ').strip(), getpass.getpass('V2 yönetici parolası: '))
-                login(credentials)
+                initial_head, baseline_build = verify_baseline()
+                stage_name = 'özel malzeme ve yönetici ön kontrolü'
+                material, credentials = installation_credentials()
 
                 stage_name = 'kaynak ve doğrulanmış yedek'
                 stage_dir = Path(tempfile.mkdtemp(prefix='.v2616-stage-', dir=ROOT))
@@ -402,6 +618,9 @@ def run():
                 (staged/'frontend').mkdir()
                 source = archive_source(stage_dir)
                 backup = backup_live()
+                rollback_record = dict(baseline_version='2.6.13', baseline_api_build_id=baseline_build,
+                                       checkout_head=initial_head, stage_directory=str(stage_dir), paths=PATHS)
+                put(backup/'rollback-proof.json', json.dumps(rollback_record).encode(), 0o600)
 
                 stage_name = 'izole gözlemci ve frontend hazırlığı'
                 command('groupadd', '--system', GROUP)
@@ -412,6 +631,7 @@ def run():
                 OBSERVER_ROOT.mkdir(mode=0o755)
                 undo.append(lambda: shutil.rmtree(OBSERVER_ROOT))
                 account = observer_setup(source)
+                target_build = build_id(source)
                 build_frontend(source, staged)
                 shutil.copytree(source/'backend/app', staged/'backend/app')
                 for item in (staged/'backend/app').rglob('*'):
@@ -433,52 +653,44 @@ def run():
 
                 stage_name = 'V2.6.16 yayın geçişi'
                 verify_backup(backup)
+                require(checkout_head() == initial_head, 'GIT_HEAD_CHANGED_BEFORE_SWITCH')
+                require(build_id(staged) == target_build, 'STAGED_PINNED_BUILD_MISMATCH')
                 stopped = True
                 system('stop', WEB, API)
                 for name in PATHS:
                     mask = signal.pthread_sigmask(signal.SIG_BLOCK, (signal.SIGINT, signal.SIGTERM, signal.SIGHUP))
                     try:
+                        before, after = identity(ROOT/name), identity(staged/name)
                         exchange(ROOT/name, staged/name)
-                        switched.append(name)
+                        switched.append((name, before, after))
                     finally:
                         signal.pthread_sigmask(signal.SIG_SETMASK, mask)
                 system('start', API, WEB)
-                wait_for(lambda: health('2.6.16', NEW), 60)
+                wait_for(lambda: health('2.6.16', NEW, target_build), 60)
                 stage_name = '24 saatlik pilot ve gerçek cihaz kabulü'
                 approval(account, material)
-                undo.append(lambda: system('disable', '--now', OBSERVER))
+                observer_attempted = True
                 system('enable', '--now', OBSERVER)
                 request('/api/v1/device-inventory', status=401)
                 cookie = login(credentials)
                 count = wait_for(lambda: accept(cookie), 95)
+                final_head = checkout_head()
+                require(final_head == initial_head, 'GIT_HEAD_CHANGED_DURING_SWITCH')
+                receipt = dict(source_commit=NEW, app_version='2.6.16', api_build_id=target_build,
+                               frontend_index_sha256=file_digest(ROOT/'frontend/dist/index.html'),
+                               checkout_head_before=initial_head, checkout_head_after=final_head,
+                               rollback_app_version='2.6.13', rollback_api_build_id=baseline_build)
+                put(backup/'release-proof.json', json.dumps(receipt).encode(), 0o600)
                 print(f'PASS — V2.6.16 {NEW} · CEBECI_TOWERS ONLINE · {count} hesap · WAN bilinmiyor')
                 return 0
 
-            except Exception:
+            except Exception as error:
                 for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
                     signal.signal(sig, signal.SIG_IGN)
-                print('FAIL — aşama:', stage_name, file=sys.stderr)
-                recovery_errors = []
-
-                def recover(action):
-                    try:
-                        action()
-                    except Exception:
-                        recovery_errors.append(True)
-
-                if stopped:
-                    recover(lambda: system('stop', WEB, API))
-                for name in reversed(switched):
-                    recover(lambda name=name: exchange(ROOT/name, staged/name))
-                for action in reversed(undo):
-                    recover(action)
-                if undo or stopped:
-                    recover(lambda: system('daemon-reload'))
-                if stopped:
-                    recover(lambda: verify_backup(backup))
-                    recover(lambda: system('start', API, WEB))
-                    recover(lambda: wait_for(lambda: health('2.6.13'), 60))
-                if recovery_errors:
+                code = str(error) if isinstance(error, CheckRejected) else 'STAGE_FAILED'
+                print('FAIL —', stage_name, '·', code, file=sys.stderr)
+                if not rollback(backup, staged, switched, undo, stopped, observer_attempted,
+                                baseline_build, initial_head):
                     print('ROLLBACK BLOCKED — yedek ve hazırlık dizini:', backup, stage_dir, file=sys.stderr)
                     stage_dir = None
                 elif stopped:
@@ -492,12 +704,16 @@ def run():
                         shutil.rmtree(stage_dir)
                     except OSError:
                         print('Hazırlık dizini inceleme için kaldı:', stage_dir, file=sys.stderr)
-    except Exception:
-        print('BLOCKED — root, kurulum kilidi veya yerel hazırlık reddedildi.', file=sys.stderr)
+    except Exception as error:
+        code = str(error) if isinstance(error, CheckRejected) else 'INSTALL_SETUP_FAILED'
+        print('BLOCKED —', code, file=sys.stderr)
         return 1
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--preflight-only', action='store_true', help='run read-only host and HTTPS checks')
+    args = parser.parse_args()
     for caught in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(caught, interrupted)
-    raise SystemExit(run())
+    raise SystemExit(preflight_only() if args.preflight_only else run())

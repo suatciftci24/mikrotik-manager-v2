@@ -1,5 +1,23 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.16 VDS ön kontrol tanısı ve geri dönüş kapıları
+
+- Taban `4f2e6d0c44001093b79289839a301cb5119136f8`. Kullanıcı
+  VDS'de ön kontrol FAIL bildirdi. Önceki betik koşul kodunu
+  göstermediği için canlıda hangi koşulun başarısız olduğu bilinmiyor.
+- `--preflight-only` güvenli koşul kodu ve Git çalışma ağacı/API
+  eşleşmesini bildirir. Dosya yazımı, kurulum kilidi, kimlik doğrulama
+  POST'u, secret okuma veya cihaz bağlantısı yapmaz.
+- Yayın kanıtına sabit kaynak, disk/çalışan API özeti, frontend özeti
+  ve önceki/sonraki HEAD eklenir. Geri dönüş gözlemciyi önce durdurur.
+  Yedek özeti, dosya kimlikleri ve geri yüklenen içerik doğrulanmadan
+  panel başlatılmaz. Git HEAD değiştirilmez.
+- PASS: Altı yerel hedefli Python senaryosu, gerçek yerel Git
+  arşivleriyle sürüm farkı, Python derleme ve diff kontrolü.
+  Kullanıcının VDS sonucu henüz doğrulanmadı. Sonraki adım
+  [salt okunur teşhis komutu](../deploy/cebeci-observer/VDS-V2616.md#salt-okunur-teşhis).
+  Canlı bağlantı, servis işlemi, push ve yayın yok.
+
 ## V2.6.16 VDS kurulum betiği — yerel statik kabul
 
 - Taban ve sabit yayın kaynağı `433e2ba99a7f4a24ba904b14db98b57f30709f9e`.
