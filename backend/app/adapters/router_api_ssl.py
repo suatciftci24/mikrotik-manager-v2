@@ -77,6 +77,9 @@ class RouterApiSslClient:
         from app.core.pilot_runtime import validate_target
         try:validate_target(target,credentials[0])
         except RuntimeError:raise ApiSslStop('PILOT_SCOPE_MISMATCH') from None
+        return self._verified_read(target, credentials, policy, details, observation)
+
+    def _verified_read(self,target,credentials,policy,details,observation=None):
         if not re.fullmatch('[a-f0-9]{64}',target.leaf_sha256):raise ApiSslStop('CERTIFICATE_PIN_REQUIRED')
         try:context=verified_tls_context(target.ca_pem)
         except ValueError:raise ApiSslStop('CA_CERTIFICATE_REJECTED') from None

@@ -1,5 +1,16 @@
 # MikroTik Manager V2 — İlerleme
 
+## Bağımsız CEBECI_TOWERS V2.6.14 gözlemci yetkisi
+
+- Taban `28204e66f41abe83c7efd3769ff18f6ed3d598b7`. Emekli V2.6
+  izin kapısı korunuyor. Yeni ön plan işlemi, özel ve süreli yerel
+  onay ile yalnız incelenmiş CEBECI_TOWERS hedefinde çalışabilir.
+- PASS: Dört yeni yerel test. Varsayılan kapalı/sona ermiş yetki,
+  eski profil reddi, sabit hedef/pin, iptal ve sahte TLS üzerinden
+  tek 60 saniyelik poller çevrimi ile özel gözlem dosyası kapsandı.
+- Gerçek cihaz veya IPsec erişimi yapılmadı. Koşullar ve VDS girişleri
+  [işletim belgesinde](DEVICE_INVENTORY_READ_ONLY.md). Push/yayın yok.
+
 ## CEBECI_TOWERS V2.6.14 işletim hazırlığı
 
 - Taban `b9fded7402b5d96cf9576ea6d944b5f003b06f6a`. V1 sağlık

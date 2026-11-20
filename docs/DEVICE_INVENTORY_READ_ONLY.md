@@ -79,3 +79,44 @@ V2.6.14 işletim modülü olan ayrı, yetkili VDS checkout'unda
 `PYTHONPATH=backend V2_DEPLOYMENT_PROFILE=v26-isolated-acceptance python3 -B -m app.services.device_poller --preflight`
 mevcut kapıyı salt okunur kontrol eder. Bağlantı komutu mevcut profilde
 kullanılamaz. Bu komut parola okumaz ve soket açmaz.
+
+
+## Bağımsız V2.6.14 CEBECI gözlemcisi
+
+Eski profil bağlı kalır. Yeni yetki yalnız ayrı `app.cebeci_observer`
+ön plan işlemi içindir. HTTP uçlarına, registry'ye ve uygulama
+başlangıcına eklenmez. Kök kullanıcıyla veya eski uygulama profili/cihaz
+bayraklarıyla çalışmaz. Hedef, kaynak, port, kimlik, model, RouterOS sürümü,
+hesap, router ID ve gözden geçirilmiş leaf pini kodda sabittir.
+
+Yetkili VDS operatörü, ayrı V2.6.14 checkout'unda ve ayrı root olmayan
+işletim hesabıyla `.local/cebeci-pilot/v2614-observer/` altında üç özel
+dosya hazırlar. Dizinler ve dosyalar aynı hesaba ait olmalı. Özel dizinler
+`0700`, dosyalar `0600` olmalı. Bağlantılar, ortak yazılabilir depolar
+ve sürüm kontrolü kullanılmaz.
+
+- `approval.json` yalnız `scope: "V2614_CEBECI_TOWERS_READ_ONLY"` ve
+  `expires_at` alanlarını gerektirir. Zaman gelecekte, UTC ve en fazla 24
+  saat ileride olmalı. Doğrulanmışsa isteğe bağlı `wan_interface`
+  eklenebilir. Alan yoksa WAN ölçümü bilinmiyor kalır.
+- `ca.pem` onaylı public CA zinciridir. `password` sabit salt okunur
+  hesabın parolasını içerir. Parolaya satır sonu eklenmemeli. Parola
+  komut satırına, ortam değişkenine ve Git'e yazılmamalı.
+- Mevcut IPsec yolu, kaynak `10.250.0.1` ile hedef `10.250.0.19:8729`
+  arasındaki trafiği taşımalı. Hedefin API-SSL dinleyicisi ve hesabın
+  yalnız gerekli okuma yetkileri ayrı doğrulanmalı. Bu görevde ölçülmedi.
+
+Normal VDS terminalinde **ayrı yetkili checkout** kökünden, gerekli Python
+bağımlılıkları olan V2 yorumlayıcısıyla:
+
+```bash
+PYTHONPATH=backend python3 -B -m app.cebeci_observer preflight
+PYTHONPATH=backend python3 -B -m app.cebeci_observer run
+```
+
+`preflight` yalnız yerel onayı doğrular. `run` onayı doğruladıktan sonra
+sırları özel dosyalardan okur ve 60 saniyelik döngüyü başlatır. Onay
+her ölçümden önce tekrar kontrol edilir. Silme veya süre dolması sonraki
+çevrimi kapatır. Etkin ölçüm TLS taşıyıcısının süre sınırına tabidir.
+Çıktı aynı dizinde `device-inventory.json` olarak atomik yazılır.
+Bu dosyayı API'ye tanıtmak ayrı, onaylı işletim değişikliğidir.
