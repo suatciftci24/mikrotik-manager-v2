@@ -31,7 +31,10 @@ test('RouterOS observation displays a real separate source in all three views',(
   for(const view of ['routers','subscribers','summary']){
     const html=render(view);
     assert.match(html,/Gerçek cihaz · RouterOS · Salt okunur/);
-    assert.doesNotMatch(html,/<input|<select|Düzenle|Uzat|Kaydet/);
+    assert.doesNotMatch(html,/Düzenle|Uzat|Kaydet|Abone sil/);
+    if(view!=='subscribers'){
+      assert.doesNotMatch(html,/<input|<select/);
+    }
   }
   assert.match(render('routers'),/Fixture Router.*WAN bağlantısı.*Bilinmiyor/);
   assert.match(render('subscribers'),/fixture-ç/);
@@ -42,4 +45,15 @@ test('expired authorization hides a cached observation',()=>{
   const html=render('subscribers',new Date(Date.now()-1000).toISOString());
   assert.doesNotMatch(html,/Fixture Router|fixture-ç/);
   assert.match(html,/gözlem kaynağında veri yok/);
+});
+
+test('subscriber table exposes read-only search, filters and pagination',()=>{
+ const html=render('subscribers');
+ assert.match(html,/<table/);
+ assert.match(html,/Abone ara/);
+ assert.match(html,/Router filtresi/);
+ assert.match(html,/Durum filtresi/);
+ assert.match(html,/Sayfa başına abone/);
+ assert.match(html,/fixture-ç/);
+ assert.doesNotMatch(html,/Düzenle|Uzat|Kaydet|Abone sil/);
 });
