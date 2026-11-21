@@ -9,12 +9,21 @@ type ResourceLoader<T> = (path: string, init?: RequestInit) => Promise<T>;
 export function useResource<T>(path: string, loader: ResourceLoader<T> = api, invalidateOn: readonly string[] = NO_DEPENDENCIES, enabled = true) {
   const [attempt, setAttempt] = useState(0);
   const active=useRef<AbortController|null>(null);
+  const hardRefresh=useRef(false);
   const retry=useCallback(()=>{active.current?.abort();setAttempt(value=>value+1);},[]);
   const [state, setState] = useState<{path: string; attempt:number; loader:ResourceLoader<T>; data?: T; error?: string; loading: boolean}>({path, attempt, loader, loading: true});
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();active.current=controller;
-    setState({path, attempt, loader, loading: true});
+    const hard=hardRefresh.current;
+    hardRefresh.current=false;
+    setState(previous =>
+      !hard && previous.path===path &&
+      previous.loader===loader &&
+      previous.data!==undefined
+        ? {...previous, attempt, loading:false}
+        : {path, attempt, loader, loading:true}
+    );
     loader(path, {signal: controller.signal}).then(data => {
       if (!controller.signal.aborted) setState({path, attempt, loader, data, loading: false});
     }).catch(error => {
@@ -25,10 +34,13 @@ export function useResource<T>(path: string, loader: ResourceLoader<T> = api, in
   useEffect(() => {
     const changed = (event: Event) => {
       const prefixes: string[] = (event as CustomEvent<string[]>).detail;
-      if (resourceInvalidated(path, prefixes, invalidateOn)) retry();
+      if (resourceInvalidated(path, prefixes, invalidateOn)) {
+        hardRefresh.current=true;
+        retry();
+      }
     };
     window.addEventListener('v2-resource-change', changed);
     return () => window.removeEventListener('v2-resource-change', changed);
   }, [path, invalidateOn,retry]);
-  return {...(enabled&&state.path === path&&state.attempt===attempt&&state.loader===loader ? state : {loading: true, data: undefined, error: undefined}), retry};
+  return {...(enabled&&state.path === path&&(state.attempt===attempt||(!hardRefresh.current&&state.data!==undefined))&&state.loader===loader ? state : {loading: true, data: undefined, error: undefined}), retry};
 }
