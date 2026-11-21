@@ -95,14 +95,25 @@ function SubscriberTable({rows,complete}:{rows:SubscriberRow[];complete:boolean}
     padding:10px 14px;
     font:inherit;
    }
-   .inventory-table tbody tr:hover {
+   .real-pppoe-table {
+    table-layout:auto;
+    min-width:920px;
+   }
+   .real-pppoe-table th,
+   .real-pppoe-table td {
+    height:auto;
+    vertical-align:middle;
+    white-space:nowrap;
+    padding:8px 12px !important;
+   }
+   .real-pppoe-table tbody tr:hover {
     background:#64748b12;
    }
   `}</style>
   <div style={{display:'flex',gap:16,flexWrap:'wrap',alignItems:'flex-start'}}>
    <div style={{flex:'1 1 620px',minWidth:0}}>
   <div style={{overflowX:'auto'}}>
-   <table className="inventory-table" style={{width:'100%',borderCollapse:'collapse',textAlign:'left'}}>
+   <table className="real-pppoe-table" style={{width:'100%',borderCollapse:'collapse',textAlign:'left'}}>
     <thead><tr>
      <th><button className="button-secondary" onClick={()=>{setSort(sort==='asc'?'desc':'asc');setPage(1);}}>Abone {sort==='asc'?'↑':'↓'}</button></th>
      {['Router','Profil','IP adresi','Bağlantı','Hesap','Bitiş tarihi','İşlem'].map(h=><th key={h} style={{padding:12}}>{h}</th>)}
