@@ -1,5 +1,20 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.18 merkezi VDS sürüm yedeği — 2026-11-21 — PASS
+
+- Kullanıcı merkezi panel yönetici kabulünü ve Ev, Ofis ve GitHub kaynak
+  eşitliğini `6f8a7d0` için doğruladı. VDS canlı sürümü `2.6.18` idi.
+  VDS checkout tabanı `28fbba7` ve dağıtım dosyaları ayrı kaydedildi.
+- `mikadmin` VDS hedefinde `/home/mikadmin/v2-postgresql-backups/V2.6.18-STABLE-FINAL-20261121-154546Z`
+  oluşturuldu (109.154.497 bayt). Merkezi V2 PostgreSQL ve Registry, canlı
+  uygulama ve frontend çıktısı, servis ve ortam dosyaları, gözlemci ve BPF
+  birimleri, kasalar, TLS, Nginx, sürüm envanteri ve geri yükleme kılavuzu
+  dahil. Dizin `0700`, dosyalar `0600` ve sahip `mikadmin`.
+- `sha256sum --strict -c`, iki `tar -tzf` ve `pg_restore --list` PASS.
+  Dump listesinde üç Registry tablo veri girdisi görüldü. HTTPS ve API
+  hazırlığı PASS, API ve web PID'leri aynı kaldı. Geri yükleme yapılmadı.
+  Sonuç `V2.6.18_FINAL_YEDEK_BASARILI`.
+
 ## V2.6.18 çoklu router ve kalıcı salt okunur erişim
 
 - Taban `28fbba72`, dal `development/v2.6.18-multi-router`. Ofis WSL
