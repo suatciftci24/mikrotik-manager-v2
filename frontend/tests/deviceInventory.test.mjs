@@ -17,8 +17,8 @@ const row={
   observed_at,last_success_at:observed_at,connection:'ONLINE',freshness:'RECENT',wan_status:'UNKNOWN',
   accounts:[{username:'fixture-ç',enabled:true,sessions:[]}],accounts_complete:true,unmatched_sessions:[],
 };
-const render=(view,expiry=new Date(Date.now()+60000).toISOString())=>{
-  const data={source:'ROUTEROS_READ_ONLY',is_demo:false,read_only:true,authorization_expires_at:expiry,routers:[row]};
+const render=(view,expiry=new Date(Date.now()+60000).toISOString(),routers=[row])=>{
+  const data={source:'ROUTEROS_READ_ONLY',is_demo:false,read_only:true,authorization_expires_at:expiry,routers};
   const hooks={...React,useEffect:()=>{},useCallback:fn=>fn,useRef:value=>({current:value}),
     useState:initial=>[initial?.path==='/device-inventory'?{...initial,data,loading:false}:
       typeof initial==='function'?initial():initial,()=>{}]};
@@ -56,4 +56,22 @@ test('subscriber table exposes read-only search, filters and pagination',()=>{
  assert.match(html,/Sayfa başına abone/);
  assert.match(html,/fixture-ç/);
  assert.doesNotMatch(html,/Düzenle|Uzat|Kaydet|Abone sil/);
+});
+
+test('per-router authorization and connectivity keep other subscribers visible',()=>{
+  const expired=new Date(Date.now()-1000).toISOString();
+  const rows=[
+    {...row,id:'device-pilot',identity:'Süreli Pilot',access:'PILOT',authorization_expires_at:expired},
+    {...row,id:'device-up',name:'Anadolu Router',access:'PERSISTENT',wan_interface:'ether1',wan_status:'UP',
+      accounts:[{username:'abone-ç',enabled:true,sessions:[],expires_on:null}]},
+    {...row,id:'device-down',identity:'Batı Router',access:'PERSISTENT',connection:'OFFLINE',
+      accounts:[{username:'eski-abone',enabled:true,sessions:[]}]},
+  ];
+  const html=render('subscribers',undefined,rows);
+  assert.match(html,/<option value="device-up">Anadolu Router/);
+  assert.match(html,/<option value="device-down">Batı Router/);
+  assert.match(html,/abone-ç.*—/);
+  assert.match(html,/Batı Router · Çevrimdışı/);
+  assert.match(html,/ether1.*Arayüz çalışıyor/);
+  assert.doesNotMatch(html,/Süreli Pilot|eski-abone|fixture-ç/);
 });

@@ -1,5 +1,25 @@
 # MikroTik Manager V2 — İlerleme
 
+## V2.6.18 çoklu router ve kalıcı salt okunur erişim
+
+- Taban `28fbba72`, dal `development/v2.6.18-multi-router`. Ofis WSL
+  proje checkout'u. Tek CEBECI onayı, tek hedefli BPF politikası ve tek
+  snapshot çoklu router kapsamını karşılamıyordu. Pilot akışı korunarak
+  Registry tabanlı, root onaylı ve iptal edilebilir kalıcı izin eklendi.
+  Router başına API-SSL hedefi, ayrı kasa, kernel soket politikası ve 60
+  saniyelik bağımsız gözlem örneği kullanılır.
+- 16 kalıcı router, cihaz başına 2.048 hesap ve 2.048 oturum adayı.
+  Abone Merkezi güncel PPPoE hesaplarını router kimliğine göre birleştirir.
+  Filtre, WAN ve bağlantı bilgileri görünür. Bitiş tarihi okuyucusu ve
+  boş tarih davranışı korundu. Gözlemci ve API canlı DB yazımı yapmaz.
+- PASS (izole): Backend 29 hedefli test, ağ politikası ve önceki
+  yükleyici için 15 test, iki hedefli frontend test dosyası, frontend
+  build, geçici systemd birim doğrulaması, sürüm ve Git diff kontrolü.
+  Sentetik TLS ve BPF talimat testleri cihaz veya VDS kernel kabulü yerine geçmez.
+- [Merkezi yayın, erişim ve geri dönüş planı](../deploy/router-observer/VDS-V2618.md).
+  Şema migration'ı gerekmiyor. VDS yayını, gerçek cihaz sorgusu ve VDS
+  kernel attach kabulü sonraki açıkça yetkilendirilecek aşamada.
+
 ## V2.6.17 CEBECI IPsec uyumlu soket sınırı
 
 - Taban `aa2493b`. Kullanıcının VDS izi aynı paket için XFRM girişi,

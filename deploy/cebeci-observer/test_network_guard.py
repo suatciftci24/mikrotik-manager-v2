@@ -12,9 +12,9 @@ guard = module_from_spec(spec)
 spec.loader.exec_module(guard)
 
 
-def run_policy(name, fields):
+def run_policy(name, fields, **endpoint):
     """Execute only the opcodes emitted by the fixed policy."""
-    instructions = list(struct.iter_unpack('=BBhi', guard.instructions(name)))
+    instructions = list(struct.iter_unpack('=BBhi', guard.instructions(name, **endpoint)))
     registers = [0, 100] + [0]*9
     pc = 0
     while True:
@@ -25,13 +25,15 @@ def run_policy(name, fields):
             registers[dst] = fields.get(registers[src]+offset, 0)
         elif op == 0x55 and registers[dst] != immediate:
             pc += offset
+        elif op == 0x56 and registers[dst] & 0xFFFFFFFF != immediate & 0xFFFFFFFF:
+            pc += offset
         elif op == 0x15 and registers[dst] == immediate:
             pc += offset
         elif op == 0xb7:
             registers[dst] = immediate
         elif op == 0x95:
             return registers[0]
-        elif op not in (0x55, 0x15):
+        elif op not in (0x55, 0x56, 0x15):
             raise AssertionError('Unexpected opcode')
 
 
@@ -52,6 +54,16 @@ class NetworkGuardTests(TestCase):
         for offset, forbidden in ((104, ipv4('10.250.0.20')), (124, socket.htons(8728)), (164, 0),
                                   (224, 0), (224, ipv4('10.250.0.2'))):
             self.assertEqual(run_policy('connect4', {**fields, offset:forbidden}), 0)
+
+    def test_distinct_instance_pins_exact_ip_source_and_port(self):
+        endpoint = dict(address='10.80.0.222', port=18729, source='10.80.0.200')
+        fields = {104:ipv4(endpoint['address']), 124:socket.htons(endpoint['port']),
+                  164:200, 224:ipv4(endpoint['source'])}
+        self.assertEqual(run_policy('connect4', fields, **endpoint), 1)
+        for offset, value in ((104, ipv4('10.80.0.223')), (124, socket.htons(8729)),
+                              (224, ipv4('10.80.0.201'))):
+            self.assertEqual(run_policy('connect4', {**fields, offset:value}, **endpoint), 0)
+        self.assertEqual(run_policy('connect4', fields), 0)
 
     def test_missing_cgroup_attachment_fails_closed(self):
         def syscall(command, attrs):

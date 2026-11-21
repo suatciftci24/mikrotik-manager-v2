@@ -58,6 +58,9 @@ class Target:
 
 
 class RouterApiSslClient:
+    def __init__(self, *, authorize_observation=None):
+        self.authorize_observation = authorize_observation
+
     def probe(self,target:Target,credentials:tuple[str,str],policy:ConnectionPolicy):
         return self._read(target,credentials,policy,False)
 
@@ -85,6 +88,9 @@ class RouterApiSslClient:
         except ValueError:raise ApiSslStop('CA_CERTIFICATE_REJECTED') from None
         if context.verify_mode!=ssl.CERT_REQUIRED or context.check_hostname is not True or context.minimum_version<ssl.TLSVersion.TLSv1_2 or context.hostname_checks_common_name is not False:
             raise ApiSslStop('TLS_POLICY_REJECTED')
+        authorize = self.authorize_observation if observation is not None else None
+        if authorize:
+            authorize()
         raw=None;secure=None;deadline=time.monotonic()+10
         try:
             raw=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -105,10 +111,12 @@ class RouterApiSslClient:
             if not der or not hmac.compare_digest(hashlib.sha256(der).hexdigest(),target.leaf_sha256):raise ApiSslStop('CERTIFICATE_PIN_MISMATCH')
             if ('IP Address',target.address) not in secure.getpeercert().get('subjectAltName',()):raise ApiSslStop('CERTIFICATE_SAN_MISMATCH')
             from app.adapters.router_readonly import RegistryReadWire
+            if authorize:
+                authorize()
             wire=(RegistryReadWire if details else _Wire)(secure,deadline,2);wire.login(credentials=credentials)
             if observation is not None:
                 from app.adapters.device_inventory import DeviceReadWire, collect
-                result=collect(DeviceReadWire(secure,deadline,2),observation[0],target.expected_identity,observation[1],
+                result=collect(DeviceReadWire(secure,deadline,2,authorize=authorize,wan_interface=observation[1]),observation[0],target.expected_identity,observation[1],
                                expected_model=target.expected_model,expected_version=target.expected_version)
                 if json.dumps(credentials[1],ensure_ascii=False)[1:-1] in result.model_dump_json():
                     raise ApiSslStop('SENSITIVE_METADATA_REJECTED')

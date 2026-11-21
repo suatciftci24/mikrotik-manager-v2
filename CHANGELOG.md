@@ -1,5 +1,11 @@
 # Değişiklik geçmişi
 
+## [2.6.18] - 2026-11-21
+
+- Router Registry tabanlı çoklu RouterOS gözlemi, kalıcı ve iptal edilebilir salt okunur erişim.
+- Router başına bağımsız 60 saniyelik gözlem, kaynak sınırları ve CEBECI pilot uyumluluğu.
+- Abone Merkezi'nde birleşik PPPoE listesi, router filtresi, bağlantı ve WAN bilgileri.
+
 ## [2.6.17] - 2026-11-21
 
 - IPsec bağlantısı için gözlemciye dönüşüm öncesi TCP soket politikası ve kapalı çalışan systemd doğrulaması.

@@ -6,7 +6,9 @@ type Session={address:string|null;uptime:string|null};
 type Account={username:string;profile:string|null;enabled:boolean|null;expires_on:string|null;sessions:Session[]|null};
 type Router={
  id:string;identity:string|null;model:string|null;routeros_version:string|null;connection:'ONLINE'|'OFFLINE'|'UNKNOWN';
- freshness:'RECENT'|'STALE';observed_at:string;last_success_at:string|null;error:string|null;
+ name?:string;management_address?:string;port?:number;access?:'PERSISTENT'|'PILOT';authorization_expires_at?:string;
+ wan_interface_configured?:string|null;
+ freshness:'RECENT'|'STALE';observed_at:string|null;last_success_at:string|null;error:string|null;
  cpu_percent:number|null;memory_percent:number|null;uptime:string|null;wan_interface:string|null;
  wan_status:'UP'|'DOWN'|'UNKNOWN';rx_bytes:string|null;tx_bytes:string|null;
  accounts:Account[]|null;accounts_complete:boolean;unmatched_sessions:(Session&{username:string})[]|null;
@@ -14,17 +16,18 @@ type Router={
 type Inventory={source:'ROUTEROS_READ_ONLY';is_demo:false;read_only:true;authorization_expires_at?:string;routers:Router[]};
 const connection={ONLINE:'Çevrimiçi',OFFLINE:'Çevrimdışı',UNKNOWN:'Bilinmiyor'} as const;
 const wan={UP:'Arayüz çalışıyor',DOWN:'Arayüz çalışmıyor',UNKNOWN:'Bilinmiyor'} as const;
-const errors:Record<string,string>={TIMEOUT:'Zaman aşımı',UNREACHABLE:'Hedefe ulaşılamadı',AUTHORIZATION:'Okuma yetkisi reddedildi',TLS:'TLS doğrulaması başarısız',INVALID_DATA:'Gözlem doğrulanamadı'};
+const errors:Record<string,string>={TIMEOUT:'Zaman aşımı',UNREACHABLE:'Hedefe ulaşılamadı',AUTHORIZATION:'Okuma yetkisi reddedildi',TLS:'TLS doğrulaması başarısız',CAPACITY:'Gözlem kapasitesi aşıldı',INVALID_DATA:'Gözlem doğrulanamadı'};
 const percent=(value:number|null)=>value==null?null:value.toLocaleString('tr-TR',{maximumFractionDigits:2})+'%';
 const bytes=(value:string|null)=>value==null?null:value+' bayt';
 
 type SubscriberRow={router:Router;account:Account};
+const routerName=(router:Router)=>router.name??router.identity??router.id;
 
 const sessionStatus=(account:Account)=>
  account.sessions==null?'Bilinmiyor':
  account.sessions.length?'Çevrimiçi':'Çevrimdışı';
 
-function SubscriberTable({rows,complete}:{rows:SubscriberRow[];complete:boolean}){
+function SubscriberTable({rows,routers,complete}:{rows:SubscriberRow[];routers:Router[];complete:boolean}){
  const [query,setQuery]=useState('');
  const [router,setRouter]=useState('');
  const [status,setStatus]=useState('');
@@ -33,12 +36,11 @@ function SubscriberTable({rows,complete}:{rows:SubscriberRow[];complete:boolean}
  const [page,setPage]=useState(1);
  const [selected,setSelected]=useState<string|null>(null);
  const key=(row:SubscriberRow)=>JSON.stringify([row.router.id,row.account.username]);
- const routers=Array.from(new Map(rows.map(row=>[row.router.id,row.router.identity??row.router.id])));
  const norm=(value:string)=>value.toLocaleLowerCase('tr-TR');
  const filtered=rows.filter(({router:r,account:a})=>
   (!router||r.id===router)&&
   (!status||(status==='disabled'?a.enabled===false:sessionStatus(a)===status))&&
-  norm([a.username,r.identity??r.id,a.profile??'',...(a.sessions??[]).map(x=>x.address??'')].join(' ')).includes(norm(query.trim()))
+  norm([a.username,routerName(r),a.profile??'',...(a.sessions??[]).map(x=>x.address??'')].join(' ')).includes(norm(query.trim()))
  ).sort((a,b)=>(sort==='asc'?1:-1)*a.account.username.localeCompare(b.account.username,'tr',{numeric:true}));
  const pages=Math.max(1,Math.ceil(filtered.length/limit));
  const activePage=Math.min(page,pages);
@@ -76,7 +78,7 @@ function SubscriberTable({rows,complete}:{rows:SubscriberRow[];complete:boolean}
     onChange={e=>{setQuery(e.target.value);setPage(1);}} style={{flex:1,minWidth:220,padding:10}}/>
    <select aria-label="Router filtresi" value={router} onChange={e=>{setRouter(e.target.value);setPage(1);}}>
     <option value="">Tüm routerlar</option>
-    {routers.map(([id,name])=><option key={id} value={id}>{name}</option>)}
+    {routers.map(r=><option key={r.id} value={r.id}>{routerName(r)}</option>)}
    </select>
    <select aria-label="Durum filtresi" value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}}>
     <option value="">Tüm durumlar</option>
@@ -122,7 +124,7 @@ function SubscriberTable({rows,complete}:{rows:SubscriberRow[];complete:boolean}
      {filtered.slice((activePage-1)*limit,activePage*limit).map(row=>{
       const a=row.account;
       return <tr key={key(row)} style={{borderTop:'1px solid #64748b45'}}>
-       {[a.username,row.router.identity??row.router.id,a.profile??'—',
+       {[a.username,routerName(row.router),a.profile??'—',
         a.sessions?.map(x=>x.address).filter(Boolean).join(', ')||'—',
         sessionStatus(a),a.enabled==null?'Bilinmiyor':a.enabled?'Etkin':'Devre dışı',
         a.expires_on??'—'].map((value,i)=><td key={i} style={{padding:12}}>
@@ -152,7 +154,10 @@ function SubscriberTable({rows,complete}:{rows:SubscriberRow[];complete:boolean}
    <div className="page-heading-row"><h2>{detail.account.username}</h2>
     <button className="button-secondary" onClick={()=>setSelected(null)}>Kapat</button></div>
    <Facts items={[
-    ['Router',detail.router.identity??detail.router.id],
+    ['Router',routerName(detail.router)],
+    ['Router bağlantısı',connection[detail.router.connection]],
+    ['WAN arayüzü',detail.router.wan_interface??detail.router.wan_interface_configured],
+    ['WAN bağlantısı',wan[detail.router.wan_status]],
     ['Profil',detail.account.profile],
     ['Bağlantı',sessionStatus(detail.account)],
     ['Hesap durumu',detail.account.enabled==null?'Bilinmiyor':detail.account.enabled?'Etkin':'Devre dışı'],
@@ -178,18 +183,22 @@ export function DeviceInventory({view}:{view:'routers'|'subscribers'|'summary'})
  },[resource.retry]);
  const payload=resource.data;
  const expiry=payload?.authorization_expires_at;
+ const pilotExpiry=Array.isArray(payload?.routers)?payload.routers.find(row=>row.access==='PILOT')?.authorization_expires_at:undefined;
+ const timedExpiry=expiry??pilotExpiry;
  useEffect(()=>{
-  if(expiry===undefined)return;
-  const remaining=Date.parse(expiry)-Date.now();
+  if(timedExpiry===undefined)return;
+  const remaining=Date.parse(timedExpiry)-Date.now();
   if(!Number.isFinite(remaining)||remaining<=0)return;
   const timer=window.setTimeout(()=>setNow(Date.now()),remaining);
   return()=>window.clearTimeout(timer);
- },[expiry]);
+ },[timedExpiry]);
  const error=resource.error||(payload&&(payload.source!=='ROUTEROS_READ_ONLY'||payload.is_demo!==false||payload.read_only!==true||!Array.isArray(payload.routers))?'RouterOS veri kaynağı doğrulanamadı.':undefined);
  const authorized=expiry===undefined||Date.parse(expiry)>Math.max(now,Date.now());
- const rows=authorized&&!error&&!resource.loading?payload?.routers??[]:[];
+ const rows=authorized&&!error&&!resource.loading?(payload?.routers??[]).filter(row=>
+  row.authorization_expires_at===undefined||Date.parse(row.authorization_expires_at)>Math.max(now,Date.now())
+ ):[];
  const recent=(row:Router)=>{
-  const stamp=Date.parse(row.observed_at), age=Math.max(now,Date.now())-stamp;
+  const stamp=Date.parse(row.observed_at??''), age=Math.max(now,Date.now())-stamp;
   return row.freshness==='RECENT'&&Number.isFinite(stamp)&&age>=0&&age<300000;
  };
  const current=(row:Router)=>recent(row)&&row.connection==='ONLINE';
@@ -210,27 +219,27 @@ export function DeviceInventory({view}:{view:'routers'|'subscribers'|'summary'})
     ['Gözlenen etkin hesaplar',accounts.length||complete?accounts.filter(row=>row.enabled===true).length:'Bilinmiyor'],
     ['Gözlenen aktif PPPoE oturumları',observedSessions||sessionCoverage?observedSessions:'Bilinmiyor'],
    ]}/>
-   <p>{complete?'Görülen yerel PPPoE hesabı kapsamı':'PPPoE kapsamı eksik veya bilinmiyor'} · Son aktarım {dateTime(rows.map(row=>row.observed_at).sort((a,b)=>Date.parse(b)-Date.parse(a))[0])}</p>
+   <p>{complete?'Görülen yerel PPPoE hesabı kapsamı':'PPPoE kapsamı eksik veya bilinmiyor'} · Son aktarım {dateTime(rows.flatMap(row=>row.observed_at?[row.observed_at]:[]).sort((a,b)=>Date.parse(b)-Date.parse(a))[0]??null)}</p>
   </>}
   {view==='subscribers'&&rows.length>0&&
-   <SubscriberTable complete={complete} rows={rows.flatMap(router=>
+   <SubscriberTable routers={rows} complete={complete} rows={rows.flatMap(router=>
     current(router)?(router.accounts??[]).map(account=>({router,account})):[])}/>}
-  {rows.filter(row=>view==='routers'||(
- view==='subscribers'&&(
- !current(row)||row.accounts===null||
- !row.accounts_complete||!!row.unmatched_sessions?.length
- ))).map(row=><details key={row.id} className="technical-info">
-   <summary>{row.identity??row.id} · {connection[recent(row)?row.connection:'UNKNOWN']}</summary>
+  {view!=='summary'&&rows.map(row=><details key={row.id} className="technical-info">
+   <summary>{routerName(row)} · {connection[recent(row)?row.connection:'UNKNOWN']}</summary>
    <Facts items={[
+    ['Erişim',row.access==='PERSISTENT'?'Kalıcı · Salt okunur':row.access==='PILOT'?'Süreli pilot':null],
+    ['Pilot erişim bitişi',dateTime(row.authorization_expires_at??null)],
+    ['Yönetim adresi',row.management_address&&row.port?`${row.management_address}:${row.port}`:null],
     ['Router kimliği',row.identity],['Model',row.model],['RouterOS',row.routeros_version],
     ['Gözlem',dateTime(row.observed_at)],['Veri güncelliği',recent(row)?'Son 5 dakika':'Eski'],
     ['Son başarılı bağlantı',dateTime(row.last_success_at)],['Son gözlem hatası',row.error?errors[row.error]:null],
     ...(view==='routers'?[
      ['CPU',current(row)?percent(row.cpu_percent):null],['RAM',current(row)?percent(row.memory_percent):null],
-     ['Çalışma süresi',current(row)?row.uptime:null],['WAN arayüzü',current(row)?row.wan_interface:null],
-     ['WAN bağlantısı',current(row)?wan[row.wan_status]:'Bilinmiyor'],
-     ['WAN alınan sayaç',current(row)?bytes(row.rx_bytes):null],['WAN gönderilen sayaç',current(row)?bytes(row.tx_bytes):null],
+     ['Çalışma süresi',current(row)?row.uptime:null],
     ] as [string,string|null][]:[]),
+    ['WAN arayüzü',row.wan_interface??row.wan_interface_configured],
+    ['WAN bağlantısı',current(row)?wan[row.wan_status]:'Bilinmiyor'],
+     ['WAN alınan sayaç',current(row)?bytes(row.rx_bytes):null],['WAN gönderilen sayaç',current(row)?bytes(row.tx_bytes):null],
    ]}/>
    {view==='subscribers'&&(!current(row)||row.accounts===null)&&
     <p>Güncel PPPoE hesabı ve oturum bilgisi yok.</p>}

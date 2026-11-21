@@ -6,6 +6,9 @@ from datetime import date
 import re
 from typing import Annotated
 
+MAX_ACCOUNTS = 2048
+MAX_ACTIVE_SESSIONS = 2048
+
 Text = Annotated[str, Field(min_length=1, max_length=120)]
 
 class Projection(BaseModel):
@@ -42,7 +45,7 @@ class RouterObservation(Projection):
     observed_at: AwareDatetime
     last_success_at: AwareDatetime | None = None
     connection: Literal['ONLINE', 'OFFLINE', 'UNKNOWN']
-    error: Literal['TIMEOUT', 'UNREACHABLE', 'AUTHORIZATION', 'TLS', 'INVALID_DATA'] | None = None
+    error: Literal['TIMEOUT', 'UNREACHABLE', 'AUTHORIZATION', 'TLS', 'CAPACITY', 'INVALID_DATA'] | None = None
     cpu_percent: int | None = Field(default=None, ge=0, le=100)
     memory_percent: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
     uptime: Text | None = None
@@ -50,11 +53,12 @@ class RouterObservation(Projection):
     wan_status: Literal['UP', 'DOWN', 'UNKNOWN'] = 'UNKNOWN'
     rx_bytes: int | None = Field(default=None, ge=0, le=2**64-1)
     tx_bytes: int | None = Field(default=None, ge=0, le=2**64-1)
-    accounts: list[Account] | None = Field(default=None, max_length=128)
+    accounts: list[Account] | None = Field(default=None, max_length=MAX_ACCOUNTS)
     accounts_complete: bool = False
-    unmatched_sessions: list[UnmatchedSession] | None = Field(default=None, max_length=128)
+    unmatched_sessions: list[UnmatchedSession] | None = Field(default=None, max_length=MAX_ACTIVE_SESSIONS)
 
 class DeviceInventory(Projection):
     source: Literal['ROUTEROS_READ_ONLY']
     authorized_until: AwareDatetime | None = None
+    grant_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{32}$')
     routers: list[RouterObservation] = Field(max_length=64)

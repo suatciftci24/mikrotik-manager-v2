@@ -1,7 +1,7 @@
 {
   "name": "mikrotik-manager-v2-web",
   "private": true,
-  "version": "2.6.17",
+  "version": "2.6.18",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

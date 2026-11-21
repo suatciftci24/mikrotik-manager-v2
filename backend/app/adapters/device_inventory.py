@@ -5,7 +5,7 @@ import logging
 import re
 
 from app.adapters.cebeci_api_ssl import ApiSslStop, _Wire
-from app.schemas.device_inventory import Account, RouterObservation, Session, UnmatchedSession
+from app.schemas.device_inventory import Account, MAX_ACCOUNTS, MAX_ACTIVE_SESSIONS, RouterObservation, Session, UnmatchedSession
 
 _FIELDS = MappingProxyType({
     '/system/identity': ('name',),
@@ -19,7 +19,7 @@ _COMMANDS = MappingProxyType({
           + ('=.proplist='+','.join(fields),)
     for menu, fields in _FIELDS.items()
 })
-_ALLOWED = frozenset(_COMMANDS.values())
+_ALLOWED = frozenset(command for menu, command in _COMMANDS.items() if menu != '/interface')
 _REQUIRED = {
     '/system/identity': ('name',),
     '/system/resource': ('board-name', 'version'),
@@ -30,16 +30,32 @@ _LOG = logging.getLogger(__name__)
 
 
 class DeviceReadWire(_Wire):
-    def send(self, words):
-        if tuple(words) not in _ALLOWED:
+    max_bytes = 4 * 1024 * 1024
+    max_sentences = MAX_ACCOUNTS + MAX_ACTIVE_SESSIONS + 16
+    row_limits = {'/system/identity': 1, '/system/resource': 1, '/interface': 1,
+                  '/ppp/secret': MAX_ACCOUNTS, '/ppp/active': MAX_ACTIVE_SESSIONS}
+    def __init__(self, stream, deadline, io_timeout, *, authorize=None, wan_interface=None):
+        super().__init__(stream, deadline, io_timeout)
+        self.authorize = authorize
+        if wan_interface is not None and (
+                not 1 <= len(wan_interface) <= 120 or not wan_interface.isprintable()):
             raise ApiSslStop('READ_SCOPE_REJECTED')
+        self.wan_command = (_COMMANDS['/interface'] + ('?name=' + wan_interface,)
+                            if wan_interface is not None else None)
+
+    def send(self, words):
+        if tuple(words) not in _ALLOWED and tuple(words) != self.wan_command:
+            raise ApiSslStop('READ_SCOPE_REJECTED')
+        if self.authorize:
+            self.authorize()
         super().send(words)
 
     def fixed_read(self, menu):
         fields = _FIELDS.get(menu)
-        if fields is None:
+        request = self.wan_command if menu == '/interface' else _COMMANDS.get(menu)
+        if request is None:
             raise ApiSslStop('READ_SCOPE_REJECTED')
-        self.send(_COMMANDS[menu])
+        self.send(request)
         command = _COMMANDS[menu][0]
         keys = {field.encode('ascii'): field for field in fields}
         required = _REQUIRED.get(menu, ())
@@ -58,7 +74,7 @@ class DeviceReadWire(_Wire):
                 continue
             if not words or words[0] != b'!re' or empty_reply:
                 raise ApiSslStop(f'DEVICE_READ_REJECTED:{command}')
-            if len(rows) >= 128:
+            if len(rows) >= self.row_limits[menu]:
                 raise ApiSslStop(f'ROW_LIMIT:{command}')
             row = {}
             for word in words[1:]:
@@ -139,6 +155,7 @@ def collect(wire: DeviceReadWire, router_id: str, expected_identity: str, wan_in
         for row in active:
             if row.get('service') == 'pppoe':
                 sessions.setdefault(row['name'], []).append(Session(address=row.get('address') or None, uptime=row.get('uptime') or None))
+        active_complete = all(r.get('service') and r.get('name') for r in active)
         known = []
         names = [row['name'] for row in secrets]
         if len(set(names)) != len(names):
@@ -148,11 +165,12 @@ def collect(wire: DeviceReadWire, router_id: str, expected_identity: str, wan_in
             if service != 'pppoe' and not (service == 'any' and name in sessions):
                 continue
             disabled = _flag(row.get('disabled'))
+            if len(sessions.get(name, ())) > 128:
+                raise ApiSslStop('ROW_LIMIT:SESSIONS_PER_ACCOUNT')
             known.append(Account(username=name, profile=row.get('profile') or None,
                 enabled=None if disabled is None else not disabled, expires_on=_expiry(row.get('comment')),
-                sessions=sessions.get(name) or ([] if all(r.get('service') and r.get('name') for r in active) else None)))
+                sessions=sessions.get(name) or ([] if active_complete else None)))
         observed_names = {account.username for account in known}
-        active_complete = all(r.get('service') and r.get('name') for r in active)
         unmatched = [UnmatchedSession(username=name, **session.model_dump()) for name, items in sessions.items()
                      if name not in observed_names for session in items]
         total, free = _number(resource.get('total-memory')), _number(resource.get('free-memory'))

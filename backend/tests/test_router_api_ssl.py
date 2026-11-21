@@ -95,7 +95,7 @@ class RouterTransportTests(TestCase):
             self.assertFalse(result.accounts_complete)
             self.assertNotIn('PRIVATE_COMMENT',result.model_dump_json())
             self.assertEqual(self.tls.sent.count(b'/interface/print'),1)
-            self.assertIn(sentence('/interface/print','=stats=','=.proplist=name,running,disabled,rx-byte,tx-byte'),self.tls.sent)
+            self.assertIn(sentence('/interface/print','=stats=','=.proplist=name,running,disabled,rx-byte,tx-byte','?name=wan'),self.tls.sent)
             self.assertNotIn(b'/set',self.tls.sent)
             self.assertNotIn(b'.proplist=password',self.tls.sent)
 
@@ -127,3 +127,61 @@ class RouterTransportTests(TestCase):
                     with self.assertRaisesRegex(ApiSslStop, f'^INVALID_TEXT:/ppp/{menu}/print:name$'):
                         self.client.read_inventory_observation(
                             target, self.credentials, self.policy, router_id='device-lab', wan_interface=None)
+
+    def test_observation_handles_router_capacity_and_refuses_overflow(self):
+        from dataclasses import replace
+        from app.schemas.device_inventory import MAX_ACCOUNTS, MAX_ACTIVE_SESSIONS
+
+        target = replace(self.target, expected_identity='LAB', expected_model='LAB-MODEL', expected_version='7.20.1')
+        base = response(identity='LAB', model='LAB-MODEL', version='7.20.1', last=b'')
+        accounts = b''.join(sentence('!re', f'=name=account-{i}', '=service=pppoe',
+                                     '=comment=4/5/2028 kapat' if i == 0 else '=comment=')
+                            for i in range(MAX_ACCOUNTS))
+        active = b''.join(sentence('!re', f'=name=account-{i}', '=service=pppoe',
+                                   '=address=192.0.2.10') for i in range(MAX_ACTIVE_SESSIONS))
+        done = sentence('!done')
+        self.tls.data = base + accounts + done + active + done
+        result = self.client.read_inventory_observation(
+            target, self.credentials, self.policy, router_id='device-lab', wan_interface=None)
+        self.assertEqual(len(result.accounts), MAX_ACCOUNTS)
+        self.assertEqual(sum(len(account.sessions) for account in result.accounts), MAX_ACTIVE_SESSIONS)
+        self.assertEqual(result.accounts[0].expires_on.isoformat(), '2028-05-04')
+        self.assertIsNone(result.accounts[1].expires_on)
+        self.assertTrue(result.accounts_complete)
+        self.tls.data = base + accounts + sentence('!re', '=name=overflow', '=service=pppoe') + done
+        with self.assertRaisesRegex(ApiSslStop, '^ROW_LIMIT:/ppp/secret/print$'):
+            self.client.read_inventory_observation(
+                target, self.credentials, self.policy, router_id='device-lab', wan_interface=None)
+
+    def test_observer_rechecks_grant_after_tls_and_before_read(self):
+        from dataclasses import replace
+
+        target = replace(self.target, expected_identity='LAB', expected_model='LAB-MODEL', expected_version='7.20.1')
+        read = transport.RouterApiSslClient(authorize_observation=Mock(side_effect=[
+            None, ApiSslStop('OBSERVATION_GRANT_REVOKED')]))
+        with self.assertRaisesRegex(ApiSslStop, 'OBSERVATION_GRANT_REVOKED'):
+            read.read_inventory_observation(
+                target, self.credentials, self.policy, router_id='device-lab', wan_interface=None)
+        self.assertEqual(self.tls.sent, b'')
+        self.assertTrue(self.tls.closed)
+
+        guarded = transport.RouterApiSslClient(authorize_observation=Mock(side_effect=[
+            None, None, ApiSslStop('OBSERVATION_GRANT_REVOKED')]))
+        self.tls.data = response(identity='LAB', model='LAB-MODEL', version='7.20.1')
+        with self.assertRaisesRegex(ApiSslStop, 'OBSERVATION_GRANT_REVOKED'):
+            guarded.read_inventory_observation(
+                target, self.credentials, self.policy, router_id='device-lab', wan_interface=None)
+        self.assertIn(b'/login', self.tls.sent)
+        self.assertNotIn(b'/print', self.tls.sent)
+
+    def test_observer_rejects_wrong_certificate_before_login(self):
+        from dataclasses import replace
+
+        target = replace(self.target, expected_identity='LAB', expected_model='LAB-MODEL', expected_version='7.20.1')
+        guarded = transport.RouterApiSslClient(authorize_observation=Mock())
+        self.tls.der = b'WRONG'
+        with self.assertRaisesRegex(ApiSslStop, '^CERTIFICATE_PIN_MISMATCH$'):
+            guarded.read_inventory_observation(
+                target, self.credentials, self.policy, router_id='device-lab', wan_interface=None)
+        self.assertEqual(self.tls.sent, b'')
+        self.assertTrue(self.tls.closed)

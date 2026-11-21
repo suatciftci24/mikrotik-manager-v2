@@ -180,6 +180,9 @@ def _rejection_code(words,phase):
 
 class _Wire:
     """RouterOS framing, exact print queries only. Shared total budget across auth and reads."""
+    max_bytes = 262144
+    max_sentences = 256
+
     def __init__(self,stream,deadline,io_timeout):
         self.stream=stream;self.deadline=deadline;self.io_timeout=io_timeout;self.bytes=0;self.sentences=0
     def timeout(self):
@@ -192,7 +195,7 @@ class _Wire:
             self.timeout();chunk=self.stream.recv(size-len(data))
             if not chunk:raise ApiSslStop('UNEXPECTED_EOF')
             self.bytes+=len(chunk)
-            if self.bytes>262144:raise ApiSslStop('RESPONSE_BYTE_LIMIT')
+            if self.bytes>self.max_bytes:raise ApiSslStop('RESPONSE_BYTE_LIMIT')
             data.extend(chunk)
         return bytes(data)
     def _length(self):
@@ -207,7 +210,7 @@ class _Wire:
         return size
     def _sentence_bytes(self):
         self.sentences+=1
-        if self.sentences>256:raise ApiSslStop('SENTENCE_LIMIT')
+        if self.sentences>self.max_sentences:raise ApiSslStop('SENTENCE_LIMIT')
         words=[]
         while True:
             length=self._length()

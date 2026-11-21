@@ -24,7 +24,7 @@ def require(value, code):
         raise RuntimeError(code)
 
 
-def instructions(name):
+def instructions(name, *, address='10.250.0.19', port=8729, source='10.250.0.1'):
     """bpf_sock offsets: family/type/protocol/source = 4/8/12/24.
     bpf_sock_addr offsets: user_ip4/user_port/sk = 4/24/64.
     """
@@ -40,7 +40,8 @@ def instructions(name):
 
     def field(offset, expected):
         emit(0x61, 2, 1, offset)  # LDX W r2, [r1+offset]
-        guard(0x55, 2, expected)  # JNE K -> deny
+        # LDX W zero-extends. Use JMP32 for unsigned IPv4 words with bit 31 set.
+        guard(0x56 if expected < 0 else 0x55, 2, expected)
 
     def ipv4(address):
         return int.from_bytes(socket.inet_aton(address), sys.byteorder, signed=True)
@@ -50,11 +51,11 @@ def instructions(name):
         field(8, socket.SOCK_STREAM)
         field(12, socket.IPPROTO_TCP)
     elif name == 'connect4':
-        field(4, ipv4('10.250.0.19'))
-        field(24, socket.htons(8729))
+        field(4, ipv4(address))
+        field(24, socket.htons(port))
         emit(0x79, 1, 1, 64)   # LDX DW r1, [r1+64]
         guard(0x15, 1, 0)      # JEQ K -> deny if no socket
-        field(24, ipv4('10.250.0.1'))
+        field(24, ipv4(source))
     else:
         raise RuntimeError('PROGRAM_REJECTED')
     emit(0xb7, imm=1)
@@ -94,14 +95,14 @@ def ensure_bpffs():
     raise RuntimeError('BPFFS_NOT_MOUNTED')
 
 
-def load():
+def load(**endpoint):
     ensure_bpffs()
     # mkdir is exclusive. A stale or foreign pin tree must never be overwritten.
     PINS.mkdir(mode=0o700)
     created = []
     try:
         for name, (kind, attach) in PROGRAMS.items():
-            data = instructions(name)
+            data = instructions(name, **endpoint)
             insns = C.create_string_buffer(data)
             license_data = C.create_string_buffer(b'GPL')
             attributes = struct.pack('=IIQQIIQII16sII', kind, len(data)//8,

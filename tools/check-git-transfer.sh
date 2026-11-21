@@ -8,7 +8,7 @@ if [[ $# != 0 ]]; then
   printf 'GIT_TRANSFER_BLOCKED: Bu kontrol argüman almaz ve aktarım yapmaz.\n' >&2
   exit 1
 fi
-require_local_terminal_target "$root"
+require_local_terminal_target "$root" git-transfer
 
 # get-url expands insteadOf/pushInsteadOf and includes origin's explicit pushurl.
 # Validate every resulting destination without printing any configured value.

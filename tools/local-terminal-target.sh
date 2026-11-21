@@ -19,6 +19,12 @@ require_local_terminal_target() {
       expected_user='suatpc'
       expected_root='/home/suatpc/v26-transfer/mikrotik-v26-next'
       expected_branch='development/v2.6.2-pppoe'
+      if [[ "${2:-}" == git-transfer &&
+            "$root" == '/home/suatpc/Codex-Projects/mikrotik-manager-v2' &&
+            "$(git -C "$root" symbolic-ref --quiet --short HEAD 2>/dev/null)" == 'development/v2.6.18-multi-router' ]]; then
+        expected_root="$root"
+        expected_branch='development/v2.6.18-multi-router'
+      fi
       ;;
     DESKTOP-MT2JS7H)
       expected_user='suat'

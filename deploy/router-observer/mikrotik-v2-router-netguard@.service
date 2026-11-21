@@ -1,0 +1,18 @@
+[Unit]
+Description=MikroTik V2 socket policy pins for %i
+Before=mikrotik-v2-router-observer@%i.service
+
+[Service]
+Type=oneshot
+Environment=PYTHONPATH=/opt/mikrotik-v2-router-observers/backend
+WorkingDirectory=/opt/mikrotik-v2-router-observers
+RemainAfterExit=yes
+ExecStart=/opt/mikrotik-v2-router-observers/venv/bin/python -B -P /opt/mikrotik-v2-router-observers/deploy/router-observer/network-guard.py load %i
+ExecStop=/opt/mikrotik-v2-router-observers/venv/bin/python -B -P /opt/mikrotik-v2-router-observers/deploy/router-observer/network-guard.py unload %i
+NoNewPrivileges=yes
+PrivateNetwork=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/sys/fs/bpf
+CapabilityBoundingSet=CAP_BPF CAP_NET_ADMIN
+UMask=0077

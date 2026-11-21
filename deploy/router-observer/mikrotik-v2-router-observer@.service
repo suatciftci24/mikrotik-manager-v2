@@ -1,0 +1,44 @@
+[Unit]
+Description=MikroTik V2 read-only observer for %i
+Wants=network-online.target
+After=network-online.target mikrotik-v2-router-netguard@%i.service
+BindsTo=mikrotik-v2-router-netguard@%i.service
+
+[Service]
+Type=simple
+User=mtv2-router-observer
+Group=mtv2-cebeci-read
+WorkingDirectory=/opt/mikrotik-v2-router-observers
+Environment=PYTHONPATH=/opt/mikrotik-v2-router-observers/backend
+ExecStartPre=+/opt/mikrotik-v2-router-observers/venv/bin/python -B -P /opt/mikrotik-v2-router-observers/deploy/router-observer/network-guard.py verify %i
+ExecStart=/opt/mikrotik-v2-router-observers/venv/bin/python -B -P -m app.router_observer %i
+Restart=no
+RuntimeDirectory=mikrotik-v2-observer-%i
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=no
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET
+BPFProgram=sock_create:/sys/fs/bpf/mtv2-observer-%i/sock_create
+BPFProgram=connect4:/sys/fs/bpf/mtv2-observer-%i/connect4
+SystemCallArchitectures=native
+SystemCallFilter=~listen accept accept4 sendto sendmsg sendmmsg io_uring_setup io_uring_enter io_uring_register pidfd_getfd socketcall
+LimitCORE=0
+MemoryMax=128M
+TasksMax=8
+TemporaryFileSystem=/var/lib/mikrotik-v2-observers:ro
+BindReadOnlyPaths=/var/lib/mikrotik-v2-observers/%i:/var/lib/mikrotik-v2-observers/%i
+NoExecPaths=/var/lib/mikrotik-v2-observers
+InaccessiblePaths=-/srv -/etc/mikrotik-manager-v2
+TimeoutStopSec=35s
+
+[Install]
+WantedBy=multi-user.target
