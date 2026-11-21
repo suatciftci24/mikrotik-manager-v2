@@ -49,14 +49,29 @@ function SubscriberTable({rows,complete}:{rows:SubscriberRow[];complete:boolean}
   ['Devre dışı',rows.filter(x=>x.account.enabled===false).length],
  ];
  const detail=rows.find(row=>key(row)===selected);
+ const filters=['','Çevrimiçi','Çevrimdışı','disabled'];
+ const tones=['inherit','#22c55e','#ef4444','#f59e0b'];
+ const tone=(value:string)=>({
+  'Çevrimiçi':'#22c55e',
+  'Çevrimdışı':'#ef4444',
+  'Etkin':'#22c55e',
+  'Devre dışı':'#f59e0b',
+  'Bilinmiyor':'#94a3b8'
+ } as Record<string,string>)[value]??'inherit';
  return <>
   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,margin:'16px 0'}}>
-   {counts.map(([label,value])=><div key={label} className="panel" style={{padding:16}}>
-    <div>{label}</div><strong style={{fontSize:26}}>{value}</strong>
-   </div>)}
+   {counts.map(([label,value],i)=><button key={label}
+     type="button" className="panel"
+     aria-pressed={status===filters[i]}
+     onClick={()=>{setStatus(status===filters[i]?'':filters[i]);setPage(1);}}
+     style={{padding:16,textAlign:'left',cursor:'pointer',
+      color:'inherit',borderColor:status===filters[i]&&i!==0?tones[i]:undefined}}>
+     <div>{label}</div>
+     <strong style={{fontSize:28,color:tones[i]}}>{value}</strong>
+    </button>)}
   </div>
   {!complete&&<p>Gözlem kapsamı kısmi. Sayılar yalnızca görülen hesapları gösterir.</p>}
-  <div style={{display:'flex',gap:12,flexWrap:'wrap',margin:'16px 0'}}>
+  <div className="inventory-filters" style={{display:'flex',gap:12,flexWrap:'wrap',margin:'16px 0'}}>
    <input aria-label="Abone ara" placeholder="Abone, IP veya profil ara..." value={query}
     onChange={e=>{setQuery(e.target.value);setPage(1);}} style={{flex:1,minWidth:220,padding:10}}/>
    <select aria-label="Router filtresi" value={router} onChange={e=>{setRouter(e.target.value);setPage(1);}}>
@@ -69,8 +84,25 @@ function SubscriberTable({rows,complete}:{rows:SubscriberRow[];complete:boolean}
     <option>Bilinmiyor</option><option value="disabled">Devre dışı</option>
    </select>
   </div>
+  <style>{`
+   .inventory-filters input,
+   .inventory-filters select,
+   .inventory-pagination select {
+    background:transparent;
+    color:inherit;
+    border:1px solid #64748b66;
+    border-radius:8px;
+    padding:10px 14px;
+    font:inherit;
+   }
+   .inventory-table tbody tr:hover {
+    background:#64748b12;
+   }
+  `}</style>
+  <div style={{display:'flex',gap:16,flexWrap:'wrap',alignItems:'flex-start'}}>
+   <div style={{flex:'1 1 620px',minWidth:0}}>
   <div style={{overflowX:'auto'}}>
-   <table style={{width:'100%',borderCollapse:'collapse',textAlign:'left'}}>
+   <table className="inventory-table" style={{width:'100%',borderCollapse:'collapse',textAlign:'left'}}>
     <thead><tr>
      <th><button className="button-secondary" onClick={()=>{setSort(sort==='asc'?'desc':'asc');setPage(1);}}>Abone {sort==='asc'?'↑':'↓'}</button></th>
      {['Router','Profil','IP adresi','Bağlantı','Hesap','Bitiş tarihi','İşlem'].map(h=><th key={h} style={{padding:12}}>{h}</th>)}
@@ -82,7 +114,9 @@ function SubscriberTable({rows,complete}:{rows:SubscriberRow[];complete:boolean}
        {[a.username,row.router.identity??row.router.id,a.profile??'—',
         a.sessions?.map(x=>x.address).filter(Boolean).join(', ')||'—',
         sessionStatus(a),a.enabled==null?'Bilinmiyor':a.enabled?'Etkin':'Devre dışı',
-        a.expires_on??'—'].map((value,i)=><td key={i} style={{padding:12}}>{value}</td>)}
+        a.expires_on??'—'].map((value,i)=><td key={i} style={{padding:12}}>
+     {i===4||i===5?<span style={{color:tone(value),fontWeight:600,whiteSpace:'nowrap'}}>● {value}</span>:value}
+    </td>)}
        <td><button className="button-secondary" onClick={()=>setSelected(key(row))}>Detay</button></td>
       </tr>;
      })}
@@ -90,7 +124,7 @@ function SubscriberTable({rows,complete}:{rows:SubscriberRow[];complete:boolean}
     </tbody>
    </table>
   </div>
-  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',marginTop:16}}>
+  <div className="inventory-pagination" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',marginTop:16}}>
    <span>{filtered.length} abone</span>
    <select aria-label="Sayfa başına abone" value={limit} onChange={e=>{setLimit(Number(e.target.value));setPage(1);}}>
     {[25,50,100].map(n=><option key={n} value={n}>{n} / sayfa</option>)}
@@ -101,7 +135,9 @@ function SubscriberTable({rows,complete}:{rows:SubscriberRow[];complete:boolean}
     <button className="button-secondary" disabled={activePage>=pages} onClick={()=>setPage(activePage+1)}>Sonraki</button>
    </div>
   </div>
-  {detail&&<aside className="panel" aria-label="Abone detayları" style={{marginTop:16,padding:20}}>
+  </div>
+  {detail&&<aside className="panel" aria-label="Abone detayları"
+   style={{flex:'1 1 300px',maxWidth:380,minWidth:0,padding:20,position:'sticky',top:16}}>
    <div className="page-heading-row"><h2>{detail.account.username}</h2>
     <button className="button-secondary" onClick={()=>setSelected(null)}>Kapat</button></div>
    <Facts items={[
@@ -116,6 +152,7 @@ function SubscriberTable({rows,complete}:{rows:SubscriberRow[];complete:boolean}
     ['Oturum IP adresi',session.address],['Bağlantı süresi',session.uptime]
    ]}/>)}
   </aside>}
+  </div>
  </>;
 }
 
