@@ -95,14 +95,25 @@ def _number(value):
 
 
 def _expiry(comment):
-    match = re.fullmatch(r'EXPIRE(?:=|:)\s*(\d{4}-\d{2}-\d{2})(?: (\d{2}:\d{2}))?', comment or '')
-    if match:
-        try:
+    value = (comment or '').strip()
+    match = re.fullmatch(
+        r'EXPIRE(?:=|:)\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?',
+        value, re.IGNORECASE
+    )
+    try:
+        if match:
             if match[2]:
                 datetime.strptime(match[2], '%H:%M')
             return date.fromisoformat(match[1])
-        except ValueError:
-            pass
+
+        match = re.fullmatch(
+            r'(\d{1,2})/(\d{1,2})/(\d{4})\s+kapat',
+            value, re.IGNORECASE
+        )
+        if match:
+            return date(int(match[3]), int(match[2]), int(match[1]))
+    except ValueError:
+        pass
     return None
 
 
