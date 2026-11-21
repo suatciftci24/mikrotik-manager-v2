@@ -215,7 +215,11 @@ export function DeviceInventory({view}:{view:'routers'|'subscribers'|'summary'})
   {view==='subscribers'&&rows.length>0&&
    <SubscriberTable complete={complete} rows={rows.flatMap(router=>
     current(router)?(router.accounts??[]).map(account=>({router,account})):[])}/>}
-  {view!=='summary'&&rows.map(row=><details key={row.id} className="technical-info">
+  {rows.filter(row=>view==='routers'||(
+ view==='subscribers'&&(
+ !current(row)||row.accounts===null||
+ !row.accounts_complete||!!row.unmatched_sessions?.length
+ ))).map(row=><details key={row.id} className="technical-info">
    <summary>{row.identity??row.id} · {connection[recent(row)?row.connection:'UNKNOWN']}</summary>
    <Facts items={[
     ['Router kimliği',row.identity],['Model',row.model],['RouterOS',row.routeros_version],
